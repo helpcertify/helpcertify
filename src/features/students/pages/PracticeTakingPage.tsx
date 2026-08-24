@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getPracticeQuestionsByIds } from '../api/studentContentApi';
 import { practiceSessionApi, type PracticeSessionState } from '../api/practiceSessionApi';
 import { useUiStore } from '@/store/useUiStore';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { QuestionDoc } from '@/types/models';
 
 export function PracticeTakingPage() {
@@ -19,6 +20,7 @@ export function PracticeTakingPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -62,6 +64,19 @@ export function PracticeTakingPage() {
       setSubmitted(true);
     } catch {
       pushToast('Could not submit this batch', 'error');
+    }
+  };
+
+  const unansweredCount = questions.length - answeredCount;
+
+  // Finish is available from any question in the batch, not just the last
+  // one — clicking it with questions still unanswered confirms first (with
+  // the actual count) rather than finishing immediately.
+  const handleFinishClick = () => {
+    if (unansweredCount > 0) {
+      setShowFinishConfirm(true);
+    } else {
+      handleFinish();
     }
   };
 
@@ -132,7 +147,7 @@ export function PracticeTakingPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between gap-3">
           <button
             type="button"
             disabled={currentIndex === 0}
@@ -141,21 +156,39 @@ export function PracticeTakingPage() {
           >
             ← Previous
           </button>
-          {currentIndex < questions.length - 1 ? (
+          <div className="flex items-center gap-3">
+            {currentIndex < questions.length - 1 && (
+              <button
+                type="button"
+                onClick={() => setCurrentIndex((i) => i + 1)}
+                className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300"
+              >
+                Next →
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setCurrentIndex((i) => i + 1)}
-              className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface"
+              onClick={handleFinishClick}
+              className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface"
             >
-              Next →
-            </button>
-          ) : (
-            <button type="button" onClick={handleFinish} className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface">
               Finish Batch
             </button>
-          )}
+          </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showFinishConfirm}
+        title="Finish this batch now?"
+        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered in this batch. Once you finish, you won't be able to come back and answer them here — you can always start a new session for the rest. Finish anyway?`}
+        confirmLabel="Finish anyway"
+        cancelLabel="Keep working"
+        onConfirm={() => {
+          setShowFinishConfirm(false);
+          handleFinish();
+        }}
+        onCancel={() => setShowFinishConfirm(false)}
+      />
     </div>
   );
 }

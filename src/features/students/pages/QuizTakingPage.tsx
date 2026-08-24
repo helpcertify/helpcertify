@@ -5,6 +5,7 @@ import { getQuizWithQuestions } from '../api/studentContentApi';
 import { quizSessionApi, type QuizAttemptState } from '../api/quizSessionApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 function formatClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -25,6 +26,7 @@ export function QuizTakingPage() {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [finalResult, setFinalResult] = useState<QuizAttemptState | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const startedRef = useRef(false);
 
   const { data } = useQuery({
@@ -149,6 +151,19 @@ export function QuizTakingPage() {
   }
 
   const answeredCount = Object.keys(answers).length;
+  const unansweredCount = questions.length - answeredCount;
+
+  // Submit is available from any question, not just the last one — clicking
+  // it while questions are still unanswered asks for confirmation first
+  // (with the actual count) rather than submitting immediately, since this
+  // is a one-way action for a strict/timed quiz.
+  const handleSubmitClick = () => {
+    if (unansweredCount > 0) {
+      setShowSubmitConfirm(true);
+    } else {
+      handleSubmit(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
@@ -200,7 +215,7 @@ export function QuizTakingPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between gap-3">
               <button
                 type="button"
                 disabled={currentIndex === 0}
@@ -209,25 +224,26 @@ export function QuizTakingPage() {
               >
                 ← Previous
               </button>
-              {currentIndex < questions.length - 1 ? (
-                <button
-                  type="button"
-                  disabled={!canAdvance}
-                  onClick={() => setCurrentIndex((i) => i + 1)}
-                  className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface disabled:opacity-40"
-                >
-                  Next →
-                </button>
-              ) : (
+              <div className="flex items-center gap-3">
+                {currentIndex < questions.length - 1 && (
+                  <button
+                    type="button"
+                    disabled={!canAdvance}
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
+                  >
+                    Next →
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={submitting}
-                  onClick={() => handleSubmit(false)}
+                  onClick={handleSubmitClick}
                   className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit Quiz'}
                 </button>
-              )}
+              </div>
             </div>
           </div>
 
@@ -258,6 +274,19 @@ export function QuizTakingPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showSubmitConfirm}
+        title="Submit quiz now?"
+        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered. Once you submit, you won't be able to come back and answer them. Submit anyway?`}
+        confirmLabel="Submit anyway"
+        cancelLabel="Keep working"
+        onConfirm={() => {
+          setShowSubmitConfirm(false);
+          handleSubmit(false);
+        }}
+        onCancel={() => setShowSubmitConfirm(false)}
+      />
     </div>
   );
 }
