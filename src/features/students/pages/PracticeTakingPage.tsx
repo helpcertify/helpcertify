@@ -19,6 +19,7 @@ export function PracticeTakingPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, boolean>>({});
+  const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const startedRef = useRef(false);
@@ -45,6 +46,7 @@ export function PracticeTakingPage() {
 
   const current = questions[currentIndex];
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
+  const markedCount = useMemo(() => Object.values(marked).filter(Boolean).length, [marked]);
 
   const handleSelect = async (optionId: string) => {
     if (!sessionId || !current) return;
@@ -56,6 +58,8 @@ export function PracticeTakingPage() {
       pushToast('Could not save that answer', 'error');
     }
   };
+
+  const toggleMark = (id: string) => setMarked((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const handleFinish = async () => {
     if (!sessionId) return;
@@ -106,73 +110,142 @@ export function PracticeTakingPage() {
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-white">
             Practice Session {isReattempt && <span className="text-sm text-neutral-500">(Reattempt)</span>}
           </h1>
-          <span className="text-sm text-neutral-500">
-            {answeredCount} / {questions.length} answered
-          </span>
-        </div>
-
-        <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-          <h2 className="mb-4 font-medium text-white">
-            Q{currentIndex + 1}. {current.questionText}
-          </h2>
-          <div className="space-y-2">
-            {current.options.map((opt) => {
-              const selected = answers[current.id] === opt.id;
-              const isCorrect = feedback[current.id];
-              const showFeedback = selected && current.id in feedback;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => handleSelect(opt.id)}
-                  className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
-                    showFeedback
-                      ? isCorrect
-                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
-                        : 'border-red-500 bg-red-500/10 text-red-300'
-                      : selected
-                        ? 'border-brand-400 bg-brand-500/10 text-brand-200'
-                        : 'border-surface-border text-neutral-300 hover:border-neutral-600'
-                  }`}
-                >
-                  {opt.text}
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-3 text-sm text-neutral-500">
+            {markedCount > 0 && <span className="text-amber-400">🚩 {markedCount} marked</span>}
+            <span>
+              {answeredCount} / {questions.length} answered
+            </span>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex((i) => i - 1)}
-            className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
-          >
-            ← Previous
-          </button>
-          <div className="flex items-center gap-3">
-            {currentIndex < questions.length - 1 && (
-              <button
-                type="button"
-                onClick={() => setCurrentIndex((i) => i + 1)}
-                className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300"
-              >
-                Next →
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleFinishClick}
-              className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface"
-            >
-              Finish Batch
-            </button>
+        {/* Right-side question navigator on desktop (mirrors QuizTakingPage) —
+            stacks above the question on mobile. Marked-for-review questions
+            get an amber ring + flag so they're easy to spot and jump back to. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
+          <div className="order-2 lg:order-1">
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <h2 className="font-medium text-white">
+                  Q{currentIndex + 1}. {current.questionText}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => toggleMark(current.id)}
+                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
+                    marked[current.id]
+                      ? 'border-amber-400 bg-amber-400/10 text-amber-300'
+                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
+                  }`}
+                >
+                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
+                </button>
+              </div>
+              <div className="space-y-2">
+                {current.options.map((opt) => {
+                  const selected = answers[current.id] === opt.id;
+                  const isCorrect = feedback[current.id];
+                  const showFeedback = selected && current.id in feedback;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSelect(opt.id)}
+                      className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
+                        showFeedback
+                          ? isCorrect
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
+                            : 'border-red-500 bg-red-500/10 text-red-300'
+                          : selected
+                            ? 'border-brand-400 bg-brand-500/10 text-brand-200'
+                            : 'border-surface-border text-neutral-300 hover:border-neutral-600'
+                      }`}
+                    >
+                      {opt.text}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Practice mode always checks answers immediately — this is a
+                  plain-language banner in addition to the option border color
+                  above, since brand teal (selected) and emerald (correct) read
+                  too close to each other to trust color alone here. */}
+              {current.id in feedback && (
+                <div
+                  className={`mt-3 rounded-lg px-4 py-2 text-sm font-semibold ${
+                    feedback[current.id] ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                  }`}
+                >
+                  {feedback[current.id] ? '✓ Correct!' : '✗ Incorrect'}
+                </div>
+              )}
+            </div>
+
+            {/* Previous/Next stay together as one tight row for fast
+                navigation; Finish Batch sits on its own row below with a
+                distinct color — on a phone, Next and Finish used to sit
+                side-by-side and a mis-tap could end the session early. */}
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  disabled={currentIndex === 0}
+                  onClick={() => setCurrentIndex((i) => i - 1)}
+                  className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
+                >
+                  ← Previous
+                </button>
+                {currentIndex < questions.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                  >
+                    Next →
+                  </button>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleFinishClick}
+                  className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-500"
+                >
+                  Finish Batch
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <div className="rounded-lg border border-surface-border p-3 lg:sticky lg:top-6">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Questions ({answeredCount}/{questions.length} answered)
+              </div>
+              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
+                {questions.map((q, i) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(i)}
+                    className={`relative h-8 w-8 shrink-0 rounded text-xs font-medium ${
+                      i === currentIndex
+                        ? 'bg-brand-500 text-surface'
+                        : answers[q.id]
+                          ? 'bg-brand-500/20 text-brand-300'
+                          : 'bg-white/5 text-neutral-400'
+                    } ${marked[q.id] ? 'ring-2 ring-amber-400' : ''}`}
+                  >
+                    {i + 1}
+                    {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

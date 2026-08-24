@@ -23,6 +23,7 @@ export function QuizTakingPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [immediateCorrect, setImmediateCorrect] = useState<Record<string, boolean | null>>({});
+  const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [finalResult, setFinalResult] = useState<QuizAttemptState | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +100,9 @@ export function QuizTakingPage() {
     }
   };
 
+  const toggleMark = (id: string) => setMarked((prev) => ({ ...prev, [id]: !prev[id] }));
+  const markedCount = useMemo(() => Object.values(marked).filter(Boolean).length, [marked]);
+
   const canAdvance = !quiz?.enforceSequentialNav || !!answers[current?.id ?? ''];
 
   const handleSubmit = useCallback(
@@ -152,6 +156,8 @@ export function QuizTakingPage() {
 
   const answeredCount = Object.keys(answers).length;
   const unansweredCount = questions.length - answeredCount;
+  const feedback = immediateCorrect[current.id];
+  const showFeedback = quiz.showImmediateResult && feedback !== undefined && feedback !== null;
 
   // Submit is available from any question, not just the last one — clicking
   // it while questions are still unanswered asks for confirmation first
@@ -170,9 +176,12 @@ export function QuizTakingPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-white">{quiz.title}</h1>
-          <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-300">
-            ⏱ {formatClock(remainingSeconds)}
-          </span>
+          <div className="flex items-center gap-3">
+            {markedCount > 0 && <span className="text-sm text-amber-400">🚩 {markedCount} marked</span>}
+            <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-300">
+              ⏱ {formatClock(remainingSeconds)}
+            </span>
+          </div>
         </div>
 
         {/* Right-side panel on desktop (fixed width, sticky so it stays
@@ -185,21 +194,33 @@ export function QuizTakingPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="order-2 lg:order-1">
             <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <h2 className="mb-4 font-medium text-white">
-                Q{currentIndex + 1}. {current.questionText}
-              </h2>
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <h2 className="font-medium text-white">
+                  Q{currentIndex + 1}. {current.questionText}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => toggleMark(current.id)}
+                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
+                    marked[current.id]
+                      ? 'border-amber-400 bg-amber-400/10 text-amber-300'
+                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
+                  }`}
+                >
+                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
+                </button>
+              </div>
               <div className="space-y-2">
                 {current.options.map((opt) => {
                   const selected = answers[current.id] === opt.id;
-                  const feedback = immediateCorrect[current.id];
-                  const showFeedback = quiz.showImmediateResult && feedback !== undefined && feedback !== null && selected;
+                  const optShowFeedback = showFeedback && selected;
                   return (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => handleSelect(opt.id)}
                       className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
-                        showFeedback
+                        optShowFeedback
                           ? feedback
                             ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
                             : 'border-red-500 bg-red-500/10 text-red-300'
@@ -213,33 +234,48 @@ export function QuizTakingPage() {
                   );
                 })}
               </div>
+              {showFeedback && (
+                <div
+                  className={`mt-3 rounded-lg px-4 py-2 text-sm font-semibold ${
+                    feedback ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                  }`}
+                >
+                  {feedback ? '✓ Correct!' : '✗ Incorrect'}
+                </div>
+              )}
             </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                disabled={currentIndex === 0}
-                onClick={() => setCurrentIndex((i) => i - 1)}
-                className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
-              >
-                ← Previous
-              </button>
-              <div className="flex items-center gap-3">
+            {/* Previous/Next stay together as one tight row for fast
+                navigation; Submit Quiz sits on its own row below with a
+                distinct color — on a phone, Next and Submit used to sit
+                side-by-side and a mis-tap could end the attempt early. */}
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  disabled={currentIndex === 0}
+                  onClick={() => setCurrentIndex((i) => i - 1)}
+                  className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
+                >
+                  ← Previous
+                </button>
                 {currentIndex < questions.length - 1 && (
                   <button
                     type="button"
                     disabled={!canAdvance}
                     onClick={() => setCurrentIndex((i) => i + 1)}
-                    className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-40"
                   >
                     Next →
                   </button>
                 )}
+              </div>
+              <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={submitting}
                   onClick={handleSubmitClick}
-                  className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface disabled:opacity-60"
+                  className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit Quiz'}
                 </button>
@@ -258,15 +294,16 @@ export function QuizTakingPage() {
                     key={q.id}
                     type="button"
                     onClick={() => setCurrentIndex(i)}
-                    className={`h-8 w-8 shrink-0 rounded text-xs font-medium ${
+                    className={`relative h-8 w-8 shrink-0 rounded text-xs font-medium ${
                       i === currentIndex
                         ? 'bg-brand-500 text-surface'
                         : answers[q.id]
                           ? 'bg-brand-500/20 text-brand-300'
                           : 'bg-white/5 text-neutral-400'
-                    }`}
+                    } ${marked[q.id] ? 'ring-2 ring-amber-400' : ''}`}
                   >
                     {i + 1}
+                    {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}
                   </button>
                 ))}
               </div>
