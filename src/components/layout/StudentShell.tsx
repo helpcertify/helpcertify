@@ -17,47 +17,60 @@ const NAV_ITEMS = [
 // modal rather than a route. No department/academic-year badges here — this
 // platform isn't limited to students at an institution, so profile fields
 // stay generic (name, email, avatar) rather than campus-specific.
+//
+// The fixed-width sidebar only renders from lg: up — on a real phone
+// (confirmed live, ~360-400px wide) a 256px-wide sidebar squeezed the actual
+// page content into a sliver next to it. Below lg:, a compact top bar with
+// a hamburger toggle takes its place instead.
 export function StudentShell() {
   const profile = useAuthStore((s) => s.profile);
   const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleSignOut = async () => {
     await authApi.logout();
     navigate('/login');
   };
 
+  const navLinks = (onNavigate: () => void) => (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setShowProfile(true);
+          onNavigate();
+        }}
+        className="rounded-lg px-3 py-2 text-left text-sm text-neutral-300 hover:bg-white/5"
+      >
+        My Profile
+      </button>
+      {NAV_ITEMS.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            clsx(
+              'rounded-lg px-3 py-2 text-sm',
+              isActive ? 'bg-brand-500/15 text-brand-300' : 'text-neutral-300 hover:bg-white/5'
+            )
+          }
+        >
+          {item.label}
+        </NavLink>
+      ))}
+    </>
+  );
+
   return (
-    <div className="flex min-h-screen bg-surface">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-surface-border p-6">
+    <div className="min-h-screen bg-surface lg:flex">
+      {/* Desktop sidebar — unchanged, lg: and up only */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
         <Logo size="sm" />
         <span className="mt-1 text-xs uppercase tracking-wide text-neutral-500">Academic Portal</span>
-
-        <nav className="mt-8 flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => setShowProfile(true)}
-            className="rounded-lg px-3 py-2 text-left text-sm text-neutral-300 hover:bg-white/5"
-          >
-            My Profile
-          </button>
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                clsx(
-                  'rounded-lg px-3 py-2 text-sm',
-                  isActive ? 'bg-brand-500/15 text-brand-300' : 'text-neutral-300 hover:bg-white/5'
-                )
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
+        <nav className="mt-8 flex flex-col gap-1">{navLinks(() => {})}</nav>
         <button
           type="button"
           onClick={handleSignOut}
@@ -67,14 +80,41 @@ export function StudentShell() {
         </button>
       </aside>
 
-      <div className="flex-1">
-        <header className="flex items-center justify-between border-b border-surface-border px-8 py-5">
+      {/* Mobile top bar — below lg: only */}
+      <div className="border-b border-surface-border lg:hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <Logo size="sm" />
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen((v) => !v)}
+            aria-label="Toggle menu"
+            className="rounded-lg border border-surface-border px-3 py-1.5 text-lg text-neutral-300"
+          >
+            {mobileNavOpen ? '✕' : '☰'}
+          </button>
+        </div>
+        {mobileNavOpen && (
+          <nav className="flex flex-col gap-1 border-t border-surface-border p-4">
+            {navLinks(() => setMobileNavOpen(false))}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-neutral-300 hover:border-red-500/50 hover:text-red-400"
+            >
+              Sign Out
+            </button>
+          </nav>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <header className="flex items-center justify-between border-b border-surface-border px-4 py-4 lg:px-8 lg:py-5">
           <div>
             <div className="text-sm text-neutral-400">Welcome back</div>
             <div className="text-xl font-semibold text-white">{profile?.name}</div>
           </div>
         </header>
-        <main className="p-8">
+        <main className="p-4 lg:p-8">
           <Outlet />
         </main>
       </div>
