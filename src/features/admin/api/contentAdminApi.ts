@@ -20,6 +20,7 @@ export interface QuizSummary {
   antiCheat: { blockAltTab: boolean };
   price: number;
   originalPrice: number | null;
+  currency: 'INR' | 'USD';
 }
 
 export interface PracticeTestSummary {
@@ -35,6 +36,7 @@ export interface PracticeTestSummary {
   availableUntil: unknown;
   price: number;
   originalPrice: number | null;
+  currency: 'INR' | 'USD';
 }
 
 export interface CreateQuizPayload {
@@ -50,6 +52,7 @@ export interface CreateQuizPayload {
   blockAltTab: boolean;
   price: number;
   originalPrice?: number | null;
+  currency: 'INR' | 'USD';
 }
 
 export interface CreatePracticeTestPayload {
@@ -62,6 +65,7 @@ export interface CreatePracticeTestPayload {
   defaultInitialBatchSize: number;
   price: number;
   originalPrice?: number | null;
+  currency: 'INR' | 'USD';
 }
 
 export const contentAdminApi = {

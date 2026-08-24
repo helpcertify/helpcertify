@@ -7,7 +7,7 @@ import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
-import { formatINR } from '@/utils/currency';
+import { formatMoney } from '@/utils/currency';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
 // ({ _seconds, _nanoseconds }, not { seconds }) — toDate() handles that
@@ -89,9 +89,9 @@ export function PracticeTestsPage() {
                 {price > 0 && (
                   <div className="mb-3 flex items-center gap-2">
                     {test.originalPrice && test.originalPrice > price && (
-                      <span className="text-xs text-neutral-500 line-through">{formatINR(test.originalPrice)}</span>
+                      <span className="text-xs text-neutral-500 line-through">{formatMoney(test.originalPrice, test.currency)}</span>
                     )}
-                    <span className="font-semibold text-white">{formatINR(price)}</span>
+                    <span className="font-semibold text-white">{formatMoney(price, test.currency)}</span>
                   </div>
                 )}
 

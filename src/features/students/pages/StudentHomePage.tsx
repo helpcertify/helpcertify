@@ -6,7 +6,7 @@ import { listAvailableQuizzes } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
-import { formatINR } from '@/utils/currency';
+import { formatMoney } from '@/utils/currency';
 
 export function StudentHomePage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
@@ -68,9 +68,9 @@ export function StudentHomePage() {
               {price > 0 && (
                 <div className="mb-3 flex items-center gap-2">
                   {quiz.originalPrice && quiz.originalPrice > price && (
-                    <span className="text-xs text-neutral-500 line-through">{formatINR(quiz.originalPrice)}</span>
+                    <span className="text-xs text-neutral-500 line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
                   )}
-                  <span className="font-semibold text-white">{formatINR(price)}</span>
+                  <span className="font-semibold text-white">{formatMoney(price, quiz.currency)}</span>
                 </div>
               )}
 

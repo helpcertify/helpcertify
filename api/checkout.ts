@@ -95,6 +95,7 @@ async function createOrder(uid: string) {
   // Recompute everything from the live docs — never trust the cart (or any
   // client input) as a price source for a real payment.
   const orderItems: { itemType: ItemType; itemId: string; title: string; unitPrice: number }[] = [];
+  let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
     const snap = await db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get();
     if (!snap.exists) continue; // deleted since being added — silently dropped, same as api/cart.ts
@@ -102,6 +103,7 @@ async function createOrder(uid: string) {
     if (purchaseSnap.exists) continue; // already owned — don't charge twice
     const data = snap.data()!;
     orderItems.push({ itemType: entry.itemType, itemId: entry.itemId, title: data.title, unitPrice: data.price ?? 0 });
+    currency = data.currency ?? 'INR'; // api/cart.ts's addItem guarantees every item in a cart shares one currency
   }
   if (orderItems.length === 0) throw Err.failedPrecondition('Nothing left to check out — everything in your cart was already purchased');
 
@@ -127,12 +129,19 @@ async function createOrder(uid: string) {
       'Content-Type': 'application/json',
       Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
     },
-    body: JSON.stringify({ amount: total, currency: 'INR', receipt: orderRef.id }),
+    body: JSON.stringify({ amount: total, currency, receipt: orderRef.id }),
   });
   if (!rzpRes.ok) {
     const errBody = await rzpRes.text();
     console.error('Razorpay order creation failed:', rzpRes.status, errBody);
-    throw new Error('Could not create the payment order — please try again');
+    // Most common cause of a currency-specific failure here: the Razorpay
+    // account doesn't have international payments enabled yet, so a USD
+    // order is rejected even though the request itself is well-formed.
+    throw new Error(
+      currency === 'USD'
+        ? 'Could not create the payment order — this account may not have USD/international payments enabled yet'
+        : 'Could not create the payment order — please try again'
+    );
   }
   const rzpOrder = (await rzpRes.json()) as { id: string };
 
@@ -143,7 +152,7 @@ async function createOrder(uid: string) {
     subtotal,
     discount,
     total,
-    currency: 'INR',
+    currency,
     razorpayOrderId: rzpOrder.id,
     razorpayPaymentId: null,
     status: 'created',
@@ -151,7 +160,7 @@ async function createOrder(uid: string) {
     paidAt: null,
   });
 
-  return { orderId: orderRef.id, razorpayOrderId: rzpOrder.id, amount: total, currency: 'INR', keyId };
+  return { orderId: orderRef.id, razorpayOrderId: rzpOrder.id, amount: total, currency, keyId };
 }
 
 // Shared by both the client-verify path (here) and the webhook — kept as a

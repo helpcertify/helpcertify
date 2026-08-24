@@ -7,11 +7,13 @@ export interface CartItemView {
   title: string;
   price: number;
   originalPrice: number | null;
+  currency: 'INR' | 'USD';
 }
 
 export interface CartSummary {
   items: CartItemView[];
   couponCode: string | null;
+  currency: 'INR' | 'USD';
   subtotal: number;
   discount: number;
   total: number;

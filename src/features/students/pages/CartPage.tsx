@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cartApi, checkoutApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
-import { formatINR } from '@/utils/currency';
+import { formatMoney } from '@/utils/currency';
 import { openRazorpayCheckout } from '@/lib/razorpay';
 import { VercelApiError } from '@/lib/vercelApi';
 
@@ -138,9 +138,9 @@ export function CartPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     {item.originalPrice && item.originalPrice > item.price && (
-                      <div className="text-xs text-neutral-500 line-through">{formatINR(item.originalPrice)}</div>
+                      <div className="text-xs text-neutral-500 line-through">{formatMoney(item.originalPrice, item.currency)}</div>
                     )}
-                    <div className="font-semibold text-white">{formatINR(item.price)}</div>
+                    <div className="font-semibold text-white">{formatMoney(item.price, item.currency)}</div>
                   </div>
                   <button
                     type="button"
@@ -187,17 +187,17 @@ export function CartPage() {
             <div className="space-y-1.5 border-t border-surface-border pt-4 text-sm">
               <div className="flex justify-between text-neutral-400">
                 <span>Subtotal</span>
-                <span>{formatINR(cart.subtotal)}</span>
+                <span>{formatMoney(cart.subtotal, cart.currency)}</span>
               </div>
               {cart.discount > 0 && (
                 <div className="flex justify-between text-emerald-400">
                   <span>Discount</span>
-                  <span>-{formatINR(cart.discount)}</span>
+                  <span>-{formatMoney(cart.discount, cart.currency)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-surface-border pt-1.5 text-base font-semibold text-white">
                 <span>Total</span>
-                <span>{formatINR(cart.total)}</span>
+                <span>{formatMoney(cart.total, cart.currency)}</span>
               </div>
             </div>
 
@@ -207,7 +207,7 @@ export function CartPage() {
               onClick={handleCheckout}
               className="mt-5 w-full rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-500 disabled:opacity-60"
             >
-              {payingNow ? 'Opening payment…' : `Pay ${formatINR(cart.total)}`}
+              {payingNow ? 'Opening payment…' : `Pay ${formatMoney(cart.total, cart.currency)}`}
             </button>
           </div>
         </>

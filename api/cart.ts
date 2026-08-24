@@ -78,12 +78,15 @@ function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: numbe
   return Math.min(raw, Math.max(subtotal - 100, 0));
 }
 
+type Currency = 'INR' | 'USD';
+
 interface HydratedItem {
   itemType: ItemType;
   itemId: string;
   title: string;
   price: number;
   originalPrice: number | null;
+  currency: Currency;
 }
 
 // Re-reads every item's live price/title and drops anything deleted or
@@ -112,6 +115,7 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
       title: data.title,
       price: data.price ?? 0,
       originalPrice: data.originalPrice ?? null,
+      currency: data.currency ?? 'INR',
     });
   }
 
@@ -143,13 +147,14 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
 
 async function summarize(uid: string) {
   const { items, couponCode } = await hydrateCart(uid);
+  const currency: Currency = items[0]?.currency ?? 'INR';
   const subtotal = items.reduce((sum, i) => sum + i.price, 0);
   let discount = 0;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode);
     if (coupon) discount = computeDiscount(coupon, subtotal);
   }
-  return { items, couponCode, subtotal, discount, total: subtotal - discount };
+  return { items, couponCode, currency, subtotal, discount, total: subtotal - discount };
 }
 
 async function getCart(uid: string) {
@@ -165,7 +170,9 @@ async function addItem(uid: string, body: unknown) {
 
   const itemSnap = await db.collection(collectionFor(itemType)).doc(itemId).get();
   if (!itemSnap.exists) throw Err.notFound('Item not found');
-  const price = itemSnap.data()!.price ?? 0;
+  const itemData = itemSnap.data()!;
+  const price = itemData.price ?? 0;
+  const itemCurrency: Currency = itemData.currency ?? 'INR';
   if (price <= 0) throw Err.invalidArgument('This item is free — no need to add it to your cart');
 
   const purchaseSnap = await db.collection('purchases').doc(`${uid}_${itemType}_${itemId}`).get();
@@ -176,6 +183,19 @@ async function addItem(uid: string, body: unknown) {
   const existing = (snap.exists ? snap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
   if (existing.some((e) => e.itemType === itemType && e.itemId === itemId)) {
     return summarize(uid); // already in cart — no-op, not an error
+  }
+
+  // A Razorpay order is single-currency, so a cart can't mix them — caught
+  // here (at add-time, where the student can actually act on it) rather
+  // than at checkout.
+  if (existing.length > 0) {
+    const { items: existingHydrated } = await hydrateCart(uid);
+    const cartCurrency = existingHydrated[0]?.currency;
+    if (cartCurrency && cartCurrency !== itemCurrency) {
+      throw Err.invalidArgument(
+        `Your cart already has items priced in ${cartCurrency} — check out or remove those first before adding a ${itemCurrency} item`
+      );
+    }
   }
 
   await ref.set(

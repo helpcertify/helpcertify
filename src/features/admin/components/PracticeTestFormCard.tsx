@@ -5,7 +5,7 @@ import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
-import { rupeesToPaise, paiseToRupees } from '@/utils/currency';
+import { majorToMinor, minorToMajor } from '@/utils/currency';
 import type { QuestionSourceFormat } from '@/types/models';
 
 interface PracticeTestFormCardProps {
@@ -43,9 +43,10 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   );
   const [sourceFormat, setSourceFormat] = useState<QuestionSourceFormat>(editingTest?.sourceFormat ?? 'cisa_qa');
   const [file, setFile] = useState<File | null>(null);
-  const [price, setPrice] = useState(editingTest?.price ? paiseToRupees(editingTest.price).toString() : '');
+  const [currency, setCurrency] = useState<'INR' | 'USD'>(editingTest?.currency ?? 'INR');
+  const [price, setPrice] = useState(editingTest?.price ? minorToMajor(editingTest.price).toString() : '');
   const [originalPrice, setOriginalPrice] = useState(
-    editingTest?.originalPrice ? paiseToRupees(editingTest.originalPrice).toString() : ''
+    editingTest?.originalPrice ? minorToMajor(editingTest.originalPrice).toString() : ''
   );
   const [uploading, setUploading] = useState(false);
 
@@ -56,6 +57,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     setDurationPerSessionMinutes('60');
     setDefaultInitialBatchSize('50');
     setFile(null);
+    setCurrency('INR');
     setPrice('');
     setOriginalPrice('');
   };
@@ -75,8 +77,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         availableUntil: new Date(availableUntil).toISOString(),
         durationPerSessionMinutes: Number(durationPerSessionMinutes),
         defaultInitialBatchSize: Number(defaultInitialBatchSize),
-        price: price ? rupeesToPaise(Number(price)) : 0,
-        originalPrice: originalPrice ? rupeesToPaise(Number(originalPrice)) : null,
+        price: price ? majorToMinor(Number(price)) : 0,
+        originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
+        currency,
       });
     },
     onSuccess: (result) => {
@@ -104,8 +107,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         availableUntil: availableUntil ? new Date(availableUntil).toISOString() : undefined,
         durationPerSessionMinutes: Number(durationPerSessionMinutes),
         defaultInitialBatchSize: Number(defaultInitialBatchSize),
-        price: price ? rupeesToPaise(Number(price)) : 0,
-        originalPrice: originalPrice ? rupeesToPaise(Number(originalPrice)) : null,
+        price: price ? majorToMinor(Number(price)) : 0,
+        originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
+        currency,
       }),
     onSuccess: () => {
       pushToast('Practice test updated', 'success');
@@ -191,11 +195,17 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           </div>
         </Field>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Price in ₹ (0 = free)">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="Currency">
+            <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark">
+              <option value="INR">₹ INR</option>
+              <option value="USD">$ USD</option>
+            </select>
+          </Field>
+          <Field label={`Selling Price (0 = free, in ${currency === 'INR' ? '₹' : '$'})`}>
             <input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-dark" />
           </Field>
-          <Field label="Original price in ₹ (optional — shown struck through)">
+          <Field label="Marketing Price (optional — shown struck through)">
             <input
               type="number"
               min={0}

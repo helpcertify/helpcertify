@@ -55,13 +55,17 @@ export interface QuizDoc {
   scheduledStart: Timestamp | null;
   isPublished: boolean;
   antiCheat: { blockAltTab: boolean };
-  // Both in paise (INR's smallest unit), matching what Razorpay's Orders API
-  // expects — avoids float rounding on money. price 0 = free, no purchase
-  // gate. originalPrice is display-only (strikethrough/"% off"); it is never
-  // charged and defaults to null (no discount shown) on docs that predate
-  // this field.
+  // price/originalPrice are in the smallest unit of `currency` (paise for
+  // INR, cents for USD — see src/utils/currency.ts), matching what
+  // Razorpay's Orders API expects and avoiding float rounding on money.
+  // price 0 = free, no purchase gate. originalPrice is the "marketing"
+  // price shown struck through/"% off"; it's never charged, and defaults to
+  // null (no discount display) on docs that predate this field. currency
+  // defaults to 'INR' for the same reason — docs from before multi-currency
+  // support has no value here.
   price: number;
   originalPrice: number | null;
+  currency: 'INR' | 'USD';
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -78,9 +82,10 @@ export interface PracticeTestDoc {
   defaultInitialBatchSize: number;
   sourceFormat: QuestionSourceFormat;
   totalQuestions: number;
-  // See QuizDoc's price/originalPrice comment — same convention.
+  // See QuizDoc's price/originalPrice/currency comment — same convention.
   price: number;
   originalPrice: number | null;
+  currency: 'INR' | 'USD';
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -91,7 +96,11 @@ export type PurchasableItemType = 'quiz' | 'practiceTest';
 /** carts/{uid} — one cart per student. Items never store a price; the
  * price is always re-read live from the quiz/practiceTest doc so an admin
  * price change (or a discontinued item) is reflected instantly and can't be
- * gamed by a stale cart entry. */
+ * gamed by a stale cart entry. A cart can only ever hold items in one
+ * currency at a time (enforced in api/cart.ts's addItem) — Razorpay orders
+ * are single-currency, so mixing would mean either splitting into multiple
+ * orders or rejecting at checkout; rejecting at add-time is simpler and
+ * catches the problem where the student can actually act on it. */
 export interface CartItemEntry {
   itemType: PurchasableItemType;
   itemId: string;
@@ -134,7 +143,7 @@ export interface OrderDoc {
   subtotal: number;
   discount: number;
   total: number;
-  currency: 'INR';
+  currency: 'INR' | 'USD';
   razorpayOrderId: string;
   razorpayPaymentId: string | null;
   status: 'created' | 'paid' | 'failed';

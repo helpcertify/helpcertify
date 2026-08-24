@@ -335,6 +335,7 @@ const createQuizSchema = z.object({
   blockAltTab: z.boolean().default(true),
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
+  currency: z.enum(['INR', 'USD']).default('INR'),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -362,6 +363,7 @@ async function createQuiz(uid: string, body: unknown) {
     antiCheat: { blockAltTab: d.blockAltTab },
     price: d.price,
     originalPrice: d.originalPrice ?? null,
+    currency: d.currency,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -391,6 +393,7 @@ const updateQuizSchema = z.object({
   isPublished: z.boolean().optional(),
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
+  currency: z.enum(['INR', 'USD']).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -477,6 +480,7 @@ const createPracticeTestSchema = z.object({
   defaultInitialBatchSize: z.number().int().min(1).max(500),
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
+  currency: z.enum(['INR', 'USD']).default('INR'),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -499,6 +503,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     totalQuestions: valid.length,
     price: d.price,
     originalPrice: d.originalPrice ?? null,
+    currency: d.currency,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -524,6 +529,7 @@ const updatePracticeTestSchema = z.object({
   defaultInitialBatchSize: z.number().int().min(1).max(500).optional(),
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
+  currency: z.enum(['INR', 'USD']).optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

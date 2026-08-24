@@ -5,7 +5,7 @@ import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
-import { rupeesToPaise, paiseToRupees } from '@/utils/currency';
+import { majorToMinor, minorToMajor } from '@/utils/currency';
 import type { QuestionSourceFormat, DurationType } from '@/types/models';
 
 interface QuizFormCardProps {
@@ -44,9 +44,10 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const [blockAltTab, setBlockAltTab] = useState(editingQuiz?.antiCheat?.blockAltTab ?? true);
   const [scheduledStart, setScheduledStart] = useState(toLocalInputValue(editingQuiz?.scheduledStart));
   const [totalQuestions, setTotalQuestions] = useState<number | null>(editingQuiz?.totalQuestions ?? null);
-  const [price, setPrice] = useState(editingQuiz?.price ? paiseToRupees(editingQuiz.price).toString() : '');
+  const [currency, setCurrency] = useState<'INR' | 'USD'>(editingQuiz?.currency ?? 'INR');
+  const [price, setPrice] = useState(editingQuiz?.price ? minorToMajor(editingQuiz.price).toString() : '');
   const [originalPrice, setOriginalPrice] = useState(
-    editingQuiz?.originalPrice ? paiseToRupees(editingQuiz.originalPrice).toString() : ''
+    editingQuiz?.originalPrice ? minorToMajor(editingQuiz.originalPrice).toString() : ''
   );
   const [uploading, setUploading] = useState(false);
 
@@ -67,6 +68,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     setBlockAltTab(true);
     setScheduledStart('');
     setTotalQuestions(null);
+    setCurrency('INR');
     setPrice('');
     setOriginalPrice('');
   };
@@ -88,8 +90,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         showFinalScore,
         blockAltTab,
         scheduledStart: scheduledStart ? new Date(scheduledStart).toISOString() : undefined,
-        price: price ? rupeesToPaise(Number(price)) : 0,
-        originalPrice: originalPrice ? rupeesToPaise(Number(originalPrice)) : null,
+        price: price ? majorToMinor(Number(price)) : 0,
+        originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
+        currency,
       });
     },
     onSuccess: (result) => {
@@ -120,8 +123,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         showFinalScore,
         blockAltTab,
         scheduledStart: scheduledStart ? new Date(scheduledStart).toISOString() : null,
-        price: price ? rupeesToPaise(Number(price)) : 0,
-        originalPrice: originalPrice ? rupeesToPaise(Number(originalPrice)) : null,
+        price: price ? majorToMinor(Number(price)) : 0,
+        originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
+        currency,
       }),
     onSuccess: () => {
       pushToast('Quiz updated', 'success');
@@ -235,11 +239,17 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
           />
         </Field>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Price in ₹ (0 = free)">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="Currency">
+            <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark">
+              <option value="INR">₹ INR</option>
+              <option value="USD">$ USD</option>
+            </select>
+          </Field>
+          <Field label={`Selling Price (0 = free, in ${currency === 'INR' ? '₹' : '$'})`}>
             <input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-dark" />
           </Field>
-          <Field label="Original price in ₹ (optional — shown struck through)">
+          <Field label="Marketing Price (optional — shown struck through)">
             <input
               type="number"
               min={0}

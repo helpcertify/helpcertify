@@ -1,15 +1,28 @@
-// Money moves through this app in paise (INR's smallest unit, matching what
-// Razorpay's API expects) end to end — only these two functions convert to
-// and from the whole-rupee numbers a human types into or reads off a form.
+// Money moves through this app in the smallest unit of whatever currency an
+// item is priced in — paise for INR, cents for USD — matching what
+// Razorpay's API expects. Both currencies use a 100:1 minor:major ratio, so
+// the conversion math is identical; only display formatting is
+// currency-aware.
 
-export function formatINR(paise: number): string {
-  return `₹${(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+export type SupportedCurrency = 'INR' | 'USD';
+
+const LOCALE_FOR: Record<SupportedCurrency, string> = { INR: 'en-IN', USD: 'en-US' };
+
+export function formatMoney(minorUnits: number, currency: SupportedCurrency = 'INR'): string {
+  const major = minorUnits / 100;
+  const isWhole = Number.isInteger(major);
+  return new Intl.NumberFormat(LOCALE_FOR[currency], {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(major);
 }
 
-export function rupeesToPaise(rupees: number): number {
-  return Math.round(rupees * 100);
+export function majorToMinor(major: number): number {
+  return Math.round(major * 100);
 }
 
-export function paiseToRupees(paise: number): number {
-  return paise / 100;
+export function minorToMajor(minor: number): number {
+  return minor / 100;
 }
