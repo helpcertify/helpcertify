@@ -148,9 +148,11 @@ export function QuizTakingPage() {
     return <div className="p-8 text-neutral-400">Loading quiz…</div>;
   }
 
+  const answeredCount = Object.keys(answers).length;
+
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-white">{quiz.title}</h1>
           <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-300">
@@ -158,87 +160,102 @@ export function QuizTakingPage() {
           </span>
         </div>
 
-        {/* Bounded + scrollable — a bare flex-wrap here grows without limit,
-            so a real question bank (1000+ questions) rendered a wall of
-            number buttons before the actual question ever appeared. */}
-        <div className="mb-4 flex max-h-32 flex-wrap gap-2 overflow-y-auto rounded-lg border border-surface-border p-2">
-          {questions.map((q, i) => (
-            <button
-              key={q.id}
-              type="button"
-              onClick={() => setCurrentIndex(i)}
-              className={`h-8 w-8 rounded text-xs font-medium ${
-                i === currentIndex
-                  ? 'bg-brand-500 text-surface'
-                  : answers[q.id]
-                    ? 'bg-brand-500/20 text-brand-300'
-                    : 'bg-white/5 text-neutral-400'
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
-        </div>
+        {/* Right-side panel on desktop (fixed width, sticky so it stays
+            reachable while scrolling a long question) — stacks above the
+            question on mobile instead, same as before. Its own scroll area
+            stays bounded regardless of question count: a bare flex-wrap
+            here previously grew without limit, so a real 1000+ question
+            bank rendered a wall of number buttons before the question ever
+            appeared. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
+          <div className="order-2 lg:order-1">
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+              <h2 className="mb-4 font-medium text-white">
+                Q{currentIndex + 1}. {current.questionText}
+              </h2>
+              <div className="space-y-2">
+                {current.options.map((opt) => {
+                  const selected = answers[current.id] === opt.id;
+                  const feedback = immediateCorrect[current.id];
+                  const showFeedback = quiz.showImmediateResult && feedback !== undefined && feedback !== null && selected;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSelect(opt.id)}
+                      className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
+                        showFeedback
+                          ? feedback
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
+                            : 'border-red-500 bg-red-500/10 text-red-300'
+                          : selected
+                            ? 'border-brand-400 bg-brand-500/10 text-brand-200'
+                            : 'border-surface-border text-neutral-300 hover:border-neutral-600'
+                      }`}
+                    >
+                      {opt.text}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-          <h2 className="mb-4 font-medium text-white">
-            Q{currentIndex + 1}. {current.questionText}
-          </h2>
-          <div className="space-y-2">
-            {current.options.map((opt) => {
-              const selected = answers[current.id] === opt.id;
-              const feedback = immediateCorrect[current.id];
-              const showFeedback = quiz.showImmediateResult && feedback !== undefined && feedback !== null && selected;
-              return (
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                disabled={currentIndex === 0}
+                onClick={() => setCurrentIndex((i) => i - 1)}
+                className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
+              >
+                ← Previous
+              </button>
+              {currentIndex < questions.length - 1 ? (
                 <button
-                  key={opt.id}
                   type="button"
-                  onClick={() => handleSelect(opt.id)}
-                  className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
-                    showFeedback
-                      ? feedback
-                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
-                        : 'border-red-500 bg-red-500/10 text-red-300'
-                      : selected
-                        ? 'border-brand-400 bg-brand-500/10 text-brand-200'
-                        : 'border-surface-border text-neutral-300 hover:border-neutral-600'
-                  }`}
+                  disabled={!canAdvance}
+                  onClick={() => setCurrentIndex((i) => i + 1)}
+                  className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface disabled:opacity-40"
                 >
-                  {opt.text}
+                  Next →
                 </button>
-              );
-            })}
+              ) : (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => handleSubmit(false)}
+                  className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface disabled:opacity-60"
+                >
+                  {submitting ? 'Submitting…' : 'Submit Quiz'}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 flex items-center justify-between">
-          <button
-            type="button"
-            disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex((i) => i - 1)}
-            className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
-          >
-            ← Previous
-          </button>
-          {currentIndex < questions.length - 1 ? (
-            <button
-              type="button"
-              disabled={!canAdvance}
-              onClick={() => setCurrentIndex((i) => i + 1)}
-              className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface disabled:opacity-40"
-            >
-              Next →
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => handleSubmit(false)}
-              className="rounded-lg bg-brand-gradient px-5 py-2 text-sm font-medium text-surface disabled:opacity-60"
-            >
-              {submitting ? 'Submitting…' : 'Submit Quiz'}
-            </button>
-          )}
+          <div className="order-1 lg:order-2">
+            <div className="rounded-lg border border-surface-border p-3 lg:sticky lg:top-6">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Questions ({answeredCount}/{questions.length} answered)
+              </div>
+              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
+                {questions.map((q, i) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(i)}
+                    className={`h-8 w-8 shrink-0 rounded text-xs font-medium ${
+                      i === currentIndex
+                        ? 'bg-brand-500 text-surface'
+                        : answers[q.id]
+                          ? 'bg-brand-500/20 text-brand-300'
+                          : 'bg-white/5 text-neutral-400'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
