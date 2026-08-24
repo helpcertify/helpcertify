@@ -152,6 +152,7 @@ async function saveAnswer(uid: string, body: unknown) {
   const wasAnswered = (await answerRef.get()).exists;
 
   let isCorrect: boolean | null = null;
+  let correctOptionId: string | null = null;
   const quizSnap = await db.collection('quizzes').doc(attempt.quizId).get();
   if (quizSnap.data()?.showImmediateResult) {
     const keySnap = await db
@@ -162,7 +163,8 @@ async function saveAnswer(uid: string, body: unknown) {
       .collection('private')
       .doc('answerKey')
       .get();
-    isCorrect = keySnap.data()?.correctOptionId === selectedOptionId;
+    correctOptionId = keySnap.data()?.correctOptionId ?? null;
+    isCorrect = correctOptionId === selectedOptionId;
   }
 
   await answerRef.set({ selectedOptionId, isCorrect, answeredAt: Timestamp.now() });
@@ -170,7 +172,7 @@ async function saveAnswer(uid: string, body: unknown) {
     await ref.update({ answeredCount: FieldValue.increment(1), notAnsweredCount: FieldValue.increment(-1) });
   }
 
-  return { isCorrect };
+  return { isCorrect, correctOptionId };
 }
 
 const attemptIdSchema = z.object({ attemptId: z.string().min(1) });

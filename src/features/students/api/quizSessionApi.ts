@@ -26,7 +26,11 @@ export const quizSessionApi = {
       quizId,
     }),
   saveAnswer: (attemptId: string, questionId: string, selectedOptionId: string) =>
-    callAction<{ isCorrect: boolean | null }>('quiz-session', 'saveAnswer', { attemptId, questionId, selectedOptionId }),
+    callAction<{ isCorrect: boolean | null; correctOptionId: string | null }>('quiz-session', 'saveAnswer', {
+      attemptId,
+      questionId,
+      selectedOptionId,
+    }),
   recordExit: (attemptId: string) => callAction<{ success: true }>('quiz-session', 'recordExit', { attemptId }),
   submitAttempt: (attemptId: string) =>
     callAction<{ attempt: QuizAttemptState }>('quiz-session', 'submitAttempt', { attemptId }),

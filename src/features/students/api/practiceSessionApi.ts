@@ -25,7 +25,11 @@ export const practiceSessionApi = {
   reattemptLastBatch: (testId: string) =>
     callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'reattemptLastBatch', { testId }),
   saveAnswer: (sessionId: string, questionId: string, selectedOptionId: string) =>
-    callAction<{ isCorrect: boolean }>('practice-session', 'saveAnswer', { sessionId, questionId, selectedOptionId }),
+    callAction<{ isCorrect: boolean; correctOptionId: string | null }>('practice-session', 'saveAnswer', {
+      sessionId,
+      questionId,
+      selectedOptionId,
+    }),
   submitBatch: (sessionId: string) =>
     callAction<{ session: PracticeSessionState }>('practice-session', 'submitBatch', { sessionId }),
 };

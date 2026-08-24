@@ -6,6 +6,11 @@ import { useUiStore } from '@/store/useUiStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { QuestionDoc } from '@/types/models';
 
+interface AnswerFeedback {
+  isCorrect: boolean;
+  correctOptionId: string | null;
+}
+
 export function PracticeTakingPage() {
   const { testId } = useParams<{ testId: string }>();
   const [searchParams] = useSearchParams();
@@ -18,8 +23,9 @@ export function PracticeTakingPage() {
   const [questions, setQuestions] = useState<(QuestionDoc & { id: string })[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [feedback, setFeedback] = useState<Record<string, boolean>>({});
+  const [feedback, setFeedback] = useState<Record<string, AnswerFeedback>>({});
   const [marked, setMarked] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const startedRef = useRef(false);
@@ -48,14 +54,24 @@ export function PracticeTakingPage() {
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
   const markedCount = useMemo(() => Object.values(marked).filter(Boolean).length, [marked]);
 
+  // Grading a practice answer is a real network round-trip (the answer key
+  // lives server-side, on purpose — it's never shipped to the client up
+  // front). Tapping an option then immediately tapping Next/Finish before
+  // that round-trip resolves used to look like feedback "randomly" not
+  // showing — confirmed live: fast taps outran the response. `saving` now
+  // blocks Next/Finish and the options themselves until this question's
+  // result is back, so the result is always seen before you can move on.
   const handleSelect = async (optionId: string) => {
-    if (!sessionId || !current) return;
+    if (!sessionId || !current || saving) return;
     setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
+    setSaving(true);
     try {
       const res = await practiceSessionApi.saveAnswer(sessionId, current.id, optionId);
-      setFeedback((prev) => ({ ...prev, [current.id]: res.isCorrect }));
+      setFeedback((prev) => ({ ...prev, [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId } }));
     } catch {
       pushToast('Could not save that answer', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -85,7 +101,7 @@ export function PracticeTakingPage() {
   };
 
   if (submitted) {
-    const correct = Object.values(feedback).filter(Boolean).length;
+    const correct = Object.values(feedback).filter((f) => f.isCorrect).length;
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-8 text-center">
@@ -108,6 +124,9 @@ export function PracticeTakingPage() {
 
   if (!session || !current) return <div className="p-8 text-neutral-400">Loading practice session…</div>;
 
+  const result = feedback[current.id];
+  const answered = !!result;
+
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
@@ -129,66 +148,55 @@ export function PracticeTakingPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="order-2 lg:order-1">
             <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <h2 className="font-medium text-white">
-                  Q{currentIndex + 1}. {current.questionText}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => toggleMark(current.id)}
-                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
-                    marked[current.id]
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-300'
-                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
-                  }`}
-                >
-                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
-                </button>
-              </div>
+              <h2 className="mb-4 font-medium text-white">
+                Q{currentIndex + 1}. {current.questionText}
+              </h2>
               <div className="space-y-2">
                 {current.options.map((opt) => {
                   const selected = answers[current.id] === opt.id;
-                  const isCorrect = feedback[current.id];
-                  const showFeedback = selected && current.id in feedback;
+                  const isTheCorrectOption = answered && result.correctOptionId === opt.id;
+                  const isWrongPick = answered && selected && !result.isCorrect;
+
+                  let cls = 'border-surface-border text-neutral-300 hover:border-neutral-600';
+                  if (answered) {
+                    if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-300';
+                    else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-300';
+                    else cls = 'border-surface-border text-neutral-500 opacity-60';
+                  } else if (selected) {
+                    cls = 'border-brand-400 bg-brand-500/10 text-brand-200';
+                  }
+
                   return (
                     <button
                       key={opt.id}
                       type="button"
+                      disabled={saving}
                       onClick={() => handleSelect(opt.id)}
-                      className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
-                        showFeedback
-                          ? isCorrect
-                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
-                            : 'border-red-500 bg-red-500/10 text-red-300'
-                          : selected
-                            ? 'border-brand-400 bg-brand-500/10 text-brand-200'
-                            : 'border-surface-border text-neutral-300 hover:border-neutral-600'
-                      }`}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-left text-sm disabled:cursor-not-allowed ${cls}`}
                     >
-                      {opt.text}
+                      <span>{opt.text}</span>
+                      {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓ Correct answer</span>}
                     </button>
                   );
                 })}
               </div>
-              {/* Practice mode always checks answers immediately — this is a
-                  plain-language banner in addition to the option border color
-                  above, since brand teal (selected) and emerald (correct) read
-                  too close to each other to trust color alone here. */}
-              {current.id in feedback && (
+              {saving && <div className="mt-3 text-sm text-neutral-500">Checking…</div>}
+              {answered && (
                 <div
                   className={`mt-3 rounded-lg px-4 py-2 text-sm font-semibold ${
-                    feedback[current.id] ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                    result.isCorrect ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
                   }`}
                 >
-                  {feedback[current.id] ? '✓ Correct!' : '✗ Incorrect'}
+                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect — the right answer is highlighted above'}
                 </div>
               )}
             </div>
 
             {/* Previous/Next stay together as one tight row for fast
-                navigation; Finish Batch sits on its own row below with a
-                distinct color — on a phone, Next and Finish used to sit
-                side-by-side and a mis-tap could end the session early. */}
+                navigation. Mark for Review moved out of the question header
+                (it was squeezing question text into a narrow column) down
+                next to Finish Batch — both are "side" actions, separate from
+                the Previous/Next pair a thumb reaches for most often. */}
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -202,18 +210,31 @@ export function PracticeTakingPage() {
                 {currentIndex < questions.length - 1 && (
                   <button
                     type="button"
+                    disabled={saving}
                     onClick={() => setCurrentIndex((i) => i + 1)}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
                   >
                     Next →
                   </button>
                 )}
               </div>
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
+                  onClick={() => toggleMark(current.id)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                    marked[current.id]
+                      ? 'border-amber-400 bg-amber-400/10 text-amber-300'
+                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
+                  }`}
+                >
+                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
                   onClick={handleFinishClick}
-                  className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-500"
+                  className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                 >
                   Finish Batch
                 </button>

@@ -202,7 +202,8 @@ async function saveAnswer(uid: string, body: unknown) {
     .collection('private')
     .doc('answerKey')
     .get();
-  const isCorrect = keySnap.data()?.correctOptionId === selectedOptionId;
+  const correctOptionId: string | null = keySnap.data()?.correctOptionId ?? null;
+  const isCorrect = correctOptionId === selectedOptionId;
 
   await answerRef.set({ selectedOptionId, isCorrect, answeredAt: Timestamp.now() });
 
@@ -223,7 +224,7 @@ async function saveAnswer(uid: string, body: unknown) {
     }
   }
 
-  return { isCorrect };
+  return { isCorrect, correctOptionId };
 }
 
 const sessionIdSchema = z.object({ sessionId: z.string().min(1) });

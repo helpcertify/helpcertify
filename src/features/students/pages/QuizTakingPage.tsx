@@ -7,6 +7,11 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
+interface AnswerFeedback {
+  isCorrect: boolean | null;
+  correctOptionId: string | null;
+}
+
 function formatClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
@@ -22,8 +27,9 @@ export function QuizTakingPage() {
   const [attempt, setAttempt] = useState<QuizAttemptState | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [immediateCorrect, setImmediateCorrect] = useState<Record<string, boolean | null>>({});
+  const [feedback, setFeedback] = useState<Record<string, AnswerFeedback>>({});
   const [marked, setMarked] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [finalResult, setFinalResult] = useState<QuizAttemptState | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -89,14 +95,26 @@ export function QuizTakingPage() {
   const quiz = data?.quiz;
   const current = questions[currentIndex];
 
+  // Grading is a real network round-trip (the answer key is never shipped
+  // to the client up front). Tapping an option then immediately tapping
+  // Next/Submit before that round-trip resolves used to look like feedback
+  // "randomly" not showing — confirmed live: fast taps outran the response.
+  // `saving` now blocks Next/Submit and the options themselves until this
+  // question's save is back, so a result (or a save failure) is always seen
+  // before you can move on.
   const handleSelect = async (optionId: string) => {
-    if (!attemptId || !current) return;
+    if (!attemptId || !current || saving) return;
     setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
+    setSaving(true);
     try {
       const res = await quizSessionApi.saveAnswer(attemptId, current.id, optionId);
-      if (quiz?.showImmediateResult) setImmediateCorrect((prev) => ({ ...prev, [current.id]: res.isCorrect }));
+      if (quiz?.showImmediateResult) {
+        setFeedback((prev) => ({ ...prev, [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId } }));
+      }
     } catch {
       pushToast('Could not save that answer — check your connection', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -156,8 +174,8 @@ export function QuizTakingPage() {
 
   const answeredCount = Object.keys(answers).length;
   const unansweredCount = questions.length - answeredCount;
-  const feedback = immediateCorrect[current.id];
-  const showFeedback = quiz.showImmediateResult && feedback !== undefined && feedback !== null;
+  const result = feedback[current.id];
+  const answered = quiz.showImmediateResult && !!result;
 
   // Submit is available from any question, not just the last one — clicking
   // it while questions are still unanswered asks for confirmation first
@@ -194,61 +212,54 @@ export function QuizTakingPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="order-2 lg:order-1">
             <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <h2 className="font-medium text-white">
-                  Q{currentIndex + 1}. {current.questionText}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => toggleMark(current.id)}
-                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
-                    marked[current.id]
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-300'
-                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
-                  }`}
-                >
-                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
-                </button>
-              </div>
+              <h2 className="mb-4 font-medium text-white">
+                Q{currentIndex + 1}. {current.questionText}
+              </h2>
               <div className="space-y-2">
                 {current.options.map((opt) => {
                   const selected = answers[current.id] === opt.id;
-                  const optShowFeedback = showFeedback && selected;
+                  const isTheCorrectOption = answered && result.correctOptionId === opt.id;
+                  const isWrongPick = answered && selected && !result.isCorrect;
+
+                  let cls = 'border-surface-border text-neutral-300 hover:border-neutral-600';
+                  if (answered) {
+                    if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-300';
+                    else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-300';
+                    else cls = 'border-surface-border text-neutral-500 opacity-60';
+                  } else if (selected) {
+                    cls = 'border-brand-400 bg-brand-500/10 text-brand-200';
+                  }
+
                   return (
                     <button
                       key={opt.id}
                       type="button"
+                      disabled={saving}
                       onClick={() => handleSelect(opt.id)}
-                      className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm ${
-                        optShowFeedback
-                          ? feedback
-                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
-                            : 'border-red-500 bg-red-500/10 text-red-300'
-                          : selected
-                            ? 'border-brand-400 bg-brand-500/10 text-brand-200'
-                            : 'border-surface-border text-neutral-300 hover:border-neutral-600'
-                      }`}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-left text-sm disabled:cursor-not-allowed ${cls}`}
                     >
-                      {opt.text}
+                      <span>{opt.text}</span>
+                      {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓ Correct answer</span>}
                     </button>
                   );
                 })}
               </div>
-              {showFeedback && (
+              {saving && <div className="mt-3 text-sm text-neutral-500">Checking…</div>}
+              {answered && (
                 <div
                   className={`mt-3 rounded-lg px-4 py-2 text-sm font-semibold ${
-                    feedback ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+                    result.isCorrect ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
                   }`}
                 >
-                  {feedback ? '✓ Correct!' : '✗ Incorrect'}
+                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect — the right answer is highlighted above'}
                 </div>
               )}
             </div>
 
             {/* Previous/Next stay together as one tight row for fast
-                navigation; Submit Quiz sits on its own row below with a
-                distinct color — on a phone, Next and Submit used to sit
-                side-by-side and a mis-tap could end the attempt early. */}
+                navigation. Mark for Review sits next to Submit Quiz instead
+                of beside the question header — it used to squeeze the
+                question text into a narrow column on mobile. */}
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -262,7 +273,7 @@ export function QuizTakingPage() {
                 {currentIndex < questions.length - 1 && (
                   <button
                     type="button"
-                    disabled={!canAdvance}
+                    disabled={!canAdvance || saving}
                     onClick={() => setCurrentIndex((i) => i + 1)}
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-40"
                   >
@@ -270,10 +281,21 @@ export function QuizTakingPage() {
                   </button>
                 )}
               </div>
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  disabled={submitting}
+                  onClick={() => toggleMark(current.id)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                    marked[current.id]
+                      ? 'border-amber-400 bg-amber-400/10 text-amber-300'
+                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
+                  }`}
+                >
+                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting || saving}
                   onClick={handleSubmitClick}
                   className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                 >
