@@ -319,6 +319,9 @@ function generateCode(): string {
 // Quiz actions
 // ---------------------------------------------------------------------------
 
+// price/originalPrice arrive from the admin form already converted to paise
+// (the form itself takes whole rupees for readability) — both optional so
+// existing create/update call sites without pricing keep working unchanged.
 const createQuizSchema = z.object({
   title: z.string().trim().min(2).max(200),
   sourceFormat: z.enum(['standard', 'cisa_qa']),
@@ -330,6 +333,8 @@ const createQuizSchema = z.object({
   showFinalScore: z.boolean().default(true),
   scheduledStart: z.string().datetime().optional(),
   blockAltTab: z.boolean().default(true),
+  price: z.number().int().min(0).default(0),
+  originalPrice: z.number().int().min(0).nullable().optional(),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -355,6 +360,8 @@ async function createQuiz(uid: string, body: unknown) {
     scheduledStart: d.scheduledStart ? Timestamp.fromDate(new Date(d.scheduledStart)) : null,
     isPublished: true,
     antiCheat: { blockAltTab: d.blockAltTab },
+    price: d.price,
+    originalPrice: d.originalPrice ?? null,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -382,6 +389,8 @@ const updateQuizSchema = z.object({
   scheduledStart: z.string().datetime().nullable().optional(),
   blockAltTab: z.boolean().optional(),
   isPublished: z.boolean().optional(),
+  price: z.number().int().min(0).optional(),
+  originalPrice: z.number().int().min(0).nullable().optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -466,6 +475,8 @@ const createPracticeTestSchema = z.object({
   availableUntil: z.string().datetime(),
   durationPerSessionMinutes: z.number().int().min(1).max(600),
   defaultInitialBatchSize: z.number().int().min(1).max(500),
+  price: z.number().int().min(0).default(0),
+  originalPrice: z.number().int().min(0).nullable().optional(),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -486,6 +497,8 @@ async function createPracticeTest(uid: string, body: unknown) {
     defaultInitialBatchSize: d.defaultInitialBatchSize,
     sourceFormat: d.sourceFormat,
     totalQuestions: valid.length,
+    price: d.price,
+    originalPrice: d.originalPrice ?? null,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -509,6 +522,8 @@ const updatePracticeTestSchema = z.object({
   availableUntil: z.string().datetime().optional(),
   durationPerSessionMinutes: z.number().int().min(1).max(600).optional(),
   defaultInitialBatchSize: z.number().int().min(1).max(500).optional(),
+  price: z.number().int().min(0).optional(),
+  originalPrice: z.number().int().min(0).nullable().optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

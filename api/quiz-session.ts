@@ -40,6 +40,7 @@ const Err = {
   invalidArgument: (m: string, details?: unknown) => new HttpError(422, m, details),
   permissionDenied: (m = 'You do not have permission to perform this action') => new HttpError(403, m),
   failedPrecondition: (m: string) => new HttpError(409, m),
+  paymentRequired: (m = 'This quiz must be purchased first') => new HttpError(402, m),
 };
 
 async function requireStudent(req: VercelRequest): Promise<{ uid: string; name: string }> {
@@ -72,6 +73,15 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
   if (!quizSnap.exists) throw Err.notFound('Quiz not found');
   const quiz = quizSnap.data()!;
   if (!quiz.isPublished) throw Err.notFound('Quiz not found');
+
+  // Paid quizzes need a purchases/ record before an attempt can start — this
+  // is the actual enforcement point. The client-side "Start Quiz" gate is
+  // just UX; someone could hit this endpoint directly, so it's re-checked
+  // here regardless of what the client claims.
+  if ((quiz.price ?? 0) > 0) {
+    const purchaseSnap = await db.collection('purchases').doc(`${uid}_quiz_${quizId}`).get();
+    if (!purchaseSnap.exists) throw Err.paymentRequired();
+  }
 
   const now = Timestamp.now();
   if (quiz.scheduledStart && (quiz.scheduledStart as Timestamp).toMillis() > now.toMillis()) {

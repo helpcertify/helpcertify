@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { ProfileModal } from '@/features/students/components/ProfileModal';
+import { cartApi } from '@/features/students/api/cartApi';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Available Quizzes', end: true },
@@ -27,6 +29,11 @@ export function StudentShell() {
   const navigate = useNavigate();
   const [showProfile, setShowProfile] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // staleTime keeps this from refetching on every focus/route-change — the
+  // count only actually changes from an add/remove/checkout, and those
+  // mutations already invalidate this same query key themselves.
+  const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
+  const cartCount = cart?.items.length ?? 0;
 
   const handleSignOut = async () => {
     await authApi.logout();
@@ -113,6 +120,18 @@ export function StudentShell() {
             <div className="text-sm text-neutral-400">Welcome back</div>
             <div className="text-xl font-semibold text-white">{profile?.name}</div>
           </div>
+          <Link
+            to="/home/cart"
+            aria-label="Cart"
+            className="relative rounded-lg border border-surface-border p-2.5 text-lg text-neutral-300 hover:border-brand-400"
+          >
+            🛒
+            {cartCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                {cartCount}
+              </span>
+            )}
+          </Link>
         </header>
         <main className="p-4 lg:p-8">
           <Outlet />

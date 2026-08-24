@@ -39,6 +39,7 @@ const Err = {
   notFound: (m = 'Resource not found') => new HttpError(404, m),
   invalidArgument: (m: string, details?: unknown) => new HttpError(422, m, details),
   failedPrecondition: (m: string) => new HttpError(409, m),
+  paymentRequired: (m = 'This practice test must be purchased first') => new HttpError(402, m),
 };
 
 async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
@@ -75,6 +76,14 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
   const test = testSnap.data()!;
+
+  // Paid tests need a purchases/ record before a batch can start — the
+  // actual enforcement point (the client-side gate is just UX).
+  if ((test.price ?? 0) > 0) {
+    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
+    if (!purchaseSnap.exists) throw Err.paymentRequired();
+  }
+
   const now = Timestamp.now();
   if ((test.availableFrom as Timestamp).toMillis() > now.toMillis() || (test.availableUntil as Timestamp).toMillis() < now.toMillis()) {
     throw Err.failedPrecondition('This practice test is not currently available');
@@ -140,6 +149,11 @@ async function reattemptLastBatch(uid: string, body: unknown) {
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
   const test = testSnap.data()!;
+
+  if ((test.price ?? 0) > 0) {
+    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
+    if (!purchaseSnap.exists) throw Err.paymentRequired();
+  }
 
   const { progress } = await getOrCreateProgress(uid, testId);
   if (progress.lastBatchQuestionIds.length === 0) throw Err.failedPrecondition('No previous batch to reattempt');

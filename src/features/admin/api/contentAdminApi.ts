@@ -18,6 +18,8 @@ export interface QuizSummary {
   showImmediateResult: boolean;
   showFinalScore: boolean;
   antiCheat: { blockAltTab: boolean };
+  price: number;
+  originalPrice: number | null;
 }
 
 export interface PracticeTestSummary {
@@ -31,6 +33,8 @@ export interface PracticeTestSummary {
   // not { seconds }. Read via @/utils/formatDate's toDate().
   availableFrom: unknown;
   availableUntil: unknown;
+  price: number;
+  originalPrice: number | null;
 }
 
 export interface CreateQuizPayload {
@@ -44,6 +48,8 @@ export interface CreateQuizPayload {
   showFinalScore: boolean;
   scheduledStart?: string;
   blockAltTab: boolean;
+  price: number;
+  originalPrice?: number | null;
 }
 
 export interface CreatePracticeTestPayload {
@@ -54,6 +60,8 @@ export interface CreatePracticeTestPayload {
   availableUntil: string;
   durationPerSessionMinutes: number;
   defaultInitialBatchSize: number;
+  price: number;
+  originalPrice?: number | null;
 }
 
 export const contentAdminApi = {

@@ -4,6 +4,7 @@ import { getPracticeQuestionsByIds } from '../api/studentContentApi';
 import { practiceSessionApi, type PracticeSessionState } from '../api/practiceSessionApi';
 import { useUiStore } from '@/store/useUiStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { VercelApiError } from '@/lib/vercelApi';
 import type { QuestionDoc } from '@/types/models';
 
 interface AnswerFeedback {
@@ -46,7 +47,7 @@ export function PracticeTakingPage() {
       })
       .catch((err) => {
         pushToast(err instanceof Error ? err.message : 'Could not start this practice session', 'error');
-        navigate('/home/practice-tests');
+        navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home/practice-tests');
       });
   }, [testId, isReattempt, navigate, pushToast]);
 

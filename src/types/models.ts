@@ -55,6 +55,13 @@ export interface QuizDoc {
   scheduledStart: Timestamp | null;
   isPublished: boolean;
   antiCheat: { blockAltTab: boolean };
+  // Both in paise (INR's smallest unit), matching what Razorpay's Orders API
+  // expects — avoids float rounding on money. price 0 = free, no purchase
+  // gate. originalPrice is display-only (strikethrough/"% off"); it is never
+  // charged and defaults to null (no discount shown) on docs that predate
+  // this field.
+  price: number;
+  originalPrice: number | null;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -71,9 +78,81 @@ export interface PracticeTestDoc {
   defaultInitialBatchSize: number;
   sourceFormat: QuestionSourceFormat;
   totalQuestions: number;
+  // See QuizDoc's price/originalPrice comment — same convention.
+  price: number;
+  originalPrice: number | null;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+export type PurchasableItemType = 'quiz' | 'practiceTest';
+
+/** carts/{uid} — one cart per student. Items never store a price; the
+ * price is always re-read live from the quiz/practiceTest doc so an admin
+ * price change (or a discontinued item) is reflected instantly and can't be
+ * gamed by a stale cart entry. */
+export interface CartItemEntry {
+  itemType: PurchasableItemType;
+  itemId: string;
+  addedAt: Timestamp;
+}
+export interface CartDoc {
+  userId: string;
+  items: CartItemEntry[];
+  couponCode: string | null;
+  updatedAt: Timestamp;
+}
+
+/** coupons/{CODE} — doc id is the uppercased code itself, for an O(1) lookup
+ * instead of a query. Admin-managed. */
+export interface CouponDoc {
+  discountType: 'percent' | 'flat';
+  // percent: 1-95 (see api/checkout.ts for why 100 is disallowed); flat: paise.
+  discountValue: number;
+  active: boolean;
+  expiresAt: Timestamp | null;
+  maxUses: number | null;
+  usedCount: number;
+  createdBy: string;
+  createdAt: Timestamp;
+}
+
+/** orders/{orderId} — one checkout attempt. Prices are snapshotted here at
+ * order-creation time (unlike the cart) since a paid order must stay an
+ * accurate receipt even if the item's price changes later. */
+export interface OrderItemEntry {
+  itemType: PurchasableItemType;
+  itemId: string;
+  title: string;
+  unitPrice: number;
+}
+export interface OrderDoc {
+  userId: string;
+  items: OrderItemEntry[];
+  couponCode: string | null;
+  subtotal: number;
+  discount: number;
+  total: number;
+  currency: 'INR';
+  razorpayOrderId: string;
+  razorpayPaymentId: string | null;
+  status: 'created' | 'paid' | 'failed';
+  createdAt: Timestamp;
+  paidAt: Timestamp | null;
+}
+
+/** purchases/{uid}_{itemType}_{itemId} — the entitlement record. Composite
+ * doc id (same convention as practiceProgress/{uid}_{testId}) makes "does
+ * this user own this item" an O(1) doc-get instead of a query, both from the
+ * paywall gate in quiz-session.ts/practice-session.ts and from the student
+ * UI checking what's already unlocked. */
+export interface PurchaseDoc {
+  userId: string;
+  itemType: PurchasableItemType;
+  itemId: string;
+  orderId: string;
+  purchasedAt: Timestamp;
 }
 
 export type AttemptStatus = 'in_progress' | 'submitted' | 'auto_submitted' | 'expired';

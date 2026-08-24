@@ -6,6 +6,7 @@ import { quizSessionApi, type QuizAttemptState } from '../api/quizSessionApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { VercelApiError } from '@/lib/vercelApi';
 
 interface AnswerFeedback {
   isCorrect: boolean | null;
@@ -53,7 +54,11 @@ export function QuizTakingPage() {
       })
       .catch((err) => {
         pushToast(err instanceof Error ? err.message : 'Could not start this quiz', 'error');
-        navigate('/home');
+        // The client-side gate (see StudentHomePage) already hides "Start"
+        // behind "Add to Cart" for an unpurchased quiz — this 402 is a
+        // backstop for a stale cache or a direct URL, so send them
+        // somewhere useful rather than just back to the listing.
+        navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home');
       });
   }, [quizId, navigate, pushToast]);
 

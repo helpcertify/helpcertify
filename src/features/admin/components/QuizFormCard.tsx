@@ -5,6 +5,7 @@ import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
+import { rupeesToPaise, paiseToRupees } from '@/utils/currency';
 import type { QuestionSourceFormat, DurationType } from '@/types/models';
 
 interface QuizFormCardProps {
@@ -43,6 +44,10 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const [blockAltTab, setBlockAltTab] = useState(editingQuiz?.antiCheat?.blockAltTab ?? true);
   const [scheduledStart, setScheduledStart] = useState(toLocalInputValue(editingQuiz?.scheduledStart));
   const [totalQuestions, setTotalQuestions] = useState<number | null>(editingQuiz?.totalQuestions ?? null);
+  const [price, setPrice] = useState(editingQuiz?.price ? paiseToRupees(editingQuiz.price).toString() : '');
+  const [originalPrice, setOriginalPrice] = useState(
+    editingQuiz?.originalPrice ? paiseToRupees(editingQuiz.originalPrice).toString() : ''
+  );
   const [uploading, setUploading] = useState(false);
 
   const calculatedDuration = useMemo(() => {
@@ -62,6 +67,8 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     setBlockAltTab(true);
     setScheduledStart('');
     setTotalQuestions(null);
+    setPrice('');
+    setOriginalPrice('');
   };
 
   const createMutation = useMutation({
@@ -81,6 +88,8 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         showFinalScore,
         blockAltTab,
         scheduledStart: scheduledStart ? new Date(scheduledStart).toISOString() : undefined,
+        price: price ? rupeesToPaise(Number(price)) : 0,
+        originalPrice: originalPrice ? rupeesToPaise(Number(originalPrice)) : null,
       });
     },
     onSuccess: (result) => {
@@ -111,6 +120,8 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         showFinalScore,
         blockAltTab,
         scheduledStart: scheduledStart ? new Date(scheduledStart).toISOString() : null,
+        price: price ? rupeesToPaise(Number(price)) : 0,
+        originalPrice: originalPrice ? rupeesToPaise(Number(originalPrice)) : null,
       }),
     onSuccess: () => {
       pushToast('Quiz updated', 'success');
@@ -223,6 +234,23 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
             className="input-dark"
           />
         </Field>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Price in ₹ (0 = free)">
+            <input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-dark" />
+          </Field>
+          <Field label="Original price in ₹ (optional — shown struck through)">
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={originalPrice}
+              onChange={(e) => setOriginalPrice(e.target.value)}
+              placeholder="Leave blank for no discount display"
+              className="input-dark"
+            />
+          </Field>
+        </div>
 
         <button
           type="button"

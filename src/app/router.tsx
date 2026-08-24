@@ -17,6 +17,8 @@ import { StudentQuizDashboardPage } from '@/features/students/pages/StudentQuizD
 import { PracticeTestsPage } from '@/features/students/pages/PracticeTestsPage';
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
+import { CartPage } from '@/features/students/pages/CartPage';
+import { CouponsPage } from '@/features/admin/pages/CouponsPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
 // course/exam/certificate routes on 2026-08-22 — see
@@ -36,6 +38,7 @@ export function AppRouter() {
           <Route path="/home/past-quizzes" element={<PastQuizzesPage />} />
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
+          <Route path="/home/cart" element={<CartPage />} />
         </Route>
         <Route path="/quizzes/:quizId/take" element={<QuizTakingPage />} />
         <Route path="/practice-tests/:testId/take" element={<PracticeTakingPage />} />
@@ -48,6 +51,7 @@ export function AppRouter() {
           <Route path="/admin/quizzes/:quizId/view" element={<QuizAnswerKeyPage />} />
           <Route path="/admin/practice-tests" element={<PracticeManagerPage />} />
           <Route path="/admin/performance" element={<PerformancePage />} />
+          <Route path="/admin/coupons" element={<CouponsPage />} />
         </Route>
       </Route>
 

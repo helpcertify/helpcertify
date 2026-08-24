@@ -1,10 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listPracticeTestsBucketed } from '../api/studentContentApi';
+import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
+import { formatINR } from '@/utils/currency';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
 // ({ _seconds, _nanoseconds }, not { seconds }) — toDate() handles that
@@ -15,6 +18,8 @@ function formatDate(ts: unknown): string {
 
 export function PracticeTestsPage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
 
   const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: progressDocs } = useQuery({
@@ -28,13 +33,26 @@ export function PracticeTestsPage() {
     },
     enabled: !!uid,
   });
+  const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
+  const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
   const progressByTestId = new Map((progressDocs ?? []).map((p) => [p.testId, p]));
+  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
   const available = buckets?.available ?? [];
   const startedCount = available.filter((t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) > 0).length;
   const completedCount = available.filter(
     (t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) >= t.totalQuestions
   ).length;
+
+  const addToCartMutation = useMutation({
+    mutationFn: (testId: string) => cartApi.addItem('practiceTest', testId),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['student', 'cart'], data);
+      pushToast('Added to cart', 'success');
+    },
+    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+  });
 
   return (
     <div>
@@ -56,31 +74,65 @@ export function PracticeTestsPage() {
           {available.map((test) => {
             const answered = progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0;
             const done = answered >= test.totalQuestions;
+            const price = test.price ?? 0;
+            const owned = price === 0 || purchasedSet.has(`practiceTest_${test.id}`);
+            const inCart = inCartSet.has(`practiceTest_${test.id}`);
+
             return (
               <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-5">
                 <h3 className="mb-1 font-semibold text-white">{test.title}</h3>
-                <div className="mb-4 space-y-0.5 text-sm text-neutral-500">
+                <div className="mb-3 space-y-0.5 text-sm text-neutral-500">
                   <div>{answered} / {test.totalQuestions} answered</div>
                   <div>{test.durationPerSessionMinutes} min/session</div>
                 </div>
-                <div className="flex gap-2">
-                  {!done && (
+
+                {price > 0 && (
+                  <div className="mb-3 flex items-center gap-2">
+                    {test.originalPrice && test.originalPrice > price && (
+                      <span className="text-xs text-neutral-500 line-through">{formatINR(test.originalPrice)}</span>
+                    )}
+                    <span className="font-semibold text-white">{formatINR(price)}</span>
+                  </div>
+                )}
+
+                {!owned ? (
+                  inCart ? (
                     <Link
-                      to={`/practice-tests/${test.id}/take`}
-                      className="flex-1 rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface"
+                      to="/home/cart"
+                      className="block rounded-lg border border-blue-500/50 py-2 text-center text-sm font-medium text-blue-300"
                     >
-                      {answered > 0 ? 'Resume' : 'Start'}
+                      ✓ In Cart — View Cart
                     </Link>
-                  )}
-                  {answered > 0 && (
-                    <Link
-                      to={`/practice-tests/${test.id}/take?reattempt=1`}
-                      className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-neutral-300"
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={addToCartMutation.isPending}
+                      onClick={() => addToCartMutation.mutate(test.id)}
+                      className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                     >
-                      Reattempt
-                    </Link>
-                  )}
-                </div>
+                      Add to Cart
+                    </button>
+                  )
+                ) : (
+                  <div className="flex gap-2">
+                    {!done && (
+                      <Link
+                        to={`/practice-tests/${test.id}/take`}
+                        className="flex-1 rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface"
+                      >
+                        {answered > 0 ? 'Resume' : 'Start'}
+                      </Link>
+                    )}
+                    {answered > 0 && (
+                      <Link
+                        to={`/practice-tests/${test.id}/take?reattempt=1`}
+                        className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-neutral-300"
+                      >
+                        Reattempt
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
