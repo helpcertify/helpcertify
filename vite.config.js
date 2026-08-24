@@ -17,27 +17,19 @@ export default defineConfig({
     },
     plugins: [
         react(),
-        VitePWA({
-            registerType: 'autoUpdate',
-            includeAssets: ['favicon.svg', 'robots.txt'],
-            manifest: {
-                name: 'Helpcertify',
-                short_name: 'Helpcertify',
-                description: 'Courses, practice exams, and certification tracking',
-                theme_color: '#8a2332',
-                background_color: '#f4f4f2',
-                display: 'standalone',
-                start_url: '/',
-                icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
-            },
-            workbox: {
-                // Firestore/Auth/Functions calls go straight to Google's own
-                // domains (a different origin), so the app's own service worker
-                // never sees them — no same-origin API path to exclude here, unlike
-                // the old same-origin REST backend this replaced.
-                runtimeCaching: [],
-            },
-        }),
+        // selfDestroying: true — temporary kill switch, not a config oversight.
+        // A real production bug (missing Firebase env vars) shipped briefly and
+        // got precached by the old autoUpdate service worker on anyone who
+        // loaded the site during that window; the crash happens before React
+        // ever mounts, so the normal update-check-and-reload flow never gets a
+        // chance to run and those visitors are stuck on a permanently blank
+        // black screen. selfDestroying ships a service worker whose only job is
+        // to unregister itself and purge every cache it finds — every affected
+        // visitor recovers on their next load, no manual cache-clearing needed.
+        // Safe to switch back to the normal registerType: 'autoUpdate' config
+        // (see git history) once this has been live for a while and stale
+        // installs have had a chance to clear.
+        VitePWA({ selfDestroying: true }),
     ],
     server: {
         port: 5173,
