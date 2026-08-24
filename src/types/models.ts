@@ -13,9 +13,6 @@ export interface UserDoc {
   email: string;
   role: Role;
   avatarUrl: string | null;
-  department: string | null;
-  yearOfAdmission: number | null;
-  currentAcademicYear: string | null;
   isActive: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -85,7 +82,6 @@ export type AttemptStatus = 'in_progress' | 'submitted' | 'auto_submitted' | 'ex
 export interface QuizAttemptDoc {
   userId: string;
   userName: string;
-  userYear: string | null;
   quizId: string;
   quizTitle: string;
   status: AttemptStatus;

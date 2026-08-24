@@ -13,8 +13,10 @@ const NAV_ITEMS = [
 ];
 
 // Matches the reference screenshots' "Academic Portal" student shell: a
-// left sidebar (brand, nav, sign out) + a top strip showing department/year
-// badges, with My Profile as a modal rather than a route.
+// left sidebar (brand, nav, sign out) + a top strip, with My Profile as a
+// modal rather than a route. No department/academic-year badges here — this
+// platform isn't limited to students at an institution, so profile fields
+// stay generic (name, email, avatar) rather than campus-specific.
 export function StudentShell() {
   const profile = useAuthStore((s) => s.profile);
   const navigate = useNavigate();
@@ -70,14 +72,6 @@ export function StudentShell() {
           <div>
             <div className="text-sm text-neutral-400">Welcome back</div>
             <div className="text-xl font-semibold text-white">{profile?.name}</div>
-          </div>
-          <div className="flex gap-2">
-            <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300">
-              Department: <span className="font-medium text-white">{profile?.department ?? 'Not set'}</span>
-            </span>
-            <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300">
-              Academic Year: <span className="font-medium text-white">{profile?.currentAcademicYear ?? 'Not set'}</span>
-            </span>
           </div>
         </header>
         <main className="p-8">

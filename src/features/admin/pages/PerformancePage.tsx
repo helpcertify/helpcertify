@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { contentAdminApi } from '../api/contentAdminApi';
 import { resultsApi } from '../api/resultsApi';
@@ -15,7 +15,6 @@ export function PerformancePage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
-  const [yearFilter, setYearFilter] = useState('');
 
   const { data: quizData } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
   const quizzes = quizData?.quizzes ?? [];
@@ -27,12 +26,7 @@ export function PerformancePage() {
     queryFn: () => resultsApi.listResultsForQuiz(activeQuizId!),
     enabled: !!activeQuizId,
   });
-  const allAttempts = resultsData?.attempts ?? [];
-  const years = useMemo(
-    () => [...new Set(allAttempts.map((a) => a.userYear).filter((y): y is string => !!y))],
-    [allAttempts]
-  );
-  const attempts = yearFilter ? allAttempts.filter((a) => a.userYear === yearFilter) : allAttempts;
+  const attempts = resultsData?.attempts ?? [];
 
   const deleteMutation = useMutation({
     mutationFn: (attemptId: string) => resultsApi.deleteAttempt(attemptId),
@@ -53,10 +47,7 @@ export function PerformancePage() {
             <button
               key={q.id}
               type="button"
-              onClick={() => {
-                setSelectedQuizId(q.id);
-                setYearFilter('');
-              }}
+              onClick={() => setSelectedQuizId(q.id)}
               className={`w-full rounded-xl border p-4 text-left ${
                 q.id === activeQuizId ? 'border-brand-400 bg-brand-500/10' : 'border-surface-border bg-surface-raised'
               }`}
@@ -73,22 +64,11 @@ export function PerformancePage() {
         <p className="mb-4 text-sm text-neutral-500">{activeQuiz?.title ?? 'Select a quiz'}</p>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div>
-            <label className="mb-1 block text-xs text-neutral-500">Filter by Year</label>
-            <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="input-dark w-48">
-              <option value="">All Years</option>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
           <button
             type="button"
             disabled={attempts.length === 0}
             onClick={() => exportResultsToExcel(activeQuiz?.title ?? 'quiz', attempts)}
-            className="mt-5 rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
+            className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
           >
             ↓ Export to Excel
           </button>

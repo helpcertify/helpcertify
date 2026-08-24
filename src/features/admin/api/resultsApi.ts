@@ -5,7 +5,6 @@ export interface AttemptRow {
   rank: number;
   userId: string;
   userName: string;
-  userYear: string | null;
   quizId: string;
   quizTitle: string;
   status: string;
@@ -20,8 +19,7 @@ export interface AttemptRow {
 }
 
 export const resultsApi = {
-  listResultsForQuiz: (quizId: string, year?: string) =>
-    callAction<{ attempts: AttemptRow[] }>('results', 'listResultsForQuiz', { quizId, year }),
+  listResultsForQuiz: (quizId: string) => callAction<{ attempts: AttemptRow[] }>('results', 'listResultsForQuiz', { quizId }),
   listResultsForStudent: () => callAction<{ attempts: AttemptRow[] }>('results', 'listResultsForStudent'),
   getMyResultForQuiz: (quizId: string) => callAction<{ attempt: AttemptRow }>('results', 'getMyResultForQuiz', { quizId }),
   deleteAttempt: (attemptId: string) => callAction<{ success: true }>('results', 'deleteAttempt', { attemptId }),

@@ -29,9 +29,6 @@ export function initAuthListener(): () => void {
       email: firebaseUser.email ?? '',
       role: (profileData?.role as SafeUser['role']) ?? 'student',
       avatarUrl: profileData?.avatarUrl ?? firebaseUser.photoURL ?? null,
-      department: profileData?.department ?? null,
-      yearOfAdmission: profileData?.yearOfAdmission ?? null,
-      currentAcademicYear: profileData?.currentAcademicYear ?? null,
     };
 
     useAuthStore.getState().setSession(firebaseUser, profile);

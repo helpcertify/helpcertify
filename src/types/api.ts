@@ -6,7 +6,4 @@ export interface SafeUser {
   email: string;
   role: Role;
   avatarUrl: string | null;
-  department: string | null;
-  yearOfAdmission: number | null;
-  currentAcademicYear: string | null;
 }

@@ -69,17 +69,16 @@ function toAttemptRow(d: FirebaseFirestore.QueryDocumentSnapshot): { id: string 
   return { id: d.id, ...d.data() };
 }
 
-const listForQuizSchema = z.object({ quizId: z.string().min(1), year: z.string().optional() });
+const listForQuizSchema = z.object({ quizId: z.string().min(1) });
 
 async function listResultsForQuiz(role: Role, body: unknown) {
   if (role !== 'admin') throw Err.permissionDenied();
   const parsed = listForQuizSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { quizId, year } = parsed.data;
+  const { quizId } = parsed.data;
 
   const snap = await db.collection('quizAttempts').where('quizId', '==', quizId).orderBy('marks', 'desc').get();
-  let rows = snap.docs.map(toAttemptRow).filter((r) => SUBMITTED_STATUSES.includes(r.status));
-  if (year) rows = rows.filter((r) => r.userYear === year);
+  const rows = snap.docs.map(toAttemptRow).filter((r) => SUBMITTED_STATUSES.includes(r.status));
 
   return { attempts: rows.map((r, i) => ({ ...r, rank: i + 1 })) };
 }

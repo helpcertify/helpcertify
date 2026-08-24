@@ -42,7 +42,7 @@ const Err = {
   failedPrecondition: (m: string) => new HttpError(409, m),
 };
 
-async function requireStudent(req: VercelRequest): Promise<{ uid: string; name: string; year: string | null }> {
+async function requireStudent(req: VercelRequest): Promise<{ uid: string; name: string }> {
   const authHeader = req.headers.authorization ?? '';
   const token = (Array.isArray(authHeader) ? authHeader[0] : authHeader).replace(/^Bearer\s+/i, '');
   if (!token) throw Err.unauthenticated();
@@ -58,12 +58,12 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string; name: 
   const user = snap.data();
   if (!snap.exists || !user?.isActive) throw Err.unauthenticated('Account not found or deactivated');
 
-  return { uid: decoded.uid, name: (user.name as string) ?? '', year: (user.currentAcademicYear as string) ?? null };
+  return { uid: decoded.uid, name: (user.name as string) ?? '' };
 }
 
 const quizIdSchema = z.object({ quizId: z.string().min(1) });
 
-async function startAttempt(uid: string, userName: string, userYear: string | null, body: unknown) {
+async function startAttempt(uid: string, userName: string, body: unknown) {
   const parsed = quizIdSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { quizId } = parsed.data;
@@ -101,7 +101,6 @@ async function startAttempt(uid: string, userName: string, userYear: string | nu
   const attempt = {
     userId: uid,
     userName,
-    userYear,
     quizId,
     quizTitle: quiz.title as string,
     status: 'in_progress' as const,
@@ -254,11 +253,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
-    const { uid, name, year } = await requireStudent(req);
+    const { uid, name } = await requireStudent(req);
 
     switch (action) {
       case 'startAttempt':
-        res.status(200).json(await startAttempt(uid, name, year, data));
+        res.status(200).json(await startAttempt(uid, name, data));
         return;
       case 'saveAnswer':
         res.status(200).json(await saveAnswer(uid, data));
