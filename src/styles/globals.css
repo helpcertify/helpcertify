@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+/* The v2 platform is dark-themed throughout, matching the reference UI —
+   no light-mode toggle, unlike v1's dark: variants. */
+body {
+  @apply bg-surface text-neutral-100 antialiased;
+}
+
+@layer components {
+  /* Shared text/number/date input styling — used across every admin form. */
+  .input-dark {
+    @apply w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-white outline-none;
+  }
+  .input-dark:focus {
+    @apply border-brand-400;
+  }
+}
