@@ -277,13 +277,33 @@ async function parseStandardTemplateFormat(fileBuffer: Buffer): Promise<ParseRes
   return { valid, errors };
 }
 
-async function fetchAndParse(fileUrl: string, sourceFormat: 'standard' | 'cisa_qa'): Promise<ParseResult> {
+// The create forms no longer expose a format picker (Standard Template is
+// the only listed option) — but real content still arrives in whichever
+// format it was originally authored in, CISA Q&A included (confirmed live:
+// forcing every upload through the standard parser produced "No questions
+// could be parsed" for an admin's real CISA-formatted file). Rather than
+// trust whatever sourceFormat the client sends, try standard first and
+// fall back to CISA Q&A automatically if it finds nothing — the two
+// formats have distinctly different structure (Q:/A)/Correct: vs numbered
+// bold stems with lettered options), so a file in one shape reliably
+// parses to zero questions in the other, making "zero valid, try the other
+// one" a safe detection signal rather than a guess.
+async function fetchAndParse(fileUrl: string): Promise<{ result: ParseResult; detectedFormat: 'standard' | 'cisa_qa' }> {
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   const res = await fetch(fileUrl, blobToken ? { headers: { Authorization: `Bearer ${blobToken}` } } : undefined);
   if (!res.ok) throw Err.invalidArgument('Could not download the uploaded file');
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  return sourceFormat === 'cisa_qa' ? parseCisaQaFormat(buffer) : parseStandardTemplateFormat(buffer);
+  const standardResult = await parseStandardTemplateFormat(buffer);
+  if (standardResult.valid.length > 0) return { result: standardResult, detectedFormat: 'standard' };
+  const cisaResult = await parseCisaQaFormat(buffer);
+  if (cisaResult.valid.length > 0) return { result: cisaResult, detectedFormat: 'cisa_qa' };
+  // Neither format found anything — report whichever attempt got further
+  // (more parse errors surfaced usually means it was closer to being the
+  // intended format), so the admin sees useful errors instead of nothing.
+  return standardResult.errors.length >= cisaResult.errors.length
+    ? { result: standardResult, detectedFormat: 'standard' }
+    : { result: cisaResult, detectedFormat: 'cisa_qa' };
 }
 
 async function writeQuestionsBatch(parentRef: DocumentReference, questions: ParsedQuestion[]): Promise<void> {
@@ -343,7 +363,10 @@ async function createQuiz(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
 
-  const { valid, errors } = await fetchAndParse(d.fileUrl, d.sourceFormat);
+  const {
+    result: { valid, errors },
+    detectedFormat,
+  } = await fetchAndParse(d.fileUrl);
   if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
 
   const now = FieldValue.serverTimestamp();
@@ -351,7 +374,7 @@ async function createQuiz(uid: string, body: unknown) {
   await quizRef.set({
     title: d.title,
     code: generateCode(),
-    sourceFormat: d.sourceFormat,
+    sourceFormat: detectedFormat,
     totalQuestions: valid.length,
     enforceSequentialNav: d.enforceSequentialNav,
     showImmediateResult: d.showImmediateResult,
@@ -488,7 +511,10 @@ async function createPracticeTest(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
 
-  const { valid, errors } = await fetchAndParse(d.fileUrl, d.sourceFormat);
+  const {
+    result: { valid, errors },
+    detectedFormat,
+  } = await fetchAndParse(d.fileUrl);
   if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
 
   const now = FieldValue.serverTimestamp();
@@ -499,7 +525,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     availableUntil: Timestamp.fromDate(new Date(d.availableUntil)),
     durationPerSessionMinutes: d.durationPerSessionMinutes,
     defaultInitialBatchSize: d.defaultInitialBatchSize,
-    sourceFormat: d.sourceFormat,
+    sourceFormat: detectedFormat,
     totalQuestions: valid.length,
     price: d.price,
     originalPrice: d.originalPrice ?? null,
