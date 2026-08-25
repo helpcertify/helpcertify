@@ -8,17 +8,17 @@ import { Logo } from '@/components/brand/Logo';
 import { cartApi } from '@/features/students/api/cartApi';
 import { CartIcon } from '@/components/common/icons';
 
-// "Exam Categories" and "My Purchases" used to be their own tabs; both
-// folded elsewhere instead of sitting in the main nav, on request:
-// Categories' filtering moved inline onto the Practice Exams/Mock Exams
-// pages themselves (see FilterBar), and My Purchases (renamed Billing &
-// Orders) moved under My Profile, since learners care more about reaching
-// their purchased exams than about a standalone receipts page.
+// "Exam Categories" used to be its own tab; its filtering moved inline onto
+// the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
+// sitting in the main nav. Billing & Orders (formerly "My Purchases") was
+// briefly moved under My Profile, but moved back to its own tab on request
+// so learners can reach their purchase history directly from the sidebar.
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', end: true },
   { to: '/home/practice-tests', label: 'Practice Exams' },
   { to: '/home/mock-exams', label: 'Mock Exams' },
   { to: '/home/past-quizzes', label: 'My Attempts' },
+  { to: '/home/purchases', label: 'Billing & Orders' },
   { to: '/home/wishlist', label: 'Saved Items' },
 ];
 

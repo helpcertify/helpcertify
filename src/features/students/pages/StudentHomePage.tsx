@@ -203,6 +203,19 @@ export function StudentHomePage() {
   const weakestQuiz = weakest ? quizzesById?.get(weakest.quizId) : null;
   const weakestPercent = weakest && weakest.totalQuestions > 0 ? Math.round((weakest.correctCount / weakest.totalQuestions) * 100) : null;
 
+  // Encouraging framing instead of dwelling on the low score itself — the
+  // number is still shown, but the headline reads as a nudge forward rather
+  // than a callout of failure. Picked by score band, not randomized, so the
+  // tone actually tracks how the learner is doing.
+  const nextStepMessage =
+    weakestPercent === null
+      ? ''
+      : weakestPercent >= 75
+        ? `Great work so far! A bit more practice on ${weakest.quizTitle} ${weakestQuiz ? `(${weakestQuiz.category}) ` : ''}will get you even sharper.`
+        : weakestPercent >= 50
+          ? `You're making solid progress. Spend a little more time on ${weakest.quizTitle}${weakestQuiz ? ` (${weakestQuiz.category})` : ''} and that score will climb fast.`
+          : `Every expert started somewhere. Revisit ${weakest.quizTitle}${weakestQuiz ? ` (${weakestQuiz.category})` : ''} and you'll see quick improvement with focused practice.`;
+
   // Upcoming Mock Exams — owned quizzes not yet attempted at all.
   const upcomingMockExams = (quizzes ?? [])
     .filter((q) => ((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`)) && !attemptByQuizId.get(q.id))
@@ -296,17 +309,14 @@ export function StudentHomePage() {
 
       {/* Recommended next step */}
       {weakest && weakestPercent !== null && (
-        <div className="mb-8 rounded-xl border border-amber-500/40 bg-amber-500/10 p-5">
+        <div className="mb-8 rounded-xl border border-brand-400/40 bg-brand-500/10 p-5">
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">Recommended Next Step</h2>
-          <p className="mb-3 text-sm text-ink">
-            Your lowest recent score was {weakestPercent}% on {weakest.quizTitle}
-            {weakestQuiz ? ` (${weakestQuiz.category})` : ''}. Practice this area next.
-          </p>
+          <p className="mb-3 text-sm text-ink">{nextStepMessage}</p>
           <Link
             to="/home/practice-tests"
-            className="inline-block rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+            className="inline-block rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface"
           >
-            Practice Weak Areas
+            Keep Practicing
           </Link>
         </div>
       )}

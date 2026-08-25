@@ -274,9 +274,17 @@ interface HydratedWishlistItem {
   itemId: string;
   title: string;
   category: string;
+  skillLevel: string;
   price: number;
   originalPrice: number | null;
   currency: Currency;
+  ratingAvg: number;
+  ratingCount: number;
+  totalQuestions: number;
+  // Quiz cards show one overall duration; practice-test cards show a
+  // per-session duration — same field on the wire either way so the
+  // frontend card can render it without knowing which item type it got.
+  durationMinutes: number;
 }
 
 // Mirrors hydrateCart above: never trust the stored list as a price/title
@@ -306,9 +314,14 @@ async function hydrateWishlist(uid: string): Promise<{ items: HydratedWishlistIt
       itemId: entry.itemId,
       title: data.title,
       category: data.category ?? 'Other',
+      skillLevel: data.skillLevel ?? 'Foundation',
       price: data.price ?? 0,
       originalPrice: data.originalPrice ?? null,
       currency: data.currency ?? 'INR',
+      ratingAvg: data.ratingAvg ?? 0,
+      ratingCount: data.ratingCount ?? 0,
+      totalQuestions: data.totalQuestions ?? 0,
+      durationMinutes: entry.itemType === 'quiz' ? data.durationMinutes ?? 0 : data.durationPerSessionMinutes ?? 0,
     });
   }
 

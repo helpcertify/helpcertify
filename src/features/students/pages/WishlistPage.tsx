@@ -8,6 +8,8 @@ import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { StarRating } from '@/components/common/StarRating';
 
 export function WishlistPage() {
   const queryClient = useQueryClient();
@@ -51,57 +53,81 @@ export function WishlistPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        // Same card anatomy as Practice Exams/Mock Exams (cover image,
+        // category/level badges, rating, price, in-cart/buy-now branches) so
+        // a saved item looks and behaves the same wherever it's browsed from.
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => {
             const inCart = inCartSet.has(`${item.itemType}_${item.itemId}`);
             const detailHref = item.itemType === 'quiz' ? `/home/quizzes/${item.itemId}` : `/home/practice-tests/${item.itemId}`;
             return (
-              <div key={`${item.itemType}_${item.itemId}`} className="relative rounded-xl border border-surface-border bg-surface-raised p-4">
-                <WishlistButton itemType={item.itemType} itemId={item.itemId} variant="inline" className="absolute right-3 top-3" />
-                <Link to={detailHref} className="hover:text-brand-ink">
-                  <div className="mb-1 pr-8 text-xs uppercase tracking-wide text-ink-faint">
-                    {item.category} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
-                  </div>
-                  <div className="mb-2 line-clamp-2 pr-8 font-medium leading-snug text-ink">{item.title}</div>
+              <div key={`${item.itemType}_${item.itemId}`} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+                <Link to={detailHref}>
+                  <CourseCoverImage id={item.itemId} title={item.title} className="h-20 w-full" />
                 </Link>
-                <div className="mb-3 flex items-center gap-2">
-                  {item.originalPrice && item.originalPrice > item.price && (
-                    <span className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
-                  )}
-                  <span className="font-semibold text-ink">{item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}</span>
-                </div>
-
-                {item.price === 0 ? (
-                  <Link to={detailHref} className="block rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface">
-                    View
-                  </Link>
-                ) : inCart ? (
-                  <Link
-                    to="/home/cart"
-                    className="block rounded-lg border border-blue-500/50 py-2 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
-                  >
-                    ✓ In Cart · View Cart
-                  </Link>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={addToCartMutation.isPending || paying}
-                      onClick={() => addToCartMutation.mutate(item)}
-                      className="flex-1 rounded-lg border border-surface-border py-2 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
-                    >
-                      Add to Cart
-                    </button>
-                    <button
-                      type="button"
-                      disabled={paying}
-                      onClick={() => setBuyNowItem(item)}
-                      className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-                    >
-                      Buy Now
-                    </button>
+                <div className="relative p-3.5">
+                  <WishlistButton itemType={item.itemType} itemId={item.itemId} variant="inline" className="absolute right-2.5 top-2.5" />
+                  <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
+                    <span>{item.category}</span>
+                    <span>·</span>
+                    <span>{item.skillLevel}</span>
                   </div>
-                )}
+                  <Link to={detailHref} className="hover:text-brand-ink">
+                    <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+                  </Link>
+                  {item.ratingCount > 0 && (
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <StarRating value={item.ratingAvg} size="sm" />
+                      <span className="text-xs text-ink-faint">
+                        {item.ratingAvg.toFixed(1)} ({item.ratingCount})
+                      </span>
+                    </div>
+                  )}
+                  <div className="mb-2 text-xs text-ink-faint">
+                    {item.totalQuestions} questions · {item.durationMinutes} min
+                  </div>
+
+                  {item.price > 0 && (
+                    <div className="mb-2 flex items-center gap-2">
+                      {item.originalPrice && item.originalPrice > item.price && (
+                        <span className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
+                      )}
+                      <span className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</span>
+                    </div>
+                  )}
+
+                  {item.price === 0 ? (
+                    <Link to={detailHref} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
+                      View
+                    </Link>
+                  ) : inCart ? (
+                    <Link
+                      to="/home/cart"
+                      className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
+                    >
+                      ✓ In Cart · View Cart
+                    </Link>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={addToCartMutation.isPending || paying}
+                        onClick={() => addToCartMutation.mutate(item)}
+                        className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                      >
+                        Add to Cart
+                      </button>
+                      <button
+                        type="button"
+                        disabled={paying}
+                        onClick={() => setBuyNowItem(item)}
+                        className="flex-1 rounded-lg bg-blue-600 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                      >
+                        Buy Now
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

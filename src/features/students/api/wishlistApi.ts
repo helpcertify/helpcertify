@@ -6,9 +6,14 @@ export interface WishlistItemView {
   itemId: string;
   title: string;
   category: string;
+  skillLevel: string;
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  ratingAvg: number;
+  ratingCount: number;
+  totalQuestions: number;
+  durationMinutes: number;
 }
 
 // Routed through the 'cart' endpoint (api/cart.ts), not a separate

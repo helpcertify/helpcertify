@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
@@ -72,102 +71,102 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="max-w-md">
+    <div className="max-w-4xl">
       <h1 className="mb-1 text-2xl font-bold text-ink">My Profile</h1>
       <p className="mb-6 text-sm text-ink-faint">Your account details, and how you appear to yourself here.</p>
 
-      <div className="mb-6 flex flex-col items-center rounded-xl border border-surface-border bg-surface-raised p-6">
-        {profile.avatarUrl ? (
-          <img src={profile.avatarUrl} alt="" className="h-16 w-16 rounded-full" />
-        ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-gradient text-xl font-bold text-surface">
-            {profile.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="mt-3 text-base font-semibold text-ink">{profile.name}</div>
-        <div className="text-sm text-ink-faint">{profile.email}</div>
-        {/* Billing & Orders (formerly a standalone "My Purchases" sidebar
-            tab) lives here now — learners care more about reaching their
-            purchased exams than about a receipts page, so it's tucked under
-            the profile rather than sitting in the main nav. */}
-        <Link
-          to="/home/purchases"
-          className="mt-4 w-full rounded-lg border border-surface-border py-2 text-center text-sm font-medium text-ink-muted hover:border-brand-400"
-        >
-          Billing & Orders →
-        </Link>
-      </div>
-
-      <div className="mb-6 space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-ink-faint">About You</h2>
-        <div>
-          <label className="mb-1 block text-xs text-ink-faint">Headline</label>
-          <input
-            value={headline}
-            onChange={(e) => setHeadline(e.target.value)}
-            maxLength={100}
-            placeholder="e.g. Aspiring CISM, IT Security Analyst"
-            className="input-dark"
-          />
+      {/* Two columns from lg: up (avatar card beside the forms) instead of
+          one narrow centered stack — the single-column layout read like a
+          mobile view even on a wide desktop screen. Billing & Orders has its
+          own sidebar tab again, so this page only holds profile details. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
+        <div className="flex flex-col items-center rounded-xl border border-surface-border bg-surface-raised p-6 lg:self-start">
+          {profile.avatarUrl ? (
+            <img src={profile.avatarUrl} alt="" className="h-16 w-16 rounded-full" />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-gradient text-xl font-bold text-surface">
+              {profile.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="mt-3 text-base font-semibold text-ink">{profile.name}</div>
+          <div className="text-sm text-ink-faint">{profile.email}</div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-ink-faint">Biography</label>
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            maxLength={1000}
-            rows={3}
-            placeholder="A short bio"
-            className="input-dark"
-          />
-        </div>
-        <button
-          type="button"
-          disabled={savingProfile}
-          onClick={handleSaveProfile}
-          className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-        >
-          {savingProfile ? 'Saving…' : 'Save Profile'}
-        </button>
-      </div>
 
-      <div className="space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-ink-faint">Change Password</h2>
-        {hasPasswordProvider ? (
-          <>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Current password"
-              className="input-dark"
-            />
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New password (min. 8 characters)"
-              className="input-dark"
-            />
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-              className="input-dark"
-            />
+        <div className="space-y-6">
+          <div className="space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-ink-faint">About You</h2>
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">Headline</label>
+              <input
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                maxLength={100}
+                placeholder="e.g. Aspiring CISM, IT Security Analyst"
+                className="input-dark"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">Biography</label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                maxLength={1000}
+                rows={3}
+                placeholder="A short bio"
+                className="input-dark"
+              />
+            </div>
             <button
               type="button"
-              disabled={changingPassword || !currentPassword || !newPassword}
-              onClick={handleChangePassword}
-              className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-brand-400 disabled:opacity-60"
+              disabled={savingProfile}
+              onClick={handleSaveProfile}
+              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
             >
-              {changingPassword ? 'Changing…' : 'Change Password'}
+              {savingProfile ? 'Saving…' : 'Save Profile'}
             </button>
-          </>
-        ) : (
-          <p className="text-sm text-ink-faint">You signed in with Google, so there's no separate Helpcertify password to change.</p>
-        )}
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-ink-faint">Change Password</h2>
+            {hasPasswordProvider ? (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Current password"
+                    className="input-dark"
+                  />
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password (min. 8 characters)"
+                    className="input-dark"
+                  />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="input-dark"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={changingPassword || !currentPassword || !newPassword}
+                  onClick={handleChangePassword}
+                  className="rounded-lg border border-surface-border px-5 py-2 text-sm text-ink-muted hover:border-brand-400 disabled:opacity-60"
+                >
+                  {changingPassword ? 'Changing…' : 'Change Password'}
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-ink-faint">You signed in with Google, so there's no separate Helpcertify password to change.</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
