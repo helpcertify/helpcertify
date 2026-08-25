@@ -257,6 +257,125 @@ async function removeCoupon(uid: string) {
   return summarize(uid);
 }
 
+// ---------------------------------------------------------------------------
+// Wishlist actions — folded into this file rather than a separate
+// api/wishlist.ts. Vercel's Hobby plan caps a deployment at 12 Serverless
+// Functions; this repo was already at exactly 12, and a 13th file failed
+// the deployment (build succeeded, "Deploying outputs" step rejected it).
+// Wishlist and cart are the same conceptual domain anyway (a student's
+// saved-item list, same shape/never-trust-stored-price reasoning), so this
+// is a natural consolidation, not just a workaround. Reuses this file's own
+// getAdminApp/db/Err/requireStudent/ItemType/collectionFor — no duplication
+// needed within one file, unlike the no-shared-code rule across files.
+// ---------------------------------------------------------------------------
+
+interface HydratedWishlistItem {
+  itemType: ItemType;
+  itemId: string;
+  title: string;
+  category: string;
+  price: number;
+  originalPrice: number | null;
+  currency: Currency;
+}
+
+// Mirrors hydrateCart above: never trust the stored list as a price/title
+// source, and silently drop anything deleted or already purchased since
+// being wishlisted. Unlike the cart, a free item is never dropped just for
+// being free — there's no checkout constraint here, so wishlisting
+// something free to try later is a perfectly normal state.
+async function hydrateWishlist(uid: string): Promise<{ items: HydratedWishlistItem[] }> {
+  const ref = db.collection('wishlists').doc(uid);
+  const snap = await ref.get();
+  const stored = (snap.exists ? snap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
+
+  const items: HydratedWishlistItem[] = [];
+  let dirty = false;
+  for (const entry of stored) {
+    const [itemSnap, purchaseSnap] = await Promise.all([
+      db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get(),
+      db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get(),
+    ]);
+    if (!itemSnap.exists || purchaseSnap.exists) {
+      dirty = true;
+      continue;
+    }
+    const data = itemSnap.data()!;
+    items.push({
+      itemType: entry.itemType,
+      itemId: entry.itemId,
+      title: data.title,
+      category: data.category ?? 'Other',
+      price: data.price ?? 0,
+      originalPrice: data.originalPrice ?? null,
+      currency: data.currency ?? 'INR',
+    });
+  }
+
+  if (dirty) {
+    await ref.set(
+      {
+        userId: uid,
+        items: items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, addedAt: Timestamp.now() })),
+        updatedAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
+  }
+
+  return { items };
+}
+
+async function getWishlist(uid: string) {
+  return hydrateWishlist(uid);
+}
+
+async function addWishlistItem(uid: string, body: unknown) {
+  const parsed = addItemSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { itemType, itemId } = parsed.data;
+
+  const itemSnap = await db.collection(collectionFor(itemType)).doc(itemId).get();
+  if (!itemSnap.exists) throw Err.notFound('Item not found');
+
+  const ref = db.collection('wishlists').doc(uid);
+  const snap = await ref.get();
+  const existing = (snap.exists ? snap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
+  if (existing.some((e) => e.itemType === itemType && e.itemId === itemId)) {
+    return getWishlist(uid); // already wishlisted — no-op, not an error
+  }
+
+  await ref.set(
+    {
+      userId: uid,
+      items: [...existing, { itemType, itemId, addedAt: Timestamp.now() }],
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true }
+  );
+  return getWishlist(uid);
+}
+
+async function removeWishlistItem(uid: string, body: unknown) {
+  const parsed = addItemSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { itemType, itemId } = parsed.data;
+
+  const ref = db.collection('wishlists').doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) return getWishlist(uid);
+  const existing = (snap.data()!.items ?? []) as { itemType: ItemType; itemId: string }[];
+
+  await ref.set(
+    {
+      items: existing.filter((e) => !(e.itemType === itemType && e.itemId === itemId)),
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true }
+  );
+  return getWishlist(uid);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -284,6 +403,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyPurchases':
         res.status(200).json(await listMyPurchases(uid));
+        return;
+      case 'getWishlist':
+        res.status(200).json(await getWishlist(uid));
+        return;
+      case 'addWishlistItem':
+        res.status(200).json(await addWishlistItem(uid, data));
+        return;
+      case 'removeWishlistItem':
+        res.status(200).json(await removeWishlistItem(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);
