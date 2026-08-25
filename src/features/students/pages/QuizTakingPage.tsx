@@ -200,7 +200,7 @@ export function QuizTakingPage() {
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">{quiz.title}</h1>
           <div className="flex items-center gap-3">
-            {markedCount > 0 && <span className="text-sm text-[#f09907]">🚩 {markedCount} marked</span>}
+            {markedCount > 0 && <span className="text-sm text-[#d98e0f]">🚩 {markedCount} marked</span>}
             <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-ink">
               ⏱ {formatClock(remainingSeconds)}
             </span>
@@ -297,7 +297,7 @@ export function QuizTakingPage() {
                   onClick={() => toggleMark(current.id)}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                     marked[current.id]
-                      ? 'border-[#f09907] bg-[#f09907]/10 text-[#f09907]'
+                      ? 'border-[#d98e0f] bg-[#d98e0f]/10 text-[#d98e0f]'
                       : 'border-surface-border text-ink-faint hover:border-neutral-600'
                   }`}
                 >
@@ -332,7 +332,7 @@ export function QuizTakingPage() {
                         : answers[q.id]
                           ? 'bg-brand-500/20 text-brand-ink'
                           : 'bg-white/5 text-ink-faint'
-                    } ${marked[q.id] ? 'ring-2 ring-[#f09907]' : ''}`}
+                    } ${marked[q.id] ? 'ring-2 ring-[#d98e0f]' : ''}`}
                   >
                     {i + 1}
                     {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}

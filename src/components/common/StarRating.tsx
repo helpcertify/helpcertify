@@ -22,7 +22,7 @@ export function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
     return (
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" onClick={() => onChange(n)} aria-label={`${n} star${n > 1 ? 's' : ''}`} className="text-[#f09907]">
+          <button key={n} type="button" onClick={() => onChange(n)} aria-label={`${n} star${n > 1 ? 's' : ''}`} className="text-[#d98e0f]">
             <StarIcon filled={n <= value} style={{ width: px, height: px }} />
           </button>
         ))}
@@ -38,7 +38,7 @@ export function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
           <StarIcon key={n} style={{ width: px, height: px }} />
         ))}
       </div>
-      <div className="absolute inset-0 flex overflow-hidden text-[#f09907]" style={{ width: `${pct}%` }}>
+      <div className="absolute inset-0 flex overflow-hidden text-[#d98e0f]" style={{ width: `${pct}%` }}>
         {[1, 2, 3, 4, 5].map((n) => (
           <StarIcon key={n} style={{ width: px, height: px }} />
         ))}
