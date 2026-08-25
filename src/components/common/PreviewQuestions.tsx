@@ -73,9 +73,9 @@ export function PreviewQuestions({ itemType, itemId }: PreviewQuestionsProps) {
               onClick={() => pickOption(opt.id)}
               className={`block w-full rounded-lg border px-3 py-2 text-left text-sm disabled:cursor-default ${
                 isCorrectOption
-                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
                   : showWrong
-                    ? 'border-red-500 bg-red-500/10 text-red-400'
+                    ? 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'
                     : isSelected
                       ? 'border-brand-400 bg-brand-500/10 text-ink'
                       : 'border-surface-border text-ink-muted hover:border-brand-400'
@@ -88,7 +88,7 @@ export function PreviewQuestions({ itemType, itemId }: PreviewQuestionsProps) {
       </div>
       {result && (
         <div className="mt-3 flex items-center justify-between gap-2">
-          <span className={`text-sm font-medium ${result.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+          <span className={`text-sm font-medium ${result.isCorrect ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
             {result.isCorrect ? 'Correct!' : 'Not quite.'}
           </span>
           {index < questions.length - 1 ? (

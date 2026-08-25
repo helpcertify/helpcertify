@@ -57,9 +57,11 @@ export function PastQuizzesPage() {
                   <div>
                     <div className="font-medium text-ink">{a.quizTitle}</div>
                     <div className="mt-1 flex flex-wrap gap-2 text-sm">
-                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-400">Status: Attended</span>
+                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-700 dark:text-emerald-400">Status: Attended</span>
                       <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-ink">Score: {a.marks}</span>
-                      {passed && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-400">🎓 Passed</span>}
+                      {passed && (
+                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700 dark:text-amber-400">🎓 Passed</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">

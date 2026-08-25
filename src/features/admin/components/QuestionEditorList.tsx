@@ -48,7 +48,7 @@ export function QuestionEditorList({ questions, onSave }: ListProps) {
             </div>
             <ul className="space-y-1 pl-1">
               {q.options.map((opt) => (
-                <li key={opt.id} className={opt.id === q.correctOptionId ? 'font-medium text-emerald-400' : 'text-ink-muted'}>
+                <li key={opt.id} className={opt.id === q.correctOptionId ? 'font-medium text-emerald-700 dark:text-emerald-400' : 'text-ink-muted'}>
                   • {opt.text}
                 </li>
               ))}

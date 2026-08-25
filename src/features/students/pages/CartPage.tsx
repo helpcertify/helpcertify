@@ -97,7 +97,7 @@ export function CartPage() {
             <div className="mb-4">
               {cart.couponCode ? (
                 <div className="flex items-center justify-between rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
-                  <span className="text-emerald-300">Coupon "{cart.couponCode}" applied</span>
+                  <span className="text-emerald-700 dark:text-emerald-300">Coupon "{cart.couponCode}" applied</span>
                   <button type="button" onClick={() => removeCouponMutation.mutate()} className="text-ink-faint hover:text-ink">
                     Remove
                   </button>
@@ -128,7 +128,7 @@ export function CartPage() {
                 <span>{formatMoney(cart.subtotal, cart.currency)}</span>
               </div>
               {cart.discount > 0 && (
-                <div className="flex justify-between text-emerald-400">
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                   <span>Discount</span>
                   <span>-{formatMoney(cart.discount, cart.currency)}</span>
                 </div>

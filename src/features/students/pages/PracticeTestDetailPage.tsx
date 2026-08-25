@@ -163,7 +163,7 @@ export function PracticeTestDetailPage() {
               inCart ? (
                 <Link
                   to="/home/cart"
-                  className="block rounded-lg border border-blue-500/50 py-2.5 text-center text-sm font-medium text-blue-300"
+                  className="block rounded-lg border border-blue-500/50 py-2.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
                 >
                   ✓ In Cart · View Cart
                 </Link>

@@ -90,8 +90,8 @@ export function PracticeTestsPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Available" value={available.length} color="text-brand-ink" />
-        <StatCard label="Started" value={startedCount} color="text-amber-400" />
-        <StatCard label="Completed" value={completedCount} color="text-emerald-400" />
+        <StatCard label="Started" value={startedCount} color="text-amber-700 dark:text-amber-400" />
+        <StatCard label="Completed" value={completedCount} color="text-emerald-700 dark:text-emerald-400" />
       </div>
 
       {available.length === 0 ? (
@@ -149,7 +149,7 @@ export function PracticeTestsPage() {
                   inCart ? (
                     <Link
                       to="/home/cart"
-                      className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-300"
+                      className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
                     >
                       ✓ In Cart · View Cart
                     </Link>

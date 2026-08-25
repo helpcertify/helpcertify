@@ -136,7 +136,7 @@ export function PracticeTakingPage() {
             Practice Session {isReattempt && <span className="text-sm text-ink-faint">(Reattempt)</span>}
           </h1>
           <div className="flex items-center gap-3 text-sm text-ink-faint">
-            {markedCount > 0 && <span className="text-amber-400">🚩 {markedCount} marked</span>}
+            {markedCount > 0 && <span className="text-amber-700 dark:text-amber-400">🚩 {markedCount} marked</span>}
             <span>
               {answeredCount} / {questions.length} answered
             </span>
@@ -158,13 +158,17 @@ export function PracticeTakingPage() {
                   const isTheCorrectOption = answered && result.correctOptionId === opt.id;
                   const isWrongPick = answered && selected && !result.isCorrect;
 
+                  // The plain -300 shades read fine on a near-black dark-theme
+                  // card but washed out to near-illegible on the light theme's
+                  // white card — dark: variants pick a solid, readable shade
+                  // per theme instead of one compromise color for both.
                   let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
                   if (answered) {
-                    if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-300';
-                    else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-300';
+                    if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+                    else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-300';
                     else cls = 'border-surface-border text-ink-faint opacity-60';
                   } else if (selected) {
-                    cls = 'border-brand-400 bg-brand-500/10 text-brand-200';
+                    cls = 'border-brand-400 bg-brand-500/10 text-brand-ink';
                   }
 
                   return (
@@ -182,13 +186,13 @@ export function PracticeTakingPage() {
                 })}
               </div>
               {saving && <div className="mt-3 text-sm text-ink-faint">Checking…</div>}
-              {answered && (
-                <div
-                  className={`mt-3 rounded-lg px-4 py-2 text-sm font-semibold ${
-                    result.isCorrect ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
-                  }`}
-                >
-                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect (the right answer is highlighted above)'}
+              {/* Only a positive confirmation banner — a wrong pick is
+                  already unambiguous from the red/green option highlighting
+                  above, so a second "Incorrect" line was redundant and (per
+                  the same light-theme contrast issue) hard to read. */}
+              {answered && result.isCorrect && (
+                <div className="mt-3 rounded-lg bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  ✓ Correct!
                 </div>
               )}
             </div>

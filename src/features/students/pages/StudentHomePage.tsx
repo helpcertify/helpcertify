@@ -135,7 +135,7 @@ export function StudentHomePage() {
         </div>
       )}
 
-      <CourseCarousel title="Recommended for you" items={recommended} />
+      <CourseCarousel title="Recommended for you" items={recommended} compactActions />
 
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">📄 Quiz Library</div>
       {(!quizzes || quizzes.length === 0) && (
@@ -195,7 +195,7 @@ export function StudentHomePage() {
                 inCart ? (
                   <Link
                     to="/home/cart"
-                    className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-300"
+                    className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
                   >
                     ✓ In Cart · View Cart
                   </Link>

@@ -26,6 +26,7 @@ export interface CarouselItem {
 interface CourseCarouselProps {
   title: string;
   items: CarouselItem[];
+  compactActions?: boolean;
 }
 
 // A horizontally-scrolling row of compact cards with prev/next arrows,
@@ -40,7 +41,7 @@ interface CourseCarouselProps {
 // it works self-sufficiently regardless of which page renders it (and
 // React Query dedupes the fetch against whatever the parent already
 // loaded — no extra network round trip in practice).
-export function CourseCarousel({ title, items }: CourseCarouselProps) {
+export function CourseCarousel({ title, items, compactActions }: CourseCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -108,6 +109,7 @@ export function CourseCarousel({ title, items }: CourseCarouselProps) {
             inCart={inCartSet.has(`${item.itemType}_${item.id}`)}
             paying={paying}
             onBuyNow={() => setBuyNowItem(item)}
+            compactActions={compactActions}
           />
         ))}
       </div>
@@ -141,9 +143,10 @@ interface CarouselCardProps {
   inCart: boolean;
   paying: boolean;
   onBuyNow: () => void;
+  compactActions?: boolean;
 }
 
-function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardProps) {
+function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }: CarouselCardProps) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const href = item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`;
@@ -183,11 +186,15 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
         </div>
 
         {!owned && (
-          <div className="flex flex-col gap-1.5">
+          <div className={compactActions ? 'flex items-center gap-1' : 'flex flex-col gap-1.5'}>
             {inCart ? (
               <Link
                 to="/home/cart"
-                className="rounded-lg border border-blue-500/50 py-1.5 text-center text-xs font-medium text-blue-300"
+                className={
+                  compactActions
+                    ? 'min-w-0 flex-1 truncate rounded-lg border border-blue-500/50 px-1 py-1 text-center text-[10px] font-medium text-blue-700 dark:text-blue-300'
+                    : 'rounded-lg border border-blue-500/50 py-1.5 text-center text-xs font-medium text-blue-700 dark:text-blue-300'
+                }
               >
                 ✓ In Cart
               </Link>
@@ -196,7 +203,11 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
                 type="button"
                 disabled={addToCartMutation.isPending}
                 onClick={() => addToCartMutation.mutate()}
-                className="rounded-lg border border-surface-border py-1.5 text-xs font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                className={
+                  compactActions
+                    ? 'min-w-0 flex-1 truncate rounded-lg border border-surface-border px-1 py-1 text-[10px] font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60'
+                    : 'rounded-lg border border-surface-border py-1.5 text-xs font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60'
+                }
               >
                 {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
               </button>
@@ -205,7 +216,11 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
               type="button"
               disabled={paying}
               onClick={onBuyNow}
-              className="rounded-lg bg-blue-600 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+              className={
+                compactActions
+                  ? 'min-w-0 flex-1 truncate rounded-lg bg-blue-600 px-1 py-1 text-[10px] font-medium text-white hover:bg-blue-500 disabled:opacity-60'
+                  : 'rounded-lg bg-blue-600 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-60'
+              }
             >
               {paying ? 'Opening…' : 'Buy Now'}
             </button>
