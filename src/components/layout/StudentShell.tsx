@@ -78,15 +78,22 @@ export function StudentShell() {
 
   return (
     <div className="min-h-screen bg-surface lg:flex">
-      {/* Desktop sidebar — unchanged, lg: and up only */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
+      {/* Desktop sidebar — lg: and up only. Pinned to the viewport (sticky +
+          h-screen) rather than just stretching to match the main column's
+          height — without this, a long page (a big quiz grid, say) made the
+          whole row taller than the viewport, and "Sign Out" (mt-auto)
+          ended up pushed down to the bottom of that stretched sidebar
+          instead of staying put at the bottom of the screen. The nav itself
+          scrolls internally (overflow-y-auto) if it ever grows past what
+          fits, so Sign Out never gets crowded off-screen either. */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
         <Logo size="sm" />
         <span className="mt-1 text-xs uppercase tracking-wide text-ink-faint">Academic Portal</span>
-        <nav className="mt-8 flex flex-col gap-1">{navLinks(() => {})}</nav>
+        <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
         <button
           type="button"
           onClick={handleSignOut}
-          className="mt-auto rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
+          className="mt-auto shrink-0 rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
         >
           Sign Out
         </button>
@@ -129,12 +136,12 @@ export function StudentShell() {
             <Link
               to="/home/cart"
               aria-label="Cart"
-              className="relative flex flex-col items-center gap-0.5 rounded-lg border border-surface-border px-3 py-1.5 text-ink hover:border-brand-400 hover:text-brand-ink"
+              className="relative flex flex-col items-center gap-0.5 rounded-full border border-blue-600 bg-blue-600 px-3.5 py-1.5 text-white hover:border-blue-500 hover:bg-blue-500"
             >
               <CartIcon className="h-5 w-5" />
               <span className="text-[10px] font-medium leading-none">Cart</span>
               {cartCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-semibold text-white ring-2 ring-surface">
                   {cartCount}
                 </span>
               )}

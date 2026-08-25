@@ -18,8 +18,12 @@
   --color-surface-raised: 248 250 252;
   --color-surface-border: 226 232 240;
   --color-ink: 15 23 42;
-  --color-ink-muted: 71 85 105;
-  --color-ink-faint: 100 116 139;
+  /* Both bumped one step darker on the slate scale (were 600/500) — real
+     user feedback that nav tabs and card stat lines (which lean on these
+     two tokens everywhere) read as too washed-out on the light theme, even
+     though the old values technically passed WCAG AA. */
+  --color-ink-muted: 51 65 85; /* slate-700, was slate-600 (71 85 105) */
+  --color-ink-faint: 71 85 105; /* slate-600, was slate-500 (100 116 139) */
   --color-brand-ink: 29 78 216; /* blue-700 — solid enough for text on a white/light card */
 }
 
