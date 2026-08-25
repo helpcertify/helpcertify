@@ -173,7 +173,7 @@ async function addItem(uid: string, body: unknown) {
   const itemData = itemSnap.data()!;
   const price = itemData.price ?? 0;
   const itemCurrency: Currency = itemData.currency ?? 'INR';
-  if (price <= 0) throw Err.invalidArgument('This item is free — no need to add it to your cart');
+  if (price <= 0) throw Err.invalidArgument('This item is free, no need to add it to your cart');
 
   const purchaseSnap = await db.collection('purchases').doc(`${uid}_${itemType}_${itemId}`).get();
   if (purchaseSnap.exists) throw Err.conflict('You already own this item');
@@ -193,7 +193,7 @@ async function addItem(uid: string, body: unknown) {
     const cartCurrency = existingHydrated[0]?.currency;
     if (cartCurrency && cartCurrency !== itemCurrency) {
       throw Err.invalidArgument(
-        `Your cart already has items priced in ${cartCurrency} — check out or remove those first before adding a ${itemCurrency} item`
+        `Your cart already has items priced in ${cartCurrency}. Check out or remove those first before adding a ${itemCurrency} item.`
       );
     }
   }

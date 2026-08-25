@@ -1,5 +1,5 @@
 const TEMPLATES: Record<'standard' | 'cisa_qa', string> = {
-  standard: `Standard Template — one question per block, in this exact order.
+  standard: `Standard Template: one question per block, in this exact order.
 Save as a .docx (Word) file before uploading.
 
 Q: What is the capital of France?
@@ -16,7 +16,7 @@ C) ...
 D) ...
 Correct: A
 `,
-  cisa_qa: `CISA Q&A Format — numbered, bold question stems, lettered options.
+  cisa_qa: `CISA Q&A Format: numbered, bold question stems, lettered options.
 Save as a .docx (Word) file before uploading. Bold the question line
 (the "N. " line) so the parser can find it.
 

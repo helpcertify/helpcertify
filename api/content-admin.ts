@@ -124,7 +124,7 @@ interface Paragraph {
 async function extractParagraphs(fileBuffer: Buffer): Promise<Paragraph[]> {
   const zip = await JSZip.loadAsync(fileBuffer);
   const documentXmlFile = zip.file('word/document.xml');
-  if (!documentXmlFile) throw Err.invalidArgument('Not a valid .docx — missing word/document.xml');
+  if (!documentXmlFile) throw Err.invalidArgument('Not a valid .docx: missing word/document.xml');
   const documentXml = await documentXmlFile.async('text');
 
   const paraMatches = documentXml.match(/<w:p\b[\s\S]*?<\/w:p>/g) ?? [];

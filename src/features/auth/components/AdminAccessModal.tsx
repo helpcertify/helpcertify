@@ -68,7 +68,7 @@ export function AdminAccessModal({ onClose }: AdminAccessModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink">Admin Access</h2>
+          <h2 className="text-lg font-bold text-ink">Admin Access</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="text-ink-faint hover:text-ink">
             ✕
           </button>

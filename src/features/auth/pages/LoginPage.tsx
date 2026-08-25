@@ -52,7 +52,7 @@ export function LoginPage() {
         <div className="mb-6 flex justify-center">
           <Logo />
         </div>
-        <h1 className="mb-6 text-center text-xl font-semibold text-ink">Welcome back</h1>
+        <h1 className="mb-6 text-center text-xl font-bold text-ink">Welcome back</h1>
 
         <GoogleButton
           label={googleMutation.isPending ? 'Signing in…' : 'Continue with Google'}

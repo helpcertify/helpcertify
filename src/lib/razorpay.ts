@@ -14,7 +14,7 @@ function loadCheckoutScript(): Promise<void> {
     script.onload = () => resolve();
     script.onerror = () => {
       scriptPromise = null;
-      reject(new Error('Could not load the payment gateway — check your connection and try again'));
+      reject(new Error('Could not load the payment gateway. Check your connection and try again.'));
     };
     document.body.appendChild(script);
   });
@@ -35,7 +35,7 @@ export interface RazorpayCheckoutOptions {
 
 export async function openRazorpayCheckout(opts: RazorpayCheckoutOptions): Promise<void> {
   await loadCheckoutScript();
-  if (!window.Razorpay) throw new Error('Payment gateway failed to load — please try again');
+  if (!window.Razorpay) throw new Error('Payment gateway failed to load. Please try again.');
   const rzp = new window.Razorpay({
     key: opts.keyId,
     amount: opts.amount,

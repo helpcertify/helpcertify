@@ -8,12 +8,12 @@ export function PastQuizzesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-ink">Quiz History</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Quiz History</h1>
       <p className="mb-6 text-sm text-ink-faint">Review your quiz history and performance</p>
 
       <div className="rounded-xl border border-surface-border bg-surface-raised">
         <div className="border-b border-surface-border px-6 py-4">
-          <h2 className="flex items-center gap-2 font-semibold text-ink">🕐 Quiz History</h2>
+          <h2 className="flex items-center gap-2 font-bold text-ink">🕐 Quiz History</h2>
         </div>
         {attempts.length === 0 ? (
           <p className="p-6 text-sm text-ink-faint">You haven't attempted any quizzes yet.</p>

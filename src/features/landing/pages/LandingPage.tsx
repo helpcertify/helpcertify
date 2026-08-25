@@ -13,7 +13,7 @@ const STATS = [
 const FEATURES = [
   {
     title: 'Adaptive Practice',
-    body: 'Large question banks you can work through in resumable, batched sessions — pick up exactly where you left off.',
+    body: 'Large question banks you can work through in resumable, batched sessions, picking up exactly where you left off.',
   },
   {
     title: 'Real-time Analytics',
@@ -78,7 +78,7 @@ export function LandingPage() {
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 sm:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <h3 className="mb-2 font-semibold text-ink">{f.title}</h3>
+              <h3 className="mb-2 font-bold text-ink">{f.title}</h3>
               <p className="text-sm text-ink-faint">{f.body}</p>
             </div>
           ))}
@@ -90,7 +90,7 @@ export function LandingPage() {
           <div>
             <Logo size="sm" />
             <p className="mt-2 max-w-sm text-sm text-ink-faint">
-              Certification exam prep built around real practice — quizzes, practice tests, and results in one place.
+              Certification exam prep built around real practice: quizzes, practice tests, and results in one place.
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm text-ink-faint sm:items-end">

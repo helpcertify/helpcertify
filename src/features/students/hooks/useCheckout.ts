@@ -42,7 +42,7 @@ export function useCheckout() {
             opts.onPaid?.();
           } catch {
             pushToast(
-              'Payment went through but we could not confirm it here — refresh in a moment, or contact support if access does not unlock.',
+              'Payment went through but we could not confirm it here. Refresh in a moment, or contact support if access does not unlock.',
               'error'
             );
           } finally {

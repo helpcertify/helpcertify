@@ -41,7 +41,13 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const [defaultInitialBatchSize, setDefaultInitialBatchSize] = useState(
     editingTest?.defaultInitialBatchSize?.toString() ?? '50'
   );
-  const [sourceFormat, setSourceFormat] = useState<QuestionSourceFormat>(editingTest?.sourceFormat ?? 'cisa_qa');
+  // Standard Template is the only format the create form offers now — CISA
+  // Q&A was removed from this selector on request. Not a stateful choice
+  // any more, just the fixed value createPracticeTest's schema still
+  // expects. Existing tests created with sourceFormat 'cisa_qa' are
+  // unaffected — this only governs new uploads, and editing never touches
+  // the field.
+  const sourceFormat: QuestionSourceFormat = 'standard';
   const [file, setFile] = useState<File | null>(null);
   const [currency, setCurrency] = useState<'INR' | 'USD'>(editingTest?.currency ?? 'INR');
   const [price, setPrice] = useState(editingTest?.price ? minorToMajor(editingTest.price).toString() : '');
@@ -85,7 +91,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     onSuccess: (result) => {
       pushToast(`Practice test created with ${result.totalQuestions} questions`, 'success');
       if (result.parseErrors.length > 0) {
-        pushToast(`${result.parseErrors.length} question(s) could not be parsed — see console`, 'info');
+        pushToast(`${result.parseErrors.length} question(s) could not be parsed. See console for details.`, 'info');
         console.warn('Practice test parse errors:', result.parseErrors);
       }
       queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
@@ -125,7 +131,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-ink">{isEditing ? 'Edit Practice Test' : 'Practice Test Details'}</h2>
+          <h2 className="text-lg font-bold text-ink">{isEditing ? 'Edit Practice Test' : 'Practice Test Details'}</h2>
           <p className="text-sm text-ink-faint">Build a large question bank with batched, resumable sessions.</p>
         </div>
         <button
@@ -205,7 +211,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           <Field label={`Selling Price (0 = free, in ${currency === 'INR' ? '₹' : '$'})`}>
             <input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-dark" />
           </Field>
-          <Field label="Marketing Price (optional — shown struck through)">
+          <Field label="Marketing Price (optional, shown struck through)">
             <input
               type="number"
               min={0}
@@ -219,27 +225,14 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         </div>
 
         {!isEditing && (
-          <>
-            <Field label="Question Source Format">
-              <div className="grid grid-cols-2 gap-3">
-                <FormatButton active={sourceFormat === 'cisa_qa'} label="CISA Q&A (.docx)" onClick={() => setSourceFormat('cisa_qa')} />
-                <FormatButton
-                  active={sourceFormat === 'standard'}
-                  label="Standard Template (.docx)"
-                  onClick={() => setSourceFormat('standard')}
-                />
-              </div>
-            </Field>
-
-            <Field label={sourceFormat === 'cisa_qa' ? 'Upload CISA Q&A .docx (with "Answer: X" line)' : 'Upload Quiz File (.docx)'}>
-              <input
-                type="file"
-                accept=".docx"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
-              />
-            </Field>
-          </>
+          <Field label="Upload Quiz File (.docx)">
+            <input
+              type="file"
+              accept=".docx"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
+            />
+          </Field>
         )}
 
         <button
@@ -269,16 +262,3 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function FormatButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-lg border px-4 py-3 text-left text-sm font-medium ${
-        active ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-muted'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}

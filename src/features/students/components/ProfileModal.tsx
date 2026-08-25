@@ -20,7 +20,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink">Profile Information</h2>
+          <h2 className="text-lg font-bold text-ink">Profile Information</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="text-ink-faint hover:text-ink">
             ✕
           </button>

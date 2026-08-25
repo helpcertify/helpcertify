@@ -18,7 +18,7 @@ export function StudentQuizDashboardPage() {
       <Link to="/home/past-quizzes" className="mb-4 inline-block text-sm text-brand-ink">
         ← Back to Past Quizzes
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold text-ink">Student Dashboard</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Student Dashboard</h1>
       {isLoading && <p className="text-ink-faint">Loading…</p>}
       {data && (
         <>

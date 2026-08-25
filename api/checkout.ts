@@ -124,7 +124,7 @@ async function createOrder(uid: string, body: unknown) {
     orderItems.push({ itemType: entry.itemType, itemId: entry.itemId, title: data.title, unitPrice: data.price ?? 0 });
     currency = data.currency ?? 'INR'; // api/cart.ts's addItem guarantees every item in a cart shares one currency
   }
-  if (orderItems.length === 0) throw Err.failedPrecondition('Nothing left to check out — everything in your cart was already purchased');
+  if (orderItems.length === 0) throw Err.failedPrecondition('Nothing left to check out: everything in your cart was already purchased');
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.unitPrice, 0);
   let discount = 0;
@@ -158,8 +158,8 @@ async function createOrder(uid: string, body: unknown) {
     // order is rejected even though the request itself is well-formed.
     throw new Error(
       currency === 'USD'
-        ? 'Could not create the payment order — this account may not have USD/international payments enabled yet'
-        : 'Could not create the payment order — please try again'
+        ? 'Could not create the payment order. This account may not have USD/international payments enabled yet.'
+        : 'Could not create the payment order. Please try again.'
     );
   }
   const rzpOrder = (await rzpRes.json()) as { id: string };

@@ -22,6 +22,6 @@ export function toDate(value: unknown): Date {
 
 export function formatDate(value: unknown): string {
   const date = toDate(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return 'N/A';
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }

@@ -117,7 +117,7 @@ export function QuizTakingPage() {
         setFeedback((prev) => ({ ...prev, [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId } }));
       }
     } catch {
-      pushToast('Could not save that answer — check your connection', 'error');
+      pushToast('Could not save that answer. Check your connection.', 'error');
     } finally {
       setSaving(false);
     }
@@ -135,7 +135,7 @@ export function QuizTakingPage() {
       try {
         const res = await quizSessionApi.submitAttempt(attemptId);
         setFinalResult(res.attempt);
-        if (auto) pushToast('Time is up — your quiz was submitted automatically', 'info');
+        if (auto) pushToast('Time is up. Your quiz was submitted automatically.', 'info');
       } catch (err) {
         pushToast(err instanceof Error ? err.message : 'Could not submit', 'error');
       } finally {
@@ -150,7 +150,7 @@ export function QuizTakingPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-8 text-center">
-          <h1 className="mb-4 text-xl font-semibold text-ink">Quiz Submitted</h1>
+          <h1 className="mb-4 text-xl font-bold text-ink">Quiz Submitted</h1>
           {quiz?.showFinalScore ? (
             <div className="space-y-1 text-ink-muted">
               <div className="text-3xl font-bold text-brand-ink">{finalResult.marks}</div>
@@ -198,7 +198,7 @@ export function QuizTakingPage() {
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-ink">{quiz.title}</h1>
+          <h1 className="text-lg font-bold text-ink">{quiz.title}</h1>
           <div className="flex items-center gap-3">
             {markedCount > 0 && <span className="text-sm text-amber-400">🚩 {markedCount} marked</span>}
             <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-ink">
@@ -256,7 +256,7 @@ export function QuizTakingPage() {
                     result.isCorrect ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
                   }`}
                 >
-                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect — the right answer is highlighted above'}
+                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect (the right answer is highlighted above)'}
                 </div>
               )}
             </div>

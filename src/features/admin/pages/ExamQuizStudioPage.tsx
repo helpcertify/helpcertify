@@ -38,7 +38,7 @@ export function ExamQuizStudioPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-ink">Exam Quiz Studio</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Exam Quiz Studio</h1>
       <p className="mb-6 text-sm text-ink-faint">Build production-ready real-test quizzes with strict timing and response behavior.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -51,17 +51,17 @@ export function ExamQuizStudioPage() {
         <QuizFormCard editingQuiz={editingQuiz} onDoneEditing={() => setEditingQuiz(null)} />
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
           <div className="space-y-3">
             {quizzes.length === 0 && (
               <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-ink-faint">
-                No quizzes yet — publish one to see it here.
+                No quizzes yet. Publish one to see it here.
               </p>
             )}
             {quizzes.map((quiz) => (
               <div key={quiz.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-semibold text-ink">{quiz.title}</h3>
+                  <h3 className="font-bold text-ink">{quiz.title}</h3>
                   <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-ink">
                     {quiz.isPublished ? 'Published' : 'Draft'}
                   </span>
@@ -93,7 +93,7 @@ export function ExamQuizStudioPage() {
                     onClick={() => {
                       if (confirm(`Delete "${quiz.title}"? This cannot be undone.`)) deleteMutation.mutate(quiz.id);
                     }}
-                    className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-1.5 text-sm text-red-400"
+                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
                   >
                     Delete
                   </button>

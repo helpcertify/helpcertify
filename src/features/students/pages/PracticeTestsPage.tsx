@@ -58,7 +58,7 @@ export function PracticeTestsPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-ink">Practice Tests</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Practice Tests</h1>
       <p className="mb-6 text-sm text-ink-faint">Resume where you left off. Each session pulls only unanswered questions.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -82,7 +82,7 @@ export function PracticeTestsPage() {
 
             return (
               <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-5">
-                <h3 className="mb-1 font-semibold text-ink">{test.title}</h3>
+                <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
                 <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                   <div>{answered} / {test.totalQuestions} answered</div>
                   <div>{test.durationPerSessionMinutes} min/session</div>
@@ -103,7 +103,7 @@ export function PracticeTestsPage() {
                       to="/home/cart"
                       className="block rounded-lg border border-blue-500/50 py-2 text-center text-sm font-medium text-blue-300"
                     >
-                      ✓ In Cart — View Cart
+                      ✓ In Cart · View Cart
                     </Link>
                   ) : (
                     <div className="flex gap-2">
@@ -159,12 +159,12 @@ export function PracticeTestsPage() {
 
       {((buckets?.upcoming.length ?? 0) > 0 || (buckets?.expired.length ?? 0) > 0) && (
         <>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Upcoming / Expired</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Upcoming / Expired</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...(buckets?.upcoming ?? []), ...(buckets?.expired ?? [])].map((test) => (
               <div key={test.id} className="rounded-xl border border-surface-border bg-black/20 p-5 opacity-70">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-semibold text-ink">{test.title}</h3>
+                  <h3 className="font-bold text-ink">{test.title}</h3>
                   <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-ink-faint">
                     🔒 {toDate(test.availableUntil).getTime() < Date.now() ? 'Expired' : 'Upcoming'}
                   </span>

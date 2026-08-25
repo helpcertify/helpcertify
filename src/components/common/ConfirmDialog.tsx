@@ -25,7 +25,7 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6 shadow-xl">
-        <h2 className="mb-2 text-lg font-semibold text-ink">{title}</h2>
+        <h2 className="mb-2 text-lg font-bold text-ink">{title}</h2>
         <p className="mb-6 text-sm leading-relaxed text-ink-muted">{message}</p>
         <div className="flex justify-end gap-3">
           <button

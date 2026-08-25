@@ -40,7 +40,7 @@ export function PerformancePage() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_2.5fr]">
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
         <div className="space-y-2">
           {quizzes.length === 0 && <p className="text-sm text-ink-faint">No quizzes published yet.</p>}
           {quizzes.map((q) => (
@@ -60,7 +60,7 @@ export function PerformancePage() {
       </div>
 
       <div>
-        <h2 className="mb-1 text-lg font-semibold text-ink">Student Results</h2>
+        <h2 className="mb-1 text-lg font-bold text-ink">Student Results</h2>
         <p className="mb-4 text-sm text-ink-faint">{activeQuiz?.title ?? 'Select a quiz'}</p>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -117,7 +117,7 @@ export function PerformancePage() {
                       onClick={() => {
                         if (confirm(`Delete ${a.userName}'s attempt?`)) deleteMutation.mutate(a.id);
                       }}
-                      className="rounded-lg border border-red-900 bg-red-950/40 px-2 py-1 text-xs text-red-400"
+                      className="rounded-lg border border-surface-border px-2 py-1 text-xs text-ink-muted hover:border-red-500/50 hover:text-red-400"
                     >
                       Delete
                     </button>

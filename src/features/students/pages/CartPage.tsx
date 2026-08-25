@@ -51,7 +51,7 @@ export function CartPage() {
       <div className="mx-auto max-w-lg">
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-8 text-center">
           <div className="mb-2 text-3xl">✓</div>
-          <h1 className="mb-2 text-xl font-semibold text-ink">Payment successful</h1>
+          <h1 className="mb-2 text-xl font-bold text-ink">Payment successful</h1>
           <p className="mb-6 text-sm text-ink-faint">You now have access to:</p>
           <div className="space-y-2 text-left">
             {justPurchased.map((i) => (
@@ -75,7 +75,7 @@ export function CartPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold text-ink">Your Cart</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">Your Cart</h1>
 
       {!cart || cart.items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">

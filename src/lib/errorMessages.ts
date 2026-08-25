@@ -10,7 +10,7 @@ export function friendlyAuthError(err: unknown, fallback: string): string {
   if (err instanceof FirebaseError) {
     switch (err.code) {
       case 'auth/email-already-in-use':
-        return 'An account with this email already exists — try logging in instead.';
+        return 'An account with this email already exists. Try logging in instead.';
       case 'auth/invalid-email':
         return 'That email address looks invalid.';
       case 'auth/weak-password':
@@ -25,7 +25,7 @@ export function friendlyAuthError(err: unknown, fallback: string): string {
       case 'auth/popup-closed-by-user':
         return 'Sign-in was cancelled.';
       case 'auth/popup-blocked':
-        return 'Your browser blocked the sign-in popup — allow popups for this site and try again.';
+        return 'Your browser blocked the sign-in popup. Allow popups for this site and try again.';
       case 'functions/internal':
       case 'internal':
       case 'functions/unavailable':

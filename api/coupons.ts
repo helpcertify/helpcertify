@@ -73,7 +73,7 @@ async function createCoupon(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
   if (d.discountType === 'percent' && d.discountValue > 95) {
-    throw Err.invalidArgument('Percent discounts are capped at 95% — a 100% coupon would zero out the order');
+    throw Err.invalidArgument('Percent discounts are capped at 95% (a 100% coupon would zero out the order)');
   }
   const code = d.code.toUpperCase();
 

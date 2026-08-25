@@ -36,7 +36,7 @@ export function PracticeManagerPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-ink">Practice Manager</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Practice Manager</h1>
       <p className="mb-6 text-sm text-ink-faint">Configure batch-based practice sessions with resume and reattempt workflows.</p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
@@ -44,12 +44,12 @@ export function PracticeManagerPage() {
           <PracticeTestFormCard editingTest={editingTest} onDoneEditing={() => setEditingTest(null)} />
 
           <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">📖 How Practice Mode Works</h2>
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">📖 How Practice Mode Works</h2>
             <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink-faint">
               <li>Upload a large question bank (any size).</li>
-              <li>Set an availability window — students can only access within these dates.</li>
+              <li>Set an availability window: students can only access within these dates.</li>
               <li>Initial batch size sets how many questions the first session delivers.</li>
-              <li>Students can resume anytime — only unanswered questions are shown. They pick how many each session.</li>
+              <li>Students can resume anytime: only unanswered questions are shown, and they pick how many each session.</li>
               <li>Immediate answer feedback is always ON in practice mode.</li>
               <li>Students can reattempt their last batch to reinforce weak areas.</li>
             </ol>
@@ -57,7 +57,7 @@ export function PracticeManagerPage() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Your Practice Tests</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your Practice Tests</h2>
           <div className="space-y-3">
             {tests.length === 0 && (
               <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-ink-faint">
@@ -67,7 +67,7 @@ export function PracticeManagerPage() {
             {tests.map((test) => (
               <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-semibold text-ink">{test.title}</h3>
+                  <h3 className="font-bold text-ink">{test.title}</h3>
                   {isExpired(test) && (
                     <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-ink-faint">Expired</span>
                   )}
@@ -92,7 +92,7 @@ export function PracticeManagerPage() {
                     onClick={() => {
                       if (confirm(`Delete "${test.title}"? This cannot be undone.`)) deleteMutation.mutate(test.id);
                     }}
-                    className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-1.5 text-sm text-red-400"
+                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
                   >
                     Delete
                   </button>

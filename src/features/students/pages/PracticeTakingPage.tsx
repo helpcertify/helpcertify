@@ -106,7 +106,7 @@ export function PracticeTakingPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-8 text-center">
-          <h1 className="mb-4 text-xl font-semibold text-ink">Batch Complete</h1>
+          <h1 className="mb-4 text-xl font-bold text-ink">Batch Complete</h1>
           <div className="text-3xl font-bold text-brand-ink">
             {correct} / {questions.length}
           </div>
@@ -132,7 +132,7 @@ export function PracticeTakingPage() {
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-ink">
+          <h1 className="text-lg font-bold text-ink">
             Practice Session {isReattempt && <span className="text-sm text-ink-faint">(Reattempt)</span>}
           </h1>
           <div className="flex items-center gap-3 text-sm text-ink-faint">
@@ -188,7 +188,7 @@ export function PracticeTakingPage() {
                     result.isCorrect ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
                   }`}
                 >
-                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect — the right answer is highlighted above'}
+                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect (the right answer is highlighted above)'}
                 </div>
               )}
             </div>
@@ -275,7 +275,7 @@ export function PracticeTakingPage() {
       <ConfirmDialog
         open={showFinishConfirm}
         title="Finish this batch now?"
-        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered in this batch. Once you finish, you won't be able to come back and answer them here — you can always start a new session for the rest. Finish anyway?`}
+        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered in this batch. Once you finish, you won't be able to come back and answer them here. You can always start a new session for the rest. Finish anyway?`}
         confirmLabel="Finish anyway"
         cancelLabel="Keep working"
         onConfirm={() => {

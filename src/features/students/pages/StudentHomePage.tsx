@@ -61,7 +61,7 @@ export function StudentHomePage() {
 
           return (
             <div key={quiz.id} className="rounded-xl border border-surface-border bg-surface-raised p-5">
-              <h3 className="mb-1 font-semibold text-ink">{quiz.title}</h3>
+              <h3 className="mb-1 font-bold text-ink">{quiz.title}</h3>
               <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                 <div>{quiz.totalQuestions} questions</div>
                 <div>{quiz.durationMinutes} min</div>
@@ -82,7 +82,7 @@ export function StudentHomePage() {
                     to="/home/cart"
                     className="block rounded-lg border border-blue-500/50 py-2 text-center text-sm font-medium text-blue-300"
                   >
-                    ✓ In Cart — View Cart
+                    ✓ In Cart · View Cart
                   </Link>
                 ) : (
                   <div className="flex gap-2">

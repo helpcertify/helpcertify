@@ -110,7 +110,7 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   const allQuestionsSnap = await db.collection('practiceTests').doc(testId).collection('questions').select().get();
   const unansweredIds = allQuestionsSnap.docs.map((d) => d.id).filter((id) => !answeredSet.has(id));
   if (unansweredIds.length === 0) {
-    throw Err.failedPrecondition('No unanswered questions remain — use Reattempt Last Batch to keep practicing');
+    throw Err.failedPrecondition('No unanswered questions remain. Use Reattempt Last Batch to keep practicing.');
   }
 
   const size = Math.min(batchSize ?? test.defaultInitialBatchSize, unansweredIds.length);
