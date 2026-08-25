@@ -81,13 +81,16 @@ export function StudentHomePage() {
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
 
   // Recommended for you — ranked by rating (falls back to catalog order
-  // when nothing has a rating yet), capped to 5 on request. Not personalized
-  // in any real sense (no click/purchase history feeds this), same honest
-  // "best of the catalog" signal used everywhere else ratings show up.
-  const recommended: CarouselItem[] = [...(quizzes ?? [])]
-    .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
-    .slice(0, 5)
-    .map((q) => ({
+  // when nothing has a rating yet), capped to 5 on request. Pulls from both
+  // quizzes (Mock Exams) and practice tests: an earlier version only looked
+  // at quizzes, which silently hid this whole section for a student whose
+  // platform mostly has published practice tests rather than quizzes (the
+  // section renders nothing at all once its item list is empty, see
+  // CourseCarousel). Not personalized in any real sense (no click/purchase
+  // history feeds this), same honest "best of the catalog" signal used
+  // everywhere else ratings show up.
+  const recommended: CarouselItem[] = [
+    ...(quizzes ?? []).map((q) => ({
       itemType: 'quiz' as const,
       id: q.id,
       title: q.title,
@@ -98,7 +101,22 @@ export function StudentHomePage() {
       currency: q.currency ?? 'INR',
       ratingAvg: q.ratingAvg ?? 0,
       ratingCount: q.ratingCount ?? 0,
-    }));
+    })),
+    ...(practiceBuckets?.available ?? []).map((t) => ({
+      itemType: 'practiceTest' as const,
+      id: t.id,
+      title: t.title,
+      category: t.category ?? 'Other',
+      skillLevel: t.skillLevel ?? 'Foundation',
+      price: t.price ?? 0,
+      originalPrice: t.originalPrice ?? null,
+      currency: t.currency ?? 'INR',
+      ratingAvg: t.ratingAvg ?? 0,
+      ratingCount: t.ratingCount ?? 0,
+    })),
+  ]
+    .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
+    .slice(0, 5);
 
   // Continue where you left off — the single most-recently-touched
   // in-progress item across both quizzes and practice tests.
@@ -239,12 +257,13 @@ export function StudentHomePage() {
         )}
       </div>
 
-      {/* Continue Learning — only shown while something is actually in
-          progress (continueItem is null otherwise), so this heading never
-          appears for a student who hasn't started anything yet. */}
+      {/* Continue where you left off — only shown while something is
+          actually in progress (continueItem is null otherwise), so this
+          heading never appears for a student who hasn't started anything
+          yet. */}
       {continueItem && (
         <div className="mb-8 rounded-xl border border-brand-400 bg-brand-500/10 p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue Learning</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue where you left off</h2>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-semibold text-ink">{continueItem.title}</div>
