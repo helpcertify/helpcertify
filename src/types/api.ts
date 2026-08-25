@@ -6,4 +6,7 @@ export interface SafeUser {
   email: string;
   role: Role;
   avatarUrl: string | null;
+  headline: string | null;
+  bio: string | null;
+  website: string | null;
 }

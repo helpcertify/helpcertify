@@ -54,4 +54,7 @@ export const authApi = {
     await reauthenticateWithCredential(user, credential);
     await updatePassword(user, newPassword);
   },
+
+  updateProfile: (payload: { headline?: string | null; bio?: string | null; website?: string | null }) =>
+    callAction<{ success: true }>('auth', 'updateProfile', { ...payload }),
 };

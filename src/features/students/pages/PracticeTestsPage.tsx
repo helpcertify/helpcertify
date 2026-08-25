@@ -11,6 +11,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
+import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -94,7 +95,9 @@ export function PracticeTestsPage() {
             const inCart = inCartSet.has(`practiceTest_${test.id}`);
 
             return (
-              <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-5">
+              <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+                <CourseCoverImage seed={test.id} className="h-32 w-full" />
+                <div className="p-5">
                 <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
                 <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                   <div>{answered} / {test.totalQuestions} answered</div>
@@ -158,6 +161,7 @@ export function PracticeTestsPage() {
                     )}
                   </div>
                 )}
+                </div>
               </div>
             );
           })}

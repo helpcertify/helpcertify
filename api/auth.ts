@@ -127,6 +127,35 @@ async function provisionProfile(req: VercelRequest) {
   return { provisioned: true };
 }
 
+// Generic (headline/bio/website), not institution-specific — matches
+// ProfileModal already dropping the old department/year fields for the
+// same reason: this platform isn't scoped to students at one school.
+const updateProfileSchema = z.object({
+  headline: z.string().trim().max(100).nullable().optional(),
+  bio: z.string().trim().max(1000).nullable().optional(),
+  // Not strict url() validation — low-stakes display-only field, and a
+  // fussy format check here isn't worth rejecting something like
+  // "linkedin.com/in/x" (no scheme) that a browser would still happily
+  // link to once rendered with a fallback https:// prefix.
+  website: z.string().trim().max(300).nullable().optional(),
+});
+
+async function updateProfile(req: VercelRequest, body: unknown) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+
+  const parsed = updateProfileSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  await db.collection('users').doc(uid).update({ ...parsed.data, updatedAt: FieldValue.serverTimestamp() });
+  return { success: true };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -142,6 +171,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'provisionProfile':
         res.status(200).json(await provisionProfile(req));
+        return;
+      case 'updateProfile':
+        res.status(200).json(await updateProfile(req, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

@@ -3,13 +3,14 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { listAvailableQuizzes } from '../api/studentContentApi';
+import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
+import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import type { QuizDoc } from '@/types/models';
 
 export function StudentHomePage() {
@@ -34,9 +35,49 @@ export function StudentHomePage() {
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
+  // "Continue Learning" pulls from both quiz attempts and practice test
+  // progress — this page previously only ever showed quizzes, so a
+  // part-finished practice test never surfaced here at all, only on its own
+  // Practice Tests page.
+  const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
+  const { data: practiceProgressDocs } = useQuery({
+    queryKey: ['student', 'practiceProgress', uid],
+    queryFn: async () => {
+      const snap = await getDocs(query(collection(db, 'practiceProgress'), where('userId', '==', uid)));
+      return snap.docs.map((d) => {
+        const data = d.data();
+        return { testId: data.testId as string, answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [] };
+      });
+    },
+    enabled: !!uid,
+  });
+
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
   const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
+
+  const inProgressQuizzes = (quizzes ?? [])
+    .filter((q) => attemptByQuizId.get(q.id)?.status === 'in_progress')
+    .map((q) => ({ itemType: 'quiz' as const, id: q.id, title: q.title, href: `/quizzes/${q.id}/take`, progress: null as string | null }));
+
+  const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
+  const inProgressPracticeTests = (practiceProgressDocs ?? [])
+    .map((p) => {
+      const test = practiceTestById.get(p.testId);
+      if (!test) return null;
+      const answered = p.answeredQuestionIds.length;
+      if (answered === 0 || answered >= test.totalQuestions) return null; // not started, or already finished this bank
+      return {
+        itemType: 'practiceTest' as const,
+        id: p.testId,
+        title: test.title,
+        href: `/practice-tests/${p.testId}/take`,
+        progress: `${answered}/${test.totalQuestions} answered`,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  const continueItems = [...inProgressQuizzes, ...inProgressPracticeTests];
 
   const addToCartMutation = useMutation({
     mutationFn: (quizId: string) => cartApi.addItem('quiz', quizId),
@@ -49,6 +90,27 @@ export function StudentHomePage() {
 
   return (
     <div>
+      {continueItems.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 text-lg font-bold text-ink">▶ Continue Learning</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {continueItems.map((item) => (
+              <Link
+                key={`${item.itemType}_${item.id}`}
+                to={item.href}
+                className="flex items-center justify-between gap-3 rounded-xl border border-brand-400 bg-brand-500/10 p-4 hover:bg-brand-500/15"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-ink">{item.title}</div>
+                  <div className="text-xs text-ink-faint">{item.progress ?? 'In progress'}</div>
+                </div>
+                <span className="shrink-0 text-sm font-medium text-brand-ink">Resume →</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">📄 Available Quizzes</div>
       {(!quizzes || quizzes.length === 0) && (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
@@ -64,7 +126,9 @@ export function StudentHomePage() {
           const inCart = inCartSet.has(`quiz_${quiz.id}`);
 
           return (
-            <div key={quiz.id} className="rounded-xl border border-surface-border bg-surface-raised p-5">
+            <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+              <CourseCoverImage seed={quiz.id} className="h-32 w-full" />
+              <div className="p-5">
               <h3 className="mb-1 font-bold text-ink">{quiz.title}</h3>
               <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                 <div>{quiz.totalQuestions} questions</div>
@@ -121,6 +185,7 @@ export function StudentHomePage() {
                   Start Quiz
                 </Link>
               )}
+              </div>
             </div>
           );
         })}
