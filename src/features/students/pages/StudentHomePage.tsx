@@ -127,7 +127,7 @@ export function StudentHomePage() {
 
           return (
             <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-              <CourseCoverImage seed={quiz.id} className="h-32 w-full" />
+              <CourseCoverImage id={quiz.id} title={quiz.title} className="h-32 w-full" />
               <div className="p-5">
               <h3 className="mb-1 font-bold text-ink">{quiz.title}</h3>
               <div className="mb-3 space-y-0.5 text-sm text-ink-faint">

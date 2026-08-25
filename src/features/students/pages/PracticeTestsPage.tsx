@@ -96,7 +96,7 @@ export function PracticeTestsPage() {
 
             return (
               <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-                <CourseCoverImage seed={test.id} className="h-32 w-full" />
+                <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
                 <div className="p-5">
                 <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
                 <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
