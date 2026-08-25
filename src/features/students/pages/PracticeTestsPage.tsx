@@ -85,7 +85,7 @@ export function PracticeTestsPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Practice Tests</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Practice Exams</h1>
       <p className="mb-6 text-sm text-ink-faint">Resume where you left off. Each session pulls only unanswered questions.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

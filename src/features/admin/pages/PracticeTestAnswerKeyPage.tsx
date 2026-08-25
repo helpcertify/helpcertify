@@ -25,7 +25,7 @@ export function PracticeTestAnswerKeyPage() {
   return (
     <div>
       <Link to="/admin/practice-tests" className="mb-4 inline-block text-sm text-brand-ink">
-        ← Back to Practice Manager
+        ← Back to Practice Exams
       </Link>
       <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
         <h1 className="text-2xl font-bold text-ink">{practiceTest.title}</h1>

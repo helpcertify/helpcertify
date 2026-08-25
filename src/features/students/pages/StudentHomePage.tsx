@@ -137,7 +137,7 @@ export function StudentHomePage() {
 
       <CourseCarousel title="Recommended for you" items={recommended} />
 
-      <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">📄 Available Quizzes</div>
+      <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">📄 Quiz Library</div>
       {(!quizzes || quizzes.length === 0) && (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
           No quizzes are available right now.

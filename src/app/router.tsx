@@ -24,6 +24,7 @@ import { CartPage } from '@/features/students/pages/CartPage';
 import { CategoriesPage } from '@/features/students/pages/CategoriesPage';
 import { MyPurchasesPage } from '@/features/students/pages/MyPurchasesPage';
 import { WishlistPage } from '@/features/students/pages/WishlistPage';
+import { ProfilePage } from '@/features/students/pages/ProfilePage';
 import { SettingsPage } from '@/features/students/pages/SettingsPage';
 import { CouponsPage } from '@/features/admin/pages/CouponsPage';
 
@@ -50,6 +51,7 @@ export function AppRouter() {
           <Route path="/home/categories" element={<CategoriesPage />} />
           <Route path="/home/purchases" element={<MyPurchasesPage />} />
           <Route path="/home/wishlist" element={<WishlistPage />} />
+          <Route path="/home/profile" element={<ProfilePage />} />
           <Route path="/home/settings" element={<SettingsPage />} />
           <Route path="/home/cart" element={<CartPage />} />
         </Route>

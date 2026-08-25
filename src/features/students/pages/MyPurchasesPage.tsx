@@ -45,13 +45,13 @@ export function MyPurchasesPage() {
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
             <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-              Browse Quizzes
+              Browse Quiz Library
             </Link>
             <Link
               to="/home/practice-tests"
               className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400"
             >
-              Browse Practice Tests
+              Browse Practice Exams
             </Link>
           </div>
         </div>

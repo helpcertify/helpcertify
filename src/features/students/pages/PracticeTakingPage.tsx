@@ -116,7 +116,7 @@ export function PracticeTakingPage() {
             onClick={() => navigate('/home/practice-tests')}
             className="mt-6 w-full rounded-lg bg-brand-gradient py-2.5 font-medium text-surface"
           >
-            Back to Practice Tests
+            Back to Practice Exams
           </button>
         </div>
       </div>

@@ -166,7 +166,7 @@ export function QuizTakingPage() {
             onClick={() => navigate('/home')}
             className="mt-6 w-full rounded-lg bg-brand-gradient py-2.5 font-medium text-surface"
           >
-            Back to Available Quizzes
+            Back to Quiz Library
           </button>
         </div>
       </div>

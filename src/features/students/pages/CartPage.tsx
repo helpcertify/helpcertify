@@ -52,10 +52,10 @@ export function CartPage() {
           <p className="mb-4 text-ink-faint">Your cart is empty.</p>
           <div className="flex justify-center gap-3">
             <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
-              Browse Quizzes
+              Browse Quiz Library
             </Link>
             <Link to="/home/practice-tests" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
-              Browse Practice Tests
+              Browse Practice Exams
             </Link>
           </div>
         </div>

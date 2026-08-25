@@ -75,7 +75,7 @@ export function PracticeTestDetailPage() {
           to="/home/practice-tests"
           className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400"
         >
-          Back to Practice Tests
+          Back to Practice Exams
         </Link>
       </div>
     );
@@ -105,7 +105,7 @@ export function PracticeTestDetailPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
-        ← Back to Practice Tests
+        ← Back to Practice Exams
       </Link>
 
       <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">

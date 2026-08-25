@@ -5,30 +5,29 @@ import clsx from 'clsx';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
-import { ProfileModal } from '@/features/students/components/ProfileModal';
 import { cartApi } from '@/features/students/api/cartApi';
 import { CartIcon } from '@/components/common/icons';
 
 const NAV_ITEMS = [
-  { to: '/home', label: 'Available Quizzes', end: true },
-  { to: '/home/categories', label: 'Categories' },
-  { to: '/home/past-quizzes', label: 'Quiz History' },
-  { to: '/home/practice-tests', label: 'Practice Tests' },
-  { to: '/home/wishlist', label: 'Wishlist' },
+  { to: '/home', label: 'Quiz Library', end: true },
+  { to: '/home/categories', label: 'Exam Categories' },
+  { to: '/home/past-quizzes', label: 'My Attempts' },
+  { to: '/home/practice-tests', label: 'Practice Exams' },
+  { to: '/home/wishlist', label: 'Saved Items' },
   { to: '/home/purchases', label: 'My Purchases' },
 ];
 
 // My Profile and Settings are account-level, not content tabs, so they're
 // pinned on after NAV_ITEMS instead of mixed into it: Settings last, My
-// Profile directly above it. My Profile stays a plain button (it opens a
-// modal, not a route); Settings is a real route so it gets the same
-// active-state NavLink styling as everything else for free.
+// Profile directly above it. Both are real routes now (My Profile used to
+// open a modal — moved to its own page/route on request), so both get the
+// same active-state NavLink styling for free.
 
-// Matches the reference screenshots' "Academic Portal" student shell: a
-// left sidebar (brand, nav, sign out) + a top strip, with My Profile as a
-// modal rather than a route. No department/academic-year badges here — this
-// platform isn't limited to students at an institution, so profile fields
-// stay generic (name, email, avatar) rather than campus-specific.
+// Matches the reference screenshots' "Learning Portal" student shell: a
+// left sidebar (brand, nav, sign out) + a top strip. No department/
+// academic-year badges here — this platform isn't limited to students at
+// an institution, so profile fields stay generic (name, email, avatar)
+// rather than campus-specific.
 //
 // The fixed-width sidebar only renders from lg: up — on a real phone
 // (confirmed live, ~360-400px wide) a 256px-wide sidebar squeezed the actual
@@ -37,7 +36,6 @@ const NAV_ITEMS = [
 export function StudentShell() {
   const profile = useAuthStore((s) => s.profile);
   const navigate = useNavigate();
-  const [showProfile, setShowProfile] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // staleTime keeps this from refetching on every focus/route-change — the
   // count only actually changes from an add/remove/checkout, and those
@@ -50,8 +48,11 @@ export function StudentShell() {
     navigate('/login');
   };
 
+  // text-ink (not text-ink-muted) for the inactive state — real user
+  // feedback that nav tab labels needed to read as solidly dark, not a
+  // secondary/muted gray, to stay clearly visible.
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    clsx('rounded-lg px-3 py-2 text-sm', isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5');
+    clsx('rounded-lg px-3 py-2 text-sm', isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink hover:bg-white/5');
 
   const navLinks = (onNavigate: () => void) => (
     <>
@@ -60,16 +61,9 @@ export function StudentShell() {
           {item.label}
         </NavLink>
       ))}
-      <button
-        type="button"
-        onClick={() => {
-          setShowProfile(true);
-          onNavigate();
-        }}
-        className="rounded-lg px-3 py-2 text-left text-sm text-ink-muted hover:bg-white/5"
-      >
+      <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>
         My Profile
-      </button>
+      </NavLink>
       <NavLink to="/home/settings" onClick={onNavigate} className={navLinkClass}>
         Settings
       </NavLink>
@@ -88,12 +82,12 @@ export function StudentShell() {
           fits, so Sign Out never gets crowded off-screen either. */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
         <Logo size="sm" />
-        <span className="mt-1 text-xs uppercase tracking-wide text-ink-faint">Academic Portal</span>
+        <span className="mt-1 text-xs uppercase tracking-wide text-ink-faint">Learning Portal</span>
         <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
         <button
           type="button"
           onClick={handleSignOut}
-          className="mt-auto shrink-0 rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
+          className="mt-auto shrink-0 rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
         >
           Sign Out
         </button>
@@ -118,7 +112,7 @@ export function StudentShell() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
+              className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
             >
               Sign Out
             </button>
@@ -152,8 +146,6 @@ export function StudentShell() {
           <Outlet />
         </main>
       </div>
-
-      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
     </div>
   );
 }

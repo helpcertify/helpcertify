@@ -67,7 +67,7 @@ export function QuizDetailPage() {
       <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
         <p className="mb-4 text-ink-faint">This quiz doesn't exist or is no longer available.</p>
         <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-          Back to Available Quizzes
+          Back to Quiz Library
         </Link>
       </div>
     );
@@ -83,7 +83,7 @@ export function QuizDetailPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <Link to="/home" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
-        ← Back to Available Quizzes
+        ← Back to Quiz Library
       </Link>
 
       <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">

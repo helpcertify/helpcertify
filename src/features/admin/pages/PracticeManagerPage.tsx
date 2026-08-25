@@ -37,7 +37,7 @@ export function PracticeManagerPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Practice Manager</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Practice Exams</h1>
       <p className="mb-6 text-sm text-ink-faint">Configure batch-based practice sessions with resume and reattempt workflows.</p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
@@ -61,7 +61,7 @@ export function PracticeManagerPage() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your Practice Tests</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your Practice Exams</h2>
           <div className="space-y-3">
             {tests.length === 0 && (
               <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-ink-faint">

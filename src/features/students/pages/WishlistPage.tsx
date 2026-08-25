@@ -32,7 +32,7 @@ export function WishlistPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Wishlist</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Saved Items</h1>
       <p className="mb-6 text-sm text-ink-faint">Saved for later. Buy whenever you're ready.</p>
 
       {items.length === 0 ? (
@@ -40,13 +40,13 @@ export function WishlistPage() {
           <p className="mb-4 text-ink-faint">Nothing saved yet. Tap the heart on any quiz or practice test to save it here.</p>
           <div className="flex justify-center gap-3">
             <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-              Browse Quizzes
+              Browse Quiz Library
             </Link>
             <Link
               to="/home/practice-tests"
               className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400"
             >
-              Browse Practice Tests
+              Browse Practice Exams
             </Link>
           </div>
         </div>

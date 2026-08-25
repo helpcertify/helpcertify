@@ -6,17 +6,17 @@ import { Logo } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
-  { to: '/admin', label: 'Dashboard', end: true },
-  { to: '/admin/quizzes', label: 'Exam Quizzes' },
-  { to: '/admin/practice-tests', label: 'Practice Tests' },
-  { to: '/admin/performance', label: 'Performance' },
-  { to: '/admin/coupons', label: 'Coupons' },
+  { to: '/admin', label: 'Overview', end: true },
+  { to: '/admin/quizzes', label: 'Question Bank' },
+  { to: '/admin/practice-tests', label: 'Practice Exams' },
+  { to: '/admin/performance', label: 'Learner Analytics' },
+  { to: '/admin/coupons', label: 'Promo Codes' },
 ];
 
 // The nav links were `hidden sm:flex` with no mobile fallback at all —
 // confirmed live: below that breakpoint they just vanished, leaving no way
-// to reach Exam Quizzes/Practice Tests/Performance on a phone. A hamburger
-// toggle now takes their place below sm:.
+// to reach Question Bank/Practice Exams/Learner Analytics on a phone. A
+// hamburger toggle now takes their place below sm:.
 export function AdminShell() {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -41,7 +41,7 @@ export function AdminShell() {
                   className={({ isActive }) =>
                     clsx(
                       'rounded-lg px-3 py-1.5 text-sm',
-                      isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5'
+                      isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink hover:bg-white/5'
                     )
                   }
                 >
@@ -55,7 +55,7 @@ export function AdminShell() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400 sm:block"
+              className="hidden rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink hover:border-red-500/50 hover:text-red-400 sm:block"
             >
               Sign Out
             </button>
@@ -80,7 +80,7 @@ export function AdminShell() {
                 className={({ isActive }) =>
                   clsx(
                     'rounded-lg px-3 py-2 text-sm',
-                    isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5'
+                    isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink hover:bg-white/5'
                   )
                 }
               >
@@ -92,7 +92,7 @@ export function AdminShell() {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex-1 rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
+                className="flex-1 rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
               >
                 Sign Out
               </button>

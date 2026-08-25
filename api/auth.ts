@@ -128,7 +128,7 @@ async function provisionProfile(req: VercelRequest) {
 }
 
 // Generic (headline/bio/website), not institution-specific — matches
-// ProfileModal already dropping the old department/year fields for the
+// ProfilePage already dropping the old department/year fields for the
 // same reason: this platform isn't scoped to students at one school.
 const updateProfileSchema = z.object({
   headline: z.string().trim().max(100).nullable().optional(),

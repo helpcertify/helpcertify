@@ -66,7 +66,7 @@ export function CategoriesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Categories</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Exam Categories</h1>
       <p className="mb-6 text-sm text-ink-faint">Browse quizzes and practice tests by certification body.</p>
 
       <input
