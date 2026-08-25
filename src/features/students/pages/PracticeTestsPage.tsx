@@ -110,35 +110,34 @@ export function PracticeTestsPage() {
             return (
               <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
                 <Link to={`/home/practice-tests/${test.id}`}>
-                  <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
+                  <CourseCoverImage id={test.id} title={test.title} className="h-20 w-full" />
                 </Link>
                 {/* Heart lives on the plain card body (variant="inline"), not
                     over the cover banner — see StudentHomePage.tsx's card. */}
-                <div className="relative p-5">
-                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-3 top-3" />}
-                <div className="mb-1 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
+                <div className="relative p-3.5">
+                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />}
+                <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
                   <span>{test.category ?? 'Other'}</span>
                   <span>·</span>
                   <span>{test.skillLevel ?? 'Foundation'}</span>
                 </div>
                 <Link to={`/home/practice-tests/${test.id}`} className="hover:text-brand-ink">
-                  <h3 className="mb-1 pr-8 font-bold text-ink">{test.title}</h3>
+                  <h3 className="mb-0.5 pr-8 text-sm font-bold text-ink">{test.title}</h3>
                 </Link>
                 {(test.ratingCount ?? 0) > 0 && (
-                  <div className="mb-2 flex items-center gap-1.5">
+                  <div className="mb-1 flex items-center gap-1.5">
                     <StarRating value={test.ratingAvg ?? 0} size="sm" />
                     <span className="text-xs text-ink-faint">
                       {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount})
                     </span>
                   </div>
                 )}
-                <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
-                  <div>{answered} / {test.totalQuestions} answered</div>
-                  <div>{test.durationPerSessionMinutes} min/session</div>
+                <div className="mb-2 text-xs text-ink-faint">
+                  {answered} / {test.totalQuestions} answered · {test.durationPerSessionMinutes} min/session
                 </div>
 
                 {price > 0 && (
-                  <div className="mb-3 flex items-center gap-2">
+                  <div className="mb-2 flex items-center gap-2">
                     {test.originalPrice && test.originalPrice > price && (
                       <span className="text-xs text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
                     )}
@@ -150,7 +149,7 @@ export function PracticeTestsPage() {
                   inCart ? (
                     <Link
                       to="/home/cart"
-                      className="block rounded-lg border border-blue-500/50 py-2 text-center text-sm font-medium text-blue-300"
+                      className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-300"
                     >
                       ✓ In Cart · View Cart
                     </Link>
@@ -160,7 +159,7 @@ export function PracticeTestsPage() {
                         type="button"
                         disabled={addToCartMutation.isPending || paying}
                         onClick={() => addToCartMutation.mutate(test.id)}
-                        className="flex-1 rounded-lg border border-surface-border py-2 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                        className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
                       >
                         Add to Cart
                       </button>
@@ -168,19 +167,19 @@ export function PracticeTestsPage() {
                         type="button"
                         disabled={paying}
                         onClick={() => setBuyNowTest(test)}
-                        className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                        className="flex-1 rounded-lg bg-blue-600 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                       >
                         {paying ? 'Opening…' : 'Buy Now'}
                       </button>
                     </div>
                   )
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <div className="flex gap-2">
                       {!done && (
                         <Link
                           to={`/practice-tests/${test.id}/take`}
-                          className="flex-1 rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface"
+                          className="flex-1 rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface"
                         >
                           {answered > 0 ? 'Resume' : 'Start'}
                         </Link>
@@ -188,7 +187,7 @@ export function PracticeTestsPage() {
                       {answered > 0 && (
                         <Link
                           to={`/practice-tests/${test.id}/take?reattempt=1`}
-                          className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-ink-muted"
+                          className="flex-1 rounded-lg border border-surface-border py-1.5 text-center text-sm text-ink-muted"
                         >
                           Reattempt
                         </Link>
@@ -208,7 +207,7 @@ export function PracticeTestsPage() {
                             certificateCode: test.id.slice(0, 8).toUpperCase(),
                           })
                         }
-                        className="rounded-lg border border-brand-400 py-2 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
+                        className="rounded-lg border border-brand-400 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
                       >
                         🎓 Download Certificate
                       </button>

@@ -130,37 +130,36 @@ export function StudentHomePage() {
           return (
             <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
               <Link to={`/home/quizzes/${quiz.id}`}>
-                <CourseCoverImage id={quiz.id} title={quiz.title} className="h-32 w-full" />
+                <CourseCoverImage id={quiz.id} title={quiz.title} className="h-20 w-full" />
               </Link>
               {/* Card body sits on the plain surface-raised background, unlike
                   the colorful cover banner above — the heart lives here now
                   (variant="inline") since it was unreadable against some of
                   the banner's brighter gradient pairs. */}
-              <div className="relative p-5">
-                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-3 top-3" />}
-              <div className="mb-1 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
+              <div className="relative p-3.5">
+                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-2.5 top-2.5" />}
+              <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
                 <span>{quiz.category ?? 'Other'}</span>
                 <span>·</span>
                 <span>{quiz.skillLevel ?? 'Foundation'}</span>
               </div>
               <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">
-                <h3 className="mb-1 pr-8 font-bold text-ink">{quiz.title}</h3>
+                <h3 className="mb-0.5 pr-8 text-sm font-bold text-ink">{quiz.title}</h3>
               </Link>
               {(quiz.ratingCount ?? 0) > 0 && (
-                <div className="mb-2 flex items-center gap-1.5">
+                <div className="mb-1 flex items-center gap-1.5">
                   <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
                   <span className="text-xs text-ink-faint">
                     {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount})
                   </span>
                 </div>
               )}
-              <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
-                <div>{quiz.totalQuestions} questions</div>
-                <div>{quiz.durationMinutes} min</div>
+              <div className="mb-2 text-xs text-ink-faint">
+                {quiz.totalQuestions} questions · {quiz.durationMinutes} min
               </div>
 
               {price > 0 && (
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-2 flex items-center gap-2">
                   {quiz.originalPrice && quiz.originalPrice > price && (
                     <span className="text-xs text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
                   )}
@@ -172,7 +171,7 @@ export function StudentHomePage() {
                 inCart ? (
                   <Link
                     to="/home/cart"
-                    className="block rounded-lg border border-blue-500/50 py-2 text-center text-sm font-medium text-blue-300"
+                    className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-300"
                   >
                     ✓ In Cart · View Cart
                   </Link>
@@ -182,7 +181,7 @@ export function StudentHomePage() {
                       type="button"
                       disabled={addToCartMutation.isPending || paying}
                       onClick={() => addToCartMutation.mutate(quiz.id)}
-                      className="flex-1 rounded-lg border border-surface-border py-2 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                      className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
                     >
                       Add to Cart
                     </button>
@@ -190,7 +189,7 @@ export function StudentHomePage() {
                       type="button"
                       disabled={paying}
                       onClick={() => setBuyNowQuiz(quiz)}
-                      className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                      className="flex-1 rounded-lg bg-blue-600 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                     >
                       {paying ? 'Opening…' : 'Buy Now'}
                     </button>
@@ -199,13 +198,13 @@ export function StudentHomePage() {
               ) : notYetOpen ? (
                 <span className="text-sm text-ink-faint">Opens {new Date(quiz.scheduledStart!.toMillis()).toLocaleString()}</span>
               ) : attempt?.status === 'in_progress' ? (
-                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface">
+                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
                   Resume
                 </Link>
               ) : attempt ? (
-                <span className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-ink-faint">Already attempted</span>
+                <span className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-ink-faint">Already attempted</span>
               ) : (
-                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface">
+                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
                   Start Quiz
                 </Link>
               )}
