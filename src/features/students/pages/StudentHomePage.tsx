@@ -232,7 +232,7 @@ export function StudentHomePage() {
         {continueItem && (
           <Link
             to={continueItem.href}
-            className="inline-block rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-400"
+            className="inline-block rounded-lg bg-[#1D4ED8] px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
           >
             Continue Practice
           </Link>
@@ -380,7 +380,7 @@ export function StudentHomePage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-brand-ink hover:underline">
+                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#1D4ED8] hover:underline">
                           Review
                         </Link>
                       </td>
