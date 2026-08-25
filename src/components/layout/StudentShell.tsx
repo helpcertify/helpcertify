@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/home/categories', label: 'Categories' },
   { to: '/home/past-quizzes', label: 'Quiz History' },
   { to: '/home/practice-tests', label: 'Practice Tests' },
+  { to: '/home/wishlist', label: 'Wishlist' },
   { to: '/home/purchases', label: 'My Purchases' },
 ];
 

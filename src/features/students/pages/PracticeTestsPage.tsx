@@ -13,6 +13,7 @@ import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
+import { WishlistButton } from '@/components/common/WishlistButton';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -97,9 +98,12 @@ export function PracticeTestsPage() {
 
             return (
               <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-                <Link to={`/home/practice-tests/${test.id}`}>
-                  <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
-                </Link>
+                <div className="relative">
+                  <Link to={`/home/practice-tests/${test.id}`}>
+                    <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
+                  </Link>
+                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} className="absolute right-2 top-2" />}
+                </div>
                 <div className="p-5">
                 <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{test.category ?? 'Other'}</div>
                 <Link to={`/home/practice-tests/${test.id}`} className="hover:text-brand-ink">

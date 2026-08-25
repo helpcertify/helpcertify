@@ -14,6 +14,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
+import { WishlistButton } from '@/components/common/WishlistButton';
 
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -134,11 +135,14 @@ export function PracticeTestDetailPage() {
 
           <div className="rounded-xl border border-surface-border bg-surface p-5">
             {price > 0 && (
-              <div className="mb-4 flex items-center gap-2">
-                {test.originalPrice && test.originalPrice > price && (
-                  <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
-                )}
-                <span className="text-xl font-bold text-ink">{formatMoney(price, test.currency)}</span>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {test.originalPrice && test.originalPrice > price && (
+                    <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
+                  )}
+                  <span className="text-xl font-bold text-ink">{formatMoney(price, test.currency)}</span>
+                </div>
+                {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" />}
               </div>
             )}
 

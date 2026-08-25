@@ -99,3 +99,17 @@ export function StarIcon({ filled = true, className = 'h-4 w-4', style }: IconPr
     </svg>
   );
 }
+
+// Used by WishlistButton — filled (solid) once saved, outline otherwise.
+export function HeartIcon({ filled = true, className = 'h-4 w-4' }: IconProps & { filled?: boolean }) {
+  const path = 'M12 21s-7.5-4.6-10.2-9.1C.2 9 1 5.7 3.9 4.5c2.1-.9 4.4-.2 5.8 1.6L12 8.4l2.3-2.3c1.4-1.8 3.7-2.5 5.8-1.6 2.9 1.2 3.7 4.5 2.1 7.4C19.5 16.4 12 21 12 21z';
+  return filled ? (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d={path} />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d={path} />
+    </svg>
+  );
+}

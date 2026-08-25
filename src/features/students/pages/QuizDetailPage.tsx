@@ -13,6 +13,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
+import { WishlistButton } from '@/components/common/WishlistButton';
 
 // The "course landing page" a student sees before (or after) buying a quiz,
 // reached by clicking a card on StudentHomePage/CategoriesPage/
@@ -112,11 +113,14 @@ export function QuizDetailPage() {
 
           <div className="rounded-xl border border-surface-border bg-surface p-5">
             {price > 0 && (
-              <div className="mb-4 flex items-center gap-2">
-                {quiz.originalPrice && quiz.originalPrice > price && (
-                  <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
-                )}
-                <span className="text-xl font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {quiz.originalPrice && quiz.originalPrice > price && (
+                    <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
+                  )}
+                  <span className="text-xl font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
+                </div>
+                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" />}
               </div>
             )}
 

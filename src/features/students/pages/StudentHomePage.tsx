@@ -12,6 +12,7 @@ import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
+import { WishlistButton } from '@/components/common/WishlistButton';
 import type { QuizDoc } from '@/types/models';
 
 export function StudentHomePage() {
@@ -128,9 +129,12 @@ export function StudentHomePage() {
 
           return (
             <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-              <Link to={`/home/quizzes/${quiz.id}`}>
-                <CourseCoverImage id={quiz.id} title={quiz.title} className="h-32 w-full" />
-              </Link>
+              <div className="relative">
+                <Link to={`/home/quizzes/${quiz.id}`}>
+                  <CourseCoverImage id={quiz.id} title={quiz.title} className="h-32 w-full" />
+                </Link>
+                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} className="absolute right-2 top-2" />}
+              </div>
               <div className="p-5">
               <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{quiz.category ?? 'Other'}</div>
               <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">

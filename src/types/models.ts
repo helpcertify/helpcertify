@@ -174,6 +174,21 @@ export interface CartDoc {
   updatedAt: Timestamp;
 }
 
+/** wishlists/{uid} — one wishlist per student, same shape/reasoning as
+ * CartDoc (never stores price/title, always re-read live) but with no
+ * single-currency constraint since a wishlist is never checked out
+ * directly — items move to the cart or straight to Buy Now from here. */
+export interface WishlistItemEntry {
+  itemType: PurchasableItemType;
+  itemId: string;
+  addedAt: Timestamp;
+}
+export interface WishlistDoc {
+  userId: string;
+  items: WishlistItemEntry[];
+  updatedAt: Timestamp;
+}
+
 /** coupons/{CODE} — doc id is the uppercased code itself, for an O(1) lookup
  * instead of a query. Admin-managed. */
 export interface CouponDoc {
