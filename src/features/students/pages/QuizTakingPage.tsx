@@ -249,6 +249,7 @@ export function QuizTakingPage() {
                     >
                       <span>{opt.text}</span>
                       {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓ Correct answer</span>}
+                      {isWrongPick && <span className="shrink-0 text-xs font-semibold">✗ Incorrect</span>}
                     </button>
                   );
                 })}
