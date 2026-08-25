@@ -60,7 +60,7 @@ export function PastQuizzesPage() {
                       <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-700 dark:text-emerald-400">Status: Attended</span>
                       <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-ink">Score: {a.marks}</span>
                       {passed && (
-                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700 dark:text-amber-400">🎓 Passed</span>
+                        <span className="rounded-full bg-[#f09907]/15 px-2 py-0.5 text-[#f09907]">🎓 Passed</span>
                       )}
                     </div>
                   </div>

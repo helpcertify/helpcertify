@@ -124,8 +124,18 @@ export function StudentShell() {
               onChange={(e) => setSearchValue(e.target.value)}
               placeholder="Search certifications, exams and topics"
               aria-label="Search certifications, exams and topics"
-              className="input-dark w-full rounded-full pl-9"
+              className="input-dark w-full rounded-full pl-9 pr-9"
             />
+            {searchValue && (
+              <button
+                type="button"
+                onClick={() => setSearchValue('')}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </form>
 
@@ -136,10 +146,16 @@ export function StudentShell() {
           <Link to="/home/wishlist" aria-label="Saved items" className="text-ink-muted hover:text-ink">
             <HeartIcon filled={false} className="h-5 w-5" />
           </Link>
-          <Link to="/home/cart" aria-label="Cart" className="relative text-ink-muted hover:text-ink">
-            <CartIcon className="h-5 w-5" />
+          {/* Encircled in blue on request, rather than a bare icon like the
+              other header buttons. */}
+          <Link
+            to="/home/cart"
+            aria-label="Cart"
+            className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/10"
+          >
+            <CartIcon className="h-4 w-4" />
             {cartCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#F59E0B] text-[10px] font-semibold text-white ring-2 ring-surface">
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#f09907] text-[10px] font-semibold text-white ring-2 ring-surface">
                 {cartCount}
               </span>
             )}

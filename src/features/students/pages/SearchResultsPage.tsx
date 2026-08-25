@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
@@ -17,6 +17,12 @@ export function SearchResultsPage() {
   const initialQuery = searchParams.get('q') ?? '';
   const [inputValue, setInputValue] = useState(initialQuery);
 
+  // Re-syncs the input if the URL's ?q= changes from outside this page (the
+  // header's own search field submits a fresh query while this page is
+  // already mounted, which updates the URL without remounting the
+  // component, so useState's initial value alone would go stale).
+  useEffect(() => setInputValue(initialQuery), [initialQuery]);
+
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
   const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
 
@@ -32,15 +38,38 @@ export function SearchResultsPage() {
 
   return (
     <div>
+      {/* This page is only ever reached by submitting the header's search
+          field, which has no natural "back" affordance of its own. Goes to
+          a fixed route (Learning Portal) rather than history back — a
+          direct link to /home/search (no prior in-app page) would otherwise
+          have nowhere to go back to. */}
+      <Link to="/home" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
+        ← Back to Learning Portal
+      </Link>
       <h1 className="mb-1 text-2xl font-bold text-ink">Search</h1>
       <form onSubmit={handleSubmit} className="mb-6 flex gap-2">
-        <input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Search certifications, exams and topics"
-          className="input-dark flex-1"
-          autoFocus
-        />
+        <div className="relative flex-1">
+          <input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Search certifications, exams and topics"
+            className="input-dark w-full pr-9"
+            autoFocus
+          />
+          {inputValue && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputValue('');
+                setSearchParams({});
+              }}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink"
+            >
+              ✕
+            </button>
+          )}
+        </div>
         <button type="submit" className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
           Search
         </button>

@@ -151,7 +151,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         <button
           type="button"
           onClick={() => downloadTemplate(sourceFormat)}
-          className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-brand-400"
+          className="rounded-lg border border-[#1D4ED8] px-3 py-1.5 text-sm text-[#1D4ED8] hover:opacity-80"
         >
           ↓ Template
         </button>

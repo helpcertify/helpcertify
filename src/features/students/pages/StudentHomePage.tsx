@@ -81,7 +81,7 @@ export function StudentHomePage() {
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
 
   // Recommended for you — ranked by rating (falls back to catalog order
-  // when nothing has a rating yet), capped to 5 on request. Pulls from both
+  // when nothing has a rating yet), capped to 10 on request. Pulls from both
   // quizzes (Mock Exams) and practice tests: an earlier version only looked
   // at quizzes, which silently hid this whole section for a student whose
   // platform mostly has published practice tests rather than quizzes (the
@@ -116,7 +116,7 @@ export function StudentHomePage() {
     })),
   ]
     .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
-    .slice(0, 5);
+    .slice(0, 10);
 
   // Continue where you left off — the single most-recently-touched
   // in-progress item across both quizzes and practice tests.
@@ -309,6 +309,10 @@ export function StudentHomePage() {
         </div>
       )}
 
+      {/* Recommended for you — placed right below My Exams on request,
+          instead of at the very bottom of the page. */}
+      <CourseCarousel title="Recommended for you" items={recommended} compactActions />
+
       {/* Performance summary */}
       {attempts.length > 0 && (
         <div className="mb-8">
@@ -332,7 +336,7 @@ export function StudentHomePage() {
           <p className="mb-3 text-sm text-ink">{nextStepMessage}</p>
           <Link
             to="/home/practice-tests"
-            className="inline-block rounded-lg bg-[#F59E0B] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="inline-block rounded-lg bg-[#f09907] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Keep Practicing
           </Link>
@@ -394,14 +398,14 @@ export function StudentHomePage() {
                           className={
                             passed
                               ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-400'
-                              : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400'
+                              : 'rounded-full bg-[#f09907]/15 px-2 py-0.5 text-xs text-[#f09907]'
                           }
                         >
                           {passed ? 'Passed' : 'Needs improvement'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#F59E0B] hover:underline">
+                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#f09907] hover:underline">
                           Review
                         </Link>
                       </td>
@@ -413,8 +417,6 @@ export function StudentHomePage() {
           </div>
         </div>
       )}
-
-      <CourseCarousel title="Recommended for you" items={recommended} compactActions />
     </div>
   );
 }
