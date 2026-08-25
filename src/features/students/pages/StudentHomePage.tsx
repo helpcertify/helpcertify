@@ -81,12 +81,12 @@ export function StudentHomePage() {
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
 
   // Recommended for you — ranked by rating (falls back to catalog order
-  // when nothing has a rating yet), capped to 10. Not personalized in any
-  // real sense (no click/purchase history feeds this), same honest
+  // when nothing has a rating yet), capped to 5 on request. Not personalized
+  // in any real sense (no click/purchase history feeds this), same honest
   // "best of the catalog" signal used everywhere else ratings show up.
   const recommended: CarouselItem[] = [...(quizzes ?? [])]
     .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
-    .slice(0, 10)
+    .slice(0, 5)
     .map((q) => ({
       itemType: 'quiz' as const,
       id: q.id,
@@ -239,10 +239,12 @@ export function StudentHomePage() {
         )}
       </div>
 
-      {/* Continue where you left off */}
+      {/* Continue Learning — only shown while something is actually in
+          progress (continueItem is null otherwise), so this heading never
+          appears for a student who hasn't started anything yet. */}
       {continueItem && (
         <div className="mb-8 rounded-xl border border-brand-400 bg-brand-500/10 p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue where you left off</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue Learning</h2>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-semibold text-ink">{continueItem.title}</div>
