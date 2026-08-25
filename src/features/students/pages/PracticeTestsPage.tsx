@@ -12,6 +12,7 @@ import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { StarRating } from '@/components/common/StarRating';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -104,6 +105,14 @@ export function PracticeTestsPage() {
                 <Link to={`/home/practice-tests/${test.id}`} className="hover:text-brand-ink">
                   <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
                 </Link>
+                {(test.ratingCount ?? 0) > 0 && (
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <StarRating value={test.ratingAvg ?? 0} size="sm" />
+                    <span className="text-xs text-ink-faint">
+                      {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount})
+                    </span>
+                  </div>
+                )}
                 <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                   <div>{answered} / {test.totalQuestions} answered</div>
                   <div>{test.durationPerSessionMinutes} min/session</div>

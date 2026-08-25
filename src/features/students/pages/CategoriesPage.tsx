@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { formatMoney } from '@/utils/currency';
+import { StarRating } from '@/components/common/StarRating';
 import type { PurchasableItemType } from '@/types/models';
 
 interface CatalogItem {
@@ -12,6 +13,8 @@ interface CatalogItem {
   category: string;
   price: number;
   currency: 'INR' | 'USD';
+  ratingAvg: number;
+  ratingCount: number;
 }
 
 export function CategoriesPage() {
@@ -26,6 +29,8 @@ export function CategoriesPage() {
       category: q.category ?? 'Other',
       price: q.price ?? 0,
       currency: q.currency ?? 'INR',
+      ratingAvg: q.ratingAvg ?? 0,
+      ratingCount: q.ratingCount ?? 0,
     })),
     ...(practiceBuckets?.available ?? []).map((t) => ({
       itemType: 'practiceTest' as const,
@@ -34,6 +39,8 @@ export function CategoriesPage() {
       category: t.category ?? 'Other',
       price: t.price ?? 0,
       currency: t.currency ?? 'INR',
+      ratingAvg: t.ratingAvg ?? 0,
+      ratingCount: t.ratingCount ?? 0,
     })),
   ];
 
@@ -90,6 +97,14 @@ export function CategoriesPage() {
                   {item.category} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
                 </div>
                 <div className="font-medium text-ink">{item.title}</div>
+                {item.ratingCount > 0 && (
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <StarRating value={item.ratingAvg} size="sm" />
+                    <span className="text-xs text-ink-faint">
+                      {item.ratingAvg.toFixed(1)} ({item.ratingCount})
+                    </span>
+                  </div>
+                )}
                 <div className="mt-2 text-sm text-ink-faint">{item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}</div>
               </Link>
             ))}

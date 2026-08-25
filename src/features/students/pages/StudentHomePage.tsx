@@ -11,6 +11,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { StarRating } from '@/components/common/StarRating';
 import type { QuizDoc } from '@/types/models';
 
 export function StudentHomePage() {
@@ -135,6 +136,14 @@ export function StudentHomePage() {
               <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">
                 <h3 className="mb-1 font-bold text-ink">{quiz.title}</h3>
               </Link>
+              {(quiz.ratingCount ?? 0) > 0 && (
+                <div className="mb-2 flex items-center gap-1.5">
+                  <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
+                  <span className="text-xs text-ink-faint">
+                    {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount})
+                  </span>
+                </div>
+              )}
               <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                 <div>{quiz.totalQuestions} questions</div>
                 <div>{quiz.durationMinutes} min</div>

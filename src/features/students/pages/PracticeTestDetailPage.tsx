@@ -12,6 +12,8 @@ import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { StarRating } from '@/components/common/StarRating';
+import { ReviewsSection } from '@/components/common/ReviewsSection';
 
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -107,7 +109,16 @@ export function PracticeTestDetailPage() {
         <CourseCoverImage id={test.id} title={test.title} className="h-56 w-full" />
         <div className="p-6">
           <div className="mb-2 text-xs uppercase tracking-wide text-ink-faint">{test.category ?? 'Other'}</div>
-          <h1 className="mb-3 text-2xl font-bold text-ink">{test.title}</h1>
+          <h1 className="mb-2 text-2xl font-bold text-ink">{test.title}</h1>
+
+          {(test.ratingCount ?? 0) > 0 && (
+            <div className="mb-3 flex items-center gap-2">
+              <StarRating value={test.ratingAvg ?? 0} size="sm" />
+              <span className="text-sm text-ink-faint">
+                {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount} review{test.ratingCount === 1 ? '' : 's'})
+              </span>
+            </div>
+          )}
 
           <div className="mb-5 flex flex-wrap gap-4 text-sm text-ink-faint">
             <span>📄 {test.totalQuestions} questions</span>
@@ -185,6 +196,8 @@ export function PracticeTestDetailPage() {
               </div>
             )}
           </div>
+
+          <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
         </div>
       </div>
 

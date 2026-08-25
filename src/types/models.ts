@@ -114,6 +114,13 @@ export interface QuizDoc {
   // (QuizDetailPage) — defaults to '' on docs that predate this field, in
   // which case the detail page just omits the About section.
   description: string;
+  // Denormalized rating aggregate, recomputed transactionally by
+  // api/reviews.ts on every submit/edit/delete so listing pages can show a
+  // star badge without reading the reviews subcollection. 0/0 on docs that
+  // predate this field (same as a doc with no reviews yet) — render code
+  // should treat ratingCount === 0 as "no badge to show", not "0 stars".
+  ratingAvg: number;
+  ratingCount: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -137,6 +144,9 @@ export interface PracticeTestDoc {
   category: CertificationCategory;
   // See QuizDoc's description comment — same convention.
   description: string;
+  // See QuizDoc's ratingAvg/ratingCount comment — same convention.
+  ratingAvg: number;
+  ratingCount: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -218,6 +228,25 @@ export interface PurchaseDoc {
   itemId: string;
   orderId: string;
   purchasedAt: Timestamp;
+}
+
+/** reviews/{uid}_{itemType}_{itemId} — one student's rating/review of one
+ * item. Composite doc id (same convention as PurchaseDoc/PracticeProgressDoc)
+ * makes "does this user already have a review for this item" an O(1)
+ * doc-get, and a resubmission is a plain overwrite (one review per user per
+ * item, edit-in-place rather than a growing history). itemId alone is
+ * globally unique across quizzes/practiceTests (independent Firestore
+ * auto-ids), so api/reviews.ts queries only filter by itemId, not itemType
+ * too — kept here on the doc anyway for display/debugging. */
+export interface ReviewDoc {
+  userId: string;
+  userName: string;
+  itemType: PurchasableItemType;
+  itemId: string;
+  rating: number; // integer 1-5
+  comment: string; // may be ''
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export type AttemptStatus = 'in_progress' | 'submitted' | 'auto_submitted' | 'expired';

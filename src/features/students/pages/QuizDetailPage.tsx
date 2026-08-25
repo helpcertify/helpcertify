@@ -11,6 +11,8 @@ import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { StarRating } from '@/components/common/StarRating';
+import { ReviewsSection } from '@/components/common/ReviewsSection';
 
 // The "course landing page" a student sees before (or after) buying a quiz,
 // reached by clicking a card on StudentHomePage/CategoriesPage/
@@ -85,7 +87,16 @@ export function QuizDetailPage() {
         <CourseCoverImage id={quiz.id} title={quiz.title} className="h-56 w-full" />
         <div className="p-6">
           <div className="mb-2 text-xs uppercase tracking-wide text-ink-faint">{quiz.category ?? 'Other'}</div>
-          <h1 className="mb-3 text-2xl font-bold text-ink">{quiz.title}</h1>
+          <h1 className="mb-2 text-2xl font-bold text-ink">{quiz.title}</h1>
+
+          {(quiz.ratingCount ?? 0) > 0 && (
+            <div className="mb-3 flex items-center gap-2">
+              <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
+              <span className="text-sm text-ink-faint">
+                {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount} review{quiz.ratingCount === 1 ? '' : 's'})
+              </span>
+            </div>
+          )}
 
           <div className="mb-5 flex flex-wrap gap-4 text-sm text-ink-faint">
             <span>📄 {quiz.totalQuestions} questions</span>
@@ -159,6 +170,8 @@ export function QuizDetailPage() {
               </Link>
             )}
           </div>
+
+          <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
         </div>
       </div>
 

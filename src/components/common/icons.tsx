@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 // Small hand-rolled line icons (24x24 viewBox, stroke-based, inherit
 // currentColor for both fill and stroke) used where an emoji glyph proved
 // unreliable across platforms/fonts — see the cart icon fix in
@@ -65,6 +67,35 @@ export function MoonIcon({ className = 'h-5 w-5' }: IconProps) {
       aria-hidden="true"
     >
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
+// Used by StarRating (ratings & reviews) in both a filled (solid gold) and
+// outline (unfilled/muted) variant — see StarRating.tsx for how the two are
+// composed into an average-rating badge and a click-to-pick star selector.
+// Takes an explicit `style` too, unlike the icons above, since StarRating
+// needs a size that varies by its own `size` prop rather than a fixed
+// Tailwind class (a fully-interpolated class string wouldn't be picked up
+// by Tailwind's static build-time scan).
+export function StarIcon({ filled = true, className = 'h-4 w-4', style }: IconProps & { filled?: boolean; style?: CSSProperties }) {
+  const path = 'M12 2.5l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.7l7.1-.6z';
+  return filled ? (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden="true">
+      <path d={path} />
+    </svg>
+  ) : (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+      aria-hidden="true"
+    >
+      <path d={path} />
     </svg>
   );
 }
