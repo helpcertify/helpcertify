@@ -5,3 +5,13 @@ dist
 *.tsbuildinfo
 
 .env*
+
+# tsconfig.node.json compiles vite.config.ts as a composite project
+# reference without noEmit, so `tsc -b` writes these two files fresh on
+# every build — they were accidentally committed at some point, which
+# matters because Vite's config-file search checks vite.config.js *before*
+# vite.config.ts and uses whichever it finds first, so a committed, stale
+# vite.config.js would silently shadow real edits to the .ts source for
+# anyone who skips the build step before inspecting it.
+vite.config.js
+vite.config.d.ts
