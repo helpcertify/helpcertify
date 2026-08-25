@@ -7,7 +7,8 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
-import type { QuestionSourceFormat, DurationType } from '@/types/models';
+import { CERTIFICATION_CATEGORIES } from '@/types/models';
+import type { QuestionSourceFormat, DurationType, CertificationCategory } from '@/types/models';
 
 interface QuizFormCardProps {
   editingQuiz?: QuizSummary | null;
@@ -35,6 +36,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const pushToast = useUiStore((s) => s.pushToast);
 
   const [title, setTitle] = useState(editingQuiz?.title ?? '');
+  const [category, setCategory] = useState<CertificationCategory>(editingQuiz?.category ?? 'Other');
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createQuiz's schema still expects.
@@ -65,6 +67,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
 
   const resetForm = () => {
     setTitle('');
+    setCategory('Other');
     setFile(null);
     setEnforceSequentialNav(false);
     setShowImmediateResult(false);
@@ -87,6 +90,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
       setUploading(false);
       return contentAdminApi.createQuiz({
         title,
+        category,
         sourceFormat,
         fileUrl,
         durationType,
@@ -122,6 +126,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
       contentAdminApi.updateQuiz({
         quizId: editingQuiz!.id,
         title,
+        category,
         durationType,
         durationMinutes: Number(durationMinutes),
         enforceSequentialNav,
@@ -167,6 +172,16 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
             placeholder="e.g. CISM 2025 Full Bank"
             className="input-dark"
           />
+        </Field>
+
+        <Field label="Category (certification body / vendor)">
+          <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
+            {CERTIFICATION_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </Field>
 
         {!isEditing && (

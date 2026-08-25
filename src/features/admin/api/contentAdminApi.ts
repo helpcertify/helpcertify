@@ -1,5 +1,5 @@
 import { callAction } from '@/lib/vercelApi';
-import type { QuestionSourceFormat, DurationType } from '@/types/models';
+import type { QuestionSourceFormat, DurationType, CertificationCategory } from '@/types/models';
 
 export interface QuestionOption {
   id: string;
@@ -33,6 +33,7 @@ export interface QuizSummary {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  category: CertificationCategory;
 }
 
 export interface PracticeTestSummary {
@@ -49,6 +50,7 @@ export interface PracticeTestSummary {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  category: CertificationCategory;
 }
 
 export interface CreateQuizPayload {
@@ -65,6 +67,7 @@ export interface CreateQuizPayload {
   price: number;
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
+  category: CertificationCategory;
 }
 
 export interface CreatePracticeTestPayload {
@@ -78,6 +81,7 @@ export interface CreatePracticeTestPayload {
   price: number;
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
+  category: CertificationCategory;
 }
 
 export const contentAdminApi = {

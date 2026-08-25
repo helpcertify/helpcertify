@@ -7,6 +7,47 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type Role = 'student' | 'admin';
 
+// A solid, real starting set of well-known certification-issuing bodies/
+// vendors across IT security, cloud, project management, networking, data,
+// and a few adjacent domains — not literally every certification body that
+// exists (that's not a fixed, enumerable list), but broad enough to cover
+// what an exam-prep platform's catalog is realistically tagged with. "Other"
+// is always available as a catch-all so tagging is never blocked by a gap
+// in this list — ask to have a specific one added if it comes up.
+export const CERTIFICATION_CATEGORIES = [
+  'Adobe',
+  'Amazon Web Services (AWS)',
+  'Axelos (PRINCE2 / ITIL)',
+  'CFA Institute',
+  'Cisco',
+  'CompTIA',
+  'Databricks',
+  'EC-Council',
+  'GIAC',
+  'Google Cloud',
+  'HRCI',
+  'IIBA',
+  'ISACA',
+  '(ISC)²',
+  'ISO',
+  'Juniper Networks',
+  'Microsoft',
+  'Oracle',
+  'PMI (Project Management Institute)',
+  'Red Hat',
+  'Salesforce',
+  'SAP',
+  'SAS',
+  'Scrum Alliance',
+  'Scrum.org',
+  'SHRM',
+  'Six Sigma',
+  'Tableau',
+  'VMware',
+  'Other',
+] as const;
+export type CertificationCategory = (typeof CERTIFICATION_CATEGORIES)[number];
+
 /** users/{uid} — doc id is the Firebase Auth uid. */
 export interface UserDoc {
   name: string;
@@ -66,6 +107,9 @@ export interface QuizDoc {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  // Which certification body/vendor this content belongs to (ISACA,
+  // Microsoft, etc.) — defaults to 'Other' on docs that predate this field.
+  category: CertificationCategory;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -86,6 +130,7 @@ export interface PracticeTestDoc {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  category: CertificationCategory;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

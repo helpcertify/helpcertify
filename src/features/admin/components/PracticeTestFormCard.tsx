@@ -7,7 +7,8 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
-import type { QuestionSourceFormat } from '@/types/models';
+import { CERTIFICATION_CATEGORIES } from '@/types/models';
+import type { QuestionSourceFormat, CertificationCategory } from '@/types/models';
 
 interface PracticeTestFormCardProps {
   editingTest?: PracticeTestSummary | null;
@@ -34,6 +35,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const pushToast = useUiStore((s) => s.pushToast);
 
   const [title, setTitle] = useState(editingTest?.title ?? '');
+  const [category, setCategory] = useState<CertificationCategory>(editingTest?.category ?? 'Other');
   const [availableFrom, setAvailableFrom] = useState(toLocalInputValue(editingTest?.availableFrom));
   const [availableUntil, setAvailableUntil] = useState(toLocalInputValue(editingTest?.availableUntil));
   const [durationPerSessionMinutes, setDurationPerSessionMinutes] = useState(
@@ -59,6 +61,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
 
   const resetForm = () => {
     setTitle('');
+    setCategory('Other');
     setAvailableFrom('');
     setAvailableUntil('');
     setDurationPerSessionMinutes('60');
@@ -78,6 +81,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       setUploading(false);
       return contentAdminApi.createPracticeTest({
         title,
+        category,
         sourceFormat,
         fileUrl,
         availableFrom: new Date(availableFrom).toISOString(),
@@ -110,6 +114,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       contentAdminApi.updatePracticeTest({
         testId: editingTest!.id,
         title,
+        category,
         availableFrom: availableFrom ? new Date(availableFrom).toISOString() : undefined,
         availableUntil: availableUntil ? new Date(availableUntil).toISOString() : undefined,
         durationPerSessionMinutes: Number(durationPerSessionMinutes),
@@ -152,6 +157,16 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
             placeholder="e.g. CISM 2025 Full Bank"
             className="input-dark"
           />
+        </Field>
+
+        <Field label="Category (certification body / vendor)">
+          <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
+            {CERTIFICATION_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Availability Window">

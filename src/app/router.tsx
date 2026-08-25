@@ -19,6 +19,8 @@ import { PracticeTestsPage } from '@/features/students/pages/PracticeTestsPage';
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
 import { CartPage } from '@/features/students/pages/CartPage';
+import { CategoriesPage } from '@/features/students/pages/CategoriesPage';
+import { MyPurchasesPage } from '@/features/students/pages/MyPurchasesPage';
 import { CouponsPage } from '@/features/admin/pages/CouponsPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
@@ -39,6 +41,8 @@ export function AppRouter() {
           <Route path="/home/past-quizzes" element={<PastQuizzesPage />} />
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
+          <Route path="/home/categories" element={<CategoriesPage />} />
+          <Route path="/home/purchases" element={<MyPurchasesPage />} />
           <Route path="/home/cart" element={<CartPage />} />
         </Route>
         <Route path="/quizzes/:quizId/take" element={<QuizTakingPage />} />

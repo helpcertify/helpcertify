@@ -6,6 +6,42 @@ import { z } from 'zod';
 import JSZip from 'jszip';
 import { randomBytes } from 'crypto';
 
+// Duplicated from src/types/models.ts's CERTIFICATION_CATEGORIES (this file
+// can't import across api/*.ts or from src/ — see the self-contained-file
+// note above) — keep the two lists in sync if this ever changes.
+const CERTIFICATION_CATEGORIES = [
+  'Adobe',
+  'Amazon Web Services (AWS)',
+  'Axelos (PRINCE2 / ITIL)',
+  'CFA Institute',
+  'Cisco',
+  'CompTIA',
+  'Databricks',
+  'EC-Council',
+  'GIAC',
+  'Google Cloud',
+  'HRCI',
+  'IIBA',
+  'ISACA',
+  '(ISC)²',
+  'ISO',
+  'Juniper Networks',
+  'Microsoft',
+  'Oracle',
+  'PMI (Project Management Institute)',
+  'Red Hat',
+  'Salesforce',
+  'SAP',
+  'SAS',
+  'Scrum Alliance',
+  'Scrum.org',
+  'SHRM',
+  'Six Sigma',
+  'Tableau',
+  'VMware',
+  'Other',
+] as const;
+
 // Quiz + practice-test content management (create/update/delete/list, both
 // docx-format parsers, answer-key preview) for the v2 platform. Self-contained
 // — see api/auth.ts's header comment for why (no shared code across
@@ -356,6 +392,7 @@ const createQuizSchema = z.object({
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
+  category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -387,6 +424,7 @@ async function createQuiz(uid: string, body: unknown) {
     price: d.price,
     originalPrice: d.originalPrice ?? null,
     currency: d.currency,
+    category: d.category,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -417,6 +455,7 @@ const updateQuizSchema = z.object({
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
+  category: z.enum(CERTIFICATION_CATEGORIES).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -550,6 +589,7 @@ const createPracticeTestSchema = z.object({
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
+  category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -576,6 +616,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     price: d.price,
     originalPrice: d.originalPrice ?? null,
     currency: d.currency,
+    category: d.category,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -602,6 +643,7 @@ const updatePracticeTestSchema = z.object({
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
+  category: z.enum(CERTIFICATION_CATEGORIES).optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

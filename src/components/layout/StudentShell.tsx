@@ -11,8 +11,10 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Available Quizzes', end: true },
+  { to: '/home/categories', label: 'Categories' },
   { to: '/home/past-quizzes', label: 'Quiz History' },
   { to: '/home/practice-tests', label: 'Practice Tests' },
+  { to: '/home/purchases', label: 'My Purchases' },
 ];
 
 // Matches the reference screenshots' "Academic Portal" student shell: a

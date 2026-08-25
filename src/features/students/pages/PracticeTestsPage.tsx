@@ -98,6 +98,7 @@ export function PracticeTestsPage() {
               <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
                 <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
                 <div className="p-5">
+                <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{test.category ?? 'Other'}</div>
                 <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
                 <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                   <div>{answered} / {test.totalQuestions} answered</div>
