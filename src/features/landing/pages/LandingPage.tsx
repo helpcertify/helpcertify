@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
 import { AdminAccessModal } from '@/features/auth/components/AdminAccessModal';
-import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const STATS = [
   { label: 'Certifications', value: '3+' },
@@ -32,16 +31,15 @@ export function LandingPage() {
     <div className="min-h-screen bg-surface">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Logo />
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => setShowAdminAccess(true)}
-            className="rounded-lg border border-surface-border bg-surface-raised px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400"
-          >
-            Admin Portal
-          </button>
-        </div>
+        {/* No theme toggle here on request — it moved to the login screens
+            (Admin Access modal and the student LoginPage) instead. */}
+        <button
+          type="button"
+          onClick={() => setShowAdminAccess(true)}
+          className="rounded-lg border border-surface-border bg-surface-raised px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400"
+        >
+          Admin Portal
+        </button>
       </header>
 
       <main className="mx-auto max-w-4xl px-6 pb-24 pt-10 text-center">

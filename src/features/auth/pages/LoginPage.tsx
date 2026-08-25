@@ -10,6 +10,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { GoogleButton } from '@/components/common/GoogleButton';
 import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -49,8 +50,11 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm rounded-xl border border-surface-border bg-surface-raised p-8">
-        <div className="mb-6 flex justify-center">
+        {/* Same theme toggle the Admin Access modal has, so both login
+            entry points offer the same pre-login controls. */}
+        <div className="mb-6 flex items-center justify-between">
           <Logo />
+          <ThemeToggle />
         </div>
         <h1 className="mb-6 text-center text-xl font-bold text-ink">Welcome back</h1>
 
