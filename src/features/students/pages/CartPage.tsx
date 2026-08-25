@@ -9,10 +9,9 @@ import { formatMoney } from '@/utils/currency';
 export function CartPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
-  const { checkout, paying: payingNow } = useCheckout();
+  const { checkout, paying: payingNow, confirmation } = useCheckout();
 
   const [couponInput, setCouponInput] = useState('');
-  const [justPurchased, setJustPurchased] = useState<{ itemType: string; itemId: string; title: string }[] | null>(null);
 
   const { data: cart, isLoading } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
@@ -39,37 +38,8 @@ export function CartPage() {
 
   const handleCheckout = () => {
     if (!cart || cart.items.length === 0) return;
-    const items = cart.items;
-    checkout({
-      description: items.length === 1 ? items[0].title : `${items.length} items`,
-      onPaid: () => setJustPurchased(items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title }))),
-    });
+    checkout({ items: cart.items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title })) });
   };
-
-  if (justPurchased) {
-    return (
-      <div className="mx-auto max-w-lg">
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-8 text-center">
-          <div className="mb-2 text-3xl">✓</div>
-          <h1 className="mb-2 text-xl font-bold text-ink">Payment successful</h1>
-          <p className="mb-6 text-sm text-ink-faint">You now have access to:</p>
-          <div className="space-y-2 text-left">
-            {justPurchased.map((i) => (
-              <div key={`${i.itemType}_${i.itemId}`} className="rounded-lg border border-surface-border bg-surface-raised px-4 py-3">
-                <div className="font-medium text-ink">{i.title}</div>
-                <Link
-                  to={i.itemType === 'quiz' ? '/home' : '/home/practice-tests'}
-                  className="text-sm text-brand-ink hover:underline"
-                >
-                  Go start it →
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (isLoading) return <div className="p-8 text-ink-faint">Loading cart…</div>;
 
@@ -180,6 +150,8 @@ export function CartPage() {
           </div>
         </>
       )}
+
+      {confirmation}
     </div>
   );
 }

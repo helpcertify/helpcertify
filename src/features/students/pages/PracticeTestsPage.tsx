@@ -21,7 +21,7 @@ export function PracticeTestsPage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
-  const { checkout, paying } = useCheckout();
+  const { checkout, paying, confirmation } = useCheckout();
 
   const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: progressDocs } = useQuery({
@@ -41,7 +41,16 @@ export function PracticeTestsPage() {
   const progressByTestId = new Map((progressDocs ?? []).map((p) => [p.testId, p]));
   const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
-  const available = buckets?.available ?? [];
+
+  // A purchase is permanent access — the admin's availability window can't
+  // take away something a student already paid for (the backend enforces
+  // this too, see api/practice-session.ts). A purchased-but-window-expired
+  // test is treated as available here instead of landing in the locked
+  // Expired section below.
+  const rawExpired = buckets?.expired ?? [];
+  const purchasedExpired = rawExpired.filter((t) => purchasedSet.has(`practiceTest_${t.id}`));
+  const trulyExpired = rawExpired.filter((t) => !purchasedSet.has(`practiceTest_${t.id}`));
+  const available = [...(buckets?.available ?? []), ...purchasedExpired];
   const startedCount = available.filter((t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) > 0).length;
   const completedCount = available.filter(
     (t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) >= t.totalQuestions
@@ -121,8 +130,7 @@ export function PracticeTestsPage() {
                         onClick={() =>
                           checkout({
                             buyNowItem: { itemType: 'practiceTest', itemId: test.id },
-                            description: test.title,
-                            onPaid: () => queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] }),
+                            items: [{ itemType: 'practiceTest', itemId: test.id, title: test.title }],
                           })
                         }
                         className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
@@ -157,11 +165,11 @@ export function PracticeTestsPage() {
         </div>
       )}
 
-      {((buckets?.upcoming.length ?? 0) > 0 || (buckets?.expired.length ?? 0) > 0) && (
+      {((buckets?.upcoming.length ?? 0) > 0 || trulyExpired.length > 0) && (
         <>
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Upcoming / Expired</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[...(buckets?.upcoming ?? []), ...(buckets?.expired ?? [])].map((test) => (
+            {[...(buckets?.upcoming ?? []), ...trulyExpired].map((test) => (
               <div key={test.id} className="rounded-xl border border-surface-border bg-black/20 p-5 opacity-70">
                 <div className="mb-2 flex items-start justify-between">
                   <h3 className="font-bold text-ink">{test.title}</h3>
@@ -179,6 +187,8 @@ export function PracticeTestsPage() {
           </div>
         </>
       )}
+
+      {confirmation}
     </div>
   );
 }

@@ -5,22 +5,31 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { openRazorpayCheckout } from '@/lib/razorpay';
 import { VercelApiError } from '@/lib/vercelApi';
+import { PurchaseConfirmationModal } from '@/components/common/PurchaseConfirmationModal';
 import type { PurchasableItemType } from '@/types/models';
 
-// Shared by CartPage (checkout the whole cart) and the listing pages' Buy
+interface CheckoutItem {
+  itemType: PurchasableItemType;
+  itemId: string;
+  title: string;
+}
+
+// Shared by CartPage (checkout the whole cart) and every listing page's Buy
 // Now button (checkout one specific item directly, bypassing the cart) —
 // same Razorpay-open-then-verify flow either way, just a different
-// createOrder argument.
+// createOrder argument. Also owns the post-payment confirmation modal so
+// every caller gets the same clear "you're done, here's what to do next"
+// moment for free, rather than each page building its own.
 export function useCheckout() {
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [paying, setPaying] = useState(false);
+  const [justPurchased, setJustPurchased] = useState<CheckoutItem[] | null>(null);
 
   const checkout = async (opts: {
+    items: CheckoutItem[];
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
-    description: string;
-    onPaid?: () => void;
   }) => {
     setPaying(true);
     try {
@@ -31,15 +40,14 @@ export function useCheckout() {
         currency: order.currency,
         razorpayOrderId: order.razorpayOrderId,
         name: 'Helpcertify',
-        description: opts.description,
+        description: opts.items.length === 1 ? opts.items[0].title : `${opts.items.length} items`,
         prefill: { name: profile?.name, email: profile?.email },
         onSuccess: async (response) => {
           try {
             await checkoutApi.verifyPayment({ orderId: order.orderId, ...response });
-            pushToast('Payment successful!', 'success');
+            setJustPurchased(opts.items);
             queryClient.invalidateQueries({ queryKey: ['student', 'cart'] });
             queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] });
-            opts.onPaid?.();
           } catch {
             pushToast(
               'Payment went through but we could not confirm it here. Refresh in a moment, or contact support if access does not unlock.',
@@ -57,5 +65,9 @@ export function useCheckout() {
     }
   };
 
-  return { checkout, paying };
+  const confirmation = justPurchased ? (
+    <PurchaseConfirmationModal items={justPurchased} onClose={() => setJustPurchased(null)} />
+  ) : null;
+
+  return { checkout, paying, confirmation };
 }

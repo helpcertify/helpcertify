@@ -79,13 +79,23 @@ async function startOrResumeBatch(uid: string, body: unknown) {
 
   // Paid tests need a purchases/ record before a batch can start — the
   // actual enforcement point (the client-side gate is just UX).
+  let alreadyPurchased = false;
   if ((test.price ?? 0) > 0) {
     const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
+    alreadyPurchased = purchaseSnap.exists;
+    if (!alreadyPurchased) throw Err.paymentRequired();
   }
 
   const now = Timestamp.now();
-  if ((test.availableFrom as Timestamp).toMillis() > now.toMillis() || (test.availableUntil as Timestamp).toMillis() < now.toMillis()) {
+  if ((test.availableFrom as Timestamp).toMillis() > now.toMillis()) {
+    throw Err.failedPrecondition('This practice test has not opened yet');
+  }
+  // A purchase is permanent access — the admin's availability window is
+  // only a gate for browsing/free access, not something that can revoke
+  // access a student already paid for. Confirmed live: a paying student
+  // hitting this after the window closed would be locked out of something
+  // they own, which isn't what "purchased" should mean.
+  if (!alreadyPurchased && (test.availableUntil as Timestamp).toMillis() < now.toMillis()) {
     throw Err.failedPrecondition('This practice test is not currently available');
   }
 

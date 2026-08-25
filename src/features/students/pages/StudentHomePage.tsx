@@ -13,7 +13,7 @@ export function StudentHomePage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
-  const { checkout, paying } = useCheckout();
+  const { checkout, paying, confirmation } = useCheckout();
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
   const { data: myAttempts } = useQuery({
@@ -100,8 +100,7 @@ export function StudentHomePage() {
                       onClick={() =>
                         checkout({
                           buyNowItem: { itemType: 'quiz', itemId: quiz.id },
-                          description: quiz.title,
-                          onPaid: () => queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] }),
+                          items: [{ itemType: 'quiz', itemId: quiz.id, title: quiz.title }],
                         })
                       }
                       className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
@@ -127,6 +126,8 @@ export function StudentHomePage() {
           );
         })}
       </div>
+
+      {confirmation}
     </div>
   );
 }
