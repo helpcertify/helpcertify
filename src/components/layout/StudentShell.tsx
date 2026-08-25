@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { cartApi } from '@/features/students/api/cartApi';
@@ -43,7 +42,6 @@ const NAV_ITEMS = [
 // page content into a sliver next to it. Below lg:, a compact top bar with
 // a hamburger toggle takes its place instead.
 export function StudentShell() {
-  const profile = useAuthStore((s) => s.profile);
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // staleTime keeps this from refetching on every focus/route-change — the
@@ -129,26 +127,23 @@ export function StudentShell() {
       </div>
 
       <div className="min-w-0 flex-1">
-        <header className="flex items-center justify-between border-b border-surface-border px-4 py-4 lg:px-8 lg:py-5">
-          <div>
-            <div className="text-sm text-ink-faint">Welcome back</div>
-            <div className="text-xl font-semibold text-ink">{profile?.name}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/home/cart"
-              aria-label="Cart"
-              className="relative flex flex-col items-center gap-0.5 rounded-full border border-[#1D4ED8] bg-[#1D4ED8] px-3.5 py-1.5 text-white hover:opacity-90"
-            >
-              <CartIcon className="h-5 w-5" />
-              <span className="text-[10px] font-medium leading-none">Cart</span>
-              {cartCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-semibold text-white ring-2 ring-surface">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-          </div>
+        {/* No "Welcome back, {name}" here on request — the header is just
+            the cart shortcut now; Home's own dashboard greeting already
+            covers the personalized welcome. */}
+        <header className="flex items-center justify-end border-b border-surface-border px-4 py-4 lg:px-8 lg:py-5">
+          <Link
+            to="/home/cart"
+            aria-label="Cart"
+            className="relative flex flex-col items-center gap-0.5 rounded-full border border-[#1D4ED8] bg-[#1D4ED8] px-3.5 py-1.5 text-white hover:opacity-90"
+          >
+            <CartIcon className="h-5 w-5" />
+            <span className="text-[10px] font-medium leading-none">Cart</span>
+            {cartCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-semibold text-white ring-2 ring-surface">
+                {cartCount}
+              </span>
+            )}
+          </Link>
         </header>
         <main className="p-4 lg:p-8">
           <Outlet />
