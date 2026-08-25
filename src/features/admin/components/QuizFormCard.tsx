@@ -182,9 +182,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Checkbox label="Enforce sequential question navigation" checked={enforceSequentialNav} onChange={setEnforceSequentialNav} />
           <Checkbox label="Show immediate result per question" checked={showImmediateResult} onChange={setShowImmediateResult} />
+          <Checkbox label="Show overall final score after submission" checked={showFinalScore} onChange={setShowFinalScore} />
+          <Checkbox label="Block Alt-Tab / app-switch detection (anti-cheat)" checked={blockAltTab} onChange={setBlockAltTab} />
         </div>
-        <Checkbox label="Show overall final score after submission" checked={showFinalScore} onChange={setShowFinalScore} />
-        <Checkbox label="Block Alt-Tab / app-switch detection (anti-cheat)" checked={blockAltTab} onChange={setBlockAltTab} />
 
         <Field label="Duration Type">
           <div className="flex gap-6">
