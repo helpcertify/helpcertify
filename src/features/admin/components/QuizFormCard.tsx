@@ -6,6 +6,7 @@ import { downloadTemplate } from '@/lib/downloadTemplate';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
+import { DateTime12hInput } from '@/components/common/DateTime12hInput';
 import type { QuestionSourceFormat, DurationType } from '@/types/models';
 
 interface QuizFormCardProps {
@@ -219,15 +220,10 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         </div>
 
         <Field label="Scheduled start (optional)">
-          <input
-            type="datetime-local"
-            value={scheduledStart}
-            onChange={(e) => setScheduledStart(e.target.value)}
-            className="input-dark"
-          />
+          <DateTime12hInput value={scheduledStart} onChange={setScheduledStart} />
         </Field>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Currency">
             <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark">
               <option value="INR">₹ INR</option>
@@ -237,18 +233,18 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
           <Field label={`Selling Price (0 = free, in ${currency === 'INR' ? '₹' : '$'})`}>
             <input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-dark" />
           </Field>
-          <Field label="Marketing Price (optional, shown struck through)">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={originalPrice}
-              onChange={(e) => setOriginalPrice(e.target.value)}
-              placeholder="Leave blank for no discount display"
-              className="input-dark"
-            />
-          </Field>
         </div>
+        <Field label="Marketing Price (optional, shown struck through)">
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={originalPrice}
+            onChange={(e) => setOriginalPrice(e.target.value)}
+            placeholder="Leave blank for no discount display"
+            className="input-dark"
+          />
+        </Field>
 
         <button
           type="button"

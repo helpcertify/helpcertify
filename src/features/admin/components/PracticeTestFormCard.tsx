@@ -6,6 +6,7 @@ import { downloadTemplate } from '@/lib/downloadTemplate';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
+import { DateTime12hInput } from '@/components/common/DateTime12hInput';
 import type { QuestionSourceFormat } from '@/types/models';
 
 interface PracticeTestFormCardProps {
@@ -154,24 +155,14 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         </Field>
 
         <Field label="Availability Window">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-3">
             <div>
               <label className="mb-1 block text-xs text-ink-faint">From</label>
-              <input
-                type="datetime-local"
-                value={availableFrom}
-                onChange={(e) => setAvailableFrom(e.target.value)}
-                className="input-dark"
-              />
+              <DateTime12hInput value={availableFrom} onChange={setAvailableFrom} />
             </div>
             <div>
               <label className="mb-1 block text-xs text-ink-faint">Until</label>
-              <input
-                type="datetime-local"
-                value={availableUntil}
-                onChange={(e) => setAvailableUntil(e.target.value)}
-                className="input-dark"
-              />
+              <DateTime12hInput value={availableUntil} onChange={setAvailableUntil} />
             </div>
           </div>
         </Field>
@@ -201,7 +192,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           </div>
         </Field>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Currency">
             <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark">
               <option value="INR">₹ INR</option>
@@ -211,18 +202,18 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           <Field label={`Selling Price (0 = free, in ${currency === 'INR' ? '₹' : '$'})`}>
             <input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="input-dark" />
           </Field>
-          <Field label="Marketing Price (optional, shown struck through)">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={originalPrice}
-              onChange={(e) => setOriginalPrice(e.target.value)}
-              placeholder="Leave blank for no discount display"
-              className="input-dark"
-            />
-          </Field>
         </div>
+        <Field label="Marketing Price (optional, shown struck through)">
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={originalPrice}
+            onChange={(e) => setOriginalPrice(e.target.value)}
+            placeholder="Leave blank for no discount display"
+            className="input-dark"
+          />
+        </Field>
 
         {!isEditing && (
           <Field label="Upload Quiz File (.docx)">
