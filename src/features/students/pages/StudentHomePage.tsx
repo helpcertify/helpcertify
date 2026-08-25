@@ -189,8 +189,12 @@ export function StudentHomePage() {
   const scorePercents = attempts.map((a) => (a.totalQuestions > 0 ? (a.correctCount / a.totalQuestions) * 100 : 0));
   const averageScore = scorePercents.length > 0 ? Math.round(scorePercents.reduce((s, x) => s + x, 0) / scorePercents.length) : null;
   const bestScore = scorePercents.length > 0 ? Math.round(Math.max(...scorePercents)) : null;
+  // Auto-tracked (quiz-attempt durations) plus whatever the student has
+  // manually logged in Settings for study done outside a timed attempt.
   const totalStudySeconds = attempts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0);
-  const studyHours = Math.round((totalStudySeconds / 3600) * 10) / 10;
+  const manualStudyMinutes = profile?.manualStudyMinutes ?? 0;
+  const studyHours = Math.round((totalStudySeconds / 3600 + manualStudyMinutes / 60) * 10) / 10;
+  const hasAnyStudyTime = totalStudySeconds > 0 || manualStudyMinutes > 0;
 
   // Recommended next step — the lowest-scoring recent attempt, suggesting
   // more practice in that same category (not a specific "topic", see the
@@ -271,7 +275,7 @@ export function StudentHomePage() {
           <h2 className="mb-3 text-lg font-bold text-ink">My Exams</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ownedItems.slice(0, 6).map((item) => (
-              <div key={item.detailHref} className="rounded-xl border border-surface-border bg-surface-raised p-4">
+              <div key={item.detailHref} className="rounded-xl border border-surface-border border-t-4 border-t-violet-400 bg-surface-raised p-4">
                 <Link to={item.detailHref} className="hover:text-brand-ink">
                   <div className="mb-1 line-clamp-2 font-semibold text-ink">{item.title}</div>
                 </Link>
@@ -294,16 +298,38 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* Performance summary */}
-      {attempts.length > 0 && (
+      {/* Performance summary. Kept visible even before a student's first
+          attempt (just as long as study time hasn't been logged either) so
+          the "set up study time" nudge below has somewhere to live — it
+          doesn't make sense stranded on its own with no other context. */}
+      {(attempts.length > 0 || !hasAnyStudyTime) && (
         <div className="mb-8">
           <h2 className="mb-3 text-lg font-bold text-ink">Performance Summary</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="Tests attempted" value={String(attempts.length)} />
-            <StatCard label="Average score" value={averageScore !== null ? `${averageScore}%` : 'N/A'} />
-            <StatCard label="Best score" value={bestScore !== null ? `${bestScore}%` : 'N/A'} />
-            <StatCard label="Study time" value={studyHours > 0 ? `${studyHours}h` : 'Not yet'} />
-          </div>
+          {attempts.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatCard label="Tests attempted" value={String(attempts.length)} color="text-blue-700 dark:text-blue-400" />
+              <StatCard
+                label="Average score"
+                value={averageScore !== null ? `${averageScore}%` : 'N/A'}
+                color="text-violet-700 dark:text-violet-400"
+              />
+              <StatCard label="Best score" value={bestScore !== null ? `${bestScore}%` : 'N/A'} color="text-emerald-700 dark:text-emerald-400" />
+              <StatCard label="Study time" value={studyHours > 0 ? `${studyHours}h` : 'Not yet'} color="text-amber-700 dark:text-amber-400" />
+            </div>
+          )}
+          {!hasAnyStudyTime && (
+            <div
+              className={`${attempts.length > 0 ? 'mt-3 ' : ''}flex items-center justify-between gap-3 rounded-xl border border-brand-400/40 bg-brand-500/10 p-4`}
+            >
+              <p className="text-sm text-ink">Your study time isn't set up yet. Log it so your dashboard can track your progress.</p>
+              <Link
+                to="/home/settings"
+                className="shrink-0 rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface"
+              >
+                Set Up Study Time
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -327,7 +353,7 @@ export function StudentHomePage() {
           <h2 className="mb-3 text-lg font-bold text-ink">Upcoming Mock Exams</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcomingMockExams.map((q) => (
-              <div key={q.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
+              <div key={q.id} className="rounded-xl border border-surface-border border-t-4 border-t-blue-400 bg-surface-raised p-4">
                 <div className="mb-1 line-clamp-2 font-semibold text-ink">{q.title}</div>
                 <div className="mb-3 space-y-0.5 text-xs text-ink-faint">
                   <div>{q.totalQuestions} questions · {q.durationMinutes} min</div>
@@ -401,11 +427,11 @@ export function StudentHomePage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-raised p-4">
       <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
-      <div className="mt-1 text-xl font-bold text-ink">{value}</div>
+      <div className={`mt-1 text-xl font-bold ${color}`}>{value}</div>
     </div>
   );
 }

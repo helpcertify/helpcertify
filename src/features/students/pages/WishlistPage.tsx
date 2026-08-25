@@ -41,12 +41,12 @@ export function WishlistPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">Nothing saved yet. Tap the heart on any quiz or practice test to save it here.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home/mock-exams" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+            <Link to="/home/mock-exams" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
               Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"
-              className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
             >
               Browse Practice Exams
             </Link>
@@ -97,7 +97,7 @@ export function WishlistPage() {
                   )}
 
                   {item.price === 0 ? (
-                    <Link to={detailHref} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
+                    <Link to={detailHref} className="block rounded-lg bg-blue-600 py-1.5 text-center text-sm font-medium text-white hover:bg-blue-500">
                       View
                     </Link>
                   ) : inCart ? (
@@ -113,7 +113,7 @@ export function WishlistPage() {
                         type="button"
                         disabled={addToCartMutation.isPending || paying}
                         onClick={() => addToCartMutation.mutate(item)}
-                        className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                        className="flex-1 rounded-lg border border-blue-500 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60 dark:text-blue-300 dark:hover:bg-blue-500/10"
                       >
                         Add to Cart
                       </button>

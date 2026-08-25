@@ -31,6 +31,7 @@ export function initAuthListener(): () => void {
       avatarUrl: profileData?.avatarUrl ?? firebaseUser.photoURL ?? null,
       headline: profileData?.headline ?? null,
       bio: profileData?.bio ?? null,
+      manualStudyMinutes: profileData?.manualStudyMinutes ?? 0,
     };
 
     useAuthStore.getState().setSession(firebaseUser, profile);
