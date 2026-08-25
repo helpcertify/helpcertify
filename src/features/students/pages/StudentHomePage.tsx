@@ -311,7 +311,7 @@ export function StudentHomePage() {
           <p className="mb-3 text-sm text-ink">{nextStepMessage}</p>
           <Link
             to="/home/practice-tests"
-            className="inline-block rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface"
+            className="inline-block rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Keep Practicing
           </Link>
@@ -380,7 +380,7 @@ export function StudentHomePage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#1D4ED8] hover:underline">
+                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#F59E0B] hover:underline">
                           Review
                         </Link>
                       </td>
