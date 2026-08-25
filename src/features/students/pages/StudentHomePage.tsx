@@ -13,6 +13,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { CourseCarousel, type CarouselItem } from '@/components/common/CourseCarousel';
 import type { QuizDoc } from '@/types/models';
 
 export function StudentHomePage() {
@@ -81,6 +82,30 @@ export function StudentHomePage() {
 
   const continueItems = [...inProgressQuizzes, ...inProgressPracticeTests];
 
+  // "Recommended for you" — ranked by rating (falls back to catalog order
+  // when nothing has a rating yet, e.g. a fresh platform with no reviews),
+  // capped to 10. Not personalized in any real sense yet (no click/purchase
+  // history feeds this), just the same honest "best of the catalog" signal
+  // as everywhere else ratings show up in this app.
+  const recommended: CarouselItem[] = [...(quizzes ?? [])]
+    .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
+    .slice(0, 10)
+    .map((q) => ({
+      itemType: 'quiz' as const,
+      id: q.id,
+      title: q.title,
+      category: q.category ?? 'Other',
+      skillLevel: q.skillLevel ?? 'Foundation',
+      description: q.description ?? '',
+      statsLabel: `${q.totalQuestions} questions · ${q.durationMinutes} min`,
+      price: q.price ?? 0,
+      originalPrice: q.originalPrice ?? null,
+      currency: q.currency ?? 'INR',
+      ratingAvg: q.ratingAvg ?? 0,
+      ratingCount: q.ratingCount ?? 0,
+      owned: (q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`),
+    }));
+
   const addToCartMutation = useMutation({
     mutationFn: (quizId: string) => cartApi.addItem('quiz', quizId),
     onSuccess: (data) => {
@@ -113,13 +138,15 @@ export function StudentHomePage() {
         </div>
       )}
 
+      <CourseCarousel title="Recommended for you" items={recommended} />
+
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">📄 Available Quizzes</div>
       {(!quizzes || quizzes.length === 0) && (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
           No quizzes are available right now.
         </p>
       )}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {quizzes?.map((quiz) => {
           const attempt = attemptByQuizId.get(quiz.id);
           const notYetOpen = quiz.scheduledStart && quiz.scheduledStart.toMillis() > Date.now();
@@ -144,7 +171,7 @@ export function StudentHomePage() {
                 <span>{quiz.skillLevel ?? 'Foundation'}</span>
               </div>
               <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">
-                <h3 className="mb-0.5 pr-8 text-sm font-bold text-ink">{quiz.title}</h3>
+                <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{quiz.title}</h3>
               </Link>
               {(quiz.ratingCount ?? 0) > 0 && (
                 <div className="mb-1 flex items-center gap-1.5">

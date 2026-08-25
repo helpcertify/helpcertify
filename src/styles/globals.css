@@ -53,4 +53,16 @@ body {
   .input-dark:focus {
     @apply border-brand-400;
   }
+
+  /* Hides the scrollbar on a horizontally-scrolling row (CourseCarousel)
+     while leaving it fully scrollable by drag/touch/wheel — only the arrow
+     buttons and native gestures are meant to be visible ways to move it.
+     No Tailwind plugin for this is installed, so it's a plain rule instead. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

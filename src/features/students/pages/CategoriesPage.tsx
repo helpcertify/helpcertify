@@ -146,7 +146,7 @@ export function CategoriesPage() {
                   <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">
                     {item.category} · {item.skillLevel} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
                   </div>
-                  <div className="font-medium text-ink">{item.title}</div>
+                  <div className="line-clamp-2 font-medium leading-snug text-ink">{item.title}</div>
                   {item.ratingCount > 0 && (
                     <div className="mt-1 flex items-center gap-1.5">
                       <StarRating value={item.ratingAvg} size="sm" />

@@ -99,7 +99,7 @@ export function PracticeTestsPage() {
           No practice tests are available right now.
         </p>
       ) : (
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {available.map((test) => {
             const answered = progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0;
             const done = answered >= test.totalQuestions;
@@ -122,7 +122,7 @@ export function PracticeTestsPage() {
                   <span>{test.skillLevel ?? 'Foundation'}</span>
                 </div>
                 <Link to={`/home/practice-tests/${test.id}`} className="hover:text-brand-ink">
-                  <h3 className="mb-0.5 pr-8 text-sm font-bold text-ink">{test.title}</h3>
+                  <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
                 </Link>
                 {(test.ratingCount ?? 0) > 0 && (
                   <div className="mb-1 flex items-center gap-1.5">

@@ -62,7 +62,7 @@ export function WishlistPage() {
                   <div className="mb-1 pr-8 text-xs uppercase tracking-wide text-ink-faint">
                     {item.category} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
                   </div>
-                  <div className="mb-2 pr-8 font-medium text-ink">{item.title}</div>
+                  <div className="mb-2 line-clamp-2 pr-8 font-medium leading-snug text-ink">{item.title}</div>
                 </Link>
                 <div className="mb-3 flex items-center gap-2">
                   {item.originalPrice && item.originalPrice > item.price && (

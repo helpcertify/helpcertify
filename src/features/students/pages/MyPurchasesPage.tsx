@@ -66,7 +66,7 @@ export function MyPurchasesPage() {
               <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">
                 {item.category} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
               </div>
-              <div className="font-medium text-ink">{item.title}</div>
+              <div className="line-clamp-2 font-medium leading-snug text-ink">{item.title}</div>
               <div className="mt-2 text-sm text-brand-ink">Go start it →</div>
             </Link>
           ))}
