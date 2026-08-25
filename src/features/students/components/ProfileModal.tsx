@@ -8,12 +8,12 @@ interface ProfileModalProps {
   onClose: () => void;
 }
 
-// Kept generic (name, email, avatar, headline, bio, website) — this
-// platform is for anyone taking exams (students, working professionals,
-// etc.), not scoped to a single institution, so it drops the department /
-// year-of-admission / current-academic-year fields the reference
-// screenshots had, while still offering the same kind of "about you"
-// richness a real profile page would (just not campus-specific).
+// Kept generic (name, email, avatar, headline, bio) — this platform is for
+// anyone taking exams (students, working professionals, etc.), not scoped
+// to a single institution, so it drops the department / year-of-admission /
+// current-academic-year fields the reference screenshots had, while still
+// offering the same kind of "about you" richness a real profile page would
+// (just not campus-specific).
 export function ProfileModal({ onClose }: ProfileModalProps) {
   const profile = useAuthStore((s) => s.profile);
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
@@ -22,7 +22,6 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
 
   const [headline, setHeadline] = useState(profile?.headline ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
-  const [website, setWebsite] = useState(profile?.website ?? '');
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -40,7 +39,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      const next = { headline: headline.trim() || null, bio: bio.trim() || null, website: website.trim() || null };
+      const next = { headline: headline.trim() || null, bio: bio.trim() || null };
       await authApi.updateProfile(next);
       setSession(firebaseUser, { ...profile, ...next });
       pushToast('Profile updated', 'success');
@@ -119,16 +118,6 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
               maxLength={1000}
               rows={3}
               placeholder="A short bio"
-              className="input-dark"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-ink-faint">Website</label>
-            <input
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              maxLength={300}
-              placeholder="yoursite.com"
               className="input-dark"
             />
           </div>

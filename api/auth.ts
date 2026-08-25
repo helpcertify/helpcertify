@@ -133,11 +133,6 @@ async function provisionProfile(req: VercelRequest) {
 const updateProfileSchema = z.object({
   headline: z.string().trim().max(100).nullable().optional(),
   bio: z.string().trim().max(1000).nullable().optional(),
-  // Not strict url() validation — low-stakes display-only field, and a
-  // fussy format check here isn't worth rejecting something like
-  // "linkedin.com/in/x" (no scheme) that a browser would still happily
-  // link to once rendered with a fallback https:// prefix.
-  website: z.string().trim().max(300).nullable().optional(),
 });
 
 async function updateProfile(req: VercelRequest, body: unknown) {

@@ -8,5 +8,4 @@ export interface SafeUser {
   avatarUrl: string | null;
   headline: string | null;
   bio: string | null;
-  website: string | null;
 }
