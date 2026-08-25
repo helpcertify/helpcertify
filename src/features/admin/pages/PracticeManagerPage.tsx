@@ -42,7 +42,10 @@ export function PracticeManagerPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
-          <PracticeTestFormCard editingTest={editingTest} onDoneEditing={() => setEditingTest(null)} />
+          {/* key forces a fresh mount whenever which test is being edited
+              changes (including switching to/from "create" mode) — same fix
+              as ExamQuizStudioPage's QuizFormCard, same underlying cause. */}
+          <PracticeTestFormCard key={editingTest?.id ?? 'new'} editingTest={editingTest} onDoneEditing={() => setEditingTest(null)} />
 
           <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">📖 How Practice Mode Works</h2>

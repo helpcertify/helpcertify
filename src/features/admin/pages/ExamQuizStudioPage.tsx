@@ -48,7 +48,13 @@ export function ExamQuizStudioPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-        <QuizFormCard editingQuiz={editingQuiz} onDoneEditing={() => setEditingQuiz(null)} />
+        {/* key forces a fresh mount whenever which quiz is being edited
+            changes (including switching to/from "create" mode) — QuizFormCard
+            seeds its fields from editingQuiz only in each useState's initial
+            value, which React only reads once per mount. Without this key,
+            clicking Edit reused the same mounted instance and every field
+            stayed at whatever it was already showing. */}
+        <QuizFormCard key={editingQuiz?.id ?? 'new'} editingQuiz={editingQuiz} onDoneEditing={() => setEditingQuiz(null)} />
 
         <div>
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
