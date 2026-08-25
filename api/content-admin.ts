@@ -393,6 +393,7 @@ const createQuizSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
   category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
+  description: z.string().trim().max(5000).default(''),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -425,6 +426,7 @@ async function createQuiz(uid: string, body: unknown) {
     originalPrice: d.originalPrice ?? null,
     currency: d.currency,
     category: d.category,
+    description: d.description,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -456,6 +458,7 @@ const updateQuizSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
   category: z.enum(CERTIFICATION_CATEGORIES).optional(),
+  description: z.string().trim().max(5000).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -590,6 +593,7 @@ const createPracticeTestSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
   category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
+  description: z.string().trim().max(5000).default(''),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -617,6 +621,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     originalPrice: d.originalPrice ?? null,
     currency: d.currency,
     category: d.category,
+    description: d.description,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -644,6 +649,7 @@ const updatePracticeTestSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
   category: z.enum(CERTIFICATION_CATEGORIES).optional(),
+  description: z.string().trim().max(5000).optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

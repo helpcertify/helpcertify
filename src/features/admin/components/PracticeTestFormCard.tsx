@@ -36,6 +36,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
 
   const [title, setTitle] = useState(editingTest?.title ?? '');
   const [category, setCategory] = useState<CertificationCategory>(editingTest?.category ?? 'Other');
+  const [description, setDescription] = useState(editingTest?.description ?? '');
   const [availableFrom, setAvailableFrom] = useState(toLocalInputValue(editingTest?.availableFrom));
   const [availableUntil, setAvailableUntil] = useState(toLocalInputValue(editingTest?.availableUntil));
   const [durationPerSessionMinutes, setDurationPerSessionMinutes] = useState(
@@ -62,6 +63,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const resetForm = () => {
     setTitle('');
     setCategory('Other');
+    setDescription('');
     setAvailableFrom('');
     setAvailableUntil('');
     setDurationPerSessionMinutes('60');
@@ -82,6 +84,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       return contentAdminApi.createPracticeTest({
         title,
         category,
+        description,
         sourceFormat,
         fileUrl,
         availableFrom: new Date(availableFrom).toISOString(),
@@ -115,6 +118,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         testId: editingTest!.id,
         title,
         category,
+        description,
         availableFrom: availableFrom ? new Date(availableFrom).toISOString() : undefined,
         availableUntil: availableUntil ? new Date(availableUntil).toISOString() : undefined,
         durationPerSessionMinutes: Number(durationPerSessionMinutes),
@@ -167,6 +171,16 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               </option>
             ))}
           </select>
+        </Field>
+
+        <Field label="Description (shown on the student-facing detail page)">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="What this practice test covers, who it's for, what to expect…"
+            className="input-dark"
+          />
         </Field>
 
         <Field label="Availability Window">

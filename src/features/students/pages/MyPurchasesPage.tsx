@@ -60,7 +60,7 @@ export function MyPurchasesPage() {
           {items.map((item) => (
             <Link
               key={`${item.itemType}_${item.id}`}
-              to={item.itemType === 'quiz' ? '/home' : '/home/practice-tests'}
+              to={item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`}
               className="rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400"
             >
               <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">

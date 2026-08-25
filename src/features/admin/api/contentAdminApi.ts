@@ -34,6 +34,7 @@ export interface QuizSummary {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  description: string;
 }
 
 export interface PracticeTestSummary {
@@ -51,6 +52,7 @@ export interface PracticeTestSummary {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  description: string;
 }
 
 export interface CreateQuizPayload {
@@ -68,6 +70,7 @@ export interface CreateQuizPayload {
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  description: string;
 }
 
 export interface CreatePracticeTestPayload {
@@ -82,6 +85,7 @@ export interface CreatePracticeTestPayload {
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  description: string;
 }
 
 export const contentAdminApi = {

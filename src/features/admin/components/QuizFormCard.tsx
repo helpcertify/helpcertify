@@ -37,6 +37,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
 
   const [title, setTitle] = useState(editingQuiz?.title ?? '');
   const [category, setCategory] = useState<CertificationCategory>(editingQuiz?.category ?? 'Other');
+  const [description, setDescription] = useState(editingQuiz?.description ?? '');
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createQuiz's schema still expects.
@@ -68,6 +69,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const resetForm = () => {
     setTitle('');
     setCategory('Other');
+    setDescription('');
     setFile(null);
     setEnforceSequentialNav(false);
     setShowImmediateResult(false);
@@ -91,6 +93,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
       return contentAdminApi.createQuiz({
         title,
         category,
+        description,
         sourceFormat,
         fileUrl,
         durationType,
@@ -127,6 +130,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         quizId: editingQuiz!.id,
         title,
         category,
+        description,
         durationType,
         durationMinutes: Number(durationMinutes),
         enforceSequentialNav,
@@ -182,6 +186,16 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
               </option>
             ))}
           </select>
+        </Field>
+
+        <Field label="Description (shown on the student-facing detail page)">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="What this quiz covers, who it's for, what to expect…"
+            className="input-dark"
+          />
         </Field>
 
         {!isEditing && (

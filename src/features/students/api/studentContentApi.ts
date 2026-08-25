@@ -36,6 +36,23 @@ export async function listPracticeTestsBucketed(): Promise<PracticeTestBuckets> 
   return buckets;
 }
 
+// Single-doc reads for the course detail/landing pages (QuizDetailPage,
+// PracticeTestDetailPage) — same direct-Firestore-read approach as the list
+// functions above, just narrowed to one doc. Returns null rather than
+// throwing on a missing/deleted id so the page can render a clean "not
+// found" state instead of an error boundary.
+export async function getQuizById(quizId: string): Promise<(QuizDoc & { id: string }) | null> {
+  const snap = await getDoc(doc(db, 'quizzes', quizId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as QuizDoc) };
+}
+
+export async function getPracticeTestById(testId: string): Promise<(PracticeTestDoc & { id: string }) | null> {
+  const snap = await getDoc(doc(db, 'practiceTests', testId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as PracticeTestDoc) };
+}
+
 export async function getQuizWithQuestions(quizId: string): Promise<{ quiz: QuizDoc; questions: (QuestionDoc & { id: string })[] }> {
   const quizSnap = await getDoc(doc(db, 'quizzes', quizId));
   if (!quizSnap.exists()) throw new Error('Quiz not found');

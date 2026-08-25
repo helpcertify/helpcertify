@@ -110,6 +110,10 @@ export interface QuizDoc {
   // Which certification body/vendor this content belongs to (ISACA,
   // Microsoft, etc.) — defaults to 'Other' on docs that predate this field.
   category: CertificationCategory;
+  // Freeform "About this quiz" copy shown on the student-facing detail page
+  // (QuizDetailPage) — defaults to '' on docs that predate this field, in
+  // which case the detail page just omits the About section.
+  description: string;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -131,6 +135,8 @@ export interface PracticeTestDoc {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  // See QuizDoc's description comment — same convention.
+  description: string;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
