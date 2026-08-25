@@ -99,7 +99,7 @@ export function CouponsPage() {
           type="button"
           disabled={!code.trim() || !discountValue || createMutation.isPending}
           onClick={() => createMutation.mutate()}
-          className="mt-5 rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-medium text-surface disabled:opacity-50"
+          className="mt-5 rounded-lg bg-[#1D4ED8] px-5 py-2.5 text-sm font-medium text-surface disabled:opacity-50"
         >
           {createMutation.isPending ? 'Creating…' : 'Create Coupon'}
         </button>

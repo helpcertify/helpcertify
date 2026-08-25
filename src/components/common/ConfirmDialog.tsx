@@ -38,7 +38,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface"
+            className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-surface"
           >
             {confirmLabel}
           </button>

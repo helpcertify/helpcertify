@@ -274,7 +274,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           type="button"
           disabled={pending || !title || (!isEditing && !file)}
           onClick={() => (isEditing ? updateMutation.mutate() : createMutation.mutate())}
-          className="w-full rounded-lg bg-brand-gradient py-3 font-medium text-surface disabled:opacity-50"
+          className="w-full rounded-lg bg-[#1D4ED8] py-3 font-medium text-surface disabled:opacity-50"
         >
           {uploading ? 'Uploading…' : pending ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Practice Test'}
         </button>

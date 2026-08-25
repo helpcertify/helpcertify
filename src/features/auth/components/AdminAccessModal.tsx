@@ -103,7 +103,7 @@ export function AdminAccessModal({ onClose }: AdminAccessModalProps) {
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="w-full rounded-lg bg-brand-gradient py-2.5 font-medium text-surface disabled:opacity-60"
+            className="w-full rounded-lg bg-[#1D4ED8] py-2.5 font-medium text-surface disabled:opacity-60"
           >
             {mutation.isPending ? 'Checking…' : 'Access Dashboard'}
           </button>

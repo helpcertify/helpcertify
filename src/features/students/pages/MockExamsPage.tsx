@@ -164,13 +164,13 @@ export function MockExamsPage() {
               ) : notYetOpen ? (
                 <span className="text-sm text-ink-faint">Opens {new Date(quiz.scheduledStart!.toMillis()).toLocaleString()}</span>
               ) : attempt?.status === 'in_progress' ? (
-                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
+                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface">
                   Resume
                 </Link>
               ) : attempt ? (
                 <span className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-ink-faint">Already attempted</span>
               ) : (
-                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
+                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface">
                   Start Quiz
                 </Link>
               )}

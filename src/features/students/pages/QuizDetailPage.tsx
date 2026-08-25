@@ -167,7 +167,7 @@ export function QuizDetailPage() {
             ) : attempt?.status === 'in_progress' ? (
               <Link
                 to={`/quizzes/${quiz.id}/take`}
-                className="block rounded-lg bg-brand-gradient py-2.5 text-center text-sm font-medium text-surface"
+                className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
               >
                 Resume
               </Link>
@@ -176,7 +176,7 @@ export function QuizDetailPage() {
             ) : (
               <Link
                 to={`/quizzes/${quiz.id}/take`}
-                className="block rounded-lg bg-brand-gradient py-2.5 text-center text-sm font-medium text-surface"
+                className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
               >
                 Start Quiz
               </Link>

@@ -164,7 +164,7 @@ export function QuizTakingPage() {
           <button
             type="button"
             onClick={() => navigate('/home/mock-exams')}
-            className="mt-6 w-full rounded-lg bg-brand-gradient py-2.5 font-medium text-surface"
+            className="mt-6 w-full rounded-lg bg-[#1D4ED8] py-2.5 font-medium text-surface"
           >
             Back to Mock Exams
           </button>

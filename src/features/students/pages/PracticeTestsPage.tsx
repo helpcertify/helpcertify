@@ -197,7 +197,7 @@ export function PracticeTestsPage() {
                       {!done && (
                         <Link
                           to={`/practice-tests/${test.id}/take`}
-                          className="flex-1 rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface"
+                          className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
                         >
                           {answered > 0 ? 'Resume' : 'Start'}
                         </Link>

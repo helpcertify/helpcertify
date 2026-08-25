@@ -59,7 +59,7 @@ export function LandingPage() {
         </p>
         <Link
           to="/register"
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 font-medium text-surface"
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#1D4ED8] px-6 py-3 font-medium text-surface"
         >
           Get Started →
         </Link>

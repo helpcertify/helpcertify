@@ -252,7 +252,7 @@ export function StudentHomePage() {
                 {continueItem.answeredCount}/{continueItem.totalQuestions} questions
               </div>
             </div>
-            <Link to={continueItem.href} className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface">
+            <Link to={continueItem.href} className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-surface">
               Continue →
             </Link>
           </div>
@@ -273,7 +273,7 @@ export function StudentHomePage() {
                 <div className="mb-3 text-xs text-ink-faint">{item.progressLabel}</div>
                 <Link
                   to={item.actionHref}
-                  className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface"
+                  className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
                 >
                   {item.actionLabel}
                 </Link>
@@ -333,7 +333,7 @@ export function StudentHomePage() {
                 </div>
                 <Link
                   to={`/quizzes/${q.id}/take`}
-                  className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface"
+                  className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
                 >
                   Start Mock Exam
                 </Link>
