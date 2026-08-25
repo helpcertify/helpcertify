@@ -96,14 +96,11 @@ export function StudentHomePage() {
       title: q.title,
       category: q.category ?? 'Other',
       skillLevel: q.skillLevel ?? 'Foundation',
-      description: q.description ?? '',
-      statsLabel: `${q.totalQuestions} questions · ${q.durationMinutes} min`,
       price: q.price ?? 0,
       originalPrice: q.originalPrice ?? null,
       currency: q.currency ?? 'INR',
       ratingAvg: q.ratingAvg ?? 0,
       ratingCount: q.ratingCount ?? 0,
-      owned: (q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`),
     }));
 
   const addToCartMutation = useMutation({

@@ -1,12 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { cartApi } from '@/features/students/api/cartApi';
-import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { CourseCoverImage } from './CourseCoverImage';
 import { StarRating } from './StarRating';
-import { WishlistButton } from './WishlistButton';
 import type { PurchasableItemType } from '@/types/models';
 
 export interface CarouselItem {
@@ -15,14 +11,11 @@ export interface CarouselItem {
   title: string;
   category: string;
   skillLevel: string;
-  description: string;
-  statsLabel: string; // pre-formatted, e.g. "50 questions · 60 min" — quizzes and practice tests use different field names for this
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   ratingAvg: number;
   ratingCount: number;
-  owned: boolean;
 }
 
 interface CourseCarouselProps {
@@ -30,22 +23,10 @@ interface CourseCarouselProps {
   items: CarouselItem[];
 }
 
-// A horizontally-scrolling row of compact cards with prev/next arrows
-// (shown only when there's actually more to reveal in that direction) and
-// an in-place hover expansion that reveals extra detail + a quick Add to
-// Cart — the "browse a lot, learn more on hover" pattern common to
-// course/media carousels. Built with this app's own cards, data, and blue
-// branding rather than any copied assets.
-//
-// The hover-expand grows each card's own height in place (via a
-// grid-template-rows 0fr->1fr transition) instead of a floating popover
-// breaking out of the row. A floating popover would get clipped: once a
-// container's overflow-x is anything but visible, overflow-y can't stay
-// visible either (a real CSS constraint, not a choice), so a popover tall
-// enough to escape upward would be cut off by this row's own horizontal
-// scroll clipping. Growing in place sidesteps that entirely — the row is a
-// plain flex container with no fixed height, so it just grows to fit
-// whichever card is currently taller.
+// A horizontally-scrolling row of compact cards with prev/next arrows,
+// shown only when there's actually more to reveal in that direction. Each
+// card just links through to its detail page — no hover-expand panel (that
+// was tried and then explicitly removed on request).
 export function CourseCarousel({ title, items }: CourseCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -108,69 +89,32 @@ export function CourseCarousel({ title, items }: CourseCarouselProps) {
 }
 
 function CarouselCard({ item }: { item: CarouselItem }) {
-  const queryClient = useQueryClient();
-  const pushToast = useUiStore((s) => s.pushToast);
   const href = item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`;
 
-  const addToCartMutation = useMutation({
-    mutationFn: () => cartApi.addItem(item.itemType, item.id),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['student', 'cart'], data);
-      pushToast('Added to cart', 'success');
-    },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
-  });
-
   return (
-    <div className="group w-44 shrink-0 sm:w-52">
-      <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-shadow group-hover:shadow-lg">
-        <Link to={href}>
-          <CourseCoverImage id={item.id} title={item.title} className="h-24 w-full" />
-        </Link>
-        <div className="p-3">
-          <div className="mb-1 truncate text-[10px] uppercase tracking-wide text-ink-faint">
-            {item.category} · {item.skillLevel}
+    <Link
+      to={href}
+      className="block w-44 shrink-0 overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400 sm:w-52"
+    >
+      <CourseCoverImage id={item.id} title={item.title} className="h-24 w-full" />
+      <div className="p-3">
+        <div className="mb-1 truncate text-[10px] uppercase tracking-wide text-ink-faint">
+          {item.category} · {item.skillLevel}
+        </div>
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+        {item.ratingCount > 0 && (
+          <div className="mt-1 flex items-center gap-1">
+            <StarRating value={item.ratingAvg} size="sm" />
+            <span className="text-xs text-ink-faint">{item.ratingAvg.toFixed(1)}</span>
           </div>
-          <Link to={href} className="hover:text-brand-ink">
-            <h3 className="line-clamp-2 text-sm font-bold leading-snug text-ink">{item.title}</h3>
-          </Link>
-          {item.ratingCount > 0 && (
-            <div className="mt-1 flex items-center gap-1">
-              <StarRating value={item.ratingAvg} size="sm" />
-              <span className="text-xs text-ink-faint">{item.ratingAvg.toFixed(1)}</span>
-            </div>
+        )}
+        <div className="mt-1 text-xs font-semibold text-ink">
+          {item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}
+          {item.originalPrice && item.originalPrice > item.price && (
+            <span className="ml-1.5 text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
           )}
-          <div className="mt-1 text-xs font-semibold text-ink">
-            {item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}
-            {item.originalPrice && item.originalPrice > item.price && (
-              <span className="ml-1.5 text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
-            )}
-          </div>
-
-          <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover:grid-rows-[1fr]">
-            <div className="overflow-hidden">
-              {item.description && <p className="mb-2 mt-2 line-clamp-3 text-xs text-ink-muted">{item.description}</p>}
-              <div className="mb-2 text-xs text-ink-faint">{item.statsLabel}</div>
-              {!item.owned && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={addToCartMutation.isPending}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      addToCartMutation.mutate();
-                    }}
-                    className="flex-1 rounded-lg bg-blue-600 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-                  >
-                    {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
-                  </button>
-                  <WishlistButton itemType={item.itemType} itemId={item.id} variant="inline" />
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
