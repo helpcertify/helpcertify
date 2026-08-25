@@ -6,8 +6,8 @@ import { Logo } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
-  { to: '/admin', label: 'Overview', end: true },
-  { to: '/admin/quizzes', label: 'Question Bank' },
+  { to: '/admin', label: 'Dashboard', end: true },
+  { to: '/admin/quizzes', label: 'Mock Exams' },
   { to: '/admin/practice-tests', label: 'Practice Exams' },
   { to: '/admin/performance', label: 'Learner Analytics' },
   { to: '/admin/coupons', label: 'Promo Codes' },

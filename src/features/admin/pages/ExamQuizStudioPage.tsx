@@ -38,7 +38,7 @@ export function ExamQuizStudioPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Question Bank</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Mock Exams</h1>
       <p className="mb-6 text-sm text-ink-faint">Build production-ready real-test quizzes with strict timing and response behavior.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
