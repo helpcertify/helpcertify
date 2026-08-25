@@ -32,4 +32,10 @@ export const practiceSessionApi = {
     }),
   submitBatch: (sessionId: string) =>
     callAction<{ session: PracticeSessionState }>('practice-session', 'submitBatch', { sessionId }),
+  previewCheckAnswer: (testId: string, questionId: string, selectedOptionId: string) =>
+    callAction<{ isCorrect: boolean; correctOptionId: string | null }>('practice-session', 'previewCheckAnswer', {
+      testId,
+      questionId,
+      selectedOptionId,
+    }),
 };

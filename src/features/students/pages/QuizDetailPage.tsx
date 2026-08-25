@@ -13,6 +13,8 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
+import { RelatedItems } from '@/components/common/RelatedItems';
+import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
 // The "course landing page" a student sees before (or after) buying a quiz,
@@ -87,7 +89,11 @@ export function QuizDetailPage() {
       <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
         <CourseCoverImage id={quiz.id} title={quiz.title} className="h-56 w-full" />
         <div className="p-6">
-          <div className="mb-2 text-xs uppercase tracking-wide text-ink-faint">{quiz.category ?? 'Other'}</div>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
+            <span>{quiz.category ?? 'Other'}</span>
+            <span>·</span>
+            <span>{quiz.skillLevel ?? 'Foundation'}</span>
+          </div>
           <h1 className="mb-2 text-2xl font-bold text-ink">{quiz.title}</h1>
 
           {(quiz.ratingCount ?? 0) > 0 && (
@@ -110,6 +116,8 @@ export function QuizDetailPage() {
               <p className="whitespace-pre-line text-sm text-ink-muted">{quiz.description}</p>
             </div>
           )}
+
+          {!owned && <PreviewQuestions itemType="quiz" itemId={quiz.id} />}
 
           <div className="rounded-xl border border-surface-border bg-surface p-5">
             {price > 0 && (
@@ -175,6 +183,7 @@ export function QuizDetailPage() {
             )}
           </div>
 
+          <RelatedItems category={quiz.category ?? 'Other'} excludeItemType="quiz" excludeItemId={quiz.id} />
           <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
         </div>
       </div>

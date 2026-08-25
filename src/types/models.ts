@@ -48,6 +48,13 @@ export const CERTIFICATION_CATEGORIES = [
 ] as const;
 export type CertificationCategory = (typeof CERTIFICATION_CATEGORIES)[number];
 
+// Matches how certification tracks are actually tiered (e.g. ISACA's
+// Foundation/Practitioner-style progression) rather than a generic
+// Beginner/Intermediate/Advanced label, since every item here already
+// belongs to a specific certification body via `category`.
+export const SKILL_LEVELS = ['Foundation', 'Associate', 'Expert'] as const;
+export type SkillLevel = (typeof SKILL_LEVELS)[number];
+
 /** users/{uid} — doc id is the Firebase Auth uid. */
 export interface UserDoc {
   name: string;
@@ -110,6 +117,8 @@ export interface QuizDoc {
   // Which certification body/vendor this content belongs to (ISACA,
   // Microsoft, etc.) — defaults to 'Other' on docs that predate this field.
   category: CertificationCategory;
+  // Defaults to 'Foundation' on docs that predate this field.
+  skillLevel: SkillLevel;
   // Freeform "About this quiz" copy shown on the student-facing detail page
   // (QuizDetailPage) — defaults to '' on docs that predate this field, in
   // which case the detail page just omits the About section.
@@ -121,6 +130,11 @@ export interface QuizDoc {
   // should treat ratingCount === 0 as "no badge to show", not "0 stars".
   ratingAvg: number;
   ratingCount: number;
+  // Minimum percent of correctCount/totalQuestions needed for a submitted
+  // attempt to count as "passed" — the only thing certificate eligibility
+  // (src/utils/certificate.ts) checks for a quiz. Defaults to 60 on docs
+  // that predate this field.
+  passMarkPercent: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -142,6 +156,8 @@ export interface PracticeTestDoc {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  // See QuizDoc's skillLevel comment — same convention.
+  skillLevel: SkillLevel;
   // See QuizDoc's description comment — same convention.
   description: string;
   // See QuizDoc's ratingAvg/ratingCount comment — same convention.

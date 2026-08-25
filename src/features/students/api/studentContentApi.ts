@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { QuizDoc, PracticeTestDoc, QuestionDoc } from '@/types/models';
 
@@ -61,6 +61,29 @@ export async function getQuizWithQuestions(quizId: string): Promise<{ quiz: Quiz
     quiz: quizSnap.data() as QuizDoc,
     questions: questionsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as QuestionDoc) })),
   };
+}
+
+// Free preview — the first 5 questions (by `order`) of a quiz/practice test,
+// readable the same way getQuizWithQuestions above already reads the full
+// set (no purchase gate on the question docs themselves, see that
+// function's file-header comment) — a non-buyer never needs a purchase
+// just to see these. Checking a selected answer's correctness still goes
+// through api/quiz-session.ts's/api/practice-session.ts's previewCheckAnswer,
+// since the private answer key is never readable directly from the client.
+const PREVIEW_QUESTION_LIMIT = 5;
+
+export async function getQuizPreviewQuestions(quizId: string): Promise<(QuestionDoc & { id: string })[]> {
+  const snap = await getDocs(
+    query(collection(db, 'quizzes', quizId, 'questions'), orderBy('order'), limit(PREVIEW_QUESTION_LIMIT))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as QuestionDoc) }));
+}
+
+export async function getPracticeTestPreviewQuestions(testId: string): Promise<(QuestionDoc & { id: string })[]> {
+  const snap = await getDocs(
+    query(collection(db, 'practiceTests', testId, 'questions'), orderBy('order'), limit(PREVIEW_QUESTION_LIMIT))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as QuestionDoc) }));
 }
 
 export async function getPracticeQuestionsByIds(

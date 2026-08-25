@@ -129,16 +129,22 @@ export function StudentHomePage() {
 
           return (
             <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-              <div className="relative">
-                <Link to={`/home/quizzes/${quiz.id}`}>
-                  <CourseCoverImage id={quiz.id} title={quiz.title} className="h-32 w-full" />
-                </Link>
-                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} className="absolute right-2 top-2" />}
+              <Link to={`/home/quizzes/${quiz.id}`}>
+                <CourseCoverImage id={quiz.id} title={quiz.title} className="h-32 w-full" />
+              </Link>
+              {/* Card body sits on the plain surface-raised background, unlike
+                  the colorful cover banner above — the heart lives here now
+                  (variant="inline") since it was unreadable against some of
+                  the banner's brighter gradient pairs. */}
+              <div className="relative p-5">
+                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-3 top-3" />}
+              <div className="mb-1 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
+                <span>{quiz.category ?? 'Other'}</span>
+                <span>·</span>
+                <span>{quiz.skillLevel ?? 'Foundation'}</span>
               </div>
-              <div className="p-5">
-              <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{quiz.category ?? 'Other'}</div>
               <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">
-                <h3 className="mb-1 font-bold text-ink">{quiz.title}</h3>
+                <h3 className="mb-1 pr-8 font-bold text-ink">{quiz.title}</h3>
               </Link>
               {(quiz.ratingCount ?? 0) > 0 && (
                 <div className="mb-2 flex items-center gap-1.5">

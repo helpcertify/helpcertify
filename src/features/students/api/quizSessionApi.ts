@@ -34,4 +34,10 @@ export const quizSessionApi = {
   recordExit: (attemptId: string) => callAction<{ success: true }>('quiz-session', 'recordExit', { attemptId }),
   submitAttempt: (attemptId: string) =>
     callAction<{ attempt: QuizAttemptState }>('quiz-session', 'submitAttempt', { attemptId }),
+  previewCheckAnswer: (quizId: string, questionId: string, selectedOptionId: string) =>
+    callAction<{ isCorrect: boolean; correctOptionId: string | null }>('quiz-session', 'previewCheckAnswer', {
+      quizId,
+      questionId,
+      selectedOptionId,
+    }),
 };

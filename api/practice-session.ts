@@ -251,6 +251,34 @@ async function saveAnswer(uid: string, body: unknown) {
   return { isCorrect, correctOptionId };
 }
 
+// Free preview — same reasoning as api/quiz-session.ts's previewCheckAnswer:
+// no purchase/session required, but the question's own `order` is
+// re-checked server-side against the same limit the client-side preview
+// query uses, so this can never become a back door to the full answer key.
+const PREVIEW_QUESTION_LIMIT = 5;
+const previewCheckSchema = z.object({
+  testId: z.string().min(1),
+  questionId: z.string().min(1),
+  selectedOptionId: z.string().min(1),
+});
+
+async function previewCheckAnswer(body: unknown) {
+  const parsed = previewCheckSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { testId, questionId, selectedOptionId } = parsed.data;
+
+  const qRef = db.collection('practiceTests').doc(testId).collection('questions').doc(questionId);
+  const qSnap = await qRef.get();
+  if (!qSnap.exists) throw Err.notFound('Question not found');
+  if ((qSnap.data()?.order ?? Infinity) > PREVIEW_QUESTION_LIMIT) {
+    throw Err.invalidArgument('This question is not part of the free preview');
+  }
+
+  const keySnap = await qRef.collection('private').doc('answerKey').get();
+  const correctOptionId: string | null = keySnap.data()?.correctOptionId ?? null;
+  return { isCorrect: correctOptionId === selectedOptionId, correctOptionId };
+}
+
 const sessionIdSchema = z.object({ sessionId: z.string().min(1) });
 
 async function submitBatch(uid: string, body: unknown) {
@@ -283,6 +311,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'submitBatch':
         res.status(200).json(await submitBatch(uid, data));
+        return;
+      case 'previewCheckAnswer':
+        res.status(200).json(await previewCheckAnswer(data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

@@ -1,0 +1,109 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { quizSessionApi } from '@/features/students/api/quizSessionApi';
+import { practiceSessionApi } from '@/features/students/api/practiceSessionApi';
+import { getQuizPreviewQuestions, getPracticeTestPreviewQuestions } from '@/features/students/api/studentContentApi';
+import type { PurchasableItemType } from '@/types/models';
+
+interface PreviewQuestionsProps {
+  itemType: PurchasableItemType;
+  itemId: string;
+}
+
+// Free preview — shows the first few questions of a not-yet-owned quiz/
+// practice test, lets the visitor pick an answer, and reveals correctness
+// via api/quiz-session.ts's/api/practice-session.ts's previewCheckAnswer.
+// Neither the question read nor the correctness check needs a purchase or
+// session — see those two files for the server-side re-check that keeps
+// this from ever exposing more than the first few questions' answers, even
+// to someone scripting direct calls to the endpoint.
+export function PreviewQuestions({ itemType, itemId }: PreviewQuestionsProps) {
+  const { data: questions } = useQuery({
+    queryKey: ['student', 'previewQuestions', itemType, itemId],
+    queryFn: () => (itemType === 'quiz' ? getQuizPreviewQuestions(itemId) : getPracticeTestPreviewQuestions(itemId)),
+  });
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [result, setResult] = useState<{ isCorrect: boolean; correctOptionId: string | null } | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  if (!questions || questions.length === 0) return null;
+  const question = questions[index];
+
+  const pickOption = async (optionId: string) => {
+    if (result || checking) return;
+    setSelected(optionId);
+    setChecking(true);
+    try {
+      const check =
+        itemType === 'quiz'
+          ? await quizSessionApi.previewCheckAnswer(itemId, question.id, optionId)
+          : await practiceSessionApi.previewCheckAnswer(itemId, question.id, optionId);
+      setResult(check);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const next = () => {
+    setIndex((i) => Math.min(i + 1, questions.length - 1));
+    setSelected(null);
+    setResult(null);
+  };
+
+  return (
+    <div className="mb-6 rounded-xl border border-surface-border bg-surface p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Free Preview</h2>
+        <span className="text-xs text-ink-faint">
+          Question {index + 1} of {questions.length}
+        </span>
+      </div>
+      <p className="mb-4 text-sm text-ink">{question.questionText}</p>
+      <div className="space-y-2">
+        {question.options.map((opt) => {
+          const isSelected = selected === opt.id;
+          const isCorrectOption = !!result && opt.id === result.correctOptionId;
+          const showWrong = !!result && isSelected && !result.isCorrect;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              disabled={!!result || checking}
+              onClick={() => pickOption(opt.id)}
+              className={`block w-full rounded-lg border px-3 py-2 text-left text-sm disabled:cursor-default ${
+                isCorrectOption
+                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                  : showWrong
+                    ? 'border-red-500 bg-red-500/10 text-red-400'
+                    : isSelected
+                      ? 'border-brand-400 bg-brand-500/10 text-ink'
+                      : 'border-surface-border text-ink-muted hover:border-brand-400'
+              }`}
+            >
+              {opt.text}
+            </button>
+          );
+        })}
+      </div>
+      {result && (
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className={`text-sm font-medium ${result.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+            {result.isCorrect ? 'Correct!' : 'Not quite.'}
+          </span>
+          {index < questions.length - 1 ? (
+            <button
+              type="button"
+              onClick={next}
+              className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+            >
+              Next Question
+            </button>
+          ) : (
+            <span className="text-xs text-ink-faint">That's the free preview. Buy to unlock the rest.</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

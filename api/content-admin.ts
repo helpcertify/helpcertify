@@ -42,6 +42,9 @@ const CERTIFICATION_CATEGORIES = [
   'Other',
 ] as const;
 
+// Duplicated from src/types/models.ts's SKILL_LEVELS — same reasoning.
+const SKILL_LEVELS = ['Foundation', 'Associate', 'Expert'] as const;
+
 // Quiz + practice-test content management (create/update/delete/list, both
 // docx-format parsers, answer-key preview) for the v2 platform. Self-contained
 // — see api/auth.ts's header comment for why (no shared code across
@@ -393,7 +396,9 @@ const createQuizSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
   category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
+  skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
+  passMarkPercent: z.number().int().min(1).max(100).default(60),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -426,9 +431,11 @@ async function createQuiz(uid: string, body: unknown) {
     originalPrice: d.originalPrice ?? null,
     currency: d.currency,
     category: d.category,
+    skillLevel: d.skillLevel,
     description: d.description,
     ratingAvg: 0,
     ratingCount: 0,
+    passMarkPercent: d.passMarkPercent,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -460,7 +467,9 @@ const updateQuizSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
   category: z.enum(CERTIFICATION_CATEGORIES).optional(),
+  skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
+  passMarkPercent: z.number().int().min(1).max(100).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -595,6 +604,7 @@ const createPracticeTestSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
   category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
+  skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
 });
 
@@ -623,6 +633,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     originalPrice: d.originalPrice ?? null,
     currency: d.currency,
     category: d.category,
+    skillLevel: d.skillLevel,
     description: d.description,
     ratingAvg: 0,
     ratingCount: 0,
@@ -653,6 +664,7 @@ const updatePracticeTestSchema = z.object({
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
   category: z.enum(CERTIFICATION_CATEGORIES).optional(),
+  skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
 });
 

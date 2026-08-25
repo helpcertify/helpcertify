@@ -185,6 +185,38 @@ async function saveAnswer(uid: string, body: unknown) {
   return { isCorrect, correctOptionId };
 }
 
+// Free preview — lets a non-buyer try the first few questions and see
+// correctness, no purchase or session required. Deliberately re-checks the
+// question's own `order` against the same limit the client-side preview
+// query uses (studentContentApi.ts's getQuizPreviewQuestions), rather than
+// trusting that the client only ever asks about preview-eligible
+// questions — otherwise this endpoint would be a back door to the full
+// answer key, one question at a time, for anyone scripting direct calls to
+// it with arbitrary questionIds.
+const PREVIEW_QUESTION_LIMIT = 5;
+const previewCheckSchema = z.object({
+  quizId: z.string().min(1),
+  questionId: z.string().min(1),
+  selectedOptionId: z.string().min(1),
+});
+
+async function previewCheckAnswer(body: unknown) {
+  const parsed = previewCheckSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { quizId, questionId, selectedOptionId } = parsed.data;
+
+  const qRef = db.collection('quizzes').doc(quizId).collection('questions').doc(questionId);
+  const qSnap = await qRef.get();
+  if (!qSnap.exists) throw Err.notFound('Question not found');
+  if ((qSnap.data()?.order ?? Infinity) > PREVIEW_QUESTION_LIMIT) {
+    throw Err.permissionDenied('This question is not part of the free preview');
+  }
+
+  const keySnap = await qRef.collection('private').doc('answerKey').get();
+  const correctOptionId: string | null = keySnap.data()?.correctOptionId ?? null;
+  return { isCorrect: correctOptionId === selectedOptionId, correctOptionId };
+}
+
 const attemptIdSchema = z.object({ attemptId: z.string().min(1) });
 
 async function recordExit(uid: string, body: unknown) {
@@ -279,6 +311,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'submitAttempt':
         res.status(200).json(await submitAttempt(uid, data));
+        return;
+      case 'previewCheckAnswer':
+        res.status(200).json(await previewCheckAnswer(data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

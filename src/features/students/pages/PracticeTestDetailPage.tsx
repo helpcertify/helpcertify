@@ -14,6 +14,8 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
+import { RelatedItems } from '@/components/common/RelatedItems';
+import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
 function formatDate(ts: unknown): string {
@@ -109,7 +111,11 @@ export function PracticeTestDetailPage() {
       <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
         <CourseCoverImage id={test.id} title={test.title} className="h-56 w-full" />
         <div className="p-6">
-          <div className="mb-2 text-xs uppercase tracking-wide text-ink-faint">{test.category ?? 'Other'}</div>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
+            <span>{test.category ?? 'Other'}</span>
+            <span>·</span>
+            <span>{test.skillLevel ?? 'Foundation'}</span>
+          </div>
           <h1 className="mb-2 text-2xl font-bold text-ink">{test.title}</h1>
 
           {(test.ratingCount ?? 0) > 0 && (
@@ -132,6 +138,8 @@ export function PracticeTestDetailPage() {
               <p className="whitespace-pre-line text-sm text-ink-muted">{test.description}</p>
             </div>
           )}
+
+          {!owned && <PreviewQuestions itemType="practiceTest" itemId={test.id} />}
 
           <div className="rounded-xl border border-surface-border bg-surface p-5">
             {price > 0 && (
@@ -201,6 +209,7 @@ export function PracticeTestDetailPage() {
             )}
           </div>
 
+          <RelatedItems category={test.category ?? 'Other'} excludeItemType="practiceTest" excludeItemId={test.id} />
           <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
         </div>
       </div>

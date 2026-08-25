@@ -1,5 +1,5 @@
 import { callAction } from '@/lib/vercelApi';
-import type { QuestionSourceFormat, DurationType, CertificationCategory } from '@/types/models';
+import type { QuestionSourceFormat, DurationType, CertificationCategory, SkillLevel } from '@/types/models';
 
 export interface QuestionOption {
   id: string;
@@ -34,7 +34,9 @@ export interface QuizSummary {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  skillLevel: SkillLevel;
   description: string;
+  passMarkPercent: number;
 }
 
 export interface PracticeTestSummary {
@@ -52,6 +54,7 @@ export interface PracticeTestSummary {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  skillLevel: SkillLevel;
   description: string;
 }
 
@@ -70,7 +73,9 @@ export interface CreateQuizPayload {
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  skillLevel: SkillLevel;
   description: string;
+  passMarkPercent: number;
 }
 
 export interface CreatePracticeTestPayload {
@@ -85,6 +90,7 @@ export interface CreatePracticeTestPayload {
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
   category: CertificationCategory;
+  skillLevel: SkillLevel;
   description: string;
 }
 

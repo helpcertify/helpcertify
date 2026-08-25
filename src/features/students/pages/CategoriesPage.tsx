@@ -4,13 +4,15 @@ import { Link } from 'react-router-dom';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { formatMoney } from '@/utils/currency';
 import { StarRating } from '@/components/common/StarRating';
-import type { PurchasableItemType } from '@/types/models';
+import { SKILL_LEVELS } from '@/types/models';
+import type { PurchasableItemType, SkillLevel } from '@/types/models';
 
 interface CatalogItem {
   itemType: PurchasableItemType;
   id: string;
   title: string;
   category: string;
+  skillLevel: SkillLevel;
   price: number;
   currency: 'INR' | 'USD';
   ratingAvg: number;
@@ -27,6 +29,7 @@ export function CategoriesPage() {
       id: q.id,
       title: q.title,
       category: q.category ?? 'Other',
+      skillLevel: q.skillLevel ?? 'Foundation',
       price: q.price ?? 0,
       currency: q.currency ?? 'INR',
       ratingAvg: q.ratingAvg ?? 0,
@@ -37,6 +40,7 @@ export function CategoriesPage() {
       id: t.id,
       title: t.title,
       category: t.category ?? 'Other',
+      skillLevel: t.skillLevel ?? 'Foundation',
       price: t.price ?? 0,
       currency: t.currency ?? 'INR',
       ratingAvg: t.ratingAvg ?? 0,
@@ -48,13 +52,30 @@ export function CategoriesPage() {
   for (const item of allItems) categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
   const categories = [...categoryCounts.entries()].sort((a, b) => b[1] - a[1]);
 
-  const [selected, setSelected] = useState<string | null>(null);
-  const filtered = selected ? allItems.filter((i) => i.category === selected) : allItems;
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(null);
+
+  const query = search.trim().toLowerCase();
+  const filtered = allItems.filter(
+    (i) =>
+      (!query || i.title.toLowerCase().includes(query)) &&
+      (!selectedCategory || i.category === selectedCategory) &&
+      (!selectedLevel || i.skillLevel === selectedLevel)
+  );
 
   return (
     <div>
       <h1 className="mb-1 text-2xl font-bold text-ink">Categories</h1>
       <p className="mb-6 text-sm text-ink-faint">Browse quizzes and practice tests by certification body.</p>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by title…"
+        aria-label="Search quizzes and practice tests"
+        className="input-dark mb-4"
+      />
 
       {categories.length === 0 ? (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
@@ -62,12 +83,12 @@ export function CategoriesPage() {
         </p>
       ) : (
         <>
-          <div className="mb-6 flex flex-wrap gap-2">
+          <div className="mb-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={() => setSelectedCategory(null)}
               className={`rounded-full border px-3 py-1.5 text-sm ${
-                !selected ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-muted'
+                !selectedCategory ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-muted'
               }`}
             >
               All ({allItems.length})
@@ -76,9 +97,9 @@ export function CategoriesPage() {
               <button
                 key={cat}
                 type="button"
-                onClick={() => setSelected(cat)}
+                onClick={() => setSelectedCategory(cat)}
                 className={`rounded-full border px-3 py-1.5 text-sm ${
-                  selected === cat ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-muted'
+                  selectedCategory === cat ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-muted'
                 }`}
               >
                 {cat} ({count})
@@ -86,29 +107,59 @@ export function CategoriesPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((item) => (
-              <Link
-                key={`${item.itemType}_${item.id}`}
-                to={item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`}
-                className="rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400"
+          <div className="mb-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedLevel(null)}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                !selectedLevel ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-faint'
+              }`}
+            >
+              Any level
+            </button>
+            {SKILL_LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => setSelectedLevel(level)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  selectedLevel === level ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-faint'
+                }`}
               >
-                <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">
-                  {item.category} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
-                </div>
-                <div className="font-medium text-ink">{item.title}</div>
-                {item.ratingCount > 0 && (
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <StarRating value={item.ratingAvg} size="sm" />
-                    <span className="text-xs text-ink-faint">
-                      {item.ratingAvg.toFixed(1)} ({item.ratingCount})
-                    </span>
-                  </div>
-                )}
-                <div className="mt-2 text-sm text-ink-faint">{item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}</div>
-              </Link>
+                {level}
+              </button>
             ))}
           </div>
+
+          {filtered.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
+              Nothing matches those filters. Try clearing the search or picking "All".
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((item) => (
+                <Link
+                  key={`${item.itemType}_${item.id}`}
+                  to={item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`}
+                  className="rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400"
+                >
+                  <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">
+                    {item.category} · {item.skillLevel} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
+                  </div>
+                  <div className="font-medium text-ink">{item.title}</div>
+                  {item.ratingCount > 0 && (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <StarRating value={item.ratingAvg} size="sm" />
+                      <span className="text-xs text-ink-faint">
+                        {item.ratingAvg.toFixed(1)} ({item.ratingCount})
+                      </span>
+                    </div>
+                  )}
+                  <div className="mt-2 text-sm text-ink-faint">{item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}</div>
+                </Link>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

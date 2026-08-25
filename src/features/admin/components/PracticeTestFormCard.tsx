@@ -7,8 +7,8 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
-import { CERTIFICATION_CATEGORIES } from '@/types/models';
-import type { QuestionSourceFormat, CertificationCategory } from '@/types/models';
+import { CERTIFICATION_CATEGORIES, SKILL_LEVELS } from '@/types/models';
+import type { QuestionSourceFormat, CertificationCategory, SkillLevel } from '@/types/models';
 
 interface PracticeTestFormCardProps {
   editingTest?: PracticeTestSummary | null;
@@ -36,6 +36,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
 
   const [title, setTitle] = useState(editingTest?.title ?? '');
   const [category, setCategory] = useState<CertificationCategory>(editingTest?.category ?? 'Other');
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>(editingTest?.skillLevel ?? 'Foundation');
   const [description, setDescription] = useState(editingTest?.description ?? '');
   const [availableFrom, setAvailableFrom] = useState(toLocalInputValue(editingTest?.availableFrom));
   const [availableUntil, setAvailableUntil] = useState(toLocalInputValue(editingTest?.availableUntil));
@@ -63,6 +64,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const resetForm = () => {
     setTitle('');
     setCategory('Other');
+    setSkillLevel('Foundation');
     setDescription('');
     setAvailableFrom('');
     setAvailableUntil('');
@@ -84,6 +86,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       return contentAdminApi.createPracticeTest({
         title,
         category,
+        skillLevel,
         description,
         sourceFormat,
         fileUrl,
@@ -118,6 +121,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         testId: editingTest!.id,
         title,
         category,
+        skillLevel,
         description,
         availableFrom: availableFrom ? new Date(availableFrom).toISOString() : undefined,
         availableUntil: availableUntil ? new Date(availableUntil).toISOString() : undefined,
@@ -163,15 +167,26 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           />
         </Field>
 
-        <Field label="Category (certification body / vendor)">
-          <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
-            {CERTIFICATION_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Category (certification body / vendor)">
+            <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
+              {CERTIFICATION_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Skill Level">
+            <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)} className="input-dark">
+              {SKILL_LEVELS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
 
         <Field label="Description (shown on the student-facing detail page)">
           <textarea

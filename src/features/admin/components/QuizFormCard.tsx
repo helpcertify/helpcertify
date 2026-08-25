@@ -7,8 +7,8 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
-import { CERTIFICATION_CATEGORIES } from '@/types/models';
-import type { QuestionSourceFormat, DurationType, CertificationCategory } from '@/types/models';
+import { CERTIFICATION_CATEGORIES, SKILL_LEVELS } from '@/types/models';
+import type { QuestionSourceFormat, DurationType, CertificationCategory, SkillLevel } from '@/types/models';
 
 interface QuizFormCardProps {
   editingQuiz?: QuizSummary | null;
@@ -37,7 +37,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
 
   const [title, setTitle] = useState(editingQuiz?.title ?? '');
   const [category, setCategory] = useState<CertificationCategory>(editingQuiz?.category ?? 'Other');
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>(editingQuiz?.skillLevel ?? 'Foundation');
   const [description, setDescription] = useState(editingQuiz?.description ?? '');
+  const [passMarkPercent, setPassMarkPercent] = useState(editingQuiz?.passMarkPercent?.toString() ?? '60');
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createQuiz's schema still expects.
@@ -69,7 +71,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const resetForm = () => {
     setTitle('');
     setCategory('Other');
+    setSkillLevel('Foundation');
     setDescription('');
+    setPassMarkPercent('60');
     setFile(null);
     setEnforceSequentialNav(false);
     setShowImmediateResult(false);
@@ -93,7 +97,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
       return contentAdminApi.createQuiz({
         title,
         category,
+        skillLevel,
         description,
+        passMarkPercent: Number(passMarkPercent) || 60,
         sourceFormat,
         fileUrl,
         durationType,
@@ -130,7 +136,9 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         quizId: editingQuiz!.id,
         title,
         category,
+        skillLevel,
         description,
+        passMarkPercent: Number(passMarkPercent) || 60,
         durationType,
         durationMinutes: Number(durationMinutes),
         enforceSequentialNav,
@@ -178,14 +186,36 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
           />
         </Field>
 
-        <Field label="Category (certification body / vendor)">
-          <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
-            {CERTIFICATION_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Category (certification body / vendor)">
+            <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
+              {CERTIFICATION_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Skill Level">
+            <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)} className="input-dark">
+              {SKILL_LEVELS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <Field label="Pass Mark (% correct needed to earn a certificate)">
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={passMarkPercent}
+            onChange={(e) => setPassMarkPercent(e.target.value)}
+            className="input-dark"
+          />
         </Field>
 
         <Field label="Description (shown on the student-facing detail page)">

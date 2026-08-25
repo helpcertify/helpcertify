@@ -23,8 +23,19 @@ function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
 }
 
+// jsPDF (certificate.ts) is a meaningful chunk of code that only a fraction
+// of visitors ever trigger — dynamically imported here rather than a static
+// top-level import, same pattern as PerformancePage.tsx's exportToExcel, so
+// it lands in its own lazy-loaded chunk instead of bloating the one bundle
+// this app ships (there's no route-level code splitting here at all).
+async function downloadCertificate(...args: Parameters<typeof import('@/utils/certificate').downloadCertificate>) {
+  const mod = await import('@/utils/certificate');
+  return mod.downloadCertificate(...args);
+}
+
 export function PracticeTestsPage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
+  const profile = useAuthStore((s) => s.profile);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
@@ -98,16 +109,20 @@ export function PracticeTestsPage() {
 
             return (
               <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-                <div className="relative">
-                  <Link to={`/home/practice-tests/${test.id}`}>
-                    <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
-                  </Link>
-                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} className="absolute right-2 top-2" />}
+                <Link to={`/home/practice-tests/${test.id}`}>
+                  <CourseCoverImage id={test.id} title={test.title} className="h-32 w-full" />
+                </Link>
+                {/* Heart lives on the plain card body (variant="inline"), not
+                    over the cover banner — see StudentHomePage.tsx's card. */}
+                <div className="relative p-5">
+                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-3 top-3" />}
+                <div className="mb-1 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
+                  <span>{test.category ?? 'Other'}</span>
+                  <span>·</span>
+                  <span>{test.skillLevel ?? 'Foundation'}</span>
                 </div>
-                <div className="p-5">
-                <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{test.category ?? 'Other'}</div>
                 <Link to={`/home/practice-tests/${test.id}`} className="hover:text-brand-ink">
-                  <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
+                  <h3 className="mb-1 pr-8 font-bold text-ink">{test.title}</h3>
                 </Link>
                 {(test.ratingCount ?? 0) > 0 && (
                   <div className="mb-2 flex items-center gap-1.5">
@@ -160,22 +175,43 @@ export function PracticeTestsPage() {
                     </div>
                   )
                 ) : (
-                  <div className="flex gap-2">
-                    {!done && (
-                      <Link
-                        to={`/practice-tests/${test.id}/take`}
-                        className="flex-1 rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface"
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      {!done && (
+                        <Link
+                          to={`/practice-tests/${test.id}/take`}
+                          className="flex-1 rounded-lg bg-brand-gradient py-2 text-center text-sm font-medium text-surface"
+                        >
+                          {answered > 0 ? 'Resume' : 'Start'}
+                        </Link>
+                      )}
+                      {answered > 0 && (
+                        <Link
+                          to={`/practice-tests/${test.id}/take?reattempt=1`}
+                          className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-ink-muted"
+                        >
+                          Reattempt
+                        </Link>
+                      )}
+                    </div>
+                    {done && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadCertificate({
+                            studentName: profile?.name ?? 'Student',
+                            itemTitle: test.title,
+                            itemType: 'practiceTest',
+                            category: test.category ?? 'Other',
+                            scoreLabel: '',
+                            dateLabel: new Date().toLocaleDateString(),
+                            certificateCode: test.id.slice(0, 8).toUpperCase(),
+                          })
+                        }
+                        className="rounded-lg border border-brand-400 py-2 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
                       >
-                        {answered > 0 ? 'Resume' : 'Start'}
-                      </Link>
-                    )}
-                    {answered > 0 && (
-                      <Link
-                        to={`/practice-tests/${test.id}/take?reattempt=1`}
-                        className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-ink-muted"
-                      >
-                        Reattempt
-                      </Link>
+                        🎓 Download Certificate
+                      </button>
                     )}
                   </div>
                 )}
