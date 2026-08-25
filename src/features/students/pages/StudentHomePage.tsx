@@ -1,92 +1,93 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
+import { listAvailableQuizzes, listPracticeTestsBucketed, getQuizById } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
-import { useCheckout } from '../hooks/useCheckout';
+import { resultsApi } from '@/features/admin/api/resultsApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
-import { useUiStore } from '@/store/useUiStore';
-import { formatMoney } from '@/utils/currency';
-import { BuyNowModal } from '@/components/common/BuyNowModal';
-import { CourseCoverImage } from '@/components/common/CourseCoverImage';
-import { StarRating } from '@/components/common/StarRating';
-import { WishlistButton } from '@/components/common/WishlistButton';
+import { toDate } from '@/utils/formatDate';
 import { CourseCarousel, type CarouselItem } from '@/components/common/CourseCarousel';
-import type { QuizDoc } from '@/types/models';
 
+const SUBMITTED_STATUSES = ['submitted', 'auto_submitted'];
+
+// The personalized dashboard — replaced what used to be a bare quiz grid
+// (that content moved to MockExamsPage). Every section here is built from
+// data this app already has; two things are deliberately simplified rather
+// than faked:
+//   - "Study time" only sums quiz-attempt durations. Practice-test session
+//     durations aren't exposed to the student-facing frontend anywhere
+//     (only answeredQuestionIds is), so they can't be included honestly.
+//   - "Recommended next step" points at a category to practice more in, not
+//     a specific "weak topic" — questions have no topic/domain tag in this
+//     data model at all, so a real per-topic weakness analysis isn't
+//     buildable without adding that tagging system first.
 export function StudentHomePage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
-  const queryClient = useQueryClient();
-  const pushToast = useUiStore((s) => s.pushToast);
-  const { checkout, paying, confirmation } = useCheckout();
-  const [buyNowQuiz, setBuyNowQuiz] = useState<(QuizDoc & { id: string }) | null>(null);
+  const profile = useAuthStore((s) => s.profile);
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
+  const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
+  const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
+
   const { data: myAttempts } = useQuery({
-    queryKey: ['student', 'myQuizAttempts', uid],
+    queryKey: ['student', 'myQuizAttemptsFull', uid],
     queryFn: async () => {
       const snap = await getDocs(query(collection(db, 'quizAttempts'), where('userId', '==', uid)));
       return snap.docs.map((d) => {
         const data = d.data();
-        return { quizId: data.quizId as string, status: data.status as string };
+        return {
+          quizId: data.quizId as string,
+          status: data.status as string,
+          answeredCount: (data.answeredCount as number) ?? 0,
+          totalQuestions: (data.totalQuestions as number) ?? 0,
+          startedAt: data.startedAt as { toMillis?: () => number } | undefined,
+        };
       });
     },
     enabled: !!uid,
   });
-  const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
-  const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
-  // "Continue Learning" pulls from both quiz attempts and practice test
-  // progress — this page previously only ever showed quizzes, so a
-  // part-finished practice test never surfaced here at all, only on its own
-  // Practice Tests page.
-  const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: practiceProgressDocs } = useQuery({
-    queryKey: ['student', 'practiceProgress', uid],
+    queryKey: ['student', 'practiceProgressFull', uid],
     queryFn: async () => {
       const snap = await getDocs(query(collection(db, 'practiceProgress'), where('userId', '==', uid)));
       return snap.docs.map((d) => {
         const data = d.data();
-        return { testId: data.testId as string, answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [] };
+        return {
+          testId: data.testId as string,
+          answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [],
+          updatedAt: data.updatedAt as { toMillis?: () => number } | undefined,
+        };
       });
     },
     enabled: !!uid,
   });
 
-  const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
+  const { data: resultsData } = useQuery({ queryKey: ['student', 'pastQuizzes'], queryFn: resultsApi.listResultsForStudent });
+  const attempts = (resultsData?.attempts ?? []).filter((a) => SUBMITTED_STATUSES.includes(a.status));
+
+  // Each attempt's own quiz for its passMarkPercent (not stored on the
+  // attempt itself) — same batched-fetch pattern as PastQuizzesPage.
+  const quizIds = [...new Set(attempts.map((a) => a.quizId))];
+  const { data: quizzesById } = useQuery({
+    queryKey: ['student', 'quizzesForHistory', quizIds],
+    queryFn: async () => {
+      const results = await Promise.all(quizIds.map((id) => getQuizById(id)));
+      return new Map(results.filter((q): q is NonNullable<typeof q> => !!q).map((q) => [q.id, q]));
+    },
+    enabled: quizIds.length > 0,
+  });
+
   const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
-  const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
-
-  const inProgressQuizzes = (quizzes ?? [])
-    .filter((q) => attemptByQuizId.get(q.id)?.status === 'in_progress')
-    .map((q) => ({ itemType: 'quiz' as const, id: q.id, title: q.title, href: `/quizzes/${q.id}/take`, progress: null as string | null }));
-
+  const quizById = new Map((quizzes ?? []).map((q) => [q.id, q]));
   const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
-  const inProgressPracticeTests = (practiceProgressDocs ?? [])
-    .map((p) => {
-      const test = practiceTestById.get(p.testId);
-      if (!test) return null;
-      const answered = p.answeredQuestionIds.length;
-      if (answered === 0 || answered >= test.totalQuestions) return null; // not started, or already finished this bank
-      return {
-        itemType: 'practiceTest' as const,
-        id: p.testId,
-        title: test.title,
-        href: `/practice-tests/${p.testId}/take`,
-        progress: `${answered}/${test.totalQuestions} answered`,
-      };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
+  const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
 
-  const continueItems = [...inProgressQuizzes, ...inProgressPracticeTests];
-
-  // "Recommended for you" — ranked by rating (falls back to catalog order
-  // when nothing has a rating yet, e.g. a fresh platform with no reviews),
-  // capped to 10. Not personalized in any real sense yet (no click/purchase
-  // history feeds this), just the same honest "best of the catalog" signal
-  // as everywhere else ratings show up in this app.
+  // Recommended for you — ranked by rating (falls back to catalog order
+  // when nothing has a rating yet), capped to 10. Not personalized in any
+  // real sense (no click/purchase history feeds this), same honest
+  // "best of the catalog" signal used everywhere else ratings show up.
   const recommended: CarouselItem[] = [...(quizzes ?? [])]
     .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
     .slice(0, 10)
@@ -103,160 +104,298 @@ export function StudentHomePage() {
       ratingCount: q.ratingCount ?? 0,
     }));
 
-  const addToCartMutation = useMutation({
-    mutationFn: (quizId: string) => cartApi.addItem('quiz', quizId),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['student', 'cart'], data);
-      pushToast('Added to cart', 'success');
-    },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
-  });
+  // Continue where you left off — the single most-recently-touched
+  // in-progress item across both quizzes and practice tests.
+  interface ContinueCandidate {
+    title: string;
+    category: string;
+    answeredCount: number;
+    totalQuestions: number;
+    lastActivityMs: number;
+    href: string;
+  }
+  const continueCandidates: ContinueCandidate[] = [];
+  for (const a of myAttempts ?? []) {
+    if (a.status !== 'in_progress') continue;
+    const quiz = quizById.get(a.quizId);
+    if (!quiz) continue;
+    continueCandidates.push({
+      title: quiz.title,
+      category: quiz.category ?? 'Other',
+      answeredCount: a.answeredCount,
+      totalQuestions: a.totalQuestions || quiz.totalQuestions,
+      lastActivityMs: a.startedAt?.toMillis?.() ?? 0,
+      href: `/quizzes/${a.quizId}/take`,
+    });
+  }
+  for (const p of practiceProgressDocs ?? []) {
+    const test = practiceTestById.get(p.testId);
+    if (!test) continue;
+    const answered = p.answeredQuestionIds.length;
+    if (answered === 0 || answered >= test.totalQuestions) continue;
+    continueCandidates.push({
+      title: test.title,
+      category: test.category ?? 'Other',
+      answeredCount: answered,
+      totalQuestions: test.totalQuestions,
+      lastActivityMs: p.updatedAt?.toMillis?.() ?? 0,
+      href: `/practice-tests/${p.testId}/take`,
+    });
+  }
+  continueCandidates.sort((a, b) => b.lastActivityMs - a.lastActivityMs);
+  const continueItem = continueCandidates[0] ?? null;
+
+  // My Exams — everything owned (free or purchased), as compact cards.
+  interface OwnedItem {
+    id: string;
+    title: string;
+    expiryLabel: string;
+    progressLabel: string;
+    detailHref: string;
+    actionHref: string;
+    actionLabel: string;
+  }
+  const ownedItems: OwnedItem[] = [];
+  for (const q of quizzes ?? []) {
+    if (!((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`))) continue;
+    const attempt = attemptByQuizId.get(q.id);
+    ownedItems.push({
+      id: q.id,
+      title: q.title,
+      expiryLabel: 'No expiry',
+      progressLabel: attempt ? `${attempt.answeredCount}/${attempt.totalQuestions || q.totalQuestions} answered` : 'Not started',
+      detailHref: `/home/quizzes/${q.id}`,
+      actionHref: `/quizzes/${q.id}/take`,
+      actionLabel: attempt?.status === 'in_progress' ? 'Resume' : attempt ? 'Review' : 'Start Practice',
+    });
+  }
+  for (const t of practiceBuckets?.available ?? []) {
+    if (!((t.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${t.id}`))) continue;
+    const progress = (practiceProgressDocs ?? []).find((p) => p.testId === t.id);
+    const answered = progress?.answeredQuestionIds.length ?? 0;
+    ownedItems.push({
+      id: t.id,
+      title: t.title,
+      expiryLabel: toDate(t.availableUntil).toLocaleDateString(),
+      progressLabel: `${answered}/${t.totalQuestions} answered`,
+      detailHref: `/home/practice-tests/${t.id}`,
+      actionHref: `/practice-tests/${t.id}/take`,
+      actionLabel: answered > 0 ? 'Resume' : 'Start Practice',
+    });
+  }
+
+  // Performance summary — scoped to quiz (Mock Exam) attempts only; see
+  // this file's header comment for why practice-test time isn't included.
+  const scorePercents = attempts.map((a) => (a.totalQuestions > 0 ? (a.correctCount / a.totalQuestions) * 100 : 0));
+  const averageScore = scorePercents.length > 0 ? Math.round(scorePercents.reduce((s, x) => s + x, 0) / scorePercents.length) : null;
+  const bestScore = scorePercents.length > 0 ? Math.round(Math.max(...scorePercents)) : null;
+  const totalStudySeconds = attempts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0);
+  const studyHours = Math.round((totalStudySeconds / 3600) * 10) / 10;
+
+  // Recommended next step — the lowest-scoring recent attempt, suggesting
+  // more practice in that same category (not a specific "topic", see the
+  // header comment on why).
+  const weakest = [...attempts].sort((a, b) => {
+    const pa = a.totalQuestions > 0 ? a.correctCount / a.totalQuestions : 0;
+    const pb = b.totalQuestions > 0 ? b.correctCount / b.totalQuestions : 0;
+    return pa - pb;
+  })[0];
+  const weakestQuiz = weakest ? quizzesById?.get(weakest.quizId) : null;
+  const weakestPercent = weakest && weakest.totalQuestions > 0 ? Math.round((weakest.correctCount / weakest.totalQuestions) * 100) : null;
+
+  // Upcoming Mock Exams — owned quizzes not yet attempted at all.
+  const upcomingMockExams = (quizzes ?? [])
+    .filter((q) => ((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`)) && !attemptByQuizId.get(q.id))
+    .slice(0, 4);
+
+  const recentAttempts = [...attempts]
+    .sort((a, b) => toDate(b.submittedAt).getTime() - toDate(a.submittedAt).getTime())
+    .slice(0, 5);
 
   return (
     <div>
-      {continueItems.length > 0 && (
+      {/* Welcome and primary action */}
+      <div className="mb-8">
+        <h1 className="mb-1 text-2xl font-bold text-ink">
+          Welcome back{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.
+        </h1>
+        <p className="mb-4 text-sm text-ink-faint">
+          {continueItem ? `Continue preparing for ${continueItem.title}.` : "Let's find what to prepare for next."}
+        </p>
+        {continueItem && (
+          <Link
+            to={continueItem.href}
+            className="inline-block rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-medium text-surface"
+          >
+            Continue Practice
+          </Link>
+        )}
+      </div>
+
+      {/* Continue where you left off */}
+      {continueItem && (
+        <div className="mb-8 rounded-xl border border-brand-400 bg-brand-500/10 p-5">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue where you left off</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold text-ink">{continueItem.title}</div>
+              <div className="text-xs text-ink-faint">{continueItem.category}</div>
+              <div className="mt-1 text-sm text-ink-muted">
+                {Math.round((continueItem.answeredCount / (continueItem.totalQuestions || 1)) * 100)}% complete ·{' '}
+                {continueItem.answeredCount}/{continueItem.totalQuestions} questions
+              </div>
+            </div>
+            <Link to={continueItem.href} className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface">
+              Continue →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* My Exams */}
+      {ownedItems.length > 0 && (
         <div className="mb-8">
-          <h2 className="mb-3 text-lg font-bold text-ink">▶ Continue Learning</h2>
+          <h2 className="mb-3 text-lg font-bold text-ink">My Exams</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {continueItems.map((item) => (
-              <Link
-                key={`${item.itemType}_${item.id}`}
-                to={item.href}
-                className="flex items-center justify-between gap-3 rounded-xl border border-brand-400 bg-brand-500/10 p-4 hover:bg-brand-500/15"
-              >
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-ink">{item.title}</div>
-                  <div className="text-xs text-ink-faint">{item.progress ?? 'In progress'}</div>
+            {ownedItems.slice(0, 6).map((item) => (
+              <div key={item.detailHref} className="rounded-xl border border-surface-border bg-surface-raised p-4">
+                <Link to={item.detailHref} className="hover:text-brand-ink">
+                  <div className="mb-1 line-clamp-2 font-semibold text-ink">{item.title}</div>
+                </Link>
+                <div className="mb-1 text-xs text-ink-faint">Access: {item.expiryLabel}</div>
+                <div className="mb-3 text-xs text-ink-faint">{item.progressLabel}</div>
+                <Link
+                  to={item.actionHref}
+                  className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface"
+                >
+                  {item.actionLabel}
+                </Link>
+              </div>
+            ))}
+          </div>
+          {ownedItems.length > 6 && (
+            <Link to="/home/purchases" className="mt-3 inline-block text-sm font-medium text-brand-ink">
+              View all in My Purchases →
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Performance summary */}
+      {attempts.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 text-lg font-bold text-ink">Performance Summary</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label="Tests attempted" value={String(attempts.length)} />
+            <StatCard label="Average score" value={averageScore !== null ? `${averageScore}%` : 'N/A'} />
+            <StatCard label="Best score" value={bestScore !== null ? `${bestScore}%` : 'N/A'} />
+            <StatCard label="Study time" value={studyHours > 0 ? `${studyHours}h` : 'Not yet'} />
+          </div>
+        </div>
+      )}
+
+      {/* Recommended next step */}
+      {weakest && weakestPercent !== null && (
+        <div className="mb-8 rounded-xl border border-amber-500/40 bg-amber-500/10 p-5">
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">Recommended Next Step</h2>
+          <p className="mb-3 text-sm text-ink">
+            Your lowest recent score was {weakestPercent}% on {weakest.quizTitle}
+            {weakestQuiz ? ` (${weakestQuiz.category})` : ''}. Practice this area next.
+          </p>
+          <Link
+            to="/home/practice-tests"
+            className="inline-block rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+          >
+            Practice Weak Areas
+          </Link>
+        </div>
+      )}
+
+      {/* Upcoming or incomplete Mock Exams */}
+      {upcomingMockExams.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 text-lg font-bold text-ink">Upcoming Mock Exams</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {upcomingMockExams.map((q) => (
+              <div key={q.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
+                <div className="mb-1 line-clamp-2 font-semibold text-ink">{q.title}</div>
+                <div className="mb-3 space-y-0.5 text-xs text-ink-faint">
+                  <div>{q.totalQuestions} questions · {q.durationMinutes} min</div>
+                  <div>Passing score: {q.passMarkPercent ?? 60}%</div>
+                  <div>Attempts remaining: 1</div>
                 </div>
-                <span className="shrink-0 text-sm font-medium text-brand-ink">Resume →</span>
-              </Link>
+                <Link
+                  to={`/quizzes/${q.id}/take`}
+                  className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface"
+                >
+                  Start Mock Exam
+                </Link>
+              </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Recent attempts */}
+      {recentAttempts.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 text-lg font-bold text-ink">Recent Attempts</h2>
+          <div className="overflow-x-auto rounded-xl border border-surface-border bg-surface-raised">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-surface-border text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="px-4 py-3">Exam</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Score</th>
+                  <th className="px-4 py-3">Result</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border">
+                {recentAttempts.map((a) => {
+                  const passMark = quizzesById?.get(a.quizId)?.passMarkPercent ?? 60;
+                  const scorePercent = a.totalQuestions > 0 ? Math.round((a.correctCount / a.totalQuestions) * 100) : 0;
+                  const passed = scorePercent >= passMark;
+                  return (
+                    <tr key={a.id}>
+                      <td className="px-4 py-3 text-ink">{a.quizTitle}</td>
+                      <td className="px-4 py-3 text-ink-faint">{toDate(a.submittedAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-ink">{scorePercent}%</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            passed
+                              ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-400'
+                              : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400'
+                          }
+                        >
+                          {passed ? 'Passed' : 'Needs improvement'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-brand-ink hover:underline">
+                          Review
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <CourseCarousel title="Recommended for you" items={recommended} compactActions />
+    </div>
+  );
+}
 
-      <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">📄 Quiz Library</div>
-      {(!quizzes || quizzes.length === 0) && (
-        <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
-          No quizzes are available right now.
-        </p>
-      )}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {quizzes?.map((quiz) => {
-          const attempt = attemptByQuizId.get(quiz.id);
-          const notYetOpen = quiz.scheduledStart && quiz.scheduledStart.toMillis() > Date.now();
-          const price = quiz.price ?? 0;
-          const owned = price === 0 || purchasedSet.has(`quiz_${quiz.id}`);
-          const inCart = inCartSet.has(`quiz_${quiz.id}`);
-
-          return (
-            <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-              <Link to={`/home/quizzes/${quiz.id}`}>
-                <CourseCoverImage id={quiz.id} title={quiz.title} className="h-20 w-full" />
-              </Link>
-              {/* Card body sits on the plain surface-raised background, unlike
-                  the colorful cover banner above — the heart lives here now
-                  (variant="inline") since it was unreadable against some of
-                  the banner's brighter gradient pairs. */}
-              <div className="relative p-3.5">
-                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-2.5 top-2.5" />}
-              <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
-                <span>{quiz.category ?? 'Other'}</span>
-                <span>·</span>
-                <span>{quiz.skillLevel ?? 'Foundation'}</span>
-              </div>
-              <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">
-                <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{quiz.title}</h3>
-              </Link>
-              {(quiz.ratingCount ?? 0) > 0 && (
-                <div className="mb-1 flex items-center gap-1.5">
-                  <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
-                  <span className="text-xs text-ink-faint">
-                    {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount})
-                  </span>
-                </div>
-              )}
-              <div className="mb-2 text-xs text-ink-faint">
-                {quiz.totalQuestions} questions · {quiz.durationMinutes} min
-              </div>
-
-              {price > 0 && (
-                <div className="mb-2 flex items-center gap-2">
-                  {quiz.originalPrice && quiz.originalPrice > price && (
-                    <span className="text-xs text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
-                  )}
-                  <span className="font-semibold text-ink">{formatMoney(price, quiz.currency)}</span>
-                </div>
-              )}
-
-              {!owned ? (
-                inCart ? (
-                  <Link
-                    to="/home/cart"
-                    className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
-                  >
-                    ✓ In Cart · View Cart
-                  </Link>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={addToCartMutation.isPending || paying}
-                      onClick={() => addToCartMutation.mutate(quiz.id)}
-                      className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
-                    >
-                      Add to Cart
-                    </button>
-                    <button
-                      type="button"
-                      disabled={paying}
-                      onClick={() => setBuyNowQuiz(quiz)}
-                      className="flex-1 rounded-lg bg-blue-600 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-                    >
-                      {paying ? 'Opening…' : 'Buy Now'}
-                    </button>
-                  </div>
-                )
-              ) : notYetOpen ? (
-                <span className="text-sm text-ink-faint">Opens {new Date(quiz.scheduledStart!.toMillis()).toLocaleString()}</span>
-              ) : attempt?.status === 'in_progress' ? (
-                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
-                  Resume
-                </Link>
-              ) : attempt ? (
-                <span className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-ink-faint">Already attempted</span>
-              ) : (
-                <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-brand-gradient py-1.5 text-center text-sm font-medium text-surface">
-                  Start Quiz
-                </Link>
-              )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {buyNowQuiz && (
-        <BuyNowModal
-          title={buyNowQuiz.title}
-          price={buyNowQuiz.price ?? 0}
-          originalPrice={buyNowQuiz.originalPrice ?? null}
-          currency={buyNowQuiz.currency ?? 'INR'}
-          paying={paying}
-          onClose={() => setBuyNowQuiz(null)}
-          onConfirm={(couponCode) => {
-            checkout({
-              buyNowItem: { itemType: 'quiz', itemId: buyNowQuiz.id },
-              items: [{ itemType: 'quiz', itemId: buyNowQuiz.id, title: buyNowQuiz.title }],
-              couponCode,
-            });
-            setBuyNowQuiz(null);
-          }}
-        />
-      )}
-      {confirmation}
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-4">
+      <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
+      <div className="mt-1 text-xl font-bold text-ink">{value}</div>
     </div>
   );
 }

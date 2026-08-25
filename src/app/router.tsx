@@ -13,6 +13,7 @@ import { PracticeManagerPage } from '@/features/admin/pages/PracticeManagerPage'
 import { PracticeTestAnswerKeyPage } from '@/features/admin/pages/PracticeTestAnswerKeyPage';
 import { PerformancePage } from '@/features/admin/pages/PerformancePage';
 import { StudentHomePage } from '@/features/students/pages/StudentHomePage';
+import { MockExamsPage } from '@/features/students/pages/MockExamsPage';
 import { PastQuizzesPage } from '@/features/students/pages/PastQuizzesPage';
 import { StudentQuizDashboardPage } from '@/features/students/pages/StudentQuizDashboardPage';
 import { PracticeTestsPage } from '@/features/students/pages/PracticeTestsPage';
@@ -21,7 +22,6 @@ import { PracticeTestDetailPage } from '@/features/students/pages/PracticeTestDe
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
 import { CartPage } from '@/features/students/pages/CartPage';
-import { CategoriesPage } from '@/features/students/pages/CategoriesPage';
 import { MyPurchasesPage } from '@/features/students/pages/MyPurchasesPage';
 import { WishlistPage } from '@/features/students/pages/WishlistPage';
 import { ProfilePage } from '@/features/students/pages/ProfilePage';
@@ -43,12 +43,12 @@ export function AppRouter() {
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route element={<StudentShell />}>
           <Route path="/home" element={<StudentHomePage />} />
+          <Route path="/home/mock-exams" element={<MockExamsPage />} />
           <Route path="/home/past-quizzes" element={<PastQuizzesPage />} />
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
           <Route path="/home/quizzes/:quizId" element={<QuizDetailPage />} />
           <Route path="/home/practice-tests/:testId" element={<PracticeTestDetailPage />} />
-          <Route path="/home/categories" element={<CategoriesPage />} />
           <Route path="/home/purchases" element={<MyPurchasesPage />} />
           <Route path="/home/wishlist" element={<WishlistPage />} />
           <Route path="/home/profile" element={<ProfilePage />} />

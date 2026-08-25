@@ -14,6 +14,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -40,6 +41,7 @@ export function PracticeTestsPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [buyNowTest, setBuyNowTest] = useState<(PracticeTestDoc & { id: string }) | null>(null);
+  const [filters, setFilters] = useState(DEFAULT_EXAM_FILTERS);
 
   const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: progressDocs } = useQuery({
@@ -74,6 +76,16 @@ export function PracticeTestsPage() {
     (t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) >= t.totalQuestions
   ).length;
 
+  const filteredAvailable = available.filter((test) => {
+    const answered = progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0;
+    const status = answered >= test.totalQuestions ? 'completed' : answered > 0 ? 'in_progress' : 'not_started';
+    return matchesExamFilters(
+      filters,
+      { title: test.title, category: test.category ?? 'Other', skillLevel: test.skillLevel ?? 'Foundation', price: test.price ?? 0 },
+      status
+    );
+  });
+
   const addToCartMutation = useMutation({
     mutationFn: (testId: string) => cartApi.addItem('practiceTest', testId),
     onSuccess: (data) => {
@@ -94,13 +106,19 @@ export function PracticeTestsPage() {
         <StatCard label="Completed" value={completedCount} color="text-emerald-700 dark:text-emerald-400" />
       </div>
 
+      <ExamFilterBar filters={filters} onChange={setFilters} />
+
       {available.length === 0 ? (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
           No practice tests are available right now.
         </p>
+      ) : filteredAvailable.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
+          Nothing matches those filters. Try clearing the search or picking "All".
+        </p>
       ) : (
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {available.map((test) => {
+          {filteredAvailable.map((test) => {
             const answered = progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0;
             const done = answered >= test.totalQuestions;
             const price = test.price ?? 0;

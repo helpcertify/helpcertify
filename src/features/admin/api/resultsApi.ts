@@ -16,6 +16,12 @@ export interface AttemptRow {
   marks: number;
   durationSeconds: number;
   exitCount: number;
+  // Present on every doc (QuizAttemptDoc.submittedAt) but not previously
+  // declared here since nothing read it — the Home dashboard's "Recent
+  // attempts" table needs a date per row. Serialized Firestore Timestamp
+  // over JSON ({ _seconds, _nanoseconds }, not { seconds }) — read via
+  // @/utils/formatDate's toDate().
+  submittedAt: unknown;
 }
 
 export const resultsApi = {

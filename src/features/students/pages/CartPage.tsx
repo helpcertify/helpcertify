@@ -51,8 +51,8 @@ export function CartPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">Your cart is empty.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
-              Browse Quiz Library
+            <Link to="/home/mock-exams" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
+              Browse Mock Exams
             </Link>
             <Link to="/home/practice-tests" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
               Browse Practice Exams

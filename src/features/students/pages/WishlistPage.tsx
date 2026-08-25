@@ -39,8 +39,8 @@ export function WishlistPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">Nothing saved yet. Tap the heart on any quiz or practice test to save it here.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-              Browse Quiz Library
+            <Link to="/home/mock-exams" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+              Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"

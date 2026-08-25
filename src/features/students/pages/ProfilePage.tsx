@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
@@ -85,6 +86,16 @@ export function ProfilePage() {
         )}
         <div className="mt-3 text-base font-semibold text-ink">{profile.name}</div>
         <div className="text-sm text-ink-faint">{profile.email}</div>
+        {/* Billing & Orders (formerly a standalone "My Purchases" sidebar
+            tab) lives here now — learners care more about reaching their
+            purchased exams than about a receipts page, so it's tucked under
+            the profile rather than sitting in the main nav. */}
+        <Link
+          to="/home/purchases"
+          className="mt-4 w-full rounded-lg border border-surface-border py-2 text-center text-sm font-medium text-ink-muted hover:border-brand-400"
+        >
+          Billing & Orders →
+        </Link>
       </div>
 
       <div className="mb-6 space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">

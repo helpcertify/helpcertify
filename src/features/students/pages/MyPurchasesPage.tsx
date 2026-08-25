@@ -35,7 +35,7 @@ export function MyPurchasesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-ink">My Purchases</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Billing & Orders</h1>
       <p className="mb-6 text-sm text-ink-faint">Everything you've bought, yours to use anytime with no expiry.</p>
 
       {isLoading ? (
@@ -44,8 +44,8 @@ export function MyPurchasesPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-              Browse Quiz Library
+            <Link to="/home/mock-exams" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+              Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"

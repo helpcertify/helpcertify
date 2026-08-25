@@ -18,9 +18,9 @@ import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
 // The "course landing page" a student sees before (or after) buying a quiz,
-// reached by clicking a card on StudentHomePage/CategoriesPage/
-// MyPurchasesPage rather than acting on the card's buttons directly. Same
-// owned/in-cart/notYetOpen/attempted branches as StudentHomePage's card,
+// reached by clicking a card on MockExamsPage/MyPurchasesPage rather than
+// acting on the card's buttons directly. Same owned/in-cart/notYetOpen/
+// attempted branches as MockExamsPage's card,
 // just laid out as a full page with room for the description ("About this
 // quiz") that doesn't fit on a browse card.
 export function QuizDetailPage() {
@@ -66,8 +66,8 @@ export function QuizDetailPage() {
     return (
       <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
         <p className="mb-4 text-ink-faint">This quiz doesn't exist or is no longer available.</p>
-        <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-          Back to Quiz Library
+        <Link to="/home/mock-exams" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+          Back to Mock Exams
         </Link>
       </div>
     );
@@ -82,8 +82,8 @@ export function QuizDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/home" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
-        ← Back to Quiz Library
+      <Link to="/home/mock-exams" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
+        ← Back to Mock Exams
       </Link>
 
       <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">

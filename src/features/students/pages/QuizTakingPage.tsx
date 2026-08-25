@@ -163,10 +163,10 @@ export function QuizTakingPage() {
           )}
           <button
             type="button"
-            onClick={() => navigate('/home')}
+            onClick={() => navigate('/home/mock-exams')}
             className="mt-6 w-full rounded-lg bg-brand-gradient py-2.5 font-medium text-surface"
           >
-            Back to Quiz Library
+            Back to Mock Exams
           </button>
         </div>
       </div>
