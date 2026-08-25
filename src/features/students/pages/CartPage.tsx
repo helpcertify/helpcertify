@@ -59,7 +59,7 @@ export function CartPage() {
                 <div className="font-medium text-ink">{i.title}</div>
                 <Link
                   to={i.itemType === 'quiz' ? '/home' : '/home/practice-tests'}
-                  className="text-sm text-brand-300 hover:underline"
+                  className="text-sm text-brand-ink hover:underline"
                 >
                   Go start it →
                 </Link>

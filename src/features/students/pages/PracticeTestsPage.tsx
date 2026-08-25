@@ -62,7 +62,7 @@ export function PracticeTestsPage() {
       <p className="mb-6 text-sm text-ink-faint">Resume where you left off. Each session pulls only unanswered questions.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Available" value={available.length} color="text-brand-400" />
+        <StatCard label="Available" value={available.length} color="text-brand-ink" />
         <StatCard label="Started" value={startedCount} color="text-amber-400" />
         <StatCard label="Completed" value={completedCount} color="text-emerald-400" />
       </div>

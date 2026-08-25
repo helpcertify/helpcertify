@@ -105,7 +105,7 @@ export function LoginPage() {
         </form>
         <p className="mt-4 text-center text-sm text-ink-faint">
           No account?{' '}
-          <Link to="/register" className="text-brand-400 underline">
+          <Link to="/register" className="text-brand-ink underline">
             Register
           </Link>
         </p>

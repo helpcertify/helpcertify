@@ -107,7 +107,7 @@ export function PracticeTakingPage() {
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-8 text-center">
           <h1 className="mb-4 text-xl font-semibold text-ink">Batch Complete</h1>
-          <div className="text-3xl font-bold text-brand-400">
+          <div className="text-3xl font-bold text-brand-ink">
             {correct} / {questions.length}
           </div>
           <p className="mt-1 text-sm text-ink-faint">correct in this batch</p>
@@ -258,7 +258,7 @@ export function PracticeTakingPage() {
                       i === currentIndex
                         ? 'bg-brand-500 text-surface'
                         : answers[q.id]
-                          ? 'bg-brand-500/20 text-brand-300'
+                          ? 'bg-brand-500/20 text-brand-ink'
                           : 'bg-white/5 text-ink-faint'
                     } ${marked[q.id] ? 'ring-2 ring-amber-400' : ''}`}
                   >

@@ -8,7 +8,7 @@ export function PastQuizzesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-ink">Past Quizzes</h1>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Quiz History</h1>
       <p className="mb-6 text-sm text-ink-faint">Review your quiz history and performance</p>
 
       <div className="rounded-xl border border-surface-border bg-surface-raised">
@@ -25,7 +25,7 @@ export function PastQuizzesPage() {
                   <div className="font-medium text-ink">{a.quizTitle}</div>
                   <div className="mt-1 flex gap-2 text-sm">
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-400">Status: Attended</span>
-                    <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-300">Score: {a.marks}</span>
+                    <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-ink">Score: {a.marks}</span>
                   </div>
                 </div>
                 <Link

@@ -62,7 +62,7 @@ export function ExamQuizStudioPage() {
               <div key={quiz.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
                 <div className="mb-2 flex items-start justify-between">
                   <h3 className="font-semibold text-ink">{quiz.title}</h3>
-                  <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-300">
+                  <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-ink">
                     {quiz.isPublished ? 'Published' : 'Draft'}
                   </span>
                 </div>
@@ -71,7 +71,7 @@ export function ExamQuizStudioPage() {
                   <div>Questions: {quiz.totalQuestions}</div>
                   {formatTimestamp(quiz.scheduledStart) && <div>Starts: {formatTimestamp(quiz.scheduledStart)}</div>}
                   <div>
-                    Code: <span className="font-mono text-brand-300">{quiz.code}</span>
+                    Code: <span className="font-mono text-brand-ink">{quiz.code}</span>
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2">

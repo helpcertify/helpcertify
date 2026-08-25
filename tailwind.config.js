@@ -5,16 +5,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Teal/cyan accent — unchanged across both themes, on purpose: a
-        // brand color staying recognizable regardless of light/dark is the
-        // point of it being "the brand color" (replaces the crimson "seal"
-        // accent from the v1 course/certificate UI).
+        // Blue accent (matches the Buy Now / Finish / Submit buttons, which
+        // were already this exact Tailwind blue scale — the rebrand makes
+        // the whole app consistent with them rather than introducing a
+        // second blue). 50/400/500/600 stay fixed across both themes, same
+        // as before. `ink` is the one shade that's theme-aware: brand-300/
+        // 400 read fine as text against a near-black dark background, but
+        // are too pale for reliable contrast against a white one — ink
+        // swaps to a solid, darker blue in light mode instead.
         brand: {
-          50: '#ecfeff',
-          300: '#5eead4',
-          400: '#2dd4bf',
-          500: '#14b8a6',
-          600: '#0d9488',
+          50: '#eff6ff',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+          ink: 'rgb(var(--color-brand-ink) / <alpha-value>)',
         },
         // surface/ink are CSS-variable-backed (defined per-theme in
         // globals.css) so every existing bg-surface/text-ink usage across
@@ -34,7 +39,7 @@ export default {
         },
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(90deg, #2dd4bf 0%, #10b981 100%)',
+        'brand-gradient': 'linear-gradient(90deg, #60a5fa 0%, #2563eb 100%)',
       },
     },
   },

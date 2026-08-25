@@ -20,7 +20,7 @@ export function QuizAnswerKeyPage() {
 
   return (
     <div>
-      <Link to="/admin/quizzes" className="mb-4 inline-block text-sm text-brand-400">
+      <Link to="/admin/quizzes" className="mb-4 inline-block text-sm text-brand-ink">
         ← Back to Exam Quiz Studio
       </Link>
       <div className="rounded-xl border border-surface-border bg-surface-raised p-6">

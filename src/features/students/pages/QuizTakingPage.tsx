@@ -153,7 +153,7 @@ export function QuizTakingPage() {
           <h1 className="mb-4 text-xl font-semibold text-ink">Quiz Submitted</h1>
           {quiz?.showFinalScore ? (
             <div className="space-y-1 text-ink-muted">
-              <div className="text-3xl font-bold text-brand-400">{finalResult.marks}</div>
+              <div className="text-3xl font-bold text-brand-ink">{finalResult.marks}</div>
               <div className="text-sm text-ink-faint">
                 {finalResult.correctCount} correct · {finalResult.incorrectCount} incorrect · {finalResult.notAnsweredCount} unanswered
               </div>
@@ -201,7 +201,7 @@ export function QuizTakingPage() {
           <h1 className="text-lg font-semibold text-ink">{quiz.title}</h1>
           <div className="flex items-center gap-3">
             {markedCount > 0 && <span className="text-sm text-amber-400">🚩 {markedCount} marked</span>}
-            <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-300">
+            <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-ink">
               ⏱ {formatClock(remainingSeconds)}
             </span>
           </div>
@@ -325,7 +325,7 @@ export function QuizTakingPage() {
                       i === currentIndex
                         ? 'bg-brand-500 text-surface'
                         : answers[q.id]
-                          ? 'bg-brand-500/20 text-brand-300'
+                          ? 'bg-brand-500/20 text-brand-ink'
                           : 'bg-white/5 text-ink-faint'
                     } ${marked[q.id] ? 'ring-2 ring-amber-400' : ''}`}
                   >

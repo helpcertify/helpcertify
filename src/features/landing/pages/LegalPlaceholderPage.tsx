@@ -14,7 +14,7 @@ export function LegalPlaceholderPage({ title }: LegalPlaceholderPageProps) {
         <Logo size="sm" />
         <h1 className="mb-4 mt-8 text-2xl font-semibold text-ink">{title}</h1>
         <p className="text-ink-faint">This page is a placeholder. Real {title.toLowerCase()} copy goes here.</p>
-        <Link to="/" className="mt-6 inline-block text-brand-400 underline">
+        <Link to="/" className="mt-6 inline-block text-brand-ink underline">
           ← Back home
         </Link>
       </div>

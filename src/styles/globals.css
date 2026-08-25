@@ -20,6 +20,7 @@
   --color-ink: 15 23 42;
   --color-ink-muted: 71 85 105;
   --color-ink-faint: 100 116 139;
+  --color-brand-ink: 29 78 216; /* blue-700 — solid enough for text on a white/light card */
 }
 
 .dark {
@@ -30,6 +31,7 @@
   --color-ink: 255 255 255;
   --color-ink-muted: 212 212 212;
   --color-ink-faint: 163 163 163;
+  --color-brand-ink: 96 165 250; /* blue-400 — bright enough for text on a near-black card */
 }
 
 body {

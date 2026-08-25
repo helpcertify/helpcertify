@@ -15,7 +15,7 @@ export function StudentQuizDashboardPage() {
 
   return (
     <div>
-      <Link to="/home/past-quizzes" className="mb-4 inline-block text-sm text-brand-400">
+      <Link to="/home/past-quizzes" className="mb-4 inline-block text-sm text-brand-ink">
         ← Back to Past Quizzes
       </Link>
       <h1 className="mb-1 text-2xl font-semibold text-ink">Student Dashboard</h1>
@@ -48,7 +48,7 @@ export function StudentQuizDashboardPage() {
                   <td className="px-4 py-3">{data.attempt.notAnsweredCount}</td>
                   <td className="px-4 py-3">{data.attempt.incorrectCount}</td>
                   <td className="px-4 py-3">{data.attempt.correctCount}</td>
-                  <td className="px-4 py-3 font-semibold text-brand-300">{data.attempt.marks}</td>
+                  <td className="px-4 py-3 font-semibold text-brand-ink">{data.attempt.marks}</td>
                   <td className="px-4 py-3">{Math.round(data.attempt.durationSeconds / 60)} min</td>
                   <td className="px-4 py-3">{data.attempt.exitCount}</td>
                 </tr>

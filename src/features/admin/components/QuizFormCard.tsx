@@ -295,7 +295,7 @@ function FormatButton({ active, label, onClick }: { active: boolean; label: stri
       type="button"
       onClick={onClick}
       className={`rounded-lg border px-4 py-3 text-left text-sm font-medium ${
-        active ? 'border-brand-400 bg-brand-500/15 text-brand-300' : 'border-surface-border text-ink-muted'
+        active ? 'border-brand-400 bg-brand-500/15 text-brand-ink' : 'border-surface-border text-ink-muted'
       }`}
     >
       {label}

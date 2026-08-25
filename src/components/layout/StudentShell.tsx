@@ -11,7 +11,7 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Available Quizzes', end: true },
-  { to: '/home/past-quizzes', label: 'Past Quizzes' },
+  { to: '/home/past-quizzes', label: 'Quiz History' },
   { to: '/home/practice-tests', label: 'Practice Tests' },
 ];
 
@@ -62,7 +62,7 @@ export function StudentShell() {
           className={({ isActive }) =>
             clsx(
               'rounded-lg px-3 py-2 text-sm',
-              isActive ? 'bg-brand-500/15 text-brand-300' : 'text-ink-muted hover:bg-white/5'
+              isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5'
             )
           }
         >

@@ -45,13 +45,13 @@ export function LandingPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 pb-24 pt-10 text-center">
-        <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-300">
+        <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
           Revolutionizing Certification Prep Through AI
         </span>
         <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
           Master Your Certification with
           <br />
-          <span className="text-brand-400">Intelligent Practice</span>
+          <span className="text-brand-ink">Intelligent Practice</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
           Timed exam quizzes, resumable practice tests, and ranked results built around real exam content.
@@ -67,7 +67,7 @@ export function LandingPage() {
         <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {STATS.map((s) => (
             <div key={s.label} className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <div className="text-2xl font-bold text-brand-400">{s.value}</div>
+              <div className="text-2xl font-bold text-brand-ink">{s.value}</div>
               <div className="mt-1 text-sm text-ink-faint">{s.label}</div>
             </div>
           ))}

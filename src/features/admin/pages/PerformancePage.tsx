@@ -108,7 +108,7 @@ export function PerformancePage() {
                   <td className="px-4 py-3">{a.notAnsweredCount}</td>
                   <td className="px-4 py-3">{a.incorrectCount}</td>
                   <td className="px-4 py-3">{a.correctCount}</td>
-                  <td className="px-4 py-3 font-semibold text-brand-300">{a.marks}</td>
+                  <td className="px-4 py-3 font-semibold text-brand-ink">{a.marks}</td>
                   <td className="px-4 py-3">{Math.round(a.durationSeconds / 60)} min</td>
                   <td className="px-4 py-3">{a.exitCount}</td>
                   <td className="px-4 py-3">

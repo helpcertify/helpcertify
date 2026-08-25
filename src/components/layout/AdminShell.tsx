@@ -41,7 +41,7 @@ export function AdminShell() {
                   className={({ isActive }) =>
                     clsx(
                       'rounded-lg px-3 py-1.5 text-sm',
-                      isActive ? 'bg-brand-500/15 text-brand-300' : 'text-ink-muted hover:bg-white/5'
+                      isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5'
                     )
                   }
                 >
@@ -80,7 +80,7 @@ export function AdminShell() {
                 className={({ isActive }) =>
                   clsx(
                     'rounded-lg px-3 py-2 text-sm',
-                    isActive ? 'bg-brand-500/15 text-brand-300' : 'text-ink-muted hover:bg-white/5'
+                    isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5'
                   )
                 }
               >
