@@ -100,6 +100,47 @@ export function StarIcon({ filled = true, className = 'h-4 w-4', style }: IconPr
   );
 }
 
+// Header's Notifications button (StudentShell) — there's no notifications
+// backend/collection in this data model at all, so the button is an honest
+// "nothing to show yet" affordance (a toast on click), not a fake unread
+// badge.
+export function BellIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+// Header's search field (StudentShell).
+export function SearchIcon({ className = 'h-4 w-4' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
 // Used by WishlistButton — filled (solid) once saved, outline otherwise.
 export function HeartIcon({ filled = true, className = 'h-4 w-4' }: IconProps & { filled?: boolean }) {
   const path = 'M12 21s-7.5-4.6-10.2-9.1C.2 9 1 5.7 3.9 4.5c2.1-.9 4.4-.2 5.8 1.6L12 8.4l2.3-2.3c1.4-1.8 3.7-2.5 5.8-1.6 2.9 1.2 3.7 4.5 2.1 7.4C19.5 16.4 12 21 12 21z';
