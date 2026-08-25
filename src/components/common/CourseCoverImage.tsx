@@ -23,11 +23,20 @@ const PALETTE: [string, string][] = [
 
 // No real text-measurement API in plain SVG, so this is an approximation:
 // bigger font for a short title, smaller (and wrapped further) for a long
-// one, with a rough chars-per-line budget derived from the font size.
+// one, with a rough chars-per-line budget derived from the font size — kept
+// deliberately conservative (a smaller width budget, a larger per-char
+// estimate) so a borderline-length line wraps to a second line rather than
+// risk running past the card edge. CARD_WIDTH below is also used as a
+// per-line textLength safety net (see the component), which compresses
+// letter-spacing on any individual line the estimate still got wrong,
+// rather than trusting the estimate alone to never overflow.
+const CARD_WIDTH = 270;
+const CHAR_WIDTH_FACTOR = 0.62;
+
 function layoutTitle(title: string): { lines: string[]; fontSize: number } {
   const len = title.length;
   const fontSize = len <= 10 ? 34 : len <= 20 ? 27 : len <= 32 ? 21 : 16;
-  const maxCharsPerLine = Math.max(8, Math.floor(290 / (fontSize * 0.58)));
+  const maxCharsPerLine = Math.max(8, Math.floor(CARD_WIDTH / (fontSize * CHAR_WIDTH_FACTOR)));
 
   const words = title.toUpperCase().split(/\s+/);
   const lines: string[] = [];
@@ -66,11 +75,28 @@ export function CourseCoverImage({ id, title, className = '' }: { id: string; ti
       <circle cx="15" cy="150" r="55" fill="rgba(255,255,255,0.04)" />
 
       <text x="160" y={firstBaselineY} textAnchor="middle" fontWeight="800" fill="white" fontFamily="Arial, Helvetica, sans-serif">
-        {lines.map((line, i) => (
-          <tspan key={i} x="160" dy={i === 0 ? 0 : lineHeight} fontSize={fontSize}>
-            {line}
-          </tspan>
-        ))}
+        {lines.map((line, i) => {
+          // Safety net on top of layoutTitle's estimate: if this specific
+          // line still looks like it'd run past the card width, force it to
+          // fit exactly via textLength instead of trusting the character-
+          // count approximation not to be off. Short lines are left alone
+          // (no textLength) so they aren't stretched to fill a width they
+          // don't need.
+          const estimatedWidth = line.length * fontSize * CHAR_WIDTH_FACTOR;
+          const forceWidth = estimatedWidth > CARD_WIDTH ? CARD_WIDTH : undefined;
+          return (
+            <tspan
+              key={i}
+              x="160"
+              dy={i === 0 ? 0 : lineHeight}
+              fontSize={fontSize}
+              textLength={forceWidth}
+              lengthAdjust={forceWidth ? 'spacingAndGlyphs' : undefined}
+            >
+              {line}
+            </tspan>
+          );
+        })}
       </text>
 
       {/* small certification-badge accent, corner-placed and low-key next to the text */}
