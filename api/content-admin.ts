@@ -357,13 +357,24 @@ async function writeQuestionsBatch(parentRef: DocumentReference, questions: Pars
   }
 }
 
+// Deletes every doc in a question subcollection plus each one's private
+// answerKey. Used to read each question's own private/ subcollection first
+// to discover what to delete there — one sequential await per question,
+// which for a large bank (the 1,467-question CISM quiz that prompted this
+// fix) blew past this function's 60-second maxDuration and got killed
+// mid-delete by Vercel, leaving the quiz partially deleted. The answerKey
+// doc's path is always known (every write goes through
+// writeQuestionsBatch/updateQuestionCommon, both of which only ever touch
+// .collection('private').doc('answerKey') — confirmed nothing else is ever
+// written there), so it's referenced directly instead of discovered via a
+// read; batch.delete() on a path that doesn't exist is a harmless no-op.
+// This turns ~1,467 sequential round trips into 4 batch commits total.
 async function deleteSubcollection(parentRef: DocumentReference, name: string): Promise<void> {
   const snap = await parentRef.collection(name).get();
   for (const group of chunk(snap.docs, 400)) {
     const batch = db.batch();
     for (const doc of group) {
-      const privateSnap = await doc.ref.collection('private').get();
-      privateSnap.docs.forEach((p) => batch.delete(p.ref));
+      batch.delete(doc.ref.collection('private').doc('answerKey'));
       batch.delete(doc.ref);
     }
     await batch.commit();
