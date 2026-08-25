@@ -13,8 +13,12 @@ import { CartIcon } from '@/components/common/icons';
 // sitting in the main nav. Billing & Orders (formerly "My Purchases") was
 // briefly moved under My Profile, but moved back to its own tab on request
 // so learners can reach their purchase history directly from the sidebar.
+// The first tab (still routed to /home, the dashboard) is labeled "Learning
+// Portal" rather than "Home" on request; the old "LEARNING PORTAL" subtitle
+// under the logo above was dropped at the same time so the name isn't
+// shown twice.
 const NAV_ITEMS = [
-  { to: '/home', label: 'Home', end: true },
+  { to: '/home', label: 'Learning Portal', end: true },
   { to: '/home/practice-tests', label: 'Practice Exams' },
   { to: '/home/mock-exams', label: 'Mock Exams' },
   { to: '/home/past-quizzes', label: 'My Attempts' },
@@ -87,7 +91,6 @@ export function StudentShell() {
           fits, so Sign Out never gets crowded off-screen either. */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
         <Logo size="sm" />
-        <span className="mt-1 text-xs uppercase tracking-wide text-ink-faint">Learning Portal</span>
         <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
         <button
           type="button"

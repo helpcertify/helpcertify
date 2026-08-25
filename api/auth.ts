@@ -151,35 +151,6 @@ async function updateProfile(req: VercelRequest, body: unknown) {
   return { success: true };
 }
 
-// Manual study-time logging — a student picking a preset or typing a custom
-// number of minutes just spent studying, added to a running total on their
-// own profile doc (not a session log; this platform has no per-session
-// study-time tracking for practice tests, see StudentHomePage.tsx's header
-// comment). increment() rather than read-then-write so two quick taps in a
-// row can't race and drop one.
-const logStudyTimeSchema = z.object({
-  minutes: z.number().int().min(1).max(1440),
-});
-
-async function logStudyTime(req: VercelRequest, body: unknown) {
-  const token = await requireIdToken(req);
-  let uid: string;
-  try {
-    ({ uid } = await adminAuth.verifyIdToken(token));
-  } catch {
-    throw Err.unauthenticated('Invalid or expired token');
-  }
-
-  const parsed = logStudyTimeSchema.safeParse(body);
-  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-
-  await db.collection('users').doc(uid).update({
-    manualStudyMinutes: FieldValue.increment(parsed.data.minutes),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-  return { success: true };
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -198,9 +169,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updateProfile':
         res.status(200).json(await updateProfile(req, data));
-        return;
-      case 'logStudyTime':
-        res.status(200).json(await logStudyTime(req, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

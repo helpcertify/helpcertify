@@ -13,15 +13,11 @@ const SUBMITTED_STATUSES = ['submitted', 'auto_submitted'];
 
 // The personalized dashboard — replaced what used to be a bare quiz grid
 // (that content moved to MockExamsPage). Every section here is built from
-// data this app already has; two things are deliberately simplified rather
-// than faked:
-//   - "Study time" only sums quiz-attempt durations. Practice-test session
-//     durations aren't exposed to the student-facing frontend anywhere
-//     (only answeredQuestionIds is), so they can't be included honestly.
-//   - "Recommended next step" points at a category to practice more in, not
-//     a specific "weak topic" — questions have no topic/domain tag in this
-//     data model at all, so a real per-topic weakness analysis isn't
-//     buildable without adding that tagging system first.
+// data this app already has; one thing is deliberately simplified rather
+// than faked: "Recommended next step" points at a category to practice more
+// in, not a specific "weak topic" — questions have no topic/domain tag in
+// this data model at all, so a real per-topic weakness analysis isn't
+// buildable without adding that tagging system first.
 export function StudentHomePage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const profile = useAuthStore((s) => s.profile);
@@ -189,12 +185,6 @@ export function StudentHomePage() {
   const scorePercents = attempts.map((a) => (a.totalQuestions > 0 ? (a.correctCount / a.totalQuestions) * 100 : 0));
   const averageScore = scorePercents.length > 0 ? Math.round(scorePercents.reduce((s, x) => s + x, 0) / scorePercents.length) : null;
   const bestScore = scorePercents.length > 0 ? Math.round(Math.max(...scorePercents)) : null;
-  // Auto-tracked (quiz-attempt durations) plus whatever the student has
-  // manually logged in Settings for study done outside a timed attempt.
-  const totalStudySeconds = attempts.reduce((s, a) => s + (a.durationSeconds ?? 0), 0);
-  const manualStudyMinutes = profile?.manualStudyMinutes ?? 0;
-  const studyHours = Math.round((totalStudySeconds / 3600 + manualStudyMinutes / 60) * 10) / 10;
-  const hasAnyStudyTime = totalStudySeconds > 0 || manualStudyMinutes > 0;
 
   // Recommended next step — the lowest-scoring recent attempt, suggesting
   // more practice in that same category (not a specific "topic", see the
@@ -242,7 +232,7 @@ export function StudentHomePage() {
         {continueItem && (
           <Link
             to={continueItem.href}
-            className="inline-block rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-medium text-surface"
+            className="inline-block rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-400"
           >
             Continue Practice
           </Link>
@@ -298,38 +288,19 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* Performance summary. Kept visible even before a student's first
-          attempt (just as long as study time hasn't been logged either) so
-          the "set up study time" nudge below has somewhere to live — it
-          doesn't make sense stranded on its own with no other context. */}
-      {(attempts.length > 0 || !hasAnyStudyTime) && (
+      {/* Performance summary */}
+      {attempts.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-3 text-lg font-bold text-ink">Performance Summary</h2>
-          {attempts.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatCard label="Tests attempted" value={String(attempts.length)} color="text-blue-700 dark:text-blue-400" />
-              <StatCard
-                label="Average score"
-                value={averageScore !== null ? `${averageScore}%` : 'N/A'}
-                color="text-violet-700 dark:text-violet-400"
-              />
-              <StatCard label="Best score" value={bestScore !== null ? `${bestScore}%` : 'N/A'} color="text-emerald-700 dark:text-emerald-400" />
-              <StatCard label="Study time" value={studyHours > 0 ? `${studyHours}h` : 'Not yet'} color="text-amber-700 dark:text-amber-400" />
-            </div>
-          )}
-          {!hasAnyStudyTime && (
-            <div
-              className={`${attempts.length > 0 ? 'mt-3 ' : ''}flex items-center justify-between gap-3 rounded-xl border border-brand-400/40 bg-brand-500/10 p-4`}
-            >
-              <p className="text-sm text-ink">Your study time isn't set up yet. Log it so your dashboard can track your progress.</p>
-              <Link
-                to="/home/settings"
-                className="shrink-0 rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-surface"
-              >
-                Set Up Study Time
-              </Link>
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatCard label="Tests attempted" value={String(attempts.length)} color="text-blue-700 dark:text-blue-400" />
+            <StatCard
+              label="Average score"
+              value={averageScore !== null ? `${averageScore}%` : 'N/A'}
+              color="text-violet-700 dark:text-violet-400"
+            />
+            <StatCard label="Best score" value={bestScore !== null ? `${bestScore}%` : 'N/A'} color="text-emerald-700 dark:text-emerald-400" />
+          </div>
         </div>
       )}
 

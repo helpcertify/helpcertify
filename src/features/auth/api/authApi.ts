@@ -57,6 +57,4 @@ export const authApi = {
 
   updateProfile: (payload: { headline?: string | null; bio?: string | null }) =>
     callAction<{ success: true }>('auth', 'updateProfile', { ...payload }),
-
-  logStudyTime: (minutes: number) => callAction<{ success: true }>('auth', 'logStudyTime', { minutes }),
 };
