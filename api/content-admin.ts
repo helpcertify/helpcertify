@@ -489,6 +489,52 @@ async function getQuizAnswerKey(body: unknown) {
   };
 }
 
+// Shared by updateQuizQuestion/updatePracticeTestQuestion below — fixing a
+// typo, a wrong option, or the marked-correct answer in an already-uploaded
+// bank previously meant re-uploading the whole .docx from scratch.
+const questionOptionSchema = z.object({ id: z.string().min(1), text: z.string().trim().min(1) });
+const updateQuestionFieldsSchema = z.object({
+  questionId: z.string().min(1),
+  questionText: z.string().trim().min(1),
+  options: z.array(questionOptionSchema).min(2),
+  correctOptionId: z.string().min(1),
+});
+type UpdateQuestionFields = z.infer<typeof updateQuestionFieldsSchema>;
+
+async function updateQuestionCommon(
+  uid: string,
+  collectionName: 'quizzes' | 'practiceTests',
+  parentId: string,
+  d: UpdateQuestionFields
+) {
+  const parentRef = db.collection(collectionName).doc(parentId);
+  const qRef = parentRef.collection('questions').doc(d.questionId);
+  if (!(await qRef.get()).exists) throw Err.notFound('Question not found');
+  if (!d.options.some((o) => o.id === d.correctOptionId)) {
+    throw Err.invalidArgument('correctOptionId must match one of the given options');
+  }
+
+  await qRef.update({ questionText: d.questionText, options: d.options });
+  await qRef.collection('private').doc('answerKey').set({ correctOptionId: d.correctOptionId }, { merge: true });
+  await writeAdminLog({
+    performedBy: uid,
+    action: collectionName === 'quizzes' ? 'updateQuizQuestion' : 'updatePracticeTestQuestion',
+    targetType: 'question',
+    targetId: d.questionId,
+    description: `Edited a question in ${collectionName === 'quizzes' ? 'quiz' : 'practice test'} ${parentId}`,
+  });
+  return { success: true };
+}
+
+const updateQuizQuestionSchema = updateQuestionFieldsSchema.extend({ quizId: z.string().min(1) });
+
+async function updateQuizQuestion(uid: string, body: unknown) {
+  const parsed = updateQuizQuestionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { quizId, ...d } = parsed.data;
+  return updateQuestionCommon(uid, 'quizzes', quizId, d);
+}
+
 // ---------------------------------------------------------------------------
 // Practice test actions
 // ---------------------------------------------------------------------------
@@ -628,6 +674,15 @@ async function getPracticeTestAnswerKey(body: unknown) {
   };
 }
 
+const updatePracticeTestQuestionSchema = updateQuestionFieldsSchema.extend({ testId: z.string().min(1) });
+
+async function updatePracticeTestQuestion(uid: string, body: unknown) {
+  const parsed = updatePracticeTestQuestionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { testId, ...d } = parsed.data;
+  return updateQuestionCommon(uid, 'practiceTests', testId, d);
+}
+
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -656,6 +711,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       case 'getQuizAnswerKey':
         res.status(200).json(await getQuizAnswerKey(data));
         return;
+      case 'updateQuizQuestion':
+        res.status(200).json(await updateQuizQuestion(uid, data));
+        return;
       case 'createPracticeTest':
         res.status(200).json(await createPracticeTest(uid, data));
         return;
@@ -670,6 +728,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getPracticeTestAnswerKey':
         res.status(200).json(await getPracticeTestAnswerKey(data));
+        return;
+      case 'updatePracticeTestQuestion':
+        res.status(200).json(await updatePracticeTestQuestion(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

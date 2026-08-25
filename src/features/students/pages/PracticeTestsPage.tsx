@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -9,6 +10,8 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
+import { BuyNowModal } from '@/components/common/BuyNowModal';
+import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
 // ({ _seconds, _nanoseconds }, not { seconds }) — toDate() handles that
@@ -22,6 +25,7 @@ export function PracticeTestsPage() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
+  const [buyNowTest, setBuyNowTest] = useState<(PracticeTestDoc & { id: string }) | null>(null);
 
   const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: progressDocs } = useQuery({
@@ -127,12 +131,7 @@ export function PracticeTestsPage() {
                       <button
                         type="button"
                         disabled={paying}
-                        onClick={() =>
-                          checkout({
-                            buyNowItem: { itemType: 'practiceTest', itemId: test.id },
-                            items: [{ itemType: 'practiceTest', itemId: test.id, title: test.title }],
-                          })
-                        }
+                        onClick={() => setBuyNowTest(test)}
                         className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                       >
                         {paying ? 'Opening…' : 'Buy Now'}
@@ -188,6 +187,24 @@ export function PracticeTestsPage() {
         </>
       )}
 
+      {buyNowTest && (
+        <BuyNowModal
+          title={buyNowTest.title}
+          price={buyNowTest.price ?? 0}
+          originalPrice={buyNowTest.originalPrice ?? null}
+          currency={buyNowTest.currency ?? 'INR'}
+          paying={paying}
+          onClose={() => setBuyNowTest(null)}
+          onConfirm={(couponCode) => {
+            checkout({
+              buyNowItem: { itemType: 'practiceTest', itemId: buyNowTest.id },
+              items: [{ itemType: 'practiceTest', itemId: buyNowTest.id, title: buyNowTest.title }],
+              couponCode,
+            });
+            setBuyNowTest(null);
+          }}
+        />
+      )}
       {confirmation}
     </div>
   );

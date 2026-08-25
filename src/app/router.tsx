@@ -10,6 +10,7 @@ import { AdminHomePage } from '@/features/admin/pages/AdminHomePage';
 import { ExamQuizStudioPage } from '@/features/admin/pages/ExamQuizStudioPage';
 import { QuizAnswerKeyPage } from '@/features/admin/pages/QuizAnswerKeyPage';
 import { PracticeManagerPage } from '@/features/admin/pages/PracticeManagerPage';
+import { PracticeTestAnswerKeyPage } from '@/features/admin/pages/PracticeTestAnswerKeyPage';
 import { PerformancePage } from '@/features/admin/pages/PerformancePage';
 import { StudentHomePage } from '@/features/students/pages/StudentHomePage';
 import { PastQuizzesPage } from '@/features/students/pages/PastQuizzesPage';
@@ -50,6 +51,7 @@ export function AppRouter() {
           <Route path="/admin/quizzes" element={<ExamQuizStudioPage />} />
           <Route path="/admin/quizzes/:quizId/view" element={<QuizAnswerKeyPage />} />
           <Route path="/admin/practice-tests" element={<PracticeManagerPage />} />
+          <Route path="/admin/practice-tests/:testId/view" element={<PracticeTestAnswerKeyPage />} />
           <Route path="/admin/performance" element={<PerformancePage />} />
           <Route path="/admin/coupons" element={<CouponsPage />} />
         </Route>

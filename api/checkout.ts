@@ -87,10 +87,13 @@ function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: numbe
 }
 
 const createOrderSchema = z.object({
-  // Buy Now: a direct, single-item order that bypasses the cart entirely —
-  // no coupon involved, and (see finalizeOrder) doesn't touch whatever else
-  // might be sitting in the student's actual cart.
+  // Buy Now: a direct, single-item order that bypasses the cart entirely
+  // — (see finalizeOrder) doesn't touch whatever else might be sitting in
+  // the student's actual cart. couponCode here is a code typed directly
+  // into the Buy Now dialog, separate from whatever the cart itself has
+  // stored.
   buyNowItem: z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) }).optional(),
+  couponCode: z.string().trim().min(1).optional(),
 });
 
 async function createOrder(uid: string, body: unknown) {
@@ -100,10 +103,16 @@ async function createOrder(uid: string, body: unknown) {
 
   let cartItems: { itemType: ItemType; itemId: string }[];
   let couponCode: string | null;
+  // A coupon typed directly into Buy Now was never checked anywhere before
+  // now, so an invalid one should fail loudly here rather than silently
+  // charging full price — the cart path already validated (or self-healed)
+  // its stored code before this point, so it keeps the existing quiet
+  // drop-if-now-invalid behavior instead.
+  const isExplicitBuyNowCoupon = !!buyNowItem;
   const fromCart = !buyNowItem;
   if (buyNowItem) {
     cartItems = [buyNowItem];
-    couponCode = null;
+    couponCode = parsed.data.couponCode ?? null;
   } else {
     const cartSnap = await db.collection('carts').doc(uid).get();
     cartItems = (cartSnap.exists ? cartSnap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
@@ -134,6 +143,8 @@ async function createOrder(uid: string, body: unknown) {
     if (coupon) {
       discount = computeDiscount(coupon, subtotal);
       appliedCoupon = couponCode;
+    } else if (isExplicitBuyNowCoupon) {
+      throw Err.invalidArgument('This coupon code is invalid or has expired');
     }
   }
   const total = subtotal - discount;

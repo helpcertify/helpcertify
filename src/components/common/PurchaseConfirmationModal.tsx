@@ -22,7 +22,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
         <div className="mb-3 text-4xl">✓</div>
         <h2 className="mb-2 text-xl font-bold text-ink">Payment successful!</h2>
         <p className="mb-6 text-sm text-ink-faint">
-          {items.length === 1 ? "It's" : "They're"} unlocked on your account now, with no time limit — come back and start whenever you're ready.
+          {items.length === 1 ? "It's" : "They're"} unlocked on your account now, with no time limit. Come back and start whenever you're ready.
         </p>
         <div className="mb-6 space-y-2 text-left">
           {items.map((i) => (

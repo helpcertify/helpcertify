@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -8,12 +9,15 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
+import { BuyNowModal } from '@/components/common/BuyNowModal';
+import type { QuizDoc } from '@/types/models';
 
 export function StudentHomePage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
+  const [buyNowQuiz, setBuyNowQuiz] = useState<(QuizDoc & { id: string }) | null>(null);
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
   const { data: myAttempts } = useQuery({
@@ -97,12 +101,7 @@ export function StudentHomePage() {
                     <button
                       type="button"
                       disabled={paying}
-                      onClick={() =>
-                        checkout({
-                          buyNowItem: { itemType: 'quiz', itemId: quiz.id },
-                          items: [{ itemType: 'quiz', itemId: quiz.id, title: quiz.title }],
-                        })
-                      }
+                      onClick={() => setBuyNowQuiz(quiz)}
                       className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                     >
                       {paying ? 'Opening…' : 'Buy Now'}
@@ -127,6 +126,24 @@ export function StudentHomePage() {
         })}
       </div>
 
+      {buyNowQuiz && (
+        <BuyNowModal
+          title={buyNowQuiz.title}
+          price={buyNowQuiz.price ?? 0}
+          originalPrice={buyNowQuiz.originalPrice ?? null}
+          currency={buyNowQuiz.currency ?? 'INR'}
+          paying={paying}
+          onClose={() => setBuyNowQuiz(null)}
+          onConfirm={(couponCode) => {
+            checkout({
+              buyNowItem: { itemType: 'quiz', itemId: buyNowQuiz.id },
+              items: [{ itemType: 'quiz', itemId: buyNowQuiz.id, title: buyNowQuiz.title }],
+              couponCode,
+            });
+            setBuyNowQuiz(null);
+          }}
+        />
+      )}
       {confirmation}
     </div>
   );

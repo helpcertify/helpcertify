@@ -1,6 +1,18 @@
 import { callAction } from '@/lib/vercelApi';
 import type { QuestionSourceFormat, DurationType } from '@/types/models';
 
+export interface QuestionOption {
+  id: string;
+  text: string;
+}
+export interface EditableQuestion {
+  id: string;
+  order: number;
+  questionText: string;
+  options: QuestionOption[];
+  correctOptionId: string | null;
+}
+
 export interface QuizSummary {
   id: string;
   title: string;
@@ -84,10 +96,9 @@ export const contentAdminApi = {
   deleteQuiz: (quizId: string) => callAction<{ success: true }>('content-admin', 'deleteQuiz', { quizId }),
   listQuizzesAdmin: () => callAction<{ quizzes: QuizSummary[] }>('content-admin', 'listQuizzesAdmin'),
   getQuizAnswerKey: (quizId: string) =>
-    callAction<{
-      quiz: QuizSummary;
-      questions: { id: string; order: number; questionText: string; options: { id: string; text: string }[]; correctOptionId: string | null }[];
-    }>('content-admin', 'getQuizAnswerKey', { quizId }),
+    callAction<{ quiz: QuizSummary; questions: EditableQuestion[] }>('content-admin', 'getQuizAnswerKey', { quizId }),
+  updateQuizQuestion: (payload: { quizId: string; questionId: string; questionText: string; options: QuestionOption[]; correctOptionId: string }) =>
+    callAction<{ success: true }>('content-admin', 'updateQuizQuestion', { ...payload }),
 
   createPracticeTest: (payload: CreatePracticeTestPayload) =>
     callAction<{ testId: string; totalQuestions: number; parseErrors: unknown[] }>(
@@ -102,8 +113,16 @@ export const contentAdminApi = {
   listPracticeTestsAdmin: () =>
     callAction<{ practiceTests: PracticeTestSummary[] }>('content-admin', 'listPracticeTestsAdmin'),
   getPracticeTestAnswerKey: (testId: string) =>
-    callAction<{
-      practiceTest: PracticeTestSummary;
-      questions: { id: string; order: number; questionText: string; options: { id: string; text: string }[]; correctOptionId: string | null }[];
-    }>('content-admin', 'getPracticeTestAnswerKey', { testId }),
+    callAction<{ practiceTest: PracticeTestSummary; questions: EditableQuestion[] }>(
+      'content-admin',
+      'getPracticeTestAnswerKey',
+      { testId }
+    ),
+  updatePracticeTestQuestion: (payload: {
+    testId: string;
+    questionId: string;
+    questionText: string;
+    options: QuestionOption[];
+    correctOptionId: string;
+  }) => callAction<{ success: true }>('content-admin', 'updatePracticeTestQuestion', { ...payload }),
 };

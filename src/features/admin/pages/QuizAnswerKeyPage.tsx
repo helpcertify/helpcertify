@@ -1,12 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { contentAdminApi } from '../api/contentAdminApi';
+import { QuestionEditorList } from '../components/QuestionEditorList';
+import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
-// Read-only Q&A preview with the correct option highlighted — matches the
-// reference screenshots' "quiz-detailsview" (reached via a quiz's View button).
+// Answer-key preview with the correct option highlighted — matches the
+// reference screenshots' "quiz-details view" (reached via a quiz's View
+// button) — plus inline editing per question, so fixing a typo or a wrong
+// answer doesn't require re-uploading the whole .docx.
 export function QuizAnswerKeyPage() {
   const { quizId } = useParams<{ quizId: string }>();
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'quizAnswerKey', quizId],
     queryFn: () => contentAdminApi.getQuizAnswerKey(quizId!),
@@ -30,25 +36,18 @@ export function QuizAnswerKeyPage() {
           {Boolean(quiz.scheduledStart) && <div>Test Timing: {toDate(quiz.scheduledStart).toLocaleString()}</div>}
         </div>
 
-        <div className="mt-6 space-y-6">
-          {questions.map((q, i) => (
-            <div key={q.id}>
-              <h3 className="mb-2 font-bold text-ink">
-                Q{i + 1}: {q.questionText}
-              </h3>
-              <ul className="space-y-1 pl-1">
-                {q.options.map((opt) => (
-                  <li
-                    key={opt.id}
-                    className={opt.id === q.correctOptionId ? 'font-medium text-emerald-400' : 'text-ink-muted'}
-                  >
-                    • {opt.text}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <QuestionEditorList
+          questions={questions}
+          onSave={async (questionId, saveData) => {
+            try {
+              await contentAdminApi.updateQuizQuestion({ quizId: quizId!, questionId, ...saveData });
+              pushToast('Question updated', 'success');
+              queryClient.invalidateQueries({ queryKey: ['admin', 'quizAnswerKey', quizId] });
+            } catch (err) {
+              pushToast(err instanceof Error ? err.message : 'Could not update question', 'error');
+            }
+          }}
+        />
       </div>
     </div>
   );

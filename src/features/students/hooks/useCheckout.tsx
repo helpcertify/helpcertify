@@ -30,10 +30,11 @@ export function useCheckout() {
   const checkout = async (opts: {
     items: CheckoutItem[];
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
+    couponCode?: string;
   }) => {
     setPaying(true);
     try {
-      const order = await checkoutApi.createOrder(opts.buyNowItem);
+      const order = await checkoutApi.createOrder(opts.buyNowItem, opts.couponCode);
       await openRazorpayCheckout({
         keyId: order.keyId,
         amount: order.amount,
