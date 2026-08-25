@@ -7,7 +7,7 @@ import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { ProfileModal } from '@/features/students/components/ProfileModal';
 import { cartApi } from '@/features/students/api/cartApi';
-import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { CartIcon } from '@/components/common/icons';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Available Quizzes', end: true },
@@ -16,6 +16,12 @@ const NAV_ITEMS = [
   { to: '/home/practice-tests', label: 'Practice Tests' },
   { to: '/home/purchases', label: 'My Purchases' },
 ];
+
+// My Profile and Settings are account-level, not content tabs, so they're
+// pinned on after NAV_ITEMS instead of mixed into it: Settings last, My
+// Profile directly above it. My Profile stays a plain button (it opens a
+// modal, not a route); Settings is a real route so it gets the same
+// active-state NavLink styling as everything else for free.
 
 // Matches the reference screenshots' "Academic Portal" student shell: a
 // left sidebar (brand, nav, sign out) + a top strip, with My Profile as a
@@ -43,8 +49,16 @@ export function StudentShell() {
     navigate('/login');
   };
 
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    clsx('rounded-lg px-3 py-2 text-sm', isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5');
+
   const navLinks = (onNavigate: () => void) => (
     <>
+      {NAV_ITEMS.map((item) => (
+        <NavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} className={navLinkClass}>
+          {item.label}
+        </NavLink>
+      ))}
       <button
         type="button"
         onClick={() => {
@@ -55,22 +69,9 @@ export function StudentShell() {
       >
         My Profile
       </button>
-      {NAV_ITEMS.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            clsx(
-              'rounded-lg px-3 py-2 text-sm',
-              isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink-muted hover:bg-white/5'
-            )
-          }
-        >
-          {item.label}
-        </NavLink>
-      ))}
+      <NavLink to="/home/settings" onClick={onNavigate} className={navLinkClass}>
+        Settings
+      </NavLink>
     </>
   );
 
@@ -124,13 +125,13 @@ export function StudentShell() {
             <div className="text-xl font-semibold text-ink">{profile?.name}</div>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <Link
               to="/home/cart"
               aria-label="Cart"
-              className="relative rounded-lg border border-surface-border p-2.5 text-lg text-ink-muted hover:border-brand-400"
+              className="relative flex flex-col items-center gap-0.5 rounded-lg border border-surface-border px-3 py-1.5 text-ink hover:border-brand-400 hover:text-brand-ink"
             >
-              🛒
+              <CartIcon className="h-5 w-5" />
+              <span className="text-[10px] font-medium leading-none">Cart</span>
               {cartCount > 0 && (
                 <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
                   {cartCount}
