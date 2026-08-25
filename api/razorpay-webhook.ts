@@ -64,7 +64,11 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   if (order.couponCode) {
     batch.update(db.collection('coupons').doc(order.couponCode), { usedCount: FieldValue.increment(1) });
   }
-  batch.set(db.collection('carts').doc(order.userId), { items: [], couponCode: null, updatedAt: Timestamp.now() }, { merge: true });
+  // Only clear the cart for an order that actually came from it — see
+  // api/checkout.ts's finalizeOrder (same logic, duplicated here) for why.
+  if (order.fromCart) {
+    batch.set(db.collection('carts').doc(order.userId), { items: [], couponCode: null, updatedAt: Timestamp.now() }, { merge: true });
+  }
   await batch.commit();
 
   return 'paid';

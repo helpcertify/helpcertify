@@ -38,8 +38,8 @@ export function ExamQuizStudioPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-white">Exam Quiz Studio</h1>
-      <p className="mb-6 text-sm text-neutral-500">Build production-ready real-test quizzes with strict timing and response behavior.</p>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Exam Quiz Studio</h1>
+      <p className="mb-6 text-sm text-ink-faint">Build production-ready real-test quizzes with strict timing and response behavior.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total Quizzes" value={quizzes.length} />
@@ -51,22 +51,22 @@ export function ExamQuizStudioPage() {
         <QuizFormCard editingQuiz={editingQuiz} onDoneEditing={() => setEditingQuiz(null)} />
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">Your Quizzes</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
           <div className="space-y-3">
             {quizzes.length === 0 && (
-              <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-neutral-500">
+              <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-ink-faint">
                 No quizzes yet — publish one to see it here.
               </p>
             )}
             {quizzes.map((quiz) => (
               <div key={quiz.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-semibold text-white">{quiz.title}</h3>
+                  <h3 className="font-semibold text-ink">{quiz.title}</h3>
                   <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-300">
                     {quiz.isPublished ? 'Published' : 'Draft'}
                   </span>
                 </div>
-                <div className="space-y-0.5 text-sm text-neutral-400">
+                <div className="space-y-0.5 text-sm text-ink-faint">
                   <div>Duration: {quiz.durationMinutes} min</div>
                   <div>Questions: {quiz.totalQuestions}</div>
                   {formatTimestamp(quiz.scheduledStart) && <div>Starts: {formatTimestamp(quiz.scheduledStart)}</div>}
@@ -84,7 +84,7 @@ export function ExamQuizStudioPage() {
                   <button
                     type="button"
                     onClick={() => setEditingQuiz(quiz)}
-                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300"
+                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted"
                   >
                     Edit
                   </button>
@@ -110,8 +110,8 @@ export function ExamQuizStudioPage() {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-white">{value}</div>
+      <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
+      <div className="mt-2 text-2xl font-bold text-ink">{value}</div>
     </div>
   );
 }

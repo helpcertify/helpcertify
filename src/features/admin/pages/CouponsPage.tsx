@@ -56,11 +56,11 @@ export function CouponsPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-white">Coupons</h1>
-      <p className="mb-6 text-sm text-neutral-500">Discount codes redeemable in the student cart at checkout.</p>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Coupons</h1>
+      <p className="mb-6 text-sm text-ink-faint">Discount codes redeemable in the student cart at checkout.</p>
 
       <div className="mb-8 rounded-xl border border-surface-border bg-surface-raised p-6">
-        <h2 className="mb-4 font-medium text-white">Create Coupon</h2>
+        <h2 className="mb-4 font-medium text-ink">Create Coupon</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Code">
             <input
@@ -107,7 +107,7 @@ export function CouponsPage() {
 
       <div className="space-y-3">
         {(data?.coupons ?? []).length === 0 && (
-          <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-neutral-500">
+          <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
             No coupons yet.
           </p>
         )}
@@ -115,12 +115,12 @@ export function CouponsPage() {
           <div key={c.code} className="flex items-center justify-between gap-3 rounded-xl border border-surface-border bg-surface-raised p-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-semibold text-white">{c.code}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs ${c.active ? 'bg-emerald-500/15 text-emerald-300' : 'bg-neutral-800 text-neutral-500'}`}>
+                <span className="font-mono font-semibold text-ink">{c.code}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${c.active ? 'bg-emerald-500/15 text-emerald-300' : 'bg-neutral-800 text-ink-faint'}`}>
                   {c.active ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              <div className="mt-1 text-sm text-neutral-500">
+              <div className="mt-1 text-sm text-ink-faint">
                 {c.discountType === 'percent' ? `${c.discountValue}% off` : `₹${(c.discountValue / 100).toFixed(2)} off`}
                 {' · '}
                 {c.usedCount} used{c.maxUses ? ` / ${c.maxUses} max` : ''}
@@ -131,14 +131,14 @@ export function CouponsPage() {
               <button
                 type="button"
                 onClick={() => toggleActiveMutation.mutate({ code: c.code, active: !c.active })}
-                className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300"
+                className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted"
               >
                 {c.active ? 'Deactivate' : 'Activate'}
               </button>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(c.code)}
-                className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300 hover:border-red-500/50 hover:text-red-400"
+                className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
               >
                 Delete
               </button>
@@ -153,7 +153,7 @@ export function CouponsPage() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-neutral-500">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">{label}</label>
       {children}
     </div>
   );

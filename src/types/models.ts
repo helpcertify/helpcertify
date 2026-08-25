@@ -147,6 +147,11 @@ export interface OrderDoc {
   razorpayOrderId: string;
   razorpayPaymentId: string | null;
   status: 'created' | 'paid' | 'failed';
+  // Buy Now creates an order straight from one item, bypassing the cart —
+  // finalizeOrder only clears the cart on payment for a fromCart order,
+  // otherwise a Buy Now purchase would wipe out unrelated items someone
+  // still had sitting in their cart.
+  fromCart: boolean;
   createdAt: Timestamp;
   paidAt: Timestamp | null;
 }

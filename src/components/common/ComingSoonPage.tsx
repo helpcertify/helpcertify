@@ -5,8 +5,8 @@
 export function ComingSoonPage({ title }: { title: string }) {
   return (
     <div className="rounded-xl border border-dashed border-surface-border p-10 text-center">
-      <h1 className="text-xl font-semibold text-white">{title}</h1>
-      <p className="mt-2 text-sm text-neutral-500">This screen is being built next.</p>
+      <h1 className="text-xl font-semibold text-ink">{title}</h1>
+      <p className="mt-2 text-sm text-ink-faint">This screen is being built next.</p>
     </div>
   );
 }

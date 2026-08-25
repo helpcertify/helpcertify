@@ -150,16 +150,16 @@ export function QuizTakingPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-8 text-center">
-          <h1 className="mb-4 text-xl font-semibold text-white">Quiz Submitted</h1>
+          <h1 className="mb-4 text-xl font-semibold text-ink">Quiz Submitted</h1>
           {quiz?.showFinalScore ? (
-            <div className="space-y-1 text-neutral-300">
+            <div className="space-y-1 text-ink-muted">
               <div className="text-3xl font-bold text-brand-400">{finalResult.marks}</div>
-              <div className="text-sm text-neutral-500">
+              <div className="text-sm text-ink-faint">
                 {finalResult.correctCount} correct · {finalResult.incorrectCount} incorrect · {finalResult.notAnsweredCount} unanswered
               </div>
             </div>
           ) : (
-            <p className="text-neutral-400">Your responses have been recorded.</p>
+            <p className="text-ink-faint">Your responses have been recorded.</p>
           )}
           <button
             type="button"
@@ -174,7 +174,7 @@ export function QuizTakingPage() {
   }
 
   if (!quiz || !current) {
-    return <div className="p-8 text-neutral-400">Loading quiz…</div>;
+    return <div className="p-8 text-ink-faint">Loading quiz…</div>;
   }
 
   const answeredCount = Object.keys(answers).length;
@@ -198,7 +198,7 @@ export function QuizTakingPage() {
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-white">{quiz.title}</h1>
+          <h1 className="text-lg font-semibold text-ink">{quiz.title}</h1>
           <div className="flex items-center gap-3">
             {markedCount > 0 && <span className="text-sm text-amber-400">🚩 {markedCount} marked</span>}
             <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-300">
@@ -217,7 +217,7 @@ export function QuizTakingPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="order-2 lg:order-1">
             <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <h2 className="mb-4 font-medium text-white">
+              <h2 className="mb-4 font-medium text-ink">
                 Q{currentIndex + 1}. {current.questionText}
               </h2>
               <div className="space-y-2">
@@ -226,11 +226,11 @@ export function QuizTakingPage() {
                   const isTheCorrectOption = answered && result.correctOptionId === opt.id;
                   const isWrongPick = answered && selected && !result.isCorrect;
 
-                  let cls = 'border-surface-border text-neutral-300 hover:border-neutral-600';
+                  let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
                   if (answered) {
                     if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-300';
                     else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-300';
-                    else cls = 'border-surface-border text-neutral-500 opacity-60';
+                    else cls = 'border-surface-border text-ink-faint opacity-60';
                   } else if (selected) {
                     cls = 'border-brand-400 bg-brand-500/10 text-brand-200';
                   }
@@ -249,7 +249,7 @@ export function QuizTakingPage() {
                   );
                 })}
               </div>
-              {saving && <div className="mt-3 text-sm text-neutral-500">Checking…</div>}
+              {saving && <div className="mt-3 text-sm text-ink-faint">Checking…</div>}
               {answered && (
                 <div
                   className={`mt-3 rounded-lg px-4 py-2 text-sm font-semibold ${
@@ -271,7 +271,7 @@ export function QuizTakingPage() {
                   type="button"
                   disabled={currentIndex === 0}
                   onClick={() => setCurrentIndex((i) => i - 1)}
-                  className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-40"
+                  className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-40"
                 >
                   ← Previous
                 </button>
@@ -293,7 +293,7 @@ export function QuizTakingPage() {
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                     marked[current.id]
                       ? 'border-amber-400 bg-amber-400/10 text-amber-300'
-                      : 'border-surface-border text-neutral-400 hover:border-neutral-600'
+                      : 'border-surface-border text-ink-faint hover:border-neutral-600'
                   }`}
                 >
                   🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
@@ -312,7 +312,7 @@ export function QuizTakingPage() {
 
           <div className="order-1 lg:order-2">
             <div className="rounded-lg border border-surface-border p-3 lg:sticky lg:top-6">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 Questions ({answeredCount}/{questions.length} answered)
               </div>
               <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
@@ -326,7 +326,7 @@ export function QuizTakingPage() {
                         ? 'bg-brand-500 text-surface'
                         : answers[q.id]
                           ? 'bg-brand-500/20 text-brand-300'
-                          : 'bg-white/5 text-neutral-400'
+                          : 'bg-white/5 text-ink-faint'
                     } ${marked[q.id] ? 'ring-2 ring-amber-400' : ''}`}
                   >
                     {i + 1}

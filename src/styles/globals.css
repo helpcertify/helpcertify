@@ -2,20 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light theme (default) and dark theme (.dark on <html>, toggled by
+   useThemeStore) — both defined here as RGB-channel-triple CSS variables so
+   Tailwind's `rgb(var(--x) / <alpha-value>)` color functions (see
+   tailwind.config.js) can still support opacity modifiers like
+   bg-surface-raised/50. Every existing bg-surface/bg-surface-raised/
+   border-surface-border/text-ink* usage across the app repaints correctly
+   from these two blocks alone — no per-component edits needed for those.
+   Only the plain Tailwind-default utilities some components used directly
+   instead of these tokens (text-white, text-neutral-300/400/500) needed a
+   one-time sweep to the new ink/ink-muted/ink-faint tokens. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --color-surface: 255 255 255;
+  --color-surface-raised: 248 250 252;
+  --color-surface-border: 226 232 240;
+  --color-ink: 15 23 42;
+  --color-ink-muted: 71 85 105;
+  --color-ink-faint: 100 116 139;
 }
 
-/* The v2 platform is dark-themed throughout, matching the reference UI —
-   no light-mode toggle, unlike v1's dark: variants. */
+.dark {
+  color-scheme: dark;
+  --color-surface: 5 7 10;
+  --color-surface-raised: 13 17 23;
+  --color-surface-border: 31 41 55;
+  --color-ink: 255 255 255;
+  --color-ink-muted: 212 212 212;
+  --color-ink-faint: 163 163 163;
+}
+
 body {
-  @apply bg-surface text-neutral-100 antialiased;
+  @apply bg-surface text-ink antialiased transition-colors duration-150;
 }
 
 @layer components {
-  /* Shared text/number/date input styling — used across every admin form. */
+  /* Shared text/number/date input styling — used across every admin form.
+     Name predates the theme system (was dark-only); kept as-is rather than
+     renamed everywhere it's used, since it's just a class identifier now,
+     not a description of a fixed appearance. */
   .input-dark {
-    @apply w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-white outline-none;
+    @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-ink outline-none;
   }
   .input-dark:focus {
     @apply border-brand-400;

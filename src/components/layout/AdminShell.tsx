@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -40,7 +41,7 @@ export function AdminShell() {
                   className={({ isActive }) =>
                     clsx(
                       'rounded-lg px-3 py-1.5 text-sm',
-                      isActive ? 'bg-brand-500/15 text-brand-300' : 'text-neutral-300 hover:bg-white/5'
+                      isActive ? 'bg-brand-500/15 text-brand-300' : 'text-ink-muted hover:bg-white/5'
                     )
                   }
                 >
@@ -50,10 +51,11 @@ export function AdminShell() {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle className="hidden sm:block" />
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300 hover:border-red-500/50 hover:text-red-400 sm:block"
+              className="hidden rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400 sm:block"
             >
               Sign Out
             </button>
@@ -61,7 +63,7 @@ export function AdminShell() {
               type="button"
               onClick={() => setMobileNavOpen((v) => !v)}
               aria-label="Toggle menu"
-              className="rounded-lg border border-surface-border px-3 py-1.5 text-lg text-neutral-300 sm:hidden"
+              className="rounded-lg border border-surface-border px-3 py-1.5 text-lg text-ink-muted sm:hidden"
             >
               {mobileNavOpen ? '✕' : '☰'}
             </button>
@@ -78,20 +80,23 @@ export function AdminShell() {
                 className={({ isActive }) =>
                   clsx(
                     'rounded-lg px-3 py-2 text-sm',
-                    isActive ? 'bg-brand-500/15 text-brand-300' : 'text-neutral-300 hover:bg-white/5'
+                    isActive ? 'bg-brand-500/15 text-brand-300' : 'text-ink-muted hover:bg-white/5'
                   )
                 }
               >
                 {item.label}
               </NavLink>
             ))}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-neutral-300 hover:border-red-500/50 hover:text-red-400"
-            >
-              Sign Out
-            </button>
+            <div className="mt-2 flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex-1 rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
+              >
+                Sign Out
+              </button>
+            </div>
           </nav>
         )}
       </header>

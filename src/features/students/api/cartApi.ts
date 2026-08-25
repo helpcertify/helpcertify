@@ -39,7 +39,8 @@ export interface CreateOrderResult {
 }
 
 export const checkoutApi = {
-  createOrder: () => callAction<CreateOrderResult>('checkout', 'createOrder'),
+  createOrder: (buyNowItem?: { itemType: PurchasableItemType; itemId: string }) =>
+    callAction<CreateOrderResult>('checkout', 'createOrder', buyNowItem ? { buyNowItem } : {}),
   verifyPayment: (payload: {
     orderId: string;
     razorpay_order_id: string;

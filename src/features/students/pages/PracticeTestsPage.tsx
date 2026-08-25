@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
+import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
@@ -20,6 +21,7 @@ export function PracticeTestsPage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
+  const { checkout, paying } = useCheckout();
 
   const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: progressDocs } = useQuery({
@@ -56,8 +58,8 @@ export function PracticeTestsPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-white">Practice Tests</h1>
-      <p className="mb-6 text-sm text-neutral-500">Resume where you left off. Each session pulls only unanswered questions.</p>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Practice Tests</h1>
+      <p className="mb-6 text-sm text-ink-faint">Resume where you left off. Each session pulls only unanswered questions.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Available" value={available.length} color="text-brand-400" />
@@ -66,7 +68,7 @@ export function PracticeTestsPage() {
       </div>
 
       {available.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-neutral-500">
+        <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
           No practice tests are available right now.
         </p>
       ) : (
@@ -80,8 +82,8 @@ export function PracticeTestsPage() {
 
             return (
               <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-5">
-                <h3 className="mb-1 font-semibold text-white">{test.title}</h3>
-                <div className="mb-3 space-y-0.5 text-sm text-neutral-500">
+                <h3 className="mb-1 font-semibold text-ink">{test.title}</h3>
+                <div className="mb-3 space-y-0.5 text-sm text-ink-faint">
                   <div>{answered} / {test.totalQuestions} answered</div>
                   <div>{test.durationPerSessionMinutes} min/session</div>
                 </div>
@@ -89,9 +91,9 @@ export function PracticeTestsPage() {
                 {price > 0 && (
                   <div className="mb-3 flex items-center gap-2">
                     {test.originalPrice && test.originalPrice > price && (
-                      <span className="text-xs text-neutral-500 line-through">{formatMoney(test.originalPrice, test.currency)}</span>
+                      <span className="text-xs text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
                     )}
-                    <span className="font-semibold text-white">{formatMoney(price, test.currency)}</span>
+                    <span className="font-semibold text-ink">{formatMoney(price, test.currency)}</span>
                   </div>
                 )}
 
@@ -104,14 +106,30 @@ export function PracticeTestsPage() {
                       ✓ In Cart — View Cart
                     </Link>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={addToCartMutation.isPending}
-                      onClick={() => addToCartMutation.mutate(test.id)}
-                      className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-                    >
-                      Add to Cart
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={addToCartMutation.isPending || paying}
+                        onClick={() => addToCartMutation.mutate(test.id)}
+                        className="flex-1 rounded-lg border border-surface-border py-2 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                      >
+                        Add to Cart
+                      </button>
+                      <button
+                        type="button"
+                        disabled={paying}
+                        onClick={() =>
+                          checkout({
+                            buyNowItem: { itemType: 'practiceTest', itemId: test.id },
+                            description: test.title,
+                            onPaid: () => queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] }),
+                          })
+                        }
+                        className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                      >
+                        {paying ? 'Opening…' : 'Buy Now'}
+                      </button>
+                    </div>
                   )
                 ) : (
                   <div className="flex gap-2">
@@ -126,7 +144,7 @@ export function PracticeTestsPage() {
                     {answered > 0 && (
                       <Link
                         to={`/practice-tests/${test.id}/take?reattempt=1`}
-                        className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-neutral-300"
+                        className="flex-1 rounded-lg border border-surface-border py-2 text-center text-sm text-ink-muted"
                       >
                         Reattempt
                       </Link>
@@ -141,17 +159,17 @@ export function PracticeTestsPage() {
 
       {((buckets?.upcoming.length ?? 0) > 0 || (buckets?.expired.length ?? 0) > 0) && (
         <>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">Upcoming / Expired</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Upcoming / Expired</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...(buckets?.upcoming ?? []), ...(buckets?.expired ?? [])].map((test) => (
               <div key={test.id} className="rounded-xl border border-surface-border bg-black/20 p-5 opacity-70">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-semibold text-white">{test.title}</h3>
-                  <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
+                  <h3 className="font-semibold text-ink">{test.title}</h3>
+                  <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-ink-faint">
                     🔒 {toDate(test.availableUntil).getTime() < Date.now() ? 'Expired' : 'Upcoming'}
                   </span>
                 </div>
-                <div className="text-sm text-neutral-500">
+                <div className="text-sm text-ink-faint">
                   {test.totalQuestions} questions · {test.durationPerSessionMinutes} min/session
                   <br />
                   {formatDate(test.availableFrom)} → {formatDate(test.availableUntil)}
@@ -168,7 +186,7 @@ export function PracticeTestsPage() {
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
       <div className={`mt-2 text-2xl font-bold ${color}`}>{value}</div>
     </div>
   );

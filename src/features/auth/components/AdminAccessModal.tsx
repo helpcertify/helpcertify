@@ -68,34 +68,34 @@ export function AdminAccessModal({ onClose }: AdminAccessModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Admin Access</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-neutral-400 hover:text-white">
+          <h2 className="text-lg font-semibold text-ink">Admin Access</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-faint hover:text-ink">
             ✕
           </button>
         </div>
 
         <form noValidate onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
           <div>
-            <label htmlFor="admin-email" className="mb-1 block text-sm font-medium text-neutral-300">
+            <label htmlFor="admin-email" className="mb-1 block text-sm font-medium text-ink-muted">
               Email
             </label>
             <input
               id="admin-email"
               type="email"
               placeholder="admin@example.com"
-              className="w-full rounded-lg bg-neutral-100 px-3 py-2 text-neutral-900 outline-none focus:ring-2 focus:ring-brand-400"
+              className="input-dark focus:ring-2 focus:ring-brand-400"
               {...register('email')}
             />
             {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
           </div>
           <div>
-            <label htmlFor="admin-password" className="mb-1 block text-sm font-medium text-neutral-300">
+            <label htmlFor="admin-password" className="mb-1 block text-sm font-medium text-ink-muted">
               Password
             </label>
             <input
               id="admin-password"
               type="password"
-              className="w-full rounded-lg bg-neutral-100 px-3 py-2 text-neutral-900 outline-none focus:ring-2 focus:ring-brand-400"
+              className="input-dark focus:ring-2 focus:ring-brand-400"
               {...register('password')}
             />
             {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}

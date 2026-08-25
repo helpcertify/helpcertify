@@ -18,14 +18,14 @@ export function StudentQuizDashboardPage() {
       <Link to="/home/past-quizzes" className="mb-4 inline-block text-sm text-brand-400">
         ← Back to Past Quizzes
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold text-white">Student Dashboard</h1>
-      {isLoading && <p className="text-neutral-400">Loading…</p>}
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Student Dashboard</h1>
+      {isLoading && <p className="text-ink-faint">Loading…</p>}
       {data && (
         <>
-          <p className="mb-4 text-sm text-neutral-500">{data.attempt.quizTitle}</p>
+          <p className="mb-4 text-sm text-ink-faint">{data.attempt.quizTitle}</p>
           <div className="overflow-x-auto rounded-xl border border-surface-border">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/20 text-xs uppercase tracking-wide text-neutral-500">
+              <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
                 <tr>
                   <th className="px-4 py-3">Rank</th>
                   <th className="px-4 py-3">Name</th>
@@ -42,7 +42,7 @@ export function StudentQuizDashboardPage() {
               <tbody>
                 <tr className="border-t border-surface-border">
                   <td className="px-4 py-3">{data.attempt.rank}</td>
-                  <td className="px-4 py-3 text-white">{data.attempt.userName}</td>
+                  <td className="px-4 py-3 text-ink">{data.attempt.userName}</td>
                   <td className="px-4 py-3">{data.attempt.totalQuestions}</td>
                   <td className="px-4 py-3">{data.attempt.answeredCount}</td>
                   <td className="px-4 py-3">{data.attempt.notAnsweredCount}</td>

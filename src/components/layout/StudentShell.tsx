@@ -7,6 +7,7 @@ import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { ProfileModal } from '@/features/students/components/ProfileModal';
 import { cartApi } from '@/features/students/api/cartApi';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Available Quizzes', end: true },
@@ -48,7 +49,7 @@ export function StudentShell() {
           setShowProfile(true);
           onNavigate();
         }}
-        className="rounded-lg px-3 py-2 text-left text-sm text-neutral-300 hover:bg-white/5"
+        className="rounded-lg px-3 py-2 text-left text-sm text-ink-muted hover:bg-white/5"
       >
         My Profile
       </button>
@@ -61,7 +62,7 @@ export function StudentShell() {
           className={({ isActive }) =>
             clsx(
               'rounded-lg px-3 py-2 text-sm',
-              isActive ? 'bg-brand-500/15 text-brand-300' : 'text-neutral-300 hover:bg-white/5'
+              isActive ? 'bg-brand-500/15 text-brand-300' : 'text-ink-muted hover:bg-white/5'
             )
           }
         >
@@ -76,12 +77,12 @@ export function StudentShell() {
       {/* Desktop sidebar — unchanged, lg: and up only */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
         <Logo size="sm" />
-        <span className="mt-1 text-xs uppercase tracking-wide text-neutral-500">Academic Portal</span>
+        <span className="mt-1 text-xs uppercase tracking-wide text-ink-faint">Academic Portal</span>
         <nav className="mt-8 flex flex-col gap-1">{navLinks(() => {})}</nav>
         <button
           type="button"
           onClick={handleSignOut}
-          className="mt-auto rounded-lg border border-surface-border py-2 text-sm text-neutral-300 hover:border-red-500/50 hover:text-red-400"
+          className="mt-auto rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
         >
           Sign Out
         </button>
@@ -95,7 +96,7 @@ export function StudentShell() {
             type="button"
             onClick={() => setMobileNavOpen((v) => !v)}
             aria-label="Toggle menu"
-            className="rounded-lg border border-surface-border px-3 py-1.5 text-lg text-neutral-300"
+            className="rounded-lg border border-surface-border px-3 py-1.5 text-lg text-ink-muted"
           >
             {mobileNavOpen ? '✕' : '☰'}
           </button>
@@ -106,7 +107,7 @@ export function StudentShell() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-neutral-300 hover:border-red-500/50 hover:text-red-400"
+              className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
             >
               Sign Out
             </button>
@@ -117,21 +118,24 @@ export function StudentShell() {
       <div className="min-w-0 flex-1">
         <header className="flex items-center justify-between border-b border-surface-border px-4 py-4 lg:px-8 lg:py-5">
           <div>
-            <div className="text-sm text-neutral-400">Welcome back</div>
-            <div className="text-xl font-semibold text-white">{profile?.name}</div>
+            <div className="text-sm text-ink-faint">Welcome back</div>
+            <div className="text-xl font-semibold text-ink">{profile?.name}</div>
           </div>
-          <Link
-            to="/home/cart"
-            aria-label="Cart"
-            className="relative rounded-lg border border-surface-border p-2.5 text-lg text-neutral-300 hover:border-brand-400"
-          >
-            🛒
-            {cartCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                {cartCount}
-              </span>
-            )}
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link
+              to="/home/cart"
+              aria-label="Cart"
+              className="relative rounded-lg border border-surface-border p-2.5 text-lg text-ink-muted hover:border-brand-400"
+            >
+              🛒
+              {cartCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </div>
         </header>
         <main className="p-4 lg:p-8">
           <Outlet />

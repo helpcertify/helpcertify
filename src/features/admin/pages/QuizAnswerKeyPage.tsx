@@ -13,8 +13,8 @@ export function QuizAnswerKeyPage() {
     enabled: !!quizId,
   });
 
-  if (isLoading) return <p className="text-neutral-400">Loading…</p>;
-  if (!data) return <p className="text-neutral-400">Quiz not found.</p>;
+  if (isLoading) return <p className="text-ink-faint">Loading…</p>;
+  if (!data) return <p className="text-ink-faint">Quiz not found.</p>;
 
   const { quiz, questions } = data;
 
@@ -24,8 +24,8 @@ export function QuizAnswerKeyPage() {
         ← Back to Exam Quiz Studio
       </Link>
       <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-        <h1 className="text-2xl font-semibold text-white">{quiz.title}</h1>
-        <div className="mt-1 space-y-0.5 text-sm text-neutral-500">
+        <h1 className="text-2xl font-semibold text-ink">{quiz.title}</h1>
+        <div className="mt-1 space-y-0.5 text-sm text-ink-faint">
           <div>Duration: {quiz.durationMinutes} minutes</div>
           {Boolean(quiz.scheduledStart) && <div>Test Timing: {toDate(quiz.scheduledStart).toLocaleString()}</div>}
         </div>
@@ -33,14 +33,14 @@ export function QuizAnswerKeyPage() {
         <div className="mt-6 space-y-6">
           {questions.map((q, i) => (
             <div key={q.id}>
-              <h3 className="mb-2 font-semibold text-white">
+              <h3 className="mb-2 font-semibold text-ink">
                 Q{i + 1}: {q.questionText}
               </h3>
               <ul className="space-y-1 pl-1">
                 {q.options.map((opt) => (
                   <li
                     key={opt.id}
-                    className={opt.id === q.correctOptionId ? 'font-medium text-emerald-400' : 'text-neutral-300'}
+                    className={opt.id === q.correctOptionId ? 'font-medium text-emerald-400' : 'text-ink-muted'}
                   >
                     • {opt.text}
                   </li>

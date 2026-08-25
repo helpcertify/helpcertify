@@ -36,16 +36,16 @@ export function PracticeManagerPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-white">Practice Manager</h1>
-      <p className="mb-6 text-sm text-neutral-500">Configure batch-based practice sessions with resume and reattempt workflows.</p>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Practice Manager</h1>
+      <p className="mb-6 text-sm text-ink-faint">Configure batch-based practice sessions with resume and reattempt workflows.</p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
           <PracticeTestFormCard editingTest={editingTest} onDoneEditing={() => setEditingTest(null)} />
 
           <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">📖 How Practice Mode Works</h2>
-            <ol className="list-decimal space-y-1.5 pl-5 text-sm text-neutral-400">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">📖 How Practice Mode Works</h2>
+            <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink-faint">
               <li>Upload a large question bank (any size).</li>
               <li>Set an availability window — students can only access within these dates.</li>
               <li>Initial batch size sets how many questions the first session delivers.</li>
@@ -57,22 +57,22 @@ export function PracticeManagerPage() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">Your Practice Tests</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Your Practice Tests</h2>
           <div className="space-y-3">
             {tests.length === 0 && (
-              <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-neutral-500">
+              <p className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-ink-faint">
                 No practice tests yet.
               </p>
             )}
             {tests.map((test) => (
               <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="font-semibold text-white">{test.title}</h3>
+                  <h3 className="font-semibold text-ink">{test.title}</h3>
                   {isExpired(test) && (
-                    <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">Expired</span>
+                    <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-ink-faint">Expired</span>
                   )}
                 </div>
-                <div className="space-y-0.5 text-sm text-neutral-400">
+                <div className="space-y-0.5 text-sm text-ink-faint">
                   <div>Questions: {test.totalQuestions}</div>
                   <div>Session: {test.durationPerSessionMinutes} min</div>
                   <div>
@@ -83,7 +83,7 @@ export function PracticeManagerPage() {
                   <button
                     type="button"
                     onClick={() => setEditingTest(test)}
-                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300"
+                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted"
                   >
                     Edit
                   </button>

@@ -141,13 +141,13 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">{isEditing ? 'Edit Quiz' : 'Quiz Configuration'}</h2>
-          <p className="text-sm text-neutral-500">Build production-ready real-test quizzes with strict timing and response behavior.</p>
+          <h2 className="text-lg font-semibold text-ink">{isEditing ? 'Edit Quiz' : 'Quiz Configuration'}</h2>
+          <p className="text-sm text-ink-faint">Build production-ready real-test quizzes with strict timing and response behavior.</p>
         </div>
         <button
           type="button"
           onClick={() => downloadTemplate(sourceFormat)}
-          className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300 hover:border-brand-400"
+          className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-brand-400"
         >
           ↓ Template
         </button>
@@ -185,7 +185,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
                 type="file"
                 accept=".docx"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
+                className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
               />
             </Field>
           </>
@@ -200,11 +200,11 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
 
         <Field label="Duration Type">
           <div className="flex gap-6">
-            <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
               <input type="radio" checked={durationType === 'overall'} onChange={() => setDurationType('overall')} />
               Overall Time
             </label>
-            <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
               <input type="radio" checked={durationType === 'per_question'} onChange={() => setDurationType('per_question')} />
               Min Per Question
             </label>
@@ -271,7 +271,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
           {uploading ? 'Uploading…' : pending ? 'Saving…' : isEditing ? 'Save Changes' : 'Publish Quiz'}
         </button>
         {isEditing && (
-          <button type="button" onClick={onDoneEditing} className="w-full rounded-lg border border-surface-border py-2 text-sm text-neutral-300">
+          <button type="button" onClick={onDoneEditing} className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink-muted">
             Cancel
           </button>
         )}
@@ -283,7 +283,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-neutral-500">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">{label}</label>
       {children}
     </div>
   );
@@ -295,7 +295,7 @@ function FormatButton({ active, label, onClick }: { active: boolean; label: stri
       type="button"
       onClick={onClick}
       className={`rounded-lg border px-4 py-3 text-left text-sm font-medium ${
-        active ? 'border-brand-400 bg-brand-500/15 text-brand-300' : 'border-surface-border text-neutral-300'
+        active ? 'border-brand-400 bg-brand-500/15 text-brand-300' : 'border-surface-border text-ink-muted'
       }`}
     >
       {label}
@@ -305,7 +305,7 @@ function FormatButton({ active, label, onClick }: { active: boolean; label: stri
 
 function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-neutral-300">
+    <label className="flex items-center gap-2 text-sm text-ink-muted">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded" />
       {label}
     </label>

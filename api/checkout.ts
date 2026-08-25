@@ -86,11 +86,30 @@ function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: numbe
   return Math.min(raw, Math.max(subtotal - 100, 0));
 }
 
-async function createOrder(uid: string) {
-  const cartSnap = await db.collection('carts').doc(uid).get();
-  const cartItems = (cartSnap.exists ? cartSnap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
-  if (cartItems.length === 0) throw Err.failedPrecondition('Your cart is empty');
-  const couponCode: string | null = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
+const createOrderSchema = z.object({
+  // Buy Now: a direct, single-item order that bypasses the cart entirely —
+  // no coupon involved, and (see finalizeOrder) doesn't touch whatever else
+  // might be sitting in the student's actual cart.
+  buyNowItem: z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) }).optional(),
+});
+
+async function createOrder(uid: string, body: unknown) {
+  const parsed = createOrderSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { buyNowItem } = parsed.data;
+
+  let cartItems: { itemType: ItemType; itemId: string }[];
+  let couponCode: string | null;
+  const fromCart = !buyNowItem;
+  if (buyNowItem) {
+    cartItems = [buyNowItem];
+    couponCode = null;
+  } else {
+    const cartSnap = await db.collection('carts').doc(uid).get();
+    cartItems = (cartSnap.exists ? cartSnap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
+    if (cartItems.length === 0) throw Err.failedPrecondition('Your cart is empty');
+    couponCode = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
+  }
 
   // Recompute everything from the live docs — never trust the cart (or any
   // client input) as a price source for a real payment.
@@ -156,6 +175,7 @@ async function createOrder(uid: string) {
     razorpayOrderId: rzpOrder.id,
     razorpayPaymentId: null,
     status: 'created',
+    fromCart,
     createdAt: Timestamp.now(),
     paidAt: null,
   });
@@ -190,7 +210,12 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   if (order.couponCode) {
     batch.update(db.collection('coupons').doc(order.couponCode), { usedCount: FieldValue.increment(1) });
   }
-  batch.set(db.collection('carts').doc(order.userId), { items: [], couponCode: null, updatedAt: Timestamp.now() }, { merge: true });
+  // Only clear the cart for an order that actually came from it — a Buy Now
+  // order (fromCart: false) must never wipe out unrelated items the
+  // student still has sitting in their cart.
+  if (order.fromCart) {
+    batch.set(db.collection('carts').doc(order.userId), { items: [], couponCode: null, updatedAt: Timestamp.now() }, { merge: true });
+  }
   await batch.commit();
 
   return 'paid';
@@ -237,7 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     switch (action) {
       case 'createOrder':
-        res.status(200).json(await createOrder(uid));
+        res.status(200).json(await createOrder(uid, data));
         return;
       case 'verifyPayment':
         res.status(200).json(await verifyPayment(uid, data));

@@ -6,6 +6,18 @@
     <meta name="theme-color" content="#05070a" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <title>Helpcertify</title>
+    <script>
+      // Runs synchronously before any CSS/JS bundle loads, so the correct
+      // theme class is already on <html> by first paint — without this, a
+      // dark-mode visitor would see a flash of the light background before
+      // src/store/useThemeStore.ts's module-load logic (which does the same
+      // check) gets a chance to run.
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

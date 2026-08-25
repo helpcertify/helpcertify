@@ -8,21 +8,21 @@ export function PastQuizzesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-white">Past Quizzes</h1>
-      <p className="mb-6 text-sm text-neutral-500">Review your quiz history and performance</p>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Past Quizzes</h1>
+      <p className="mb-6 text-sm text-ink-faint">Review your quiz history and performance</p>
 
       <div className="rounded-xl border border-surface-border bg-surface-raised">
         <div className="border-b border-surface-border px-6 py-4">
-          <h2 className="flex items-center gap-2 font-semibold text-white">🕐 Quiz History</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink">🕐 Quiz History</h2>
         </div>
         {attempts.length === 0 ? (
-          <p className="p-6 text-sm text-neutral-500">You haven't attempted any quizzes yet.</p>
+          <p className="p-6 text-sm text-ink-faint">You haven't attempted any quizzes yet.</p>
         ) : (
           <div className="divide-y divide-surface-border">
             {attempts.map((a) => (
               <div key={a.id} className="flex items-center justify-between px-6 py-4">
                 <div>
-                  <div className="font-medium text-white">{a.quizTitle}</div>
+                  <div className="font-medium text-ink">{a.quizTitle}</div>
                   <div className="mt-1 flex gap-2 text-sm">
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-400">Status: Attended</span>
                     <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-300">Score: {a.marks}</span>

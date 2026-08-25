@@ -28,7 +28,7 @@ export function ToastStack() {
             'flex items-center gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg',
             toast.variant === 'success' && 'border-emerald-800 bg-emerald-950 text-emerald-300',
             toast.variant === 'error' && 'border-red-800 bg-red-950 text-red-300',
-            toast.variant === 'info' && 'border-surface-border bg-surface-raised text-neutral-100'
+            toast.variant === 'info' && 'border-surface-border bg-surface-raised text-ink'
           )}
         >
           <span>{toast.message}</span>

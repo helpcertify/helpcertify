@@ -20,8 +20,8 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Profile Information</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-neutral-400 hover:text-white">
+          <h2 className="text-lg font-semibold text-ink">Profile Information</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-faint hover:text-ink">
             ✕
           </button>
         </div>
@@ -34,8 +34,8 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
               {profile.name.charAt(0).toUpperCase()}
             </div>
           )}
-          <div className="mt-3 text-base font-semibold text-white">{profile.name}</div>
-          <div className="text-sm text-neutral-400">{profile.email}</div>
+          <div className="mt-3 text-base font-semibold text-ink">{profile.name}</div>
+          <div className="text-sm text-ink-faint">{profile.email}</div>
         </div>
 
         <button type="button" onClick={onClose} className="w-full rounded-lg bg-brand-gradient py-2 font-medium text-surface">

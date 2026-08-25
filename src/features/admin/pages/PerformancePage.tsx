@@ -40,9 +40,9 @@ export function PerformancePage() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_2.5fr]">
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">Your Quizzes</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Your Quizzes</h2>
         <div className="space-y-2">
-          {quizzes.length === 0 && <p className="text-sm text-neutral-500">No quizzes published yet.</p>}
+          {quizzes.length === 0 && <p className="text-sm text-ink-faint">No quizzes published yet.</p>}
           {quizzes.map((q) => (
             <button
               key={q.id}
@@ -52,16 +52,16 @@ export function PerformancePage() {
                 q.id === activeQuizId ? 'border-brand-400 bg-brand-500/10' : 'border-surface-border bg-surface-raised'
               }`}
             >
-              <div className="font-semibold text-white">{q.title}</div>
-              <div className="text-xs text-neutral-500">{q.totalQuestions} questions</div>
+              <div className="font-semibold text-ink">{q.title}</div>
+              <div className="text-xs text-ink-faint">{q.totalQuestions} questions</div>
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <h2 className="mb-1 text-lg font-semibold text-white">Student Results</h2>
-        <p className="mb-4 text-sm text-neutral-500">{activeQuiz?.title ?? 'Select a quiz'}</p>
+        <h2 className="mb-1 text-lg font-semibold text-ink">Student Results</h2>
+        <p className="mb-4 text-sm text-ink-faint">{activeQuiz?.title ?? 'Select a quiz'}</p>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <button
@@ -76,7 +76,7 @@ export function PerformancePage() {
 
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-xs uppercase tracking-wide text-neutral-500">
+            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-4 py-3">Rank</th>
                 <th className="px-4 py-3">Name</th>
@@ -94,7 +94,7 @@ export function PerformancePage() {
             <tbody>
               {attempts.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-6 text-center text-neutral-500">
+                  <td colSpan={11} className="px-4 py-6 text-center text-ink-faint">
                     No attempts yet.
                   </td>
                 </tr>
@@ -102,7 +102,7 @@ export function PerformancePage() {
               {attempts.map((a) => (
                 <tr key={a.id} className="border-t border-surface-border">
                   <td className="px-4 py-3">{a.rank}</td>
-                  <td className="px-4 py-3 text-white">{a.userName}</td>
+                  <td className="px-4 py-3 text-ink">{a.userName}</td>
                   <td className="px-4 py-3">{a.totalQuestions}</td>
                   <td className="px-4 py-3">{a.answeredCount}</td>
                   <td className="px-4 py-3">{a.notAnsweredCount}</td>

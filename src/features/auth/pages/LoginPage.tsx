@@ -52,7 +52,7 @@ export function LoginPage() {
         <div className="mb-6 flex justify-center">
           <Logo />
         </div>
-        <h1 className="mb-6 text-center text-xl font-semibold text-white">Welcome back</h1>
+        <h1 className="mb-6 text-center text-xl font-semibold text-ink">Welcome back</h1>
 
         <GoogleButton
           label={googleMutation.isPending ? 'Signing in…' : 'Continue with Google'}
@@ -60,7 +60,7 @@ export function LoginPage() {
           onClick={() => googleMutation.mutate()}
         />
 
-        <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-neutral-500">
+        <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-ink-faint">
           <div className="h-px flex-1 bg-surface-border" />
           or
           <div className="h-px flex-1 bg-surface-border" />
@@ -72,25 +72,25 @@ export function LoginPage() {
             never renders. */}
         <form noValidate onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-neutral-300">
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink-muted">
               Email
             </label>
             <input
               id="email"
               type="email"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-white outline-none focus:border-brand-400"
+              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
               {...register('email')}
             />
             {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-neutral-300">
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
               Password
             </label>
             <input
               id="password"
               type="password"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-white outline-none focus:border-brand-400"
+              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
               {...register('password')}
             />
             {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}
@@ -103,7 +103,7 @@ export function LoginPage() {
             {mutation.isPending ? 'Logging in…' : 'Log in'}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-neutral-400">
+        <p className="mt-4 text-center text-sm text-ink-faint">
           No account?{' '}
           <Link to="/register" className="text-brand-400 underline">
             Register

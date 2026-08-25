@@ -20,7 +20,7 @@ export function Logo({ to = '/', size = 'md', className }: LogoProps) {
       >
         H
       </span>
-      <span className={clsx('font-semibold text-white', size === 'sm' ? 'text-base' : 'text-lg')}>Helpcertify</span>
+      <span className={clsx('font-semibold text-ink', size === 'sm' ? 'text-base' : 'text-lg')}>Helpcertify</span>
     </span>
   );
   return to ? <Link to={to}>{content}</Link> : content;

@@ -125,13 +125,13 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">{isEditing ? 'Edit Practice Test' : 'Practice Test Details'}</h2>
-          <p className="text-sm text-neutral-500">Build a large question bank with batched, resumable sessions.</p>
+          <h2 className="text-lg font-semibold text-ink">{isEditing ? 'Edit Practice Test' : 'Practice Test Details'}</h2>
+          <p className="text-sm text-ink-faint">Build a large question bank with batched, resumable sessions.</p>
         </div>
         <button
           type="button"
           onClick={() => downloadTemplate(sourceFormat)}
-          className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-neutral-300 hover:border-brand-400"
+          className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-brand-400"
         >
           ↓ Template
         </button>
@@ -150,7 +150,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         <Field label="Availability Window">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-xs text-neutral-500">From</label>
+              <label className="mb-1 block text-xs text-ink-faint">From</label>
               <input
                 type="datetime-local"
                 value={availableFrom}
@@ -159,7 +159,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-neutral-500">Until</label>
+              <label className="mb-1 block text-xs text-ink-faint">Until</label>
               <input
                 type="datetime-local"
                 value={availableUntil}
@@ -173,7 +173,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         <Field label="Session Settings">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-xs text-neutral-500">Duration per session (min)</label>
+              <label className="mb-1 block text-xs text-ink-faint">Duration per session (min)</label>
               <input
                 type="number"
                 min={1}
@@ -183,7 +183,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-neutral-500">Default initial batch size</label>
+              <label className="mb-1 block text-xs text-ink-faint">Default initial batch size</label>
               <input
                 type="number"
                 min={1}
@@ -236,7 +236,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
                 type="file"
                 accept=".docx"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
+                className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
               />
             </Field>
           </>
@@ -251,7 +251,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           {uploading ? 'Uploading…' : pending ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Practice Test'}
         </button>
         {isEditing && (
-          <button type="button" onClick={onDoneEditing} className="w-full rounded-lg border border-surface-border py-2 text-sm text-neutral-300">
+          <button type="button" onClick={onDoneEditing} className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink-muted">
             Cancel
           </button>
         )}
@@ -263,7 +263,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-neutral-500">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">{label}</label>
       {children}
     </div>
   );
@@ -275,7 +275,7 @@ function FormatButton({ active, label, onClick }: { active: boolean; label: stri
       type="button"
       onClick={onClick}
       className={`rounded-lg border px-4 py-3 text-left text-sm font-medium ${
-        active ? 'border-brand-400 bg-brand-500/15 text-brand-300' : 'border-surface-border text-neutral-300'
+        active ? 'border-brand-400 bg-brand-500/15 text-brand-300' : 'border-surface-border text-ink-muted'
       }`}
     >
       {label}

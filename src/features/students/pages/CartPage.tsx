@@ -1,25 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { cartApi, checkoutApi } from '../api/cartApi';
-import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { cartApi } from '../api/cartApi';
+import { useCheckout } from '../hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
-import { openRazorpayCheckout } from '@/lib/razorpay';
-import { VercelApiError } from '@/lib/vercelApi';
 
 export function CartPage() {
-  const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
+  const { checkout, paying: payingNow } = useCheckout();
 
   const [couponInput, setCouponInput] = useState('');
-  const [payingNow, setPayingNow] = useState(false);
   const [justPurchased, setJustPurchased] = useState<{ itemType: string; itemId: string; title: string }[] | null>(null);
 
   const { data: cart, isLoading } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
-
-  const invalidateCart = () => queryClient.invalidateQueries({ queryKey: ['student', 'cart'] });
 
   const removeMutation = useMutation({
     mutationFn: (item: { itemType: 'quiz' | 'practiceTest'; itemId: string }) => cartApi.removeItem(item.itemType, item.itemId),
@@ -42,40 +37,13 @@ export function CartPage() {
     onSuccess: (data) => queryClient.setQueryData(['student', 'cart'], data),
   });
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!cart || cart.items.length === 0) return;
-    setPayingNow(true);
-    try {
-      const order = await checkoutApi.createOrder();
-      await openRazorpayCheckout({
-        keyId: order.keyId,
-        amount: order.amount,
-        currency: order.currency,
-        razorpayOrderId: order.razorpayOrderId,
-        name: 'Helpcertify',
-        description: cart.items.length === 1 ? cart.items[0].title : `${cart.items.length} items`,
-        prefill: { name: profile?.name, email: profile?.email },
-        onSuccess: async (response) => {
-          try {
-            await checkoutApi.verifyPayment({ orderId: order.orderId, ...response });
-            setJustPurchased(cart.items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title })));
-            invalidateCart();
-            pushToast('Payment successful!', 'success');
-          } catch {
-            pushToast(
-              'Payment went through but we could not confirm it here — refresh in a moment, or contact support if access does not unlock.',
-              'error'
-            );
-          } finally {
-            setPayingNow(false);
-          }
-        },
-        onDismiss: () => setPayingNow(false),
-      });
-    } catch (err) {
-      setPayingNow(false);
-      pushToast(err instanceof VercelApiError ? err.message : 'Could not start checkout', 'error');
-    }
+    const items = cart.items;
+    checkout({
+      description: items.length === 1 ? items[0].title : `${items.length} items`,
+      onPaid: () => setJustPurchased(items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title }))),
+    });
   };
 
   if (justPurchased) {
@@ -83,12 +51,12 @@ export function CartPage() {
       <div className="mx-auto max-w-lg">
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-8 text-center">
           <div className="mb-2 text-3xl">✓</div>
-          <h1 className="mb-2 text-xl font-semibold text-white">Payment successful</h1>
-          <p className="mb-6 text-sm text-neutral-400">You now have access to:</p>
+          <h1 className="mb-2 text-xl font-semibold text-ink">Payment successful</h1>
+          <p className="mb-6 text-sm text-ink-faint">You now have access to:</p>
           <div className="space-y-2 text-left">
             {justPurchased.map((i) => (
               <div key={`${i.itemType}_${i.itemId}`} className="rounded-lg border border-surface-border bg-surface-raised px-4 py-3">
-                <div className="font-medium text-white">{i.title}</div>
+                <div className="font-medium text-ink">{i.title}</div>
                 <Link
                   to={i.itemType === 'quiz' ? '/home' : '/home/practice-tests'}
                   className="text-sm text-brand-300 hover:underline"
@@ -103,20 +71,20 @@ export function CartPage() {
     );
   }
 
-  if (isLoading) return <div className="p-8 text-neutral-400">Loading cart…</div>;
+  if (isLoading) return <div className="p-8 text-ink-faint">Loading cart…</div>;
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold text-white">Your Cart</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-ink">Your Cart</h1>
 
       {!cart || cart.items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
-          <p className="mb-4 text-neutral-400">Your cart is empty.</p>
+          <p className="mb-4 text-ink-faint">Your cart is empty.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300">
+            <Link to="/home" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
               Browse Quizzes
             </Link>
-            <Link to="/home/practice-tests" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300">
+            <Link to="/home/practice-tests" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">
               Browse Practice Tests
             </Link>
           </div>
@@ -130,23 +98,23 @@ export function CartPage() {
                 className="flex items-center justify-between gap-3 rounded-xl border border-surface-border bg-surface-raised p-4"
               >
                 <div>
-                  <div className="font-medium text-white">{item.title}</div>
-                  <div className="text-xs uppercase tracking-wide text-neutral-500">
+                  <div className="font-medium text-ink">{item.title}</div>
+                  <div className="text-xs uppercase tracking-wide text-ink-faint">
                     {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     {item.originalPrice && item.originalPrice > item.price && (
-                      <div className="text-xs text-neutral-500 line-through">{formatMoney(item.originalPrice, item.currency)}</div>
+                      <div className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</div>
                     )}
-                    <div className="font-semibold text-white">{formatMoney(item.price, item.currency)}</div>
+                    <div className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => removeMutation.mutate(item)}
                     disabled={removeMutation.isPending}
-                    className="text-sm text-neutral-500 hover:text-red-400"
+                    className="text-sm text-ink-faint hover:text-red-400"
                   >
                     Remove
                   </button>
@@ -160,7 +128,7 @@ export function CartPage() {
               {cart.couponCode ? (
                 <div className="flex items-center justify-between rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
                   <span className="text-emerald-300">Coupon "{cart.couponCode}" applied</span>
-                  <button type="button" onClick={() => removeCouponMutation.mutate()} className="text-neutral-400 hover:text-white">
+                  <button type="button" onClick={() => removeCouponMutation.mutate()} className="text-ink-faint hover:text-ink">
                     Remove
                   </button>
                 </div>
@@ -176,7 +144,7 @@ export function CartPage() {
                     type="button"
                     disabled={!couponInput.trim() || applyCouponMutation.isPending}
                     onClick={() => applyCouponMutation.mutate()}
-                    className="rounded-lg border border-surface-border px-4 py-2 text-sm text-neutral-300 disabled:opacity-50"
+                    className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-50"
                   >
                     Apply
                   </button>
@@ -185,7 +153,7 @@ export function CartPage() {
             </div>
 
             <div className="space-y-1.5 border-t border-surface-border pt-4 text-sm">
-              <div className="flex justify-between text-neutral-400">
+              <div className="flex justify-between text-ink-faint">
                 <span>Subtotal</span>
                 <span>{formatMoney(cart.subtotal, cart.currency)}</span>
               </div>
@@ -195,7 +163,7 @@ export function CartPage() {
                   <span>-{formatMoney(cart.discount, cart.currency)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-surface-border pt-1.5 text-base font-semibold text-white">
+              <div className="flex justify-between border-t border-surface-border pt-1.5 text-base font-semibold text-ink">
                 <span>Total</span>
                 <span>{formatMoney(cart.total, cart.currency)}</span>
               </div>
