@@ -163,7 +163,7 @@ export function PracticeTestDetailPage() {
               inCart ? (
                 <Link
                   to="/home/cart"
-                  className="block rounded-lg border border-blue-500/50 py-2.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
+                  className="block rounded-lg border border-[#1D4ED8]/50 py-2.5 text-center text-sm font-medium text-[#1D4ED8]"
                 >
                   ✓ In Cart · View Cart
                 </Link>
@@ -173,7 +173,7 @@ export function PracticeTestDetailPage() {
                     type="button"
                     disabled={addToCartMutation.isPending || paying}
                     onClick={() => addToCartMutation.mutate(test.id)}
-                    className="flex-1 rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60"
+                    className="flex-1 rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
                   >
                     Add to Cart
                   </button>
@@ -181,7 +181,7 @@ export function PracticeTestDetailPage() {
                     type="button"
                     disabled={paying}
                     onClick={() => setShowBuyNow(true)}
-                    className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                    className="flex-1 rounded-lg bg-[#1D4ED8] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
                   >
                     {paying ? 'Opening…' : 'Buy Now'}
                   </button>

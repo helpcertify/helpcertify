@@ -192,8 +192,8 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
                 to="/home/cart"
                 className={
                   compactActions
-                    ? 'min-w-0 flex-1 truncate rounded-lg border border-blue-500/50 px-1 py-1 text-center text-[10px] font-medium text-blue-700 dark:text-blue-300'
-                    : 'rounded-lg border border-blue-500/50 py-1.5 text-center text-xs font-medium text-blue-700 dark:text-blue-300'
+                    ? 'min-w-0 flex-1 truncate rounded-lg border border-[#1D4ED8]/50 px-1 py-1 text-center text-[10px] font-medium text-[#1D4ED8]'
+                    : 'rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-xs font-medium text-[#1D4ED8]'
                 }
               >
                 ✓ In Cart
@@ -205,8 +205,8 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
                 onClick={() => addToCartMutation.mutate()}
                 className={
                   compactActions
-                    ? 'min-w-0 flex-1 truncate rounded-lg border border-surface-border px-1 py-1 text-[10px] font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60'
-                    : 'rounded-lg border border-surface-border py-1.5 text-xs font-medium text-ink-muted hover:border-blue-400 disabled:opacity-60'
+                    ? 'min-w-0 flex-1 truncate rounded-lg border border-surface-border px-1 py-1 text-[10px] font-medium text-ink-muted hover:opacity-80 disabled:opacity-60'
+                    : 'rounded-lg border border-surface-border py-1.5 text-xs font-medium text-ink-muted hover:opacity-80 disabled:opacity-60'
                 }
               >
                 {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
@@ -218,8 +218,8 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
               onClick={onBuyNow}
               className={
                 compactActions
-                  ? 'min-w-0 flex-1 truncate rounded-lg bg-blue-600 px-1 py-1 text-[10px] font-medium text-white hover:bg-blue-500 disabled:opacity-60'
-                  : 'rounded-lg bg-blue-600 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-60'
+                  ? 'min-w-0 flex-1 truncate rounded-lg bg-[#1D4ED8] px-1 py-1 text-[10px] font-medium text-white hover:opacity-90 disabled:opacity-60'
+                  : 'rounded-lg bg-[#1D4ED8] py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60'
               }
             >
               {paying ? 'Opening…' : 'Buy Now'}

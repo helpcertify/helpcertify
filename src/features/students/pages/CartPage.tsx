@@ -143,7 +143,7 @@ export function CartPage() {
               type="button"
               disabled={payingNow}
               onClick={handleCheckout}
-              className="mt-5 w-full rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+              className="mt-5 w-full rounded-lg bg-[#1D4ED8] py-3 font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
               {payingNow ? 'Opening payment…' : `Pay ${formatMoney(cart.total, cart.currency)}`}
             </button>

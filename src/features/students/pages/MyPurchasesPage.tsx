@@ -44,12 +44,12 @@ export function MyPurchasesPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home/mock-exams" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
+            <Link to="/home/mock-exams" className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
               Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Browse Practice Exams
             </Link>

@@ -311,7 +311,7 @@ export function StudentHomePage() {
           <p className="mb-3 text-sm text-ink">{nextStepMessage}</p>
           <Link
             to="/home/practice-tests"
-            className="inline-block rounded-lg bg-[#F97316] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="inline-block rounded-lg bg-[#F59E0B] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Keep Practicing
           </Link>

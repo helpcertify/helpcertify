@@ -41,12 +41,12 @@ export function WishlistPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">Nothing saved yet. Tap the heart on any quiz or practice test to save it here.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home/mock-exams" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
+            <Link to="/home/mock-exams" className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
               Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Browse Practice Exams
             </Link>
@@ -97,13 +97,13 @@ export function WishlistPage() {
                   )}
 
                   {item.price === 0 ? (
-                    <Link to={detailHref} className="block rounded-lg bg-blue-600 py-1.5 text-center text-sm font-medium text-white hover:bg-blue-500">
+                    <Link to={detailHref} className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90">
                       View
                     </Link>
                   ) : inCart ? (
                     <Link
                       to="/home/cart"
-                      className="block rounded-lg border border-blue-500/50 py-1.5 text-center text-sm font-medium text-blue-700 dark:text-blue-300"
+                      className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]"
                     >
                       ✓ In Cart · View Cart
                     </Link>
@@ -113,7 +113,7 @@ export function WishlistPage() {
                         type="button"
                         disabled={addToCartMutation.isPending || paying}
                         onClick={() => addToCartMutation.mutate(item)}
-                        className="flex-1 rounded-lg border border-blue-500 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                        className="flex-1 rounded-lg border border-[#1D4ED8] py-1.5 text-sm font-medium text-[#1D4ED8] disabled:opacity-60"
                       >
                         Add to Cart
                       </button>
@@ -121,7 +121,7 @@ export function WishlistPage() {
                         type="button"
                         disabled={paying}
                         onClick={() => setBuyNowItem(item)}
-                        className="flex-1 rounded-lg bg-blue-600 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+                        className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
                       >
                         Buy Now
                       </button>

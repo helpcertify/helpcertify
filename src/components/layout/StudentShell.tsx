@@ -138,7 +138,7 @@ export function StudentShell() {
             <Link
               to="/home/cart"
               aria-label="Cart"
-              className="relative flex flex-col items-center gap-0.5 rounded-full border border-blue-600 bg-blue-600 px-3.5 py-1.5 text-white hover:border-blue-500 hover:bg-blue-500"
+              className="relative flex flex-col items-center gap-0.5 rounded-full border border-[#1D4ED8] bg-[#1D4ED8] px-3.5 py-1.5 text-white hover:opacity-90"
             >
               <CartIcon className="h-5 w-5" />
               <span className="text-[10px] font-medium leading-none">Cart</span>

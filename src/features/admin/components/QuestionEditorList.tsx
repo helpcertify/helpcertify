@@ -119,7 +119,7 @@ function QuestionEditForm({
           type="button"
           disabled={saving || !questionText.trim() || options.some((o) => !o.text.trim())}
           onClick={handleSave}
-          className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+          className="rounded-lg bg-[#1D4ED8] px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
