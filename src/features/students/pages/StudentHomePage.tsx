@@ -101,6 +101,7 @@ export function StudentHomePage() {
       currency: q.currency ?? 'INR',
       ratingAvg: q.ratingAvg ?? 0,
       ratingCount: q.ratingCount ?? 0,
+      totalQuestions: q.totalQuestions ?? 0,
     })),
     ...(practiceBuckets?.available ?? []).map((t) => ({
       itemType: 'practiceTest' as const,
@@ -113,6 +114,7 @@ export function StudentHomePage() {
       currency: t.currency ?? 'INR',
       ratingAvg: t.ratingAvg ?? 0,
       ratingCount: t.ratingCount ?? 0,
+      totalQuestions: t.totalQuestions ?? 0,
     })),
   ]
     .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))

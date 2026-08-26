@@ -87,6 +87,7 @@ interface HydratedItem {
   price: number;
   originalPrice: number | null;
   currency: Currency;
+  totalQuestions: number;
 }
 
 // Re-reads every item's live price/title and drops anything deleted or
@@ -116,6 +117,7 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
       price: data.price ?? 0,
       originalPrice: data.originalPrice ?? null,
       currency: data.currency ?? 'INR',
+      totalQuestions: data.totalQuestions ?? 0,
     });
   }
 
@@ -284,7 +286,9 @@ interface HydratedWishlistItem {
   // Quiz cards show one overall duration; practice-test cards show a
   // per-session duration — same field on the wire either way so the
   // frontend card can render it without knowing which item type it got.
-  durationMinutes: number;
+  // null for a practice test whose admin left session length up to the
+  // student (see PracticeTestDoc's durationPerSessionMinutes).
+  durationMinutes: number | null;
 }
 
 // Mirrors hydrateCart above: never trust the stored list as a price/title
@@ -321,7 +325,7 @@ async function hydrateWishlist(uid: string): Promise<{ items: HydratedWishlistIt
       ratingAvg: data.ratingAvg ?? 0,
       ratingCount: data.ratingCount ?? 0,
       totalQuestions: data.totalQuestions ?? 0,
-      durationMinutes: entry.itemType === 'quiz' ? data.durationMinutes ?? 0 : data.durationPerSessionMinutes ?? 0,
+      durationMinutes: entry.itemType === 'quiz' ? data.durationMinutes ?? 0 : data.durationPerSessionMinutes ?? null,
     });
   }
 

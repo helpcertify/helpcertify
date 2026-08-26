@@ -425,6 +425,10 @@ const createQuizSchema = z.object({
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
   passMarkPercent: z.number().int().min(1).max(100).default(60),
+  // How many of the first questions a non-buyer can try for free before
+  // being asked to purchase — admin's choice per quiz, not a fixed
+  // platform-wide number. 0 disables the free preview entirely.
+  previewQuestionCount: z.number().int().min(0).max(200).default(5),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -462,6 +466,7 @@ async function createQuiz(uid: string, body: unknown) {
     ratingAvg: 0,
     ratingCount: 0,
     passMarkPercent: d.passMarkPercent,
+    previewQuestionCount: d.previewQuestionCount,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -496,6 +501,7 @@ const updateQuizSchema = z.object({
   skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
   passMarkPercent: z.number().int().min(1).max(100).optional(),
+  previewQuestionCount: z.number().int().min(0).max(200).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -624,7 +630,12 @@ const createPracticeTestSchema = z.object({
   fileUrl: z.string().url(),
   availableFrom: z.string().datetime(),
   availableUntil: z.string().datetime(),
-  durationPerSessionMinutes: z.number().int().min(1).max(600),
+  // null means the admin is leaving session length up to each student
+  // (see api/practice-session.ts's startOrResumeBatch, which then requires
+  // the student to supply one when starting a fresh session) — the admin
+  // still decides whether that choice exists at all, students never get it
+  // unless this is explicitly left null.
+  durationPerSessionMinutes: z.number().int().min(1).max(600).nullable(),
   defaultInitialBatchSize: z.number().int().min(1).max(500),
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
@@ -632,6 +643,8 @@ const createPracticeTestSchema = z.object({
   category: z.string().trim().min(1).max(100).default('Other'),
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
+  // See createQuizSchema's previewQuestionCount comment — same convention.
+  previewQuestionCount: z.number().int().min(0).max(200).default(5),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -663,6 +676,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     description: d.description,
     ratingAvg: 0,
     ratingCount: 0,
+    previewQuestionCount: d.previewQuestionCount,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -684,7 +698,7 @@ const updatePracticeTestSchema = z.object({
   title: z.string().trim().min(2).max(200).optional(),
   availableFrom: z.string().datetime().optional(),
   availableUntil: z.string().datetime().optional(),
-  durationPerSessionMinutes: z.number().int().min(1).max(600).optional(),
+  durationPerSessionMinutes: z.number().int().min(1).max(600).nullable().optional(),
   defaultInitialBatchSize: z.number().int().min(1).max(500).optional(),
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
@@ -692,6 +706,7 @@ const updatePracticeTestSchema = z.object({
   category: z.string().trim().min(1).max(100).optional(),
   skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
+  previewQuestionCount: z.number().int().min(0).max(200).optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

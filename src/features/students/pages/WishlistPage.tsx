@@ -84,7 +84,8 @@ export function WishlistPage() {
                     </div>
                   )}
                   <div className="mb-2 text-xs text-ink-faint">
-                    {item.totalQuestions} questions · {item.durationMinutes} min
+                    {item.totalQuestions} questions ·{' '}
+                    {item.durationMinutes ? `${item.durationMinutes} min` : 'you choose duration'}
                   </div>
 
                   {item.price > 0 && (

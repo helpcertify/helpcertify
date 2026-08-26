@@ -63,25 +63,37 @@ export async function getQuizWithQuestions(quizId: string): Promise<{ quiz: Quiz
   };
 }
 
-// Free preview — the first 5 questions (by `order`) of a quiz/practice test,
-// readable the same way getQuizWithQuestions above already reads the full
-// set (no purchase gate on the question docs themselves, see that
+// Free preview — the first N questions (by `order`) of a quiz/practice
+// test, readable the same way getQuizWithQuestions above already reads the
+// full set (no purchase gate on the question docs themselves, see that
 // function's file-header comment) — a non-buyer never needs a purchase
-// just to see these. Checking a selected answer's correctness still goes
-// through api/quiz-session.ts's/api/practice-session.ts's previewCheckAnswer,
-// since the private answer key is never readable directly from the client.
-const PREVIEW_QUESTION_LIMIT = 5;
-
-export async function getQuizPreviewQuestions(quizId: string): Promise<(QuestionDoc & { id: string })[]> {
+// just to see these. N is the admin's own previewQuestionCount for that
+// specific quiz/test (see api/content-admin.ts), passed in by the caller
+// (QuizDetailPage/PracticeTestDetailPage, which already have the parent
+// doc loaded) rather than a fixed constant here. Checking a selected
+// answer's correctness still goes through api/quiz-session.ts's/
+// api/practice-session.ts's previewCheckAnswer, since the private answer
+// key is never readable directly from the client — those re-check the same
+// previewQuestionCount server-side, so this is never a way to see more than
+// the admin intended even if a caller passed a larger number by mistake.
+export async function getQuizPreviewQuestions(
+  quizId: string,
+  previewQuestionCount: number
+): Promise<(QuestionDoc & { id: string })[]> {
+  if (previewQuestionCount <= 0) return [];
   const snap = await getDocs(
-    query(collection(db, 'quizzes', quizId, 'questions'), orderBy('order'), limit(PREVIEW_QUESTION_LIMIT))
+    query(collection(db, 'quizzes', quizId, 'questions'), orderBy('order'), limit(previewQuestionCount))
   );
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as QuestionDoc) }));
 }
 
-export async function getPracticeTestPreviewQuestions(testId: string): Promise<(QuestionDoc & { id: string })[]> {
+export async function getPracticeTestPreviewQuestions(
+  testId: string,
+  previewQuestionCount: number
+): Promise<(QuestionDoc & { id: string })[]> {
+  if (previewQuestionCount <= 0) return [];
   const snap = await getDocs(
-    query(collection(db, 'practiceTests', testId, 'questions'), orderBy('order'), limit(PREVIEW_QUESTION_LIMIT))
+    query(collection(db, 'practiceTests', testId, 'questions'), orderBy('order'), limit(previewQuestionCount))
   );
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as QuestionDoc) }));
 }

@@ -135,6 +135,12 @@ export interface QuizDoc {
   // (src/utils/certificate.ts) checks for a quiz. Defaults to 60 on docs
   // that predate this field.
   passMarkPercent: number;
+  // How many of the first (by `order`) questions a non-buyer can try for
+  // free before being asked to purchase — admin-configurable per quiz at
+  // create/edit time (QuizFormCard.tsx). Defaults to 5 on docs that predate
+  // this field (api/quiz-session.ts's previewCheckAnswer falls back the
+  // same way).
+  previewQuestionCount: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -147,7 +153,10 @@ export interface PracticeTestDoc {
   // optional scheduledStart).
   availableFrom: Timestamp;
   availableUntil: Timestamp;
-  durationPerSessionMinutes: number;
+  // null when the admin has left session length up to each student instead
+  // of fixing one (see api/practice-session.ts's startOrResumeBatch, which
+  // then requires the student to supply one when starting a fresh session).
+  durationPerSessionMinutes: number | null;
   defaultInitialBatchSize: number;
   sourceFormat: QuestionSourceFormat;
   totalQuestions: number;
@@ -163,6 +172,8 @@ export interface PracticeTestDoc {
   // See QuizDoc's ratingAvg/ratingCount comment — same convention.
   ratingAvg: number;
   ratingCount: number;
+  // See QuizDoc's previewQuestionCount comment — same convention.
+  previewQuestionCount: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

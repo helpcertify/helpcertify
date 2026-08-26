@@ -8,6 +8,7 @@ export interface CartItemView {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  totalQuestions: number;
 }
 
 export interface CartSummary {

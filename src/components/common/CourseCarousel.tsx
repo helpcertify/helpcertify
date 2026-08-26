@@ -21,6 +21,7 @@ export interface CarouselItem {
   currency: 'INR' | 'USD';
   ratingAvg: number;
   ratingCount: number;
+  totalQuestions: number;
 }
 
 interface CourseCarouselProps {
@@ -178,6 +179,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
             <span className="text-xs text-ink-faint">{item.ratingAvg.toFixed(1)}</span>
           </div>
         )}
+        <div className="mt-1 text-[10px] text-ink-faint">{item.totalQuestions} questions</div>
         <div className="mb-2 mt-1 text-xs font-semibold text-ink">
           {item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}
           {item.originalPrice && item.originalPrice > item.price && (

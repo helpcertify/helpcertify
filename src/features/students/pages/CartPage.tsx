@@ -70,7 +70,7 @@ export function CartPage() {
                 <div>
                   <div className="font-medium text-ink">{item.title}</div>
                   <div className="text-xs uppercase tracking-wide text-ink-faint">
-                    {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
+                    {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'} · {item.totalQuestions} questions
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

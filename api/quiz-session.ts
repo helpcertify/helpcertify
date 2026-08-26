@@ -187,13 +187,14 @@ async function saveAnswer(uid: string, body: unknown) {
 
 // Free preview — lets a non-buyer try the first few questions and see
 // correctness, no purchase or session required. Deliberately re-checks the
-// question's own `order` against the same limit the client-side preview
-// query uses (studentContentApi.ts's getQuizPreviewQuestions), rather than
-// trusting that the client only ever asks about preview-eligible
-// questions — otherwise this endpoint would be a back door to the full
-// answer key, one question at a time, for anyone scripting direct calls to
-// it with arbitrary questionIds.
-const PREVIEW_QUESTION_LIMIT = 5;
+// question's own `order` against the quiz's own previewQuestionCount (an
+// admin-configurable field, set when the quiz is created/edited — see
+// api/content-admin.ts), rather than trusting that the client only ever
+// asks about preview-eligible questions — otherwise this endpoint would be
+// a back door to the full answer key, one question at a time, for anyone
+// scripting direct calls to it with arbitrary questionIds. Falls back to 5
+// for a quiz created before this field existed.
+const DEFAULT_PREVIEW_QUESTION_LIMIT = 5;
 const previewCheckSchema = z.object({
   quizId: z.string().min(1),
   questionId: z.string().min(1),
@@ -205,10 +206,13 @@ async function previewCheckAnswer(body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { quizId, questionId, selectedOptionId } = parsed.data;
 
+  const quizSnap = await db.collection('quizzes').doc(quizId).get();
+  const previewLimit = quizSnap.data()?.previewQuestionCount ?? DEFAULT_PREVIEW_QUESTION_LIMIT;
+
   const qRef = db.collection('quizzes').doc(quizId).collection('questions').doc(questionId);
   const qSnap = await qRef.get();
   if (!qSnap.exists) throw Err.notFound('Question not found');
-  if ((qSnap.data()?.order ?? Infinity) > PREVIEW_QUESTION_LIMIT) {
+  if ((qSnap.data()?.order ?? Infinity) > previewLimit) {
     throw Err.permissionDenied('This question is not part of the free preview');
   }
 

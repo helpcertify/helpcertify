@@ -13,7 +13,9 @@ export interface WishlistItemView {
   ratingAvg: number;
   ratingCount: number;
   totalQuestions: number;
-  durationMinutes: number;
+  // null for a practice test whose admin left session length up to the
+  // student instead of fixing one.
+  durationMinutes: number | null;
 }
 
 // Routed through the 'cart' endpoint (api/cart.ts), not a separate

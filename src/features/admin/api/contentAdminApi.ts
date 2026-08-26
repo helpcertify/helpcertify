@@ -51,6 +51,7 @@ export interface QuizSummary {
   skillLevel: SkillLevel;
   description: string;
   passMarkPercent: number;
+  previewQuestionCount: number;
 }
 
 export interface PracticeTestSummary {
@@ -58,7 +59,9 @@ export interface PracticeTestSummary {
   title: string;
   sourceFormat: QuestionSourceFormat;
   totalQuestions: number;
-  durationPerSessionMinutes: number;
+  // null when the admin has left session length up to each student (see
+  // api/practice-session.ts's startOrResumeBatch) instead of setting one.
+  durationPerSessionMinutes: number | null;
   defaultInitialBatchSize: number;
   // Serialized Firestore Timestamp over JSON — { _seconds, _nanoseconds },
   // not { seconds }. Read via @/utils/formatDate's toDate().
@@ -74,6 +77,7 @@ export interface PracticeTestSummary {
   category: string;
   skillLevel: SkillLevel;
   description: string;
+  previewQuestionCount: number;
 }
 
 export interface CreateQuizPayload {
@@ -98,6 +102,7 @@ export interface CreateQuizPayload {
   skillLevel: SkillLevel;
   description: string;
   passMarkPercent: number;
+  previewQuestionCount: number;
 }
 
 export interface CreatePracticeTestPayload {
@@ -106,7 +111,9 @@ export interface CreatePracticeTestPayload {
   fileUrl: string;
   availableFrom: string;
   availableUntil: string;
-  durationPerSessionMinutes: number;
+  // null means the admin is leaving session length up to each student —
+  // see PracticeTestSummary's comment on this same field.
+  durationPerSessionMinutes: number | null;
   defaultInitialBatchSize: number;
   price: number;
   originalPrice?: number | null;
@@ -118,6 +125,7 @@ export interface CreatePracticeTestPayload {
   category: string;
   skillLevel: SkillLevel;
   description: string;
+  previewQuestionCount: number;
 }
 
 export const contentAdminApi = {

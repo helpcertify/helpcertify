@@ -30,7 +30,9 @@ export function PracticeTestAnswerKeyPage() {
       <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
         <h1 className="text-2xl font-bold text-ink">{practiceTest.title}</h1>
         <div className="mt-1 space-y-0.5 text-sm text-ink-faint">
-          <div>Session duration: {practiceTest.durationPerSessionMinutes} minutes</div>
+          <div>
+            Session duration: {practiceTest.durationPerSessionMinutes ? `${practiceTest.durationPerSessionMinutes} minutes` : 'Student chooses'}
+          </div>
           <div>Default initial batch size: {practiceTest.defaultInitialBatchSize}</div>
         </div>
 

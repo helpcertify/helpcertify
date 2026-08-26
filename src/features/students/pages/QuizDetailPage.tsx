@@ -117,7 +117,7 @@ export function QuizDetailPage() {
             </div>
           )}
 
-          {!owned && <PreviewQuestions itemType="quiz" itemId={quiz.id} />}
+          {!owned && <PreviewQuestions itemType="quiz" itemId={quiz.id} previewQuestionCount={quiz.previewQuestionCount ?? 5} />}
 
           <div className="rounded-xl border border-surface-border bg-surface p-5">
             {price > 0 && (

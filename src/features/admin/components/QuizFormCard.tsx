@@ -42,6 +42,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const [skillLevel, setSkillLevel] = useState<SkillLevel>(editingQuiz?.skillLevel ?? 'Foundation');
   const [description, setDescription] = useState(editingQuiz?.description ?? '');
   const [passMarkPercent, setPassMarkPercent] = useState(editingQuiz?.passMarkPercent?.toString() ?? '60');
+  const [previewQuestionCount, setPreviewQuestionCount] = useState(editingQuiz?.previewQuestionCount?.toString() ?? '5');
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createQuiz's schema still expects.
@@ -84,6 +85,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     setSkillLevel('Foundation');
     setDescription('');
     setPassMarkPercent('60');
+    setPreviewQuestionCount('5');
     setFile(null);
     setEnforceSequentialNav(false);
     setShowImmediateResult(false);
@@ -110,6 +112,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         skillLevel,
         description,
         passMarkPercent: Number(passMarkPercent) || 60,
+        previewQuestionCount: Number(previewQuestionCount) || 0,
         sourceFormat,
         fileUrl,
         durationType,
@@ -146,6 +149,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         skillLevel,
         description,
         passMarkPercent: Number(passMarkPercent) || 60,
+        previewQuestionCount: Number(previewQuestionCount) || 0,
         durationType,
         durationMinutes: Number(durationMinutes),
         enforceSequentialNav,
@@ -223,6 +227,18 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
             max={100}
             value={passMarkPercent}
             onChange={(e) => setPassMarkPercent(e.target.value)}
+            className="input-dark"
+          />
+        </Field>
+
+        <Field label="Free Preview Questions (how many a non-buyer can try before purchasing)">
+          <input
+            type="number"
+            min={0}
+            max={200}
+            value={previewQuestionCount}
+            onChange={(e) => setPreviewQuestionCount(e.target.value)}
+            placeholder="e.g. 5, or 0 to disable the free preview"
             className="input-dark"
           />
         </Field>

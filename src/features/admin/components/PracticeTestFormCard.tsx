@@ -57,12 +57,21 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const [description, setDescription] = useState(editingTest?.description ?? '');
   const [availableFrom, setAvailableFrom] = useState(toLocalInputValue(editingTest?.availableFrom));
   const [availableUntil, setAvailableUntil] = useState(toLocalInputValue(editingTest?.availableUntil));
+  // null durationPerSessionMinutes means the admin is leaving session length
+  // up to each student (see api/practice-session.ts) — studentChoosesDuration
+  // just toggles which of these two the form is currently in; the number
+  // input itself is disabled while it's on, and the stored value is null
+  // rather than whatever stale number is still sitting in the field.
+  const [studentChoosesDuration, setStudentChoosesDuration] = useState(
+    isEditing && editingTest?.durationPerSessionMinutes == null
+  );
   const [durationPerSessionMinutes, setDurationPerSessionMinutes] = useState(
     editingTest?.durationPerSessionMinutes?.toString() ?? '60'
   );
   const [defaultInitialBatchSize, setDefaultInitialBatchSize] = useState(
     editingTest?.defaultInitialBatchSize?.toString() ?? '50'
   );
+  const [previewQuestionCount, setPreviewQuestionCount] = useState(editingTest?.previewQuestionCount?.toString() ?? '5');
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createPracticeTest's schema still
@@ -103,8 +112,10 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     setDescription('');
     setAvailableFrom('');
     setAvailableUntil('');
+    setStudentChoosesDuration(false);
     setDurationPerSessionMinutes('60');
     setDefaultInitialBatchSize('50');
+    setPreviewQuestionCount('5');
     setFile(null);
     setCurrency('INR');
     setPrice('');
@@ -127,8 +138,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         fileUrl,
         availableFrom: new Date(availableFrom).toISOString(),
         availableUntil: new Date(availableUntil).toISOString(),
-        durationPerSessionMinutes: Number(durationPerSessionMinutes),
+        durationPerSessionMinutes: studentChoosesDuration ? null : Number(durationPerSessionMinutes),
         defaultInitialBatchSize: Number(defaultInitialBatchSize),
+        previewQuestionCount: Number(previewQuestionCount) || 0,
         price: price ? majorToMinor(Number(price)) : 0,
         originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
         currency,
@@ -157,8 +169,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         description,
         availableFrom: availableFrom ? new Date(availableFrom).toISOString() : undefined,
         availableUntil: availableUntil ? new Date(availableUntil).toISOString() : undefined,
-        durationPerSessionMinutes: Number(durationPerSessionMinutes),
+        durationPerSessionMinutes: studentChoosesDuration ? null : Number(durationPerSessionMinutes),
         defaultInitialBatchSize: Number(defaultInitialBatchSize),
+        previewQuestionCount: Number(previewQuestionCount) || 0,
         price: price ? majorToMinor(Number(price)) : 0,
         originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
         currency,
@@ -269,7 +282,8 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
                 min={1}
                 value={durationPerSessionMinutes}
                 onChange={(e) => setDurationPerSessionMinutes(e.target.value)}
-                className="input-dark"
+                disabled={studentChoosesDuration}
+                className="input-dark disabled:opacity-50"
               />
             </div>
             <div>
@@ -283,6 +297,29 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               />
             </div>
           </div>
+          {/* Optional, on request — the admin decides whether this choice
+              exists at all; students never get to pick their own session
+              length unless it's explicitly turned on here. */}
+          <label className="mt-2 flex items-center gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              checked={studentChoosesDuration}
+              onChange={(e) => setStudentChoosesDuration(e.target.checked)}
+            />
+            Let students choose their own session duration instead
+          </label>
+        </Field>
+
+        <Field label="Free Preview Questions (how many a non-buyer can try before purchasing)">
+          <input
+            type="number"
+            min={0}
+            max={200}
+            value={previewQuestionCount}
+            onChange={(e) => setPreviewQuestionCount(e.target.value)}
+            placeholder="e.g. 5, or 0 to disable the free preview"
+            className="input-dark"
+          />
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

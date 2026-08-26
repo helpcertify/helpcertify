@@ -34,6 +34,7 @@ export function RelatedItems({ category, excludeItemType, excludeItemId }: Relat
           currency: q.currency ?? 'INR',
           ratingAvg: q.ratingAvg ?? 0,
           ratingCount: q.ratingCount ?? 0,
+          totalQuestions: q.totalQuestions ?? 0,
         })
       ),
     ...(practiceBuckets?.available ?? [])
@@ -50,6 +51,7 @@ export function RelatedItems({ category, excludeItemType, excludeItemId }: Relat
           currency: t.currency ?? 'INR',
           ratingAvg: t.ratingAvg ?? 0,
           ratingCount: t.ratingCount ?? 0,
+          totalQuestions: t.totalQuestions ?? 0,
         })
       ),
   ].filter((i) => !(i.itemType === excludeItemType && i.id === excludeItemId));

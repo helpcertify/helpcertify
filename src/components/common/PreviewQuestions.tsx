@@ -8,6 +8,10 @@ import type { PurchasableItemType } from '@/types/models';
 interface PreviewQuestionsProps {
   itemType: PurchasableItemType;
   itemId: string;
+  // The item's own admin-configured previewQuestionCount (QuizDoc/
+  // PracticeTestDoc) — passed down from the detail page rather than
+  // refetched here, since that page already has the parent doc loaded.
+  previewQuestionCount: number;
 }
 
 // Free preview — shows the first few questions of a not-yet-owned quiz/
@@ -17,10 +21,14 @@ interface PreviewQuestionsProps {
 // session — see those two files for the server-side re-check that keeps
 // this from ever exposing more than the first few questions' answers, even
 // to someone scripting direct calls to the endpoint.
-export function PreviewQuestions({ itemType, itemId }: PreviewQuestionsProps) {
+export function PreviewQuestions({ itemType, itemId, previewQuestionCount }: PreviewQuestionsProps) {
   const { data: questions } = useQuery({
-    queryKey: ['student', 'previewQuestions', itemType, itemId],
-    queryFn: () => (itemType === 'quiz' ? getQuizPreviewQuestions(itemId) : getPracticeTestPreviewQuestions(itemId)),
+    queryKey: ['student', 'previewQuestions', itemType, itemId, previewQuestionCount],
+    queryFn: () =>
+      itemType === 'quiz'
+        ? getQuizPreviewQuestions(itemId, previewQuestionCount)
+        : getPracticeTestPreviewQuestions(itemId, previewQuestionCount),
+    enabled: previewQuestionCount > 0,
   });
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);

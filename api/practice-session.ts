@@ -66,12 +66,21 @@ async function getOrCreateProgress(uid: string, testId: string) {
   return { ref, progress };
 }
 
-const startBatchSchema = z.object({ testId: z.string().min(1), batchSize: z.number().int().min(1).max(500).optional() });
+// sessionDurationMinutes is only used (and only required) when the test's
+// own durationPerSessionMinutes is null — an admin choosing, per test, to
+// let students pick their own session length instead of a fixed one (see
+// api/content-admin.ts's createPracticeTest). Ignored otherwise: the
+// admin's own setting always wins when one exists.
+const startBatchSchema = z.object({
+  testId: z.string().min(1),
+  batchSize: z.number().int().min(1).max(500).optional(),
+  sessionDurationMinutes: z.number().int().min(5).max(600).optional(),
+});
 
 async function startOrResumeBatch(uid: string, body: unknown) {
   const parsed = startBatchSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { testId, batchSize } = parsed.data;
+  const { testId, batchSize, sessionDurationMinutes } = parsed.data;
 
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
@@ -126,6 +135,13 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   const size = Math.min(batchSize ?? test.defaultInitialBatchSize, unansweredIds.length);
   const batchQuestionIds = unansweredIds.slice(0, size);
 
+  // test.durationPerSessionMinutes is null when the admin left session
+  // length up to the student — in that case the client must supply one.
+  const durationMinutes: number | undefined = test.durationPerSessionMinutes ?? sessionDurationMinutes;
+  if (!durationMinutes) {
+    throw Err.invalidArgument('Choose how long this session should run before starting.');
+  }
+
   const sessionRef = db.collection('practiceSessions').doc();
   const session = {
     userId: uid,
@@ -134,7 +150,7 @@ async function startOrResumeBatch(uid: string, body: unknown) {
     status: 'in_progress' as const,
     startedAt: now,
     submittedAt: null,
-    expiresAt: Timestamp.fromMillis(now.toMillis() + test.durationPerSessionMinutes * 60_000),
+    expiresAt: Timestamp.fromMillis(now.toMillis() + durationMinutes * 60_000),
     answeredCount: 0,
     correctCount: 0,
     incorrectCount: 0,
@@ -149,12 +165,15 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   return { sessionId: sessionRef.id, session, resumed: false };
 }
 
-const reattemptSchema = z.object({ testId: z.string().min(1) });
+const reattemptSchema = z.object({
+  testId: z.string().min(1),
+  sessionDurationMinutes: z.number().int().min(5).max(600).optional(),
+});
 
 async function reattemptLastBatch(uid: string, body: unknown) {
   const parsed = reattemptSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { testId } = parsed.data;
+  const { testId, sessionDurationMinutes } = parsed.data;
 
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
@@ -168,6 +187,11 @@ async function reattemptLastBatch(uid: string, body: unknown) {
   const { progress } = await getOrCreateProgress(uid, testId);
   if (progress.lastBatchQuestionIds.length === 0) throw Err.failedPrecondition('No previous batch to reattempt');
 
+  const durationMinutes: number | undefined = test.durationPerSessionMinutes ?? sessionDurationMinutes;
+  if (!durationMinutes) {
+    throw Err.invalidArgument('Choose how long this session should run before starting.');
+  }
+
   const now = Timestamp.now();
   const sessionRef = db.collection('practiceSessions').doc();
   const session = {
@@ -177,7 +201,7 @@ async function reattemptLastBatch(uid: string, body: unknown) {
     status: 'in_progress' as const,
     startedAt: now,
     submittedAt: null,
-    expiresAt: Timestamp.fromMillis(now.toMillis() + test.durationPerSessionMinutes * 60_000),
+    expiresAt: Timestamp.fromMillis(now.toMillis() + durationMinutes * 60_000),
     answeredCount: 0,
     correctCount: 0,
     incorrectCount: 0,
@@ -253,9 +277,12 @@ async function saveAnswer(uid: string, body: unknown) {
 
 // Free preview — same reasoning as api/quiz-session.ts's previewCheckAnswer:
 // no purchase/session required, but the question's own `order` is
-// re-checked server-side against the same limit the client-side preview
-// query uses, so this can never become a back door to the full answer key.
-const PREVIEW_QUESTION_LIMIT = 5;
+// re-checked server-side against the practice test's own
+// previewQuestionCount (an admin-configurable field, set when the test is
+// created/edited — see api/content-admin.ts), so this can never become a
+// back door to the full answer key. Falls back to 5 for a test created
+// before this field existed.
+const DEFAULT_PREVIEW_QUESTION_LIMIT = 5;
 const previewCheckSchema = z.object({
   testId: z.string().min(1),
   questionId: z.string().min(1),
@@ -267,10 +294,13 @@ async function previewCheckAnswer(body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { testId, questionId, selectedOptionId } = parsed.data;
 
+  const testSnap = await db.collection('practiceTests').doc(testId).get();
+  const previewLimit = testSnap.data()?.previewQuestionCount ?? DEFAULT_PREVIEW_QUESTION_LIMIT;
+
   const qRef = db.collection('practiceTests').doc(testId).collection('questions').doc(questionId);
   const qSnap = await qRef.get();
   if (!qSnap.exists) throw Err.notFound('Question not found');
-  if ((qSnap.data()?.order ?? Infinity) > PREVIEW_QUESTION_LIMIT) {
+  if ((qSnap.data()?.order ?? Infinity) > previewLimit) {
     throw Err.invalidArgument('This question is not part of the free preview');
   }
 

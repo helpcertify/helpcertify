@@ -16,14 +16,22 @@ export interface PracticeSessionState {
 }
 
 export const practiceSessionApi = {
-  startOrResumeBatch: (testId: string, batchSize?: number) =>
+  // sessionDurationMinutes is only actually used (and only required) when
+  // the test's own durationPerSessionMinutes is null — i.e. the admin left
+  // session length up to the student (see PracticeTestDetailPage.tsx's
+  // duration picker, shown only in that case). Harmless to pass otherwise;
+  // the server ignores it whenever the test has its own fixed duration.
+  startOrResumeBatch: (testId: string, batchSize?: number, sessionDurationMinutes?: number) =>
     callAction<{ sessionId: string; session: PracticeSessionState; resumed: boolean }>(
       'practice-session',
       'startOrResumeBatch',
-      { testId, batchSize }
+      { testId, batchSize, sessionDurationMinutes }
     ),
-  reattemptLastBatch: (testId: string) =>
-    callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'reattemptLastBatch', { testId }),
+  reattemptLastBatch: (testId: string, sessionDurationMinutes?: number) =>
+    callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'reattemptLastBatch', {
+      testId,
+      sessionDurationMinutes,
+    }),
   saveAnswer: (sessionId: string, questionId: string, selectedOptionId: string) =>
     callAction<{ isCorrect: boolean; correctOptionId: string | null }>('practice-session', 'saveAnswer', {
       sessionId,

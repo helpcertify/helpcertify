@@ -78,7 +78,7 @@ export function PracticeManagerPage() {
                 </div>
                 <div className="space-y-0.5 text-sm text-ink-faint">
                   <div>Questions: {test.totalQuestions}</div>
-                  <div>Session: {test.durationPerSessionMinutes} min</div>
+                  <div>Session: {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min` : 'Student chooses'}</div>
                   <div>
                     From {formatDate(test.availableFrom)} to {formatDate(test.availableUntil)}
                   </div>

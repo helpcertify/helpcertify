@@ -151,7 +151,8 @@ export function PracticeTestsPage() {
                   </div>
                 )}
                 <div className="mb-2 text-xs text-ink-faint">
-                  {answered} / {test.totalQuestions} answered · {test.durationPerSessionMinutes} min/session
+                  {answered} / {test.totalQuestions} answered ·{' '}
+                  {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'you choose session length'}
                 </div>
 
                 {price > 0 && (
@@ -252,7 +253,8 @@ export function PracticeTestsPage() {
                   </span>
                 </div>
                 <div className="text-sm text-ink-faint">
-                  {test.totalQuestions} questions · {test.durationPerSessionMinutes} min/session
+                  {test.totalQuestions} questions ·{' '}
+                  {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'you choose session length'}
                   <br />
                   {formatDate(test.availableFrom)} → {formatDate(test.availableUntil)}
                 </div>

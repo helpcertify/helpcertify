@@ -16,6 +16,12 @@ export function PracticeTakingPage() {
   const { testId } = useParams<{ testId: string }>();
   const [searchParams] = useSearchParams();
   const isReattempt = searchParams.get('reattempt') === '1';
+  // Only meaningful when this test's own durationPerSessionMinutes is null
+  // (the admin left session length up to the student) — set by the
+  // duration picker on PracticeTestDetailPage.tsx before linking here.
+  // Ignored server-side whenever the test has its own fixed duration.
+  const sessionDurationParam = searchParams.get('sessionDuration');
+  const sessionDurationMinutes = sessionDurationParam ? Number(sessionDurationParam) : undefined;
   const navigate = useNavigate();
   const pushToast = useUiStore((s) => s.pushToast);
 
@@ -34,7 +40,9 @@ export function PracticeTakingPage() {
   useEffect(() => {
     if (!testId || startedRef.current) return;
     startedRef.current = true;
-    const start = isReattempt ? practiceSessionApi.reattemptLastBatch(testId) : practiceSessionApi.startOrResumeBatch(testId);
+    const start = isReattempt
+      ? practiceSessionApi.reattemptLastBatch(testId, sessionDurationMinutes)
+      : practiceSessionApi.startOrResumeBatch(testId, undefined, sessionDurationMinutes);
     start
       .then(async (res) => {
         setSessionId(res.sessionId);
@@ -49,7 +57,7 @@ export function PracticeTakingPage() {
         pushToast(err instanceof Error ? err.message : 'Could not start this practice session', 'error');
         navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home/practice-tests');
       });
-  }, [testId, isReattempt, navigate, pushToast]);
+  }, [testId, isReattempt, sessionDurationMinutes, navigate, pushToast]);
 
   const current = questions[currentIndex];
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);

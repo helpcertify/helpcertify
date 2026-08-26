@@ -22,6 +22,12 @@ function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
 }
 
+// Only shown when the admin left session length up to the student
+// (test.durationPerSessionMinutes is null) — same preset spirit as the
+// admin's own availability-window shortcuts, but for picking one session's
+// length rather than a purchase window.
+const SESSION_DURATION_PRESETS = [15, 30, 45, 60, 90, 120];
+
 // The "course landing page" a student sees before (or after) buying a
 // practice test, reached by clicking a card rather than acting on its
 // buttons directly. Mirrors PracticeTestsPage's per-card bucket logic
@@ -34,6 +40,7 @@ export function PracticeTestDetailPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
+  const [chosenDuration, setChosenDuration] = useState(SESSION_DURATION_PRESETS[2]);
 
   const { data: test, isLoading } = useQuery({
     queryKey: ['student', 'practiceTest', testId],
@@ -129,7 +136,7 @@ export function PracticeTestDetailPage() {
 
           <div className="mb-5 flex flex-wrap gap-4 text-sm text-ink-faint">
             <span>📄 {test.totalQuestions} questions</span>
-            <span>⏱ {test.durationPerSessionMinutes} min/session</span>
+            <span>⏱ {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'You choose the session length'}</span>
           </div>
 
           {test.description && (
@@ -139,7 +146,9 @@ export function PracticeTestDetailPage() {
             </div>
           )}
 
-          {!owned && <PreviewQuestions itemType="practiceTest" itemId={test.id} />}
+          {!owned && (
+            <PreviewQuestions itemType="practiceTest" itemId={test.id} previewQuestionCount={test.previewQuestionCount ?? 5} />
+          )}
 
           <div className="rounded-xl border border-surface-border bg-surface p-5">
             {price > 0 && (
@@ -188,23 +197,58 @@ export function PracticeTestDetailPage() {
                 </div>
               )
             ) : (
-              <div className="flex gap-3">
-                {!done && (
-                  <Link
-                    to={`/practice-tests/${test.id}/take`}
-                    className="flex-1 rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
-                  >
-                    {answered > 0 ? 'Resume' : 'Start'}
-                  </Link>
+              <div>
+                {/* Only shown when the admin left session length up to the
+                    student (test.durationPerSessionMinutes is null) — an
+                    already-resumable session ignores this, since its
+                    duration was already fixed when it started. */}
+                {test.durationPerSessionMinutes == null && !done && (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-xs text-ink-faint">Session duration</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SESSION_DURATION_PRESETS.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setChosenDuration(m)}
+                          className={`rounded-full border px-3 py-1 text-xs ${
+                            chosenDuration === m
+                              ? 'border-[#1D4ED8] bg-[#1D4ED8]/10 text-[#1D4ED8]'
+                              : 'border-surface-border text-ink-muted hover:border-brand-400'
+                          }`}
+                        >
+                          {m} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                {answered > 0 && (
-                  <Link
-                    to={`/practice-tests/${test.id}/take?reattempt=1`}
-                    className="flex-1 rounded-lg border border-surface-border py-2.5 text-center text-sm text-ink-muted"
-                  >
-                    Reattempt
-                  </Link>
-                )}
+                <div className="flex gap-3">
+                  {!done && (
+                    <Link
+                      to={
+                        test.durationPerSessionMinutes == null
+                          ? `/practice-tests/${test.id}/take?sessionDuration=${chosenDuration}`
+                          : `/practice-tests/${test.id}/take`
+                      }
+                      className="flex-1 rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+                    >
+                      {answered > 0 ? 'Resume' : 'Start'}
+                    </Link>
+                  )}
+                  {answered > 0 && (
+                    <Link
+                      to={
+                        test.durationPerSessionMinutes == null
+                          ? `/practice-tests/${test.id}/take?reattempt=1&sessionDuration=${chosenDuration}`
+                          : `/practice-tests/${test.id}/take?reattempt=1`
+                      }
+                      className="flex-1 rounded-lg border border-surface-border py-2.5 text-center text-sm text-ink-muted"
+                    >
+                      Reattempt
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
           </div>
