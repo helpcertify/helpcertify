@@ -13,9 +13,8 @@ export async function getStudyPlan(uid: string, testId: string): Promise<(StudyP
     if (!snap.exists()) return null;
     return { id: snap.id, ...(snap.data() as StudyPlanDoc) };
   } catch (err) {
-    // TEMP diagnostic: surface the real Firestore error (e.g. a security-rule
-    // gap for a brand-new collection) instead of letting react-query swallow
-    // it into a silent "no plan found" state.
+    // Surface the real Firestore error (e.g. a security-rule gap) instead of
+    // letting react-query swallow it into a silent "no plan found" state.
     console.error('getStudyPlan failed', err);
     throw err;
   }
