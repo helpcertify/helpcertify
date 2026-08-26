@@ -15,6 +15,7 @@ import {
   questionsPerDayFromMinutes,
   buildDailyAnsweredMap,
   computeStudyStreak,
+  daysSinceLastActivity,
   newlyCrossedThresholds,
   dateKey,
   QUESTION_MILESTONES,
@@ -207,6 +208,14 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [milestoneKeys, undocumentedKeys.join(',')]);
 
+  // A missed-day gap (not just being slightly under pace every day) is what
+  // makes this a genuine "welcome back" moment rather than routine catch-up
+  // encouragement — a learner who's simply been studying a bit slower than
+  // target every single day never actually went away, so they get the plain
+  // catch-up sentence instead of a "you were gone" framing that isn't true.
+  const gapDays = daysSinceLastActivity(dailyAnsweredMap ?? {}, today);
+  const isRecoveryMoment = status.status === 'catch_up' && gapDays !== null && gapDays >= 2;
+
   const insight = bankComplete
     ? `You've completed all ${totalQuestions} questions in ${testTitle}. Amazing work.`
     : examDatePassed
@@ -272,7 +281,15 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
         </>
       )}
 
-      <p className="mt-3 text-xs text-ink-muted">{insight}</p>
+      {isRecoveryMoment ? (
+        <div className="mt-3 rounded-lg border border-[#d87f1d]/30 bg-[#d87f1d]/10 p-3 text-xs text-ink">
+          <span className="font-semibold">Welcome back.</span> It's been {gapDays} days since your last session on{' '}
+          {testTitle}. Your plan has recalculated automatically: complete {status.extraPerDay} additional question
+          {status.extraPerDay === 1 ? '' : 's'} per study day this week and you'll be right back on schedule.
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-ink-muted">{insight}</p>
+      )}
     </div>
   );
 }

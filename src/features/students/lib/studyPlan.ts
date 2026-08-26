@@ -345,6 +345,25 @@ export function computeStudyStreak(inputs: StudyStreakInputs): number {
   return streak;
 }
 
+// Whole calendar days since the most recent day with any recorded activity,
+// or null if there's no activity at all yet (a brand-new plan — see the
+// dashboard's recovery-messaging note on why that's a different message
+// than "welcome back after a gap"). Used to tell a genuine missed-day gap
+// apart from a learner who's simply been studying slightly under pace every
+// day, so the non-punitive "welcome back" framing only appears when it's
+// actually true.
+export function daysSinceLastActivity(dailyAnsweredMap: Record<string, number>, today: Date): number | null {
+  const activeKeys = Object.entries(dailyAnsweredMap)
+    .filter(([, count]) => count > 0)
+    .map(([key]) => key);
+  if (activeKeys.length === 0) return null;
+  // Keys are zero-padded 'YYYY-MM-DD', so lexicographic order is also
+  // chronological order.
+  const lastActiveKey = activeKeys.sort().at(-1)!;
+  const [y, m, d] = lastActiveKey.split('-').map(Number);
+  return calendarDaysBetween(new Date(y, m - 1, d), today);
+}
+
 // ---------------------------------------------------------------------------
 // Milestones (§21, §F)
 // ---------------------------------------------------------------------------

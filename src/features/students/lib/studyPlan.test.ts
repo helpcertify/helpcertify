@@ -13,6 +13,7 @@ import {
   checkExamDateFeasibility,
   buildDailyAnsweredMap,
   computeStudyStreak,
+  daysSinceLastActivity,
 } from './studyPlan';
 import type { StudyDaySelection } from '@/types/models';
 
@@ -260,5 +261,26 @@ describe('computeStudyStreak', () => {
 
   it('returns 0 when dailyTarget is 0 (e.g. the bank is already fully completed)', () => {
     expect(computeStudyStreak({ today: new Date(2026, 8, 3), studyDays: ALL_DAYS, dailyTarget: 0, dailyAnsweredMap: {} })).toBe(0);
+  });
+});
+
+describe('daysSinceLastActivity', () => {
+  it('returns null when there is no activity at all yet', () => {
+    expect(daysSinceLastActivity({}, new Date(2026, 8, 3))).toBeNull();
+  });
+
+  it('returns 0 when the most recent activity was today', () => {
+    const map = buildDailyAnsweredMap([{ startedAt: new Date(2026, 8, 3), answeredCount: 20 }]);
+    expect(daysSinceLastActivity(map, new Date(2026, 8, 3))).toBe(0);
+  });
+
+  it('returns the real gap in calendar days since the last active day', () => {
+    const map = buildDailyAnsweredMap([{ startedAt: new Date(2026, 7, 28), answeredCount: 20 }]);
+    expect(daysSinceLastActivity(map, new Date(2026, 8, 3))).toBe(6);
+  });
+
+  it('ignores days recorded with zero answered (never actually true, but should not count as activity)', () => {
+    const map = { '2026-08-30': 0, '2026-08-25': 15 };
+    expect(daysSinceLastActivity(map, new Date(2026, 8, 3))).toBe(9);
   });
 });
