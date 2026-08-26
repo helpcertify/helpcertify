@@ -8,7 +8,15 @@ import type { StudyPlanDoc } from '@/types/models';
 // Writes go through practiceSessionApi.saveStudyPlan instead (see that
 // file, and api/practice-session.ts's saveStudyPlan, for why).
 export async function getStudyPlan(uid: string, testId: string): Promise<(StudyPlanDoc & { id: string }) | null> {
-  const snap = await getDoc(doc(db, 'studyPlans', `${uid}_${testId}`));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...(snap.data() as StudyPlanDoc) };
+  try {
+    const snap = await getDoc(doc(db, 'studyPlans', `${uid}_${testId}`));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...(snap.data() as StudyPlanDoc) };
+  } catch (err) {
+    // TEMP diagnostic: surface the real Firestore error (e.g. a security-rule
+    // gap for a brand-new collection) instead of letting react-query swallow
+    // it into a silent "no plan found" state.
+    console.error('getStudyPlan failed', err);
+    throw err;
+  }
 }
