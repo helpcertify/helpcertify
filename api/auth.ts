@@ -3,7 +3,6 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { bundlerProbeMarker } from './_lib/security'; // TEMPORARY — see bundlerProbe action below
 
 // Replaces functions/src/_migrated-v1-reference/register.ts + provision-profile.ts.
 // Self-contained — Vercel's per-function bundler for this project has no
@@ -170,11 +169,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updateProfile':
         res.status(200).json(await updateProfile(req, data));
-        return;
-      // TEMPORARY — bundler feasibility probe, not a real feature. Removed
-      // once we know whether Vercel's bundler actually includes ./_lib.
-      case 'bundlerProbe':
-        res.status(200).json({ marker: bundlerProbeMarker() });
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);
