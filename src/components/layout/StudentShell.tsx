@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
+import { db } from '@/lib/firebase';
 import { cartApi } from '@/features/students/api/cartApi';
 import { CartIcon, HeartIcon, BellIcon, SearchIcon } from '@/components/common/icons';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
+import { toDate } from '@/utils/formatDate';
+import { calendarDaysBetween } from '@/features/students/lib/studyPlan';
+import type { StudyPlanDoc } from '@/types/models';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -52,6 +57,7 @@ function initials(name?: string): string {
 // campus-specific.
 export function StudentShell() {
   const navigate = useNavigate();
+  const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -61,6 +67,32 @@ export function StudentShell() {
   // mutations already invalidate this same query key themselves.
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
   const cartCount = cart?.items.length ?? 0;
+
+  // The exam countdown pinned above Sign Out, visible on every page — only
+  // considers plans where the learner actually chose a target exam date
+  // (Option A). A pace-mode plan's "suggested" exam date is a rolling
+  // estimate, not a date the learner committed to, so it isn't a fitting
+  // permanent reminder here (it's already shown on that plan's own card on
+  // the Home dashboard). Picks whichever committed exam date is soonest.
+  const { data: examCountdown } = useQuery({
+    queryKey: ['student', 'examCountdown', uid],
+    queryFn: async () => {
+      const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
+      const plans = snap.docs
+        .map((d) => d.data() as StudyPlanDoc)
+        .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
+        .map((p) => ({ testId: p.testId, daysToExam: calendarDaysBetween(new Date(), toDate(p.targetExamDate)) }))
+        .filter((p) => p.daysToExam >= 0)
+        .sort((a, b) => a.daysToExam - b.daysToExam);
+      const nearest = plans[0];
+      if (!nearest) return null;
+      const testSnap = await getDoc(doc(db, 'practiceTests', nearest.testId));
+      const testTitle = testSnap.data()?.title as string | undefined;
+      return { daysToExam: nearest.daysToExam, testTitle: testTitle ?? 'your exam' };
+    },
+    enabled: !!uid,
+    staleTime: 5 * 60_000,
+  });
 
   const handleSignOut = async () => {
     await authApi.logout();
@@ -178,6 +210,7 @@ export function StudentShell() {
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
           {navLinks(() => setMobileNavOpen(false))}
+          {examCountdown && <ExamCountdownCard {...examCountdown} className="mt-2" />}
           <button
             type="button"
             onClick={handleSignOut}
@@ -196,13 +229,16 @@ export function StudentShell() {
             mt-auto, same as before. */}
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="mt-auto shrink-0 rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
-          >
-            Sign Out
-          </button>
+          <div className="mt-auto shrink-0">
+            {examCountdown && <ExamCountdownCard {...examCountdown} className="mb-3" />}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
+            >
+              Sign Out
+            </button>
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
@@ -210,6 +246,23 @@ export function StudentShell() {
             <Outlet />
           </main>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// The permanent exam-date reminder, pinned above Sign Out on every page —
+// on request, so a learner who committed to an exam date never has to go
+// looking for it. Amber (not blue/emerald) so it reads as a countdown
+// rather than a status/success indicator.
+function ExamCountdownCard({ daysToExam, testTitle, className = '' }: { daysToExam: number; testTitle: string; className?: string }) {
+  return (
+    <div className={`rounded-lg border border-[#d87f1d]/40 bg-[#d87f1d]/10 px-3 py-2.5 ${className}`}>
+      <div className="mb-0.5 truncate text-[11px] uppercase tracking-wide text-ink-faint" title={testTitle}>
+        {testTitle}
+      </div>
+      <div className="text-lg font-bold text-[#d87f1d]">
+        {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
       </div>
     </div>
   );

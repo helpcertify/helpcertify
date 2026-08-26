@@ -111,7 +111,7 @@ export function PracticeTestDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
+      <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Practice Exams
       </Link>
 

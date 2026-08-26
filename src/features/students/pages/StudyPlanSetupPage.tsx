@@ -140,41 +140,52 @@ export function StudyPlanSetupPage() {
   if (!test) return <p className="text-sm text-ink-faint">Loading…</p>;
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link to={`/home/practice-tests/${testId}`} className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
+    <div className="mx-auto max-w-5xl">
+      <Link to={`/home/practice-tests/${testId}`} className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to {test.title}
       </Link>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Set Your Study Goal</h1>
-      <p className="mb-6 text-sm text-ink-faint">
-        {existingPlan
-          ? 'You already have a plan for this practice test. Choosing an option below replaces it.'
-          : "You don't need to know your exam date to get started."}
-      </p>
+
+      {/* Colorful hero banner, matching the app's own two accents (brand
+          blue + amber) instead of a plain heading — this page is a single
+          focused flow, so it can afford one deliberate splash of color at
+          the top rather than the muted-gray treatment most list/detail
+          pages use. */}
+      <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1D4ED8] to-[#0f2f8f] p-6 text-white">
+        <h1 className="mb-1 text-2xl font-bold">🎯 Set Your Study Goal</h1>
+        <p className="text-sm text-white/80">
+          {existingPlan
+            ? 'You already have a plan for this practice test. Choosing an option below replaces it.'
+            : "You don't need to know your exam date to get started."}
+        </p>
+      </div>
 
       {step === 'choose' && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <button
             type="button"
             onClick={() => setStep('examDate')}
-            className="rounded-xl border border-surface-border bg-surface-raised p-5 text-left hover:border-brand-400"
+            className="rounded-2xl border-2 border-[#1D4ED8]/30 bg-[#1D4ED8]/5 p-6 text-left transition-colors hover:border-[#1D4ED8] hover:bg-[#1D4ED8]/10"
           >
-            <div className="mb-1 font-semibold text-ink">I Have an Exam Date</div>
+            <div className="mb-2 text-3xl">📅</div>
+            <div className="mb-1 text-lg font-semibold text-[#1D4ED8]">I Have an Exam Date</div>
             <p className="text-sm text-ink-faint">Tell us your exam date and we'll calculate what you need to complete each day.</p>
           </button>
           <button
             type="button"
             onClick={() => setStep('pace')}
-            className="rounded-xl border border-surface-border bg-surface-raised p-5 text-left hover:border-brand-400"
+            className="rounded-2xl border-2 border-[#d87f1d]/30 bg-[#d87f1d]/5 p-6 text-left transition-colors hover:border-[#d87f1d] hover:bg-[#d87f1d]/10"
           >
-            <div className="mb-1 font-semibold text-ink">Plan At My Pace</div>
+            <div className="mb-2 text-3xl">🏃</div>
+            <div className="mb-1 text-lg font-semibold text-[#d87f1d]">Plan At My Pace</div>
             <p className="text-sm text-ink-faint">Tell us how much you can study each day and we'll estimate when you'll be exam-ready.</p>
           </button>
         </div>
       )}
 
       {step !== 'choose' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="space-y-5">
-          <button type="button" onClick={() => setStep('choose')} className="text-sm text-ink-faint hover:text-brand-ink">
+          <button type="button" onClick={() => setStep('choose')} className="text-sm text-brand-ink hover:underline">
             ← Choose a different way to plan
           </button>
 
@@ -287,7 +298,12 @@ export function StudyPlanSetupPage() {
               ))}
             </div>
           </div>
+        </div>
 
+        {/* Right column — the live result, kept visible alongside the form
+            instead of below the fold, so every input change's effect is
+            seen immediately without scrolling. */}
+        <div className="space-y-5 lg:sticky lg:top-20">
           {step === 'examDate' && examDatePreview && (
             <>
               {feasibility && !feasibility.feasible && (
@@ -298,18 +314,20 @@ export function StudyPlanSetupPage() {
                   increasing your daily study time, adding more study days, or adjusting your exam date.
                 </div>
               )}
-              <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-                <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your {test.title} Plan</h2>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div className="overflow-hidden rounded-2xl border border-[#1D4ED8]/30 bg-surface-raised">
+                <div className="bg-gradient-to-r from-[#1D4ED8] to-[#0f2f8f] px-5 py-3">
+                  <h2 className="text-sm font-bold uppercase tracking-wide text-white">Your {test.title} Plan</h2>
+                </div>
+                <dl className="grid grid-cols-2 gap-4 p-5 text-sm">
                   <PlanStat label="🎯 Exam" value={formatDisplayDate(new Date(examDate))} />
-                  <PlanStat label="📅 Days to Exam" value={`${examDatePreview.daysToExam} Days`} />
+                  <PlanStat label="📅 Days to Exam" value={`${examDatePreview.daysToExam} Days`} accent="amber" />
                   <PlanStat label="📚 Practice Deadline" value={formatDisplayDate(examDatePreview.practiceDeadline)} />
                   <PlanStat
                     label="🔄 Final Revision"
                     value={`${formatDisplayDate(examDatePreview.revisionStart)} → ${formatDisplayDate(new Date(examDate))}`}
                   />
                   <PlanStat label="📖 Questions Remaining" value={String(examDatePreview.remainingQuestions)} />
-                  <PlanStat label="🎯 Daily Target" value={`${examDatePreview.dailyTarget} Questions`} />
+                  <PlanStat label="🎯 Daily Target" value={`${examDatePreview.dailyTarget} Questions`} accent="blue" />
                   <PlanStat label="⏱ Estimated Study Time" value={`~${examDatePreview.estMinutesPerDay} min/day`} />
                 </dl>
               </div>
@@ -317,21 +335,25 @@ export function StudyPlanSetupPage() {
           )}
 
           {step === 'pace' && pacePreview && (
-            <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Your {test.title} Plan</h2>
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <PlanStat label="📚 Question Bank" value={`${totalQuestions} Questions`} />
-                <PlanStat label="🎯 Daily Target" value={`${resolvedQuestionsPerDay} Questions`} />
-                <PlanStat label="📅 Practice Duration" value={`${pacePreview.studyDaysNeeded} Study Days`} />
-                <PlanStat label="🔄 Final Revision" value={`${revisionBufferDays} Days`} />
-                <PlanStat label="📆 Practice Completion" value={formatDisplayDate(pacePreview.practiceCompletionDate)} />
-                <PlanStat label="🏁 Suggested Exam Date" value={formatDisplayDate(pacePreview.suggestedExamDate)} />
-                <PlanStat label="⏱ Estimated Daily Study" value={`~${pacePreview.estMinutesPerDay} min/day`} />
-              </dl>
-              <p className="mt-4 text-sm text-ink">
-                Maintain {resolvedQuestionsPerDay} questions per study day and you'll complete your first pass in approximately{' '}
-                {pacePreview.studyDaysNeeded} study days.
-              </p>
+            <div className="overflow-hidden rounded-2xl border border-[#d87f1d]/30 bg-surface-raised">
+              <div className="bg-gradient-to-r from-[#d87f1d] to-[#a85f10] px-5 py-3">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-white">Your {test.title} Plan</h2>
+              </div>
+              <div className="p-5">
+                <dl className="grid grid-cols-2 gap-4 text-sm">
+                  <PlanStat label="📚 Question Bank" value={`${totalQuestions} Questions`} />
+                  <PlanStat label="🎯 Daily Target" value={`${resolvedQuestionsPerDay} Questions`} accent="blue" />
+                  <PlanStat label="📅 Practice Duration" value={`${pacePreview.studyDaysNeeded} Study Days`} />
+                  <PlanStat label="🔄 Final Revision" value={`${revisionBufferDays} Days`} />
+                  <PlanStat label="📆 Practice Completion" value={formatDisplayDate(pacePreview.practiceCompletionDate)} />
+                  <PlanStat label="🏁 Suggested Exam Date" value={formatDisplayDate(pacePreview.suggestedExamDate)} accent="amber" />
+                  <PlanStat label="⏱ Estimated Daily Study" value={`~${pacePreview.estMinutesPerDay} min/day`} />
+                </dl>
+                <p className="mt-4 text-sm text-ink">
+                  Maintain {resolvedQuestionsPerDay} questions per study day and you'll complete your first pass in approximately{' '}
+                  {pacePreview.studyDaysNeeded} study days.
+                </p>
+              </div>
             </div>
           )}
 
@@ -346,16 +368,18 @@ export function StudyPlanSetupPage() {
             {saveMutation.isPending ? 'Saving…' : 'Save My Plan'}
           </button>
         </div>
+        </div>
       )}
     </div>
   );
 }
 
-function PlanStat({ label, value }: { label: string; value: string }) {
+function PlanStat({ label, value, accent }: { label: string; value: string; accent?: 'blue' | 'amber' }) {
+  const accentClass = accent === 'blue' ? 'text-[#1D4ED8]' : accent === 'amber' ? 'text-[#d87f1d]' : 'text-ink';
   return (
     <div>
       <dt className="text-xs text-ink-faint">{label}</dt>
-      <dd className="font-semibold text-ink">{value}</dd>
+      <dd className={`font-semibold ${accentClass}`}>{value}</dd>
     </div>
   );
 }

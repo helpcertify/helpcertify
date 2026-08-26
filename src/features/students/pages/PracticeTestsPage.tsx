@@ -24,6 +24,16 @@ function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
 }
 
+// Turns a free-text description into short bullet points for the hover
+// card — one line per newline if the admin already wrote it that way,
+// otherwise a naive sentence split. Capped so a very long description can't
+// blow out the hover card's height.
+function descriptionBullets(description: string): string[] {
+  const byLine = description.split('\n').map((l) => l.trim()).filter(Boolean);
+  const raw = byLine.length > 1 ? byLine : description.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  return raw.slice(0, 5);
+}
+
 // jsPDF (certificate.ts) is a meaningful chunk of code that only a fraction
 // of visitors ever trigger — dynamically imported here rather than a static
 // top-level import, same pattern as PerformancePage.tsx's exportToExcel, so
@@ -118,136 +128,30 @@ export function PracticeTestsPage() {
         </p>
       ) : (
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredAvailable.map((test) => {
-            const answered = progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0;
-            const done = answered >= test.totalQuestions;
-            const price = test.price ?? 0;
-            const owned = price === 0 || purchasedSet.has(`practiceTest_${test.id}`);
-            const inCart = inCartSet.has(`practiceTest_${test.id}`);
-
-            return (
-              <div key={test.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-                <Link to={`/home/practice-tests/${test.id}`}>
-                  <CourseCoverImage id={test.id} title={test.title} className="h-20 w-full" />
-                </Link>
-                {/* Heart lives on the plain card body (variant="inline"), not
-                    over the cover banner — see StudentHomePage.tsx's card. */}
-                <div className="relative p-3.5">
-                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />}
-                <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
-                  <span>{test.category ?? 'Other'}</span>
-                  <span>·</span>
-                  <span>{test.skillLevel ?? 'Foundation'}</span>
-                </div>
-                <Link to={`/home/practice-tests/${test.id}`} className="hover:text-brand-ink">
-                  <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
-                </Link>
-                {(test.ratingCount ?? 0) > 0 && (
-                  <div className="mb-1 flex items-center gap-1.5">
-                    <StarRating value={test.ratingAvg ?? 0} size="sm" />
-                    <span className="text-xs text-ink-faint">
-                      {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount})
-                    </span>
-                  </div>
-                )}
-                <div className="mb-2 text-xs text-ink-faint">
-                  {answered} / {test.totalQuestions} answered ·{' '}
-                  {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'you choose session length'}
-                </div>
-
-                {price > 0 && (
-                  <div className="mb-2 flex items-center gap-2">
-                    {test.originalPrice && test.originalPrice > price && (
-                      <span className="text-xs text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
-                    )}
-                    <span className="font-semibold text-ink">{formatMoney(price, test.currency)}</span>
-                  </div>
-                )}
-
-                {!owned ? (
-                  inCart ? (
-                    <Link
-                      to="/home/cart"
-                      className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]"
-                    >
-                      ✓ In Cart · View Cart
-                    </Link>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={addToCartMutation.isPending || paying}
-                        onClick={() => addToCartMutation.mutate(test.id)}
-                        className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
-                      >
-                        Add to Cart
-                      </button>
-                      <button
-                        type="button"
-                        disabled={paying}
-                        onClick={() => setBuyNowTest(test)}
-                        className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-                      >
-                        {paying ? 'Opening…' : 'Buy Now'}
-                      </button>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex gap-2">
-                      {!done && (
-                        <Link
-                          to={`/practice-tests/${test.id}/take`}
-                          className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
-                        >
-                          {answered > 0 ? 'Resume' : 'Start'}
-                        </Link>
-                      )}
-                      {answered > 0 && (
-                        <Link
-                          to={`/practice-tests/${test.id}/take?reattempt=1`}
-                          className="flex-1 rounded-lg border border-surface-border py-1.5 text-center text-sm text-ink-muted"
-                        >
-                          Reattempt
-                        </Link>
-                      )}
-                    </div>
-                    {/* Surfaced right here, not just buried on the detail
-                        page, so a learner can set (or jump back into) their
-                        study goal without an extra click through. */}
-                    {!done && test.studyPlannerEnabled !== false && (
-                      <Link
-                        to={`/home/practice-tests/${test.id}/study-plan`}
-                        className="rounded-lg border border-dashed border-surface-border py-1.5 text-center text-sm text-ink-muted hover:border-brand-400"
-                      >
-                        🎯 Set Your Study Goal
-                      </Link>
-                    )}
-                    {done && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          downloadCertificate({
-                            studentName: profile?.name ?? 'Student',
-                            itemTitle: test.title,
-                            itemType: 'practiceTest',
-                            category: test.category ?? 'Other',
-                            scoreLabel: '',
-                            dateLabel: new Date().toLocaleDateString(),
-                            certificateCode: test.id.slice(0, 8).toUpperCase(),
-                          })
-                        }
-                        className="rounded-lg border border-brand-400 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
-                      >
-                        🎓 Download Certificate
-                      </button>
-                    )}
-                  </div>
-                )}
-                </div>
-              </div>
-            );
-          })}
+          {filteredAvailable.map((test) => (
+            <PracticeTestCard
+              key={test.id}
+              test={test}
+              answered={progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0}
+              owned={(test.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${test.id}`)}
+              inCart={inCartSet.has(`practiceTest_${test.id}`)}
+              addingToCart={addToCartMutation.isPending}
+              paying={paying}
+              onAddToCart={() => addToCartMutation.mutate(test.id)}
+              onBuyNow={() => setBuyNowTest(test)}
+              onDownloadCertificate={() =>
+                downloadCertificate({
+                  studentName: profile?.name ?? 'Student',
+                  itemTitle: test.title,
+                  itemType: 'practiceTest',
+                  category: test.category ?? 'Other',
+                  scoreLabel: '',
+                  dateLabel: new Date().toLocaleDateString(),
+                  certificateCode: test.id.slice(0, 8).toUpperCase(),
+                })
+              }
+            />
+          ))}
         </div>
       )}
 
@@ -303,6 +207,231 @@ function StatCard({ label, value, color }: { label: string; value: number; color
     <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
       <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
       <div className={`mt-2 text-2xl font-bold ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+interface PracticeTestCardProps {
+  test: PracticeTestDoc & { id: string };
+  answered: number;
+  owned: boolean;
+  inCart: boolean;
+  addingToCart: boolean;
+  paying: boolean;
+  onAddToCart: () => void;
+  onBuyNow: () => void;
+  onDownloadCertificate: () => void;
+}
+
+// A Udemy-style card: the base card stays deliberately minimal (name over a
+// colored banner, rating, price, one primary action), and hovering it
+// (desktop only — lg:) raises a second, fuller card on top with the actual
+// description, full stats, and every action, instead of cramming all of
+// that into the grid at all times.
+function PracticeTestCard({
+  test,
+  answered,
+  owned,
+  inCart,
+  addingToCart,
+  paying,
+  onAddToCart,
+  onBuyNow,
+  onDownloadCertificate,
+}: PracticeTestCardProps) {
+  const done = answered >= test.totalQuestions;
+  const price = test.price ?? 0;
+  const detailHref = `/home/practice-tests/${test.id}`;
+  const bullets = test.description ? descriptionBullets(test.description) : [];
+
+  const primaryOwnedAction = done ? (
+    <button
+      type="button"
+      onClick={onDownloadCertificate}
+      className="w-full rounded-lg border border-brand-400 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
+    >
+      🎓 Download Certificate
+    </button>
+  ) : test.studyPlannerEnabled !== false ? (
+    <Link
+      to={`/home/practice-tests/${test.id}/study-plan`}
+      className="block w-full rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+    >
+      🎯 Set Your Study Goal
+    </Link>
+  ) : (
+    <Link
+      to={`/practice-tests/${test.id}/take`}
+      className="block w-full rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+    >
+      {answered > 0 ? 'Resume' : 'Start'}
+    </Link>
+  );
+
+  return (
+    <div className="group relative">
+      {/* Base card — always visible. */}
+      <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+        <Link to={detailHref}>
+          <CourseCoverImage id={test.id} title={test.title} className="h-24 w-full" />
+        </Link>
+        <div className="relative p-3.5">
+          {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />}
+          <Link to={detailHref} className="hover:text-brand-ink">
+            <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
+          </Link>
+          {(test.ratingCount ?? 0) > 0 ? (
+            <div className="mb-2 flex items-center gap-1.5">
+              <StarRating value={test.ratingAvg ?? 0} size="sm" />
+              <span className="text-xs text-ink-faint">
+                {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount})
+              </span>
+            </div>
+          ) : (
+            <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
+          )}
+          <div className="mb-3 flex items-center gap-2">
+            {price > 0 ? (
+              <>
+                {test.originalPrice && test.originalPrice > price && (
+                  <span className="text-xs text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
+                )}
+                <span className="font-semibold text-ink">{formatMoney(price, test.currency)}</span>
+              </>
+            ) : (
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">Free</span>
+            )}
+          </div>
+
+          {!owned ? (
+            inCart ? (
+              <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
+                ✓ In Cart · View Cart
+              </Link>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={addingToCart || paying}
+                  onClick={onAddToCart}
+                  className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                >
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
+                  disabled={paying}
+                  onClick={onBuyNow}
+                  className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                >
+                  {paying ? 'Opening…' : 'Buy Now'}
+                </button>
+              </div>
+            )
+          ) : (
+            primaryOwnedAction
+          )}
+        </div>
+      </div>
+
+      {/* Hover card — desktop only, floats above the grid without shifting
+          layout (absolute + z-index), same spirit as Udemy's course cards. */}
+      <div className="invisible absolute inset-x-0 top-0 z-30 hidden -translate-y-1 rounded-xl border border-brand-400 bg-surface-raised opacity-0 shadow-2xl transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 lg:block">
+        <CourseCoverImage id={test.id} title={test.title} className="h-24 w-full" />
+        <div className="p-4">
+          <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
+            <span>{test.category ?? 'Other'}</span>
+            <span>·</span>
+            <span>{test.skillLevel ?? 'Foundation'}</span>
+          </div>
+          <h3 className="mb-1 font-bold text-ink">{test.title}</h3>
+          {(test.ratingCount ?? 0) > 0 && (
+            <div className="mb-2 flex items-center gap-1.5">
+              <StarRating value={test.ratingAvg ?? 0} size="sm" />
+              <span className="text-xs text-ink-faint">
+                {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount} review{test.ratingCount === 1 ? '' : 's'})
+              </span>
+            </div>
+          )}
+          <div className="mb-3 text-xs text-ink-faint">
+            📄 {test.totalQuestions} questions ·{' '}
+            {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'you choose session length'}
+            {owned && <> · {answered}/{test.totalQuestions} answered</>}
+          </div>
+          {bullets.length > 0 && (
+            <ul className="mb-3 list-disc space-y-1 pl-4 text-xs text-ink-muted">
+              {bullets.map((b, i) => (
+                <li key={i}>{b}</li>
+              ))}
+            </ul>
+          )}
+
+          {!owned ? (
+            inCart ? (
+              <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
+                ✓ In Cart · View Cart
+              </Link>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={addingToCart || paying}
+                  onClick={onAddToCart}
+                  className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                >
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
+                  disabled={paying}
+                  onClick={onBuyNow}
+                  className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                >
+                  {paying ? 'Opening…' : 'Buy Now'}
+                </button>
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {!done && (
+                <div className="flex gap-2">
+                  <Link
+                    to={`/practice-tests/${test.id}/take`}
+                    className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
+                  >
+                    {answered > 0 ? 'Resume' : 'Start'}
+                  </Link>
+                  {answered > 0 && (
+                    <Link
+                      to={`/practice-tests/${test.id}/take?reattempt=1`}
+                      className="flex-1 rounded-lg border border-surface-border py-1.5 text-center text-sm text-ink-muted"
+                    >
+                      Reattempt
+                    </Link>
+                  )}
+                </div>
+              )}
+              {!done && test.studyPlannerEnabled !== false && (
+                <Link
+                  to={`/home/practice-tests/${test.id}/study-plan`}
+                  className="block rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+                >
+                  🎯 Set Your Study Goal
+                </Link>
+              )}
+              {done && (
+                <button
+                  type="button"
+                  onClick={onDownloadCertificate}
+                  className="rounded-lg border border-brand-400 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
+                >
+                  🎓 Download Certificate
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

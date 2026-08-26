@@ -43,7 +43,7 @@ export function SearchResultsPage() {
           a fixed route (Learning Portal) rather than history back — a
           direct link to /home/search (no prior in-app page) would otherwise
           have nowhere to go back to. */}
-      <Link to="/home" className="mb-4 inline-block text-sm text-ink-faint hover:text-brand-ink">
+      <Link to="/home" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Learning Portal
       </Link>
       <h1 className="mb-1 text-2xl font-bold text-ink">Search</h1>
