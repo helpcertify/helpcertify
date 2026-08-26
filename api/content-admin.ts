@@ -645,6 +645,14 @@ const createPracticeTestSchema = z.object({
   description: z.string().trim().max(5000).default(''),
   // See createQuizSchema's previewQuestionCount comment — same convention.
   previewQuestionCount: z.number().int().min(0).max(200).default(5),
+  // Personal Study Planner (Phase 1) config — read by
+  // src/features/students/lib/studyPlan.ts's calculation engine and by
+  // saveStudyPlan in api/practice-session.ts. All three have sensible
+  // defaults so a test created before this feature existed behaves exactly
+  // as it did before (planner enabled, 3-day buffer, 1.8 min/question).
+  revisionBufferDays: z.number().int().min(0).max(60).default(3),
+  defaultMinutesPerQuestion: z.number().min(0.1).max(30).default(1.8),
+  studyPlannerEnabled: z.boolean().default(true),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -677,6 +685,9 @@ async function createPracticeTest(uid: string, body: unknown) {
     ratingAvg: 0,
     ratingCount: 0,
     previewQuestionCount: d.previewQuestionCount,
+    revisionBufferDays: d.revisionBufferDays,
+    defaultMinutesPerQuestion: d.defaultMinutesPerQuestion,
+    studyPlannerEnabled: d.studyPlannerEnabled,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -707,6 +718,9 @@ const updatePracticeTestSchema = z.object({
   skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
   previewQuestionCount: z.number().int().min(0).max(200).optional(),
+  revisionBufferDays: z.number().int().min(0).max(60).optional(),
+  defaultMinutesPerQuestion: z.number().min(0.1).max(30).optional(),
+  studyPlannerEnabled: z.boolean().optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

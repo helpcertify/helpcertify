@@ -78,6 +78,11 @@ export interface PracticeTestSummary {
   skillLevel: SkillLevel;
   description: string;
   previewQuestionCount: number;
+  // Personal Study Planner (Phase 1) config — see CreatePracticeTestPayload's
+  // comment on the same three fields.
+  revisionBufferDays?: number;
+  defaultMinutesPerQuestion?: number;
+  studyPlannerEnabled?: boolean;
 }
 
 export interface CreateQuizPayload {
@@ -126,6 +131,11 @@ export interface CreatePracticeTestPayload {
   skillLevel: SkillLevel;
   description: string;
   previewQuestionCount: number;
+  // Personal Study Planner (Phase 1) config — see api/content-admin.ts's
+  // createPracticeTestSchema for defaults.
+  revisionBufferDays?: number;
+  defaultMinutesPerQuestion?: number;
+  studyPlannerEnabled?: boolean;
 }
 
 export const contentAdminApi = {

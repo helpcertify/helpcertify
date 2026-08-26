@@ -72,6 +72,15 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     editingTest?.defaultInitialBatchSize?.toString() ?? '50'
   );
   const [previewQuestionCount, setPreviewQuestionCount] = useState(editingTest?.previewQuestionCount?.toString() ?? '5');
+  // Personal Study Planner (Phase 1) config — defaults match
+  // createPracticeTestSchema's own defaults in api/content-admin.ts, so a
+  // freshly-created test behaves identically whether or not the admin
+  // touches this section at all.
+  const [studyPlannerEnabled, setStudyPlannerEnabled] = useState(editingTest?.studyPlannerEnabled ?? true);
+  const [revisionBufferDays, setRevisionBufferDays] = useState(editingTest?.revisionBufferDays?.toString() ?? '3');
+  const [defaultMinutesPerQuestion, setDefaultMinutesPerQuestion] = useState(
+    editingTest?.defaultMinutesPerQuestion?.toString() ?? '1.8'
+  );
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createPracticeTest's schema still
@@ -116,6 +125,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     setDurationPerSessionMinutes('60');
     setDefaultInitialBatchSize('50');
     setPreviewQuestionCount('5');
+    setStudyPlannerEnabled(true);
+    setRevisionBufferDays('3');
+    setDefaultMinutesPerQuestion('1.8');
     setFile(null);
     setCurrency('INR');
     setPrice('');
@@ -144,6 +156,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         price: price ? majorToMinor(Number(price)) : 0,
         originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
         currency,
+        studyPlannerEnabled,
+        revisionBufferDays: Number(revisionBufferDays) || 3,
+        defaultMinutesPerQuestion: Number(defaultMinutesPerQuestion) || 1.8,
       });
     },
     onSuccess: (result) => {
@@ -175,6 +190,9 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         price: price ? majorToMinor(Number(price)) : 0,
         originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
         currency,
+        studyPlannerEnabled,
+        revisionBufferDays: Number(revisionBufferDays) || 3,
+        defaultMinutesPerQuestion: Number(defaultMinutesPerQuestion) || 1.8,
       }),
     onSuccess: () => {
       pushToast('Practice test updated', 'success');
@@ -320,6 +338,44 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
             placeholder="e.g. 5, or 0 to disable the free preview"
             className="input-dark"
           />
+        </Field>
+
+        <Field label="Study Planner (personal study goal + daily target on the student dashboard)">
+          <label className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              checked={studyPlannerEnabled}
+              onChange={(e) => setStudyPlannerEnabled(e.target.checked)}
+            />
+            Let students set a study goal for this practice test
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">Revision buffer before exam (days)</label>
+              <input
+                type="number"
+                min={0}
+                max={60}
+                value={revisionBufferDays}
+                onChange={(e) => setRevisionBufferDays(e.target.value)}
+                disabled={!studyPlannerEnabled}
+                className="input-dark disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">Default minutes per question</label>
+              <input
+                type="number"
+                min={0.1}
+                max={30}
+                step="0.1"
+                value={defaultMinutesPerQuestion}
+                onChange={(e) => setDefaultMinutesPerQuestion(e.target.value)}
+                disabled={!studyPlannerEnabled}
+                className="input-dark disabled:opacity-50"
+              />
+            </div>
+          </div>
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
