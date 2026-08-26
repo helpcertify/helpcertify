@@ -1,12 +1,34 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { toDate } from '@/utils/formatDate';
+import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { useUiStore } from '@/store/useUiStore';
+import { practiceSessionApi } from '../api/practiceSessionApi';
 import type { StudyPlanDoc } from '@/types/models';
 import {
   computeExamDatePlan,
   computePacePlan,
   computePlanStatus,
   questionsPerDayFromMinutes,
+  buildDailyAnsweredMap,
+  computeStudyStreak,
+  newlyCrossedThresholds,
+  dateKey,
+  QUESTION_MILESTONES,
+  PERCENT_MILESTONES,
+  STREAK_MILESTONES,
 } from '../lib/studyPlan';
+
+function milestoneCelebrationText(key: string): string {
+  const [kind, raw] = key.split('_');
+  if (kind === 'questions') return `🎉 Milestone reached: ${raw} questions answered!`;
+  if (kind === 'percent') return `🎉 Milestone reached: ${raw}% complete!`;
+  if (kind === 'streak') return `🔥 Milestone reached: ${raw}-day study streak!`;
+  return '🎉 Milestone reached!';
+}
 
 // The Home dashboard's "Today's Target" section (Study Planner Phase 1,
 // step 3) — one card per practice test the learner has an active plan for.
@@ -53,10 +75,46 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
 }
 
 function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minutesPerQuestion, uniqueAnsweredCount, plan }: StudyPlanCardData) {
+  const uid = useAuthStore((s) => s.firebaseUser?.uid);
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
   const today = new Date();
   const remainingQuestions = Math.max(0, totalQuestions - uniqueAnsweredCount);
   const percentComplete = totalQuestions > 0 ? Math.round((uniqueAnsweredCount / totalQuestions) * 100) : 0;
   const bankComplete = remainingQuestions === 0;
+
+  // Non-reattempt sessions only — a reattempt re-answers already-completed
+  // questions, so it isn't "new questions today" (see buildDailyAnsweredMap).
+  const { data: dailyAnsweredMap } = useQuery({
+    queryKey: ['student', 'streakSessions', uid, testId],
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, 'practiceSessions'),
+          where('userId', '==', uid),
+          where('testId', '==', testId),
+          where('isReattempt', '==', false)
+        )
+      );
+      const sessions = snap.docs.map((d) => {
+        const data = d.data();
+        return { startedAt: toDate(data.startedAt), answeredCount: (data.answeredCount as number) ?? 0 };
+      });
+      return buildDailyAnsweredMap(sessions);
+    },
+    enabled: !!uid,
+  });
+
+  const { data: milestoneKeys } = useQuery({
+    queryKey: ['student', 'studyMilestones', uid, testId],
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(collection(db, 'studyMilestones'), where('userId', '==', uid), where('testId', '==', testId))
+      );
+      return new Set(snap.docs.map((d) => d.data().milestoneKey as string));
+    },
+    enabled: !!uid,
+  });
 
   let dailyTarget: number;
   let countdownLabel: string;
@@ -111,6 +169,44 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
         ? { label: `🟡 +${status.extraPerDay}/day to catch up`, className: 'bg-[#d87f1d]/15 text-[#d87f1d]' }
         : { label: '🟢 On track', className: 'bg-[#1D4ED8]/15 text-[#1D4ED8]' };
 
+  const streak = computeStudyStreak({
+    today,
+    studyDays: plan.studyDays,
+    dailyTarget,
+    dailyAnsweredMap: dailyAnsweredMap ?? {},
+  });
+  const answeredToday = (dailyAnsweredMap ?? {})[dateKey(today)] ?? 0;
+  const todaysGoalComplete = !bankComplete && dailyTarget > 0 && answeredToday >= dailyTarget;
+
+  // Every threshold at or below the current value that has no studyMilestones
+  // doc yet is "newly reached" — reusing newlyCrossedThresholds with a -1
+  // floor rather than tracking a separate previous-value in state, since a
+  // big batch crossing several thresholds at once still needs all of them.
+  const crossedKeys = [
+    ...newlyCrossedThresholds(-1, uniqueAnsweredCount, QUESTION_MILESTONES).map((n) => `questions_${n}`),
+    ...newlyCrossedThresholds(-1, percentComplete, PERCENT_MILESTONES).map((n) => `percent_${n}`),
+    ...newlyCrossedThresholds(-1, streak, STREAK_MILESTONES).map((n) => `streak_${n}`),
+  ];
+  const undocumentedKeys = milestoneKeys ? crossedKeys.filter((k) => !milestoneKeys.has(k)) : [];
+
+  const recordMutation = useMutation({
+    mutationFn: (milestoneKey: string) => practiceSessionApi.recordMilestone(testId, milestoneKey),
+    onSuccess: (data, milestoneKey) => {
+      queryClient.invalidateQueries({ queryKey: ['student', 'studyMilestones', uid, testId] });
+      if (data.created) pushToast(milestoneCelebrationText(milestoneKey), 'success');
+    },
+  });
+  const attemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!milestoneKeys) return; // wait for real data before attempting anything
+    for (const key of undocumentedKeys) {
+      if (attemptedRef.current.has(key)) continue;
+      attemptedRef.current.add(key);
+      recordMutation.mutate(key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [milestoneKeys, undocumentedKeys.join(',')]);
+
   const insight = bankComplete
     ? `You've completed all ${totalQuestions} questions in ${testTitle}. Amazing work.`
     : examDatePassed
@@ -128,7 +224,14 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
           <div className="text-xs uppercase tracking-wide text-ink-faint">{testCategory}</div>
           <h3 className="font-bold text-ink">{testTitle}</h3>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusChip.className}`}>{statusChip.label}</span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusChip.className}`}>{statusChip.label}</span>
+          {streak > 0 && (
+            <span className="rounded-full bg-[#d87f1d]/15 px-2.5 py-1 text-xs font-medium text-[#d87f1d]">
+              🔥 {streak} day{streak === 1 ? '' : 's'} streak
+            </span>
+          )}
+        </div>
       </div>
 
       <p className="mb-3 text-xs text-ink-faint">{countdownLabel}</p>
@@ -152,13 +255,20 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
           <div className="mb-3 rounded-lg bg-surface p-3.5 text-center">
             <div className="text-xs uppercase tracking-wide text-ink-faint">Today's Target</div>
             <div className="text-2xl font-bold text-ink">{dailyTarget} question{dailyTarget === 1 ? '' : 's'}</div>
+            {answeredToday > 0 && <div className="mt-1 text-xs text-ink-faint">{answeredToday} answered today</div>}
           </div>
-          <Link
-            to={`/practice-tests/${testId}/take`}
-            className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-white hover:opacity-90"
-          >
-            Start Today's Session →
-          </Link>
+          {todaysGoalComplete ? (
+            <div className="rounded-lg bg-emerald-500/10 px-3 py-2.5 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              🎉 Today's Goal Complete. Great work.
+            </div>
+          ) : (
+            <Link
+              to={`/practice-tests/${testId}/take`}
+              className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-white hover:opacity-90"
+            >
+              Start Today's Session →
+            </Link>
+          )}
         </>
       )}
 

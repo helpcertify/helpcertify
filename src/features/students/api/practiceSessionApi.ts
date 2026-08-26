@@ -60,4 +60,9 @@ export const practiceSessionApi = {
     studyDays: StudyDaySelection;
     baselineDailyTarget: number;
   }) => callAction<{ success: true }>('practice-session', 'saveStudyPlan', { ...payload }),
+  // Write-once celebration record (see api/practice-session.ts's
+  // recordMilestone) — `created: false` just means this milestone was
+  // already recorded (by an earlier session or another tab), not an error.
+  recordMilestone: (testId: string, milestoneKey: string, value?: number) =>
+    callAction<{ created: boolean }>('practice-session', 'recordMilestone', { testId, milestoneKey, value }),
 };

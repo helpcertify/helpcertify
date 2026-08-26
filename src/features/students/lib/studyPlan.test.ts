@@ -11,6 +11,8 @@ import {
   newlyCrossedThresholds,
   percentMilestonesCrossed,
   checkExamDateFeasibility,
+  buildDailyAnsweredMap,
+  computeStudyStreak,
 } from './studyPlan';
 import type { StudyDaySelection } from '@/types/models';
 
@@ -196,5 +198,67 @@ describe('checkExamDateFeasibility', () => {
   it('accepts a plan within the comfortable ceiling', () => {
     const result = checkExamDateFeasibility({ dailyTarget: 30, estMinutesPerDay: 50 });
     expect(result.feasible).toBe(true);
+  });
+});
+
+describe('buildDailyAnsweredMap', () => {
+  it('sums multiple sessions on the same calendar day', () => {
+    const map = buildDailyAnsweredMap([
+      { startedAt: new Date(2026, 7, 31, 8, 0), answeredCount: 20 },
+      { startedAt: new Date(2026, 7, 31, 20, 0), answeredCount: 15 },
+      { startedAt: new Date(2026, 8, 1, 9, 0), answeredCount: 10 },
+    ]);
+    expect(map['2026-08-31']).toBe(35);
+    expect(map['2026-09-01']).toBe(10);
+  });
+});
+
+describe('computeStudyStreak', () => {
+  const target = 50;
+
+  it('counts consecutive scheduled days that met the target', () => {
+    // Today is Thu 2026-09-03; Mon-Wed all met 50, all days scheduled.
+    const today = new Date(2026, 8, 3);
+    const map = buildDailyAnsweredMap([
+      { startedAt: new Date(2026, 7, 31), answeredCount: 50 }, // Mon
+      { startedAt: new Date(2026, 8, 1), answeredCount: 60 }, // Tue
+      { startedAt: new Date(2026, 8, 2), answeredCount: 50 }, // Wed
+    ]);
+    expect(computeStudyStreak({ today, studyDays: ALL_DAYS, dailyTarget: target, dailyAnsweredMap: map })).toBe(3);
+  });
+
+  it('does not break the streak on today even if unmet yet (the day is not over)', () => {
+    const today = new Date(2026, 8, 3); // Thu, nothing answered yet today
+    const map = buildDailyAnsweredMap([
+      { startedAt: new Date(2026, 8, 1), answeredCount: 50 }, // Tue
+      { startedAt: new Date(2026, 8, 2), answeredCount: 50 }, // Wed
+    ]);
+    expect(computeStudyStreak({ today, studyDays: ALL_DAYS, dailyTarget: target, dailyAnsweredMap: map })).toBe(2);
+  });
+
+  it('does not break the streak on a rest day the learner never scheduled', () => {
+    // NO_SUNDAY: Sunday is a rest day. Streak spans Fri/Sat, skips Sunday, continues Monday.
+    const today = new Date(2026, 8, 7); // Monday
+    const map = buildDailyAnsweredMap([
+      { startedAt: new Date(2026, 8, 4), answeredCount: 50 }, // Fri
+      { startedAt: new Date(2026, 8, 5), answeredCount: 50 }, // Sat
+      // Sunday 2026-09-06 intentionally has no session at all - a rest day.
+      { startedAt: new Date(2026, 8, 7), answeredCount: 50 }, // Mon
+    ]);
+    expect(computeStudyStreak({ today, studyDays: NO_SUNDAY, dailyTarget: target, dailyAnsweredMap: map })).toBe(3);
+  });
+
+  it('breaks the streak at the first missed scheduled day looking backward', () => {
+    const today = new Date(2026, 8, 3); // Thu
+    const map = buildDailyAnsweredMap([
+      { startedAt: new Date(2026, 7, 31), answeredCount: 50 }, // Mon - met, but unreachable behind the miss
+      // Tue 2026-09-01 missed entirely (0 answered).
+      { startedAt: new Date(2026, 8, 2), answeredCount: 50 }, // Wed - met
+    ]);
+    expect(computeStudyStreak({ today, studyDays: ALL_DAYS, dailyTarget: target, dailyAnsweredMap: map })).toBe(1);
+  });
+
+  it('returns 0 when dailyTarget is 0 (e.g. the bank is already fully completed)', () => {
+    expect(computeStudyStreak({ today: new Date(2026, 8, 3), studyDays: ALL_DAYS, dailyTarget: 0, dailyAnsweredMap: {} })).toBe(0);
   });
 });

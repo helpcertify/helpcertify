@@ -398,6 +398,49 @@ async function saveStudyPlan(uid: string, body: unknown) {
   return { success: true };
 }
 
+// Milestone celebrations (Study Planner step 4) — write-once records so a
+// celebration is shown exactly once per (learner, test, milestone). The key
+// format is validated but not checked against a fixed enum: the actual
+// threshold values (100/250/500 questions, 25/50/75/100 percent, 3/7/14/30
+// streak days) live in src/features/students/lib/studyPlan.ts, which this
+// file can't import (see the repo's no-shared-code-across-api-files rule) -
+// keeping this a format check instead of a value allow-list means the two
+// files never need to be kept in sync.
+const recordMilestoneSchema = z.object({
+  testId: z.string().min(1),
+  milestoneKey: z.string().regex(/^[a-z]+_[0-9]+$/),
+  value: z.number().optional(),
+});
+
+async function recordMilestone(uid: string, body: unknown) {
+  const parsed = recordMilestoneSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { testId, milestoneKey, value } = parsed.data;
+
+  const ref = db.collection('studyMilestones').doc(`${uid}_${testId}_${milestoneKey}`);
+  try {
+    // .create() (not .set()) so this is atomically write-once even against
+    // a race between two tabs/devices reaching the same threshold at once -
+    // whichever request loses gets ALREADY_EXISTS below, not a silent
+    // overwrite of the first celebration's reachedAt.
+    await ref.create({
+      userId: uid,
+      testId,
+      milestoneKey,
+      reachedAt: Timestamp.now(),
+      ...(value !== undefined ? { value } : {}),
+    });
+    return { created: true };
+  } catch (err) {
+    const code = (err as { code?: number | string })?.code;
+    const message = err instanceof Error ? err.message : '';
+    if (code === 6 || code === 'already-exists' || /already exists/i.test(message)) {
+      return { created: false };
+    }
+    throw err;
+  }
+}
+
 const sessionIdSchema = z.object({ sessionId: z.string().min(1) });
 
 async function submitBatch(uid: string, body: unknown) {
@@ -436,6 +479,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'saveStudyPlan':
         res.status(200).json(await saveStudyPlan(uid, data));
+        return;
+      case 'recordMilestone':
+        res.status(200).json(await recordMilestone(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

@@ -281,6 +281,71 @@ export function checkExamDateFeasibility(
 }
 
 // ---------------------------------------------------------------------------
+// Study streak (§E)
+// ---------------------------------------------------------------------------
+
+export function dateKey(date: Date): string {
+  const d = startOfDay(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Buckets each session's answeredCount by the calendar day it started on.
+// Callers should pass only non-reattempt sessions (a reattempt re-answers
+// already-completed questions, so its count isn't "new questions today") -
+// for a non-reattempt session, answeredCount is exactly the number of newly
+// completed unique questions, since its batch is drawn only from previously
+// unanswered ones (see startOrResumeBatch in api/practice-session.ts).
+export function buildDailyAnsweredMap(sessions: { startedAt: Date; answeredCount: number }[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const s of sessions) {
+    const key = dateKey(s.startedAt);
+    map[key] = (map[key] ?? 0) + s.answeredCount;
+  }
+  return map;
+}
+
+export interface StudyStreakInputs {
+  today: Date;
+  studyDays: StudyDaySelection;
+  // The threshold a scheduled day must meet to count toward the streak.
+  // There's no stored history of what the daily target was on any given
+  // past day (only the live-recomputed current one), so the caller's
+  // current target is applied retroactively - the best available signal
+  // without adding a new write path just to log it every day.
+  dailyTarget: number;
+  dailyAnsweredMap: Record<string, number>;
+  // Bounded lookback so a bug or a years-old plan can't spin forever
+  // scanning empty days.
+  maxLookbackDays?: number;
+}
+
+// Walks backward from today, one calendar day at a time. A non-scheduled
+// (rest) day is skipped without affecting the streak either way - it never
+// breaks it, matching the proposal's "never breaks on a scheduled day off"
+// requirement (a day that was never scheduled isn't a miss). Today itself is
+// never allowed to *break* the streak even if it's short so far, since the
+// day isn't over yet - it only extends the streak if it's already met.
+export function computeStudyStreak(inputs: StudyStreakInputs): number {
+  const { today, studyDays, dailyTarget, dailyAnsweredMap, maxLookbackDays = 400 } = inputs;
+  if (dailyTarget <= 0) return 0;
+  const todayKey = dateKey(today);
+  let streak = 0;
+  let cursor = startOfDay(today);
+  for (let i = 0; i < maxLookbackDays; i++) {
+    if (isScheduledDay(cursor, studyDays)) {
+      const met = (dailyAnsweredMap[dateKey(cursor)] ?? 0) >= dailyTarget;
+      if (met) {
+        streak++;
+      } else if (dateKey(cursor) !== todayKey) {
+        break;
+      }
+    }
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+
+// ---------------------------------------------------------------------------
 // Milestones (§21, §F)
 // ---------------------------------------------------------------------------
 
