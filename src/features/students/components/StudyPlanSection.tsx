@@ -1,0 +1,168 @@
+import { Link } from 'react-router-dom';
+import { toDate } from '@/utils/formatDate';
+import type { StudyPlanDoc } from '@/types/models';
+import {
+  computeExamDatePlan,
+  computePacePlan,
+  computePlanStatus,
+  questionsPerDayFromMinutes,
+} from '../lib/studyPlan';
+
+// The Home dashboard's "Today's Target" section (Study Planner Phase 1,
+// step 3) — one card per practice test the learner has an active plan for.
+// Every number here is recomputed live from the plan + current progress
+// (see studyPlan.ts's header comment for why nothing is cached), so an admin
+// changing the bank size, or a learner missing/exceeding a day, is reflected
+// the moment this renders rather than on some later resync.
+export interface StudyPlanCardData {
+  testId: string;
+  testTitle: string;
+  testCategory: string;
+  totalQuestions: number;
+  minutesPerQuestion: number;
+  uniqueAnsweredCount: number;
+  plan: StudyPlanDoc;
+}
+
+export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCardData[]; unplannedTest: { id: string; title: string } | null }) {
+  if (cards.length === 0 && !unplannedTest) return null;
+
+  return (
+    <div className="mb-8">
+      <h2 className="mb-3 text-lg font-bold text-ink">Your Study Plan</h2>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {cards.map((c) => (
+          <StudyPlanCard key={c.testId} {...c} />
+        ))}
+      </div>
+      {cards.length === 0 && unplannedTest && (
+        <div className="rounded-xl border border-dashed border-surface-border p-5 text-center">
+          <p className="mb-3 text-sm text-ink-faint">
+            Set a study goal for {unplannedTest.title} to see your daily target and progress here.
+          </p>
+          <Link
+            to={`/home/practice-tests/${unplannedTest.id}/study-plan`}
+            className="inline-block rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            🎯 Set Your Study Goal
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minutesPerQuestion, uniqueAnsweredCount, plan }: StudyPlanCardData) {
+  const today = new Date();
+  const remainingQuestions = Math.max(0, totalQuestions - uniqueAnsweredCount);
+  const percentComplete = totalQuestions > 0 ? Math.round((uniqueAnsweredCount / totalQuestions) * 100) : 0;
+  const bankComplete = remainingQuestions === 0;
+
+  let dailyTarget: number;
+  let countdownLabel: string;
+  let examDatePassed = false;
+
+  if (plan.planningMode === 'examDate' && plan.targetExamDate) {
+    const targetExamDate = toDate(plan.targetExamDate);
+    const examPlan = computeExamDatePlan({
+      today,
+      targetExamDate,
+      totalQuestions,
+      uniqueAnsweredCount,
+      studyDays: plan.studyDays,
+      revisionBufferDays: plan.revisionBufferDays,
+      minutesPerQuestion,
+    });
+    dailyTarget = examPlan.dailyTarget;
+    examDatePassed = examPlan.daysToExam < 0;
+    countdownLabel = examDatePassed
+      ? 'Your exam date has passed. Update your plan to keep going.'
+      : `📅 ${examPlan.daysToExam} day${examPlan.daysToExam === 1 ? '' : 's'} to exam · practice deadline ${examPlan.practiceDeadline.toLocaleDateString()}`;
+  } else {
+    dailyTarget =
+      plan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(plan.paceMinutesPerDay ?? 0, minutesPerQuestion);
+    const pacePlan = computePacePlan({
+      today,
+      totalQuestions,
+      uniqueAnsweredCount,
+      studyDays: plan.studyDays,
+      revisionBufferDays: plan.revisionBufferDays,
+      minutesPerQuestion,
+      paceQuestionsPerDay: dailyTarget,
+    });
+    countdownLabel = `🏁 Suggested exam date: ${pacePlan.suggestedExamDate.toLocaleDateString()}`;
+  }
+
+  const status = computePlanStatus({
+    today,
+    baselineDate: toDate(plan.baselineDate),
+    baselineDailyTarget: plan.baselineDailyTarget,
+    baselineAnsweredCount: plan.baselineAnsweredCount,
+    uniqueAnsweredCount,
+    totalQuestions,
+    studyDays: plan.studyDays,
+    currentDailyTarget: dailyTarget,
+  });
+
+  const statusChip =
+    status.status === 'ahead'
+      ? { label: `✅ Ahead by ${status.deltaQuestions}`, className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
+      : status.status === 'catch_up'
+        ? { label: `🟡 +${status.extraPerDay}/day to catch up`, className: 'bg-[#d87f1d]/15 text-[#d87f1d]' }
+        : { label: '🟢 On track', className: 'bg-[#1D4ED8]/15 text-[#1D4ED8]' };
+
+  const insight = bankComplete
+    ? `You've completed all ${totalQuestions} questions in ${testTitle}. Amazing work.`
+    : examDatePassed
+      ? `You've answered ${uniqueAnsweredCount} of ${totalQuestions} questions in ${testTitle}. Pick a new exam date to keep your plan current.`
+      : status.status === 'ahead'
+        ? `You're ${status.deltaQuestions} question${status.deltaQuestions === 1 ? '' : 's'} ahead of pace on ${testTitle}. Keep it up.`
+        : status.status === 'catch_up'
+          ? `Add about ${status.extraPerDay} more question${status.extraPerDay === 1 ? '' : 's'} per study day this week to get back on track with ${testTitle}.`
+          : `You're right on track with ${testTitle}, ${percentComplete}% complete.`;
+
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-ink-faint">{testCategory}</div>
+          <h3 className="font-bold text-ink">{testTitle}</h3>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusChip.className}`}>{statusChip.label}</span>
+      </div>
+
+      <p className="mb-3 text-xs text-ink-faint">{countdownLabel}</p>
+
+      <div className="mb-1 flex items-center justify-between text-xs text-ink-faint">
+        <span>
+          {uniqueAnsweredCount} / {totalQuestions} questions
+        </span>
+        <span>{percentComplete}%</span>
+      </div>
+      <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-surface">
+        <div className="h-full rounded-full bg-[#1D4ED8]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
+      </div>
+
+      {bankComplete ? (
+        <div className="rounded-lg bg-emerald-500/10 px-3 py-2.5 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          🎉 Today's Goal Complete. Question bank finished.
+        </div>
+      ) : (
+        <>
+          <div className="mb-3 rounded-lg bg-surface p-3.5 text-center">
+            <div className="text-xs uppercase tracking-wide text-ink-faint">Today's Target</div>
+            <div className="text-2xl font-bold text-ink">{dailyTarget} question{dailyTarget === 1 ? '' : 's'}</div>
+          </div>
+          <Link
+            to={`/practice-tests/${testId}/take`}
+            className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-white hover:opacity-90"
+          >
+            Start Today's Session →
+          </Link>
+        </>
+      )}
+
+      <p className="mt-3 text-xs text-ink-muted">{insight}</p>
+    </div>
+  );
+}

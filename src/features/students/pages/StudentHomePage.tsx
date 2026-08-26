@@ -8,6 +8,19 @@ import { resultsApi } from '@/features/admin/api/resultsApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { toDate } from '@/utils/formatDate';
 import { CourseCarousel, type CarouselItem } from '@/components/common/CourseCarousel';
+import { StudyPlanSection, type StudyPlanCardData } from '../components/StudyPlanSection';
+import type { StudyPlanDoc } from '@/types/models';
+
+// A time-of-day greeting reads as personal without needing any extra data
+// collection: `new Date()` in the browser already reflects the learner's own
+// local clock, which is the same signal a stored timezone field would give.
+function timeOfDayGreeting(hour: number): string {
+  if (hour < 5) return 'Still up studying';
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  if (hour < 21) return 'Good evening';
+  return 'Good night';
+}
 
 const SUBMITTED_STATUSES = ['submitted', 'auto_submitted'];
 
@@ -60,6 +73,15 @@ export function StudentHomePage() {
     enabled: !!uid,
   });
 
+  const { data: studyPlans } = useQuery({
+    queryKey: ['student', 'studyPlans', uid],
+    queryFn: async () => {
+      const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
+      return snap.docs.map((d) => d.data() as StudyPlanDoc);
+    },
+    enabled: !!uid,
+  });
+
   const { data: resultsData } = useQuery({ queryKey: ['student', 'pastQuizzes'], queryFn: resultsApi.listResultsForStudent });
   const attempts = (resultsData?.attempts ?? []).filter((a) => SUBMITTED_STATUSES.includes(a.status));
 
@@ -79,6 +101,37 @@ export function StudentHomePage() {
   const quizById = new Map((quizzes ?? []).map((q) => [q.id, q]));
   const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
+
+  // Your Study Plan — one card per practice test with an active plan, built
+  // entirely from data already fetched above (studyPlans + the test's own
+  // record + this learner's unique-answered progress). See StudyPlanSection
+  // for the actual calculations and rendering.
+  const studyPlanCards: StudyPlanCardData[] = (studyPlans ?? [])
+    .map((plan): StudyPlanCardData | null => {
+      const test = practiceTestById.get(plan.testId);
+      if (!test) return null;
+      const uniqueAnsweredCount = (practiceProgressDocs ?? []).find((p) => p.testId === plan.testId)?.answeredQuestionIds.length ?? 0;
+      return {
+        testId: plan.testId,
+        testTitle: test.title,
+        testCategory: test.category ?? 'Other',
+        totalQuestions: test.totalQuestions,
+        minutesPerQuestion: test.defaultMinutesPerQuestion ?? 1.8,
+        uniqueAnsweredCount,
+        plan,
+      };
+    })
+    .filter((c): c is StudyPlanCardData => c !== null);
+
+  // A single nudge (not one per test) toward the goal-setup flow for a
+  // learner who owns a practice test but hasn't set any plan at all yet.
+  const plannedTestIds = new Set(studyPlanCards.map((c) => c.testId));
+  const unplannedTest = (practiceBuckets?.available ?? []).find(
+    (t) =>
+      t.studyPlannerEnabled !== false &&
+      !plannedTestIds.has(t.id) &&
+      ((t.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${t.id}`))
+  );
 
   // Recommended for you — ranked by rating (falls back to catalog order
   // when nothing has a rating yet), capped to 10 on request. Pulls from both
@@ -244,7 +297,7 @@ export function StudentHomePage() {
       {/* Welcome and primary action */}
       <div className="mb-8">
         <h1 className="mb-1 text-2xl font-bold text-ink">
-          Welcome back{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.
+          {timeOfDayGreeting(new Date().getHours())}{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.
         </h1>
         <p className="mb-4 text-sm text-ink-faint">
           {continueItem ? `Continue preparing for ${continueItem.title}.` : "Let's find what to prepare for next."}
@@ -258,6 +311,8 @@ export function StudentHomePage() {
           </Link>
         )}
       </div>
+
+      <StudyPlanSection cards={studyPlanCards} unplannedTest={unplannedTest ? { id: unplannedTest.id, title: unplannedTest.title } : null} />
 
       {/* Continue where you left off — only shown while something is
           actually in progress (continueItem is null otherwise), so this
