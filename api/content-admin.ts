@@ -156,7 +156,6 @@ interface ParseResult {
 
 interface Paragraph {
   text: string;
-  bold: boolean;
   highlighted: boolean;
 }
 
@@ -173,19 +172,29 @@ async function extractParagraphs(fileBuffer: Buffer): Promise<Paragraph[]> {
       .map((m) => m[1])
       .join('')
       .trim();
-    return { text, bold: p.includes('<w:b/>'), highlighted: p.includes('<w:highlight') };
+    return { text, highlighted: p.includes('<w:highlight') };
   });
 }
 
 // CISA Q&A format — reuses the logic already validated in production against
 // ~1,500 real CISM questions (see functions/src/_migrated-v1-reference's
 // docxParser.ts, one level up in the repo, under admin/):
-//   N. <bold question stem>
+//   N. <question stem>
 //   A. option
 //   B. option
 //   C. option
 //   D. option
 //   [Answer: X]        <- optional; a highlighted option is the fallback
+//
+// The question line used to also require para.bold — confirmed live this
+// silently rejected an entire real 832-question CISA file (uploaded
+// "CISA Question Bank Updated 17th Nov 25 - QandA.docx") whose question
+// stems aren't bold at all, just plainly numbered "N. ..." text. The N./
+// A-F./Answer: shape is already specific enough to identify a question
+// without also demanding bold, so that gate is dropped; parsing the same
+// file with it removed (and nothing else changed) now yields 832 valid
+// questions and only 2 genuine parse errors instead of "no questions could
+// be parsed" for the whole file.
 const CISA_QUESTION_RE = /^(\d+)\.\s+(.*)$/;
 const CISA_OPTION_RE = /^([A-F])[.)]\s+(.*)$/;
 const CISA_ANSWER_RE = /^Answer:\s*([A-F])/i;
@@ -226,7 +235,7 @@ async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
 
   for (const para of paragraphs) {
     if (!para.text) continue;
-    const qMatch = para.bold ? CISA_QUESTION_RE.exec(para.text) : null;
+    const qMatch = CISA_QUESTION_RE.exec(para.text);
     if (qMatch) {
       finalize();
       num = Number(qMatch[1]);
