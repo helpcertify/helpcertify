@@ -1,0 +1,143 @@
+rules_version = '2';
+
+// v2 rules for the Quiz + Practice Test platform. Replaced the v1
+// course/enrollment/certificate rules on 2026-08-22 — see
+// firestore.rules.pre-quiz-rebuild.bak for the old version and
+// functions/src/_migrated-v1-reference/README.md for why.
+//
+// Design note (unchanged from v1): writes to every collection that needs
+// server-trusted logic (grading, counters, answer-key visibility, role
+// changes) are denied here and only happen through the Vercel functions in
+// frontend/api/, which run under the Admin SDK and bypass these rules
+// entirely. Rules below exist to gate *reads* correctly and to allow a small
+// set of genuinely self-service *writes* (a student editing their own safe
+// profile fields).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    // Role lives on the Firestore users/{uid} doc, not an ID-token custom
+    // claim — this is what lets an admin account be created (or promoted)
+    // entirely from the Firebase Console (Auth tab: add user; Firestore
+    // tab: set role:'admin' on their users/{uid} doc), with no Admin SDK
+    // script required. Costs one extra get() per rule check that calls
+    // isAdmin(), which is fine at this app's scale.
+    function role() {
+      return isSignedIn() ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null;
+    }
+    function isAdmin() { return isSignedIn() && role() == 'admin'; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+    // --- users/{uid} ---
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // Created via the Admin SDK only — api/auth.ts (register or
+      // provisionProfile), never a client write.
+      allow create: if false;
+      // Self-service profile edit, restricted to an explicit safe-field
+      // allow-list — role/isActive can only move through api/admin.ts.
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'avatarUrl', 'department', 'yearOfAdmission', 'currentAcademicYear', 'updatedAt']);
+      allow delete: if false; // soft-delete (isActive=false) only, via api/admin.ts
+    }
+
+    // --- quizzes/{quizId} ---
+    match /quizzes/{quizId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.isPublished == true);
+      allow write: if false; // api/content-admin.ts only
+
+      match /questions/{questionId} {
+        // Public doc never contains the answer, so any signed-in user may
+        // read it once the parent quiz is published.
+        allow read: if isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/quizzes/$(quizId)).data.isPublished == true);
+        allow write: if false; // api/content-admin.ts only
+
+        match /private/answerKey {
+          allow read: if isAdmin(); // never client-readable by a student
+          allow write: if false;
+        }
+      }
+    }
+
+    // --- practiceTests/{testId} ---
+    match /practiceTests/{testId} {
+      // Not gated to the availability window: a rule condition on
+      // resource.data here would need a matching range where() clause on
+      // *two* different timestamp fields at once for Firestore to allow the
+      // list query at all (it can't statically verify an unconstrained scan
+      // against a resource.data comparison) — and the student UI needs to
+      // list expired/upcoming tests too (see PracticeTestsPage.tsx), so the
+      // window check happens client-side instead. Nothing sensitive lives on
+      // this doc (title/dates/counts), unlike the private answer-key below.
+      allow read: if isAdmin() || isSignedIn();
+      allow write: if false; // api/content-admin.ts only
+
+      match /questions/{questionId} {
+        allow read: if isAdmin() || isSignedIn();
+        allow write: if false; // api/content-admin.ts only
+
+        match /private/answerKey {
+          allow read: if isAdmin();
+          allow write: if false;
+        }
+      }
+    }
+
+    // --- quizAttempts/{attemptId} (+ answers/{questionId}) ---
+    match /quizAttempts/{attemptId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false; // api/quiz-session.ts only (grading is server-trusted)
+
+      match /answers/{questionId} {
+        allow read: if isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/quizAttempts/$(attemptId)).data.userId == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
+    // --- practiceSessions/{sessionId} (+ answers/{questionId}) ---
+    match /practiceSessions/{sessionId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false; // api/practice-session.ts only
+
+      match /answers/{questionId} {
+        allow read: if isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/practiceSessions/$(sessionId)).data.userId == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
+    // --- practiceProgress/{uid_testId} ---
+    match /practiceProgress/{progressId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false; // api/practice-session.ts only
+    }
+
+    // --- studyPlans/{uid_testId} ---
+    // Personal Study Planner (Phase 1). Written only by
+    // api/practice-session.ts's saveStudyPlan (Admin SDK, bypasses these
+    // rules) — this just needs to let a learner read back their own plan
+    // (StudyPlanSetupPage's "you already have a plan" check, and the Home
+    // dashboard's StudyPlanSection), same shape as practiceProgress above.
+    match /studyPlans/{planId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // --- studyMilestones/{uid_testId_milestoneKey} ---
+    // Same Phase 1 feature, step 4 (not yet built) — celebration records are
+    // write-once via the backend; a learner only ever needs to read their
+    // own, to know which have already been shown.
+    match /studyMilestones/{milestoneId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // --- adminLogs/{logId} ---
+    match /adminLogs/{logId} {
+      allow read, write: if false; // read via api/admin.ts's listAdminLogs action only
+    }
+  }
+}
