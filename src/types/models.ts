@@ -62,6 +62,11 @@ export interface UserDoc {
   role: Role;
   avatarUrl: string | null;
   isActive: boolean;
+  // IANA name (e.g. "Asia/Kolkata") — detected client-side once and kept in
+  // sync silently if it changes (see initAuth.ts). Used only for "what day
+  // is it for this learner" (Study Planner greetings/streak boundaries),
+  // never anything security-sensitive.
+  timezone?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -174,6 +179,13 @@ export interface PracticeTestDoc {
   ratingCount: number;
   // See QuizDoc's previewQuestionCount comment — same convention.
   previewQuestionCount: number;
+  // Study Planner (Phase 1) course-level defaults, all admin-configurable
+  // on the Practice Test form, all optional so an existing test predating
+  // this feature keeps working with sensible fallbacks (3, 1.8, true —
+  // applied wherever these are read, not written back onto old docs).
+  revisionBufferDays?: number;
+  defaultMinutesPerQuestion?: number;
+  studyPlannerEnabled?: boolean;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -349,6 +361,80 @@ export interface PracticeProgressDoc {
   answeredQuestionIds: string[];
   lastBatchQuestionIds: string[];
   updatedAt: Timestamp;
+}
+
+// Personal Study Planner (Phase 1) — attaches to a practice test only, not a
+// quiz (see the proposal's own scope note: "course" in the product brief
+// maps to a practiceTest's totalQuestions, not a timed single-attempt
+// quiz). One Mon-Sun selection of which days the learner intends to study;
+// all true by default.
+export interface StudyDaySelection {
+  mon: boolean;
+  tue: boolean;
+  wed: boolean;
+  thu: boolean;
+  fri: boolean;
+  sat: boolean;
+  sun: boolean;
+}
+
+export const ALL_STUDY_DAYS: StudyDaySelection = {
+  mon: true,
+  tue: true,
+  wed: true,
+  thu: true,
+  fri: true,
+  sat: true,
+  sun: true,
+};
+
+export type StudyPlanningMode = 'examDate' | 'pace';
+
+/** studyPlans/{uid}_{testId} — one active plan per (learner, practice test).
+ * Calculated numbers (daily target, ahead/behind, exam-ready date) are never
+ * stored here — they're recomputed live on every read from this doc plus
+ * practiceProgress/practiceSessions, so an admin changing totalQuestions or
+ * a learner catching up never leaves a stale cached number behind. The only
+ * "calculated" values kept here are the baseline trio, frozen once at
+ * creation (or reset) specifically so ahead/on-track/catch-up status has a
+ * fixed reference point to compare today's live numbers against. */
+export interface StudyPlanDoc {
+  userId: string;
+  testId: string;
+  planningMode: StudyPlanningMode;
+  // Option A only.
+  targetExamDate: Timestamp | null;
+  // Option B only — exactly one of these two is the learner's actual input;
+  // the other is a derived display value, never a second stored input.
+  paceQuestionsPerDay: number | null;
+  paceMinutesPerDay: number | null;
+  studyDays: StudyDaySelection;
+  // Copied from the practice test's own default at creation time (see
+  // PracticeTestDoc.revisionBufferDays), not recomputed if the admin
+  // changes the course default later — an existing plan keeps the buffer
+  // it was built around.
+  revisionBufferDays: number;
+  // Frozen at creation, or at the last explicit plan reset (exam date/pace/
+  // study-days change) — see the calculation engine for how these three
+  // turn "ahead/behind" into a single live comparison instead of a
+  // separately-tracked progress ledger.
+  baselineDailyTarget: number;
+  baselineAnsweredCount: number;
+  baselineDate: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// One doc per (learner, test, milestone) — existence alone means "already
+// celebrated," a plain write-once record. `value` is only set for the two
+// personal-best milestones (accuracy, mock score), where a *new* best still
+// needs to re-trigger a celebration unlike the one-shot question/streak ones.
+export interface StudyMilestoneDoc {
+  userId: string;
+  testId: string;
+  milestoneKey: string;
+  reachedAt: Timestamp;
+  value?: number;
 }
 
 /** adminLogs/{logId} */
