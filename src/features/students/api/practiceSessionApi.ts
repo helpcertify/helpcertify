@@ -1,4 +1,5 @@
 import { callAction } from '@/lib/vercelApi';
+import type { StudyDaySelection, StudyPlanningMode } from '@/types/models';
 
 export interface PracticeSessionState {
   status: 'in_progress' | 'submitted' | 'expired';
@@ -46,4 +47,17 @@ export const practiceSessionApi = {
       questionId,
       selectedOptionId,
     }),
+  // See StudyPlanSetupPage.tsx — baselineDailyTarget is computed client-side
+  // by the same calculation engine that renders the result card, then sent
+  // along to be stored (see api/practice-session.ts's saveStudyPlan for why
+  // that's fine to trust: it's a UX reference point, not a security value).
+  saveStudyPlan: (payload: {
+    testId: string;
+    planningMode: StudyPlanningMode;
+    targetExamDate: string | null;
+    paceQuestionsPerDay: number | null;
+    paceMinutesPerDay: number | null;
+    studyDays: StudyDaySelection;
+    baselineDailyTarget: number;
+  }) => callAction<{ success: true }>('practice-session', 'saveStudyPlan', { ...payload }),
 };

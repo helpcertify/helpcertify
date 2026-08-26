@@ -249,6 +249,14 @@ export function PracticeTestDetailPage() {
                     </Link>
                   )}
                 </div>
+                {test.studyPlannerEnabled !== false && (
+                  <Link
+                    to={`/home/practice-tests/${test.id}/study-plan`}
+                    className="mt-3 block rounded-lg border border-surface-border py-2 text-center text-sm text-ink-muted hover:border-brand-400"
+                  >
+                    🎯 Set Your Study Goal
+                  </Link>
+                )}
               </div>
             )}
           </div>
