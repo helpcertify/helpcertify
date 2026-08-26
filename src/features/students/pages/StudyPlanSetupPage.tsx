@@ -130,6 +130,13 @@ export function StudyPlanSetupPage() {
     onSuccess: () => {
       pushToast('Study plan saved', 'success');
       queryClient.invalidateQueries({ queryKey: ['student', 'studyPlan', uid, testId] });
+      // StudentShell's sidebar countdown and StudentHomePage's dashboard
+      // cards both read their own separate studyPlans query, and both live
+      // outside this page in the route tree — they never remount on a
+      // normal in-app navigation, so without invalidating them explicitly
+      // here they'd keep showing whatever was true before this save.
+      queryClient.invalidateQueries({ queryKey: ['student', 'examCountdown'] });
+      queryClient.invalidateQueries({ queryKey: ['student', 'studyPlans', uid] });
       navigate(`/home/practice-tests/${testId}`);
     },
     onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not save your plan', 'error'),
