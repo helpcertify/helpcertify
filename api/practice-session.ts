@@ -368,7 +368,11 @@ async function saveStudyPlan(uid: string, body: unknown) {
   }
 
   const { progress } = await getOrCreateProgress(uid, d.testId);
-  const baselineAnsweredCount = progress.answeredQuestionIds.length;
+  // A progress doc can exist (created by startOrResumeBatch's merge-set)
+  // before answeredQuestionIds is ever written (that field is only added by
+  // saveAnswer, on the first answered question) — so it can be undefined
+  // here even though the doc itself exists.
+  const baselineAnsweredCount = progress.answeredQuestionIds?.length ?? 0;
   const revisionBufferDays = test.revisionBufferDays ?? 3;
 
   const planRef = db.collection('studyPlans').doc(`${uid}_${d.testId}`);
