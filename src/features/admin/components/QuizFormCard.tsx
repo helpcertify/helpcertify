@@ -1,8 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { contentAdminApi, type QuizSummary } from '../api/contentAdminApi';
+import { contentAdminApi, type QuizSummary, type ParseErrorEntry } from '../api/contentAdminApi';
 import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
+import { UploadReport } from '@/components/common/UploadReport';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
@@ -61,6 +62,14 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     editingQuiz?.originalPrice ? minorToMajor(editingQuiz.originalPrice).toString() : ''
   );
   const [uploading, setUploading] = useState(false);
+  // Kept separate from the form fields above so resetForm() (called right
+  // after a successful create) doesn't also wipe this — an admin needs to
+  // read the report after the form's already cleared for the next upload.
+  const [uploadReport, setUploadReport] = useState<{
+    totalQuestions: number;
+    errors: ParseErrorEntry[];
+    warnings: string[];
+  } | null>(null);
 
   const calculatedDuration = useMemo(() => {
     const perUnit = Number(durationMinutes) || 0;
@@ -116,10 +125,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     },
     onSuccess: (result) => {
       pushToast(`Quiz published with ${result.totalQuestions} questions`, 'success');
-      if (result.parseErrors.length > 0) {
-        pushToast(`${result.parseErrors.length} question(s) could not be parsed. See console for details.`, 'info');
-        console.warn('Quiz parse errors:', result.parseErrors);
-      }
+      setUploadReport({ totalQuestions: result.totalQuestions, errors: result.parseErrors, warnings: result.parseWarnings });
       queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'dashboardStats'] });
       resetForm();
@@ -317,6 +323,14 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
           <button type="button" onClick={onDoneEditing} className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink-muted">
             Cancel
           </button>
+        )}
+        {uploadReport && (
+          <UploadReport
+            totalQuestions={uploadReport.totalQuestions}
+            errors={uploadReport.errors}
+            warnings={uploadReport.warnings}
+            onDismiss={() => setUploadReport(null)}
+          />
         )}
       </div>
     </div>

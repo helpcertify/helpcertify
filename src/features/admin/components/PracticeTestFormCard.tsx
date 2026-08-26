@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { contentAdminApi, type PracticeTestSummary } from '../api/contentAdminApi';
+import { contentAdminApi, type PracticeTestSummary, type ParseErrorEntry } from '../api/contentAdminApi';
 import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
+import { UploadReport } from '@/components/common/UploadReport';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
@@ -60,6 +61,14 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     editingTest?.originalPrice ? minorToMajor(editingTest.originalPrice).toString() : ''
   );
   const [uploading, setUploading] = useState(false);
+  // Kept separate from the form fields above so resetForm() (called right
+  // after a successful create) doesn't also wipe this — an admin needs to
+  // read the report after the form's already cleared for the next upload.
+  const [uploadReport, setUploadReport] = useState<{
+    totalQuestions: number;
+    errors: ParseErrorEntry[];
+    warnings: string[];
+  } | null>(null);
 
   const resetForm = () => {
     setTitle('');
@@ -101,10 +110,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     },
     onSuccess: (result) => {
       pushToast(`Practice test created with ${result.totalQuestions} questions`, 'success');
-      if (result.parseErrors.length > 0) {
-        pushToast(`${result.parseErrors.length} question(s) could not be parsed. See console for details.`, 'info');
-        console.warn('Practice test parse errors:', result.parseErrors);
-      }
+      setUploadReport({ totalQuestions: result.totalQuestions, errors: result.parseErrors, warnings: result.parseWarnings });
       queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'dashboardStats'] });
       resetForm();
@@ -282,6 +288,14 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           <button type="button" onClick={onDoneEditing} className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink-muted">
             Cancel
           </button>
+        )}
+        {uploadReport && (
+          <UploadReport
+            totalQuestions={uploadReport.totalQuestions}
+            errors={uploadReport.errors}
+            warnings={uploadReport.warnings}
+            onDismiss={() => setUploadReport(null)}
+          />
         )}
       </div>
     </div>

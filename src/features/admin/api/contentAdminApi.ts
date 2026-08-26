@@ -5,6 +5,16 @@ export interface QuestionOption {
   id: string;
   text: string;
 }
+
+// One entry per question the .docx parser (api/content-admin.ts) had to
+// skip — surfaced in the create-form's upload report, not just the browser
+// console, so an admin can actually see what needs fixing in the source
+// file without opening dev tools.
+export interface ParseErrorEntry {
+  line: number;
+  message: string;
+  rawText: string;
+}
 export interface EditableQuestion {
   id: string;
   order: number;
@@ -96,7 +106,7 @@ export interface CreatePracticeTestPayload {
 
 export const contentAdminApi = {
   createQuiz: (payload: CreateQuizPayload) =>
-    callAction<{ quizId: string; totalQuestions: number; parseErrors: unknown[] }>(
+    callAction<{ quizId: string; totalQuestions: number; parseErrors: ParseErrorEntry[]; parseWarnings: string[] }>(
       'content-admin',
       'createQuiz',
       { ...payload }
@@ -115,7 +125,7 @@ export const contentAdminApi = {
     callAction<{ success: true }>('content-admin', 'updateQuizQuestion', { ...payload }),
 
   createPracticeTest: (payload: CreatePracticeTestPayload) =>
-    callAction<{ testId: string; totalQuestions: number; parseErrors: unknown[] }>(
+    callAction<{ testId: string; totalQuestions: number; parseErrors: ParseErrorEntry[]; parseWarnings: string[] }>(
       'content-admin',
       'createPracticeTest',
       { ...payload }

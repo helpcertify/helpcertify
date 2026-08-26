@@ -152,6 +152,12 @@ interface ParseError {
 interface ParseResult {
   valid: ParsedQuestion[];
   errors: ParseError[];
+  // Document-level notes distinct from per-question errors — e.g. the
+  // source file's own numbering being inconsistent (duplicate/missing
+  // question numbers). Not a reason to reject anything: the question text
+  // itself may be perfectly fine, it's the label that's off, which an
+  // admin can only fix by looking at the original file.
+  warnings: string[];
 }
 
 interface Paragraph {
@@ -203,6 +209,14 @@ async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
   const paragraphs = await extractParagraphs(fileBuffer);
   const valid: ParsedQuestion[] = [];
   const errors: ParseError[] = [];
+  // Tracks every "N." label seen, in the order encountered, purely to
+  // report numbering problems in the source file afterward (duplicates,
+  // gaps) — confirmed a real, recurring source of confusion: a student's
+  // "928-question" file actually only had 834 distinct question
+  // paragraphs (134 numbers never appeared at all, 40 appeared twice),
+  // which without this report looked indistinguishable from the app
+  // silently dropping content.
+  const seenNumbers: number[] = [];
 
   let num = 0;
   let stem = '';
@@ -240,6 +254,7 @@ async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
       finalize();
       num = Number(qMatch[1]);
       stem = qMatch[2];
+      seenNumbers.push(num);
       continue;
     }
     if (num === 0) continue;
@@ -254,7 +269,26 @@ async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
   }
   finalize();
 
-  return { valid, errors };
+  const warnings: string[] = [];
+  if (seenNumbers.length > 0) {
+    const counts = new Map<number, number>();
+    for (const n of seenNumbers) counts.set(n, (counts.get(n) ?? 0) + 1);
+    const duplicates = [...counts.entries()].filter(([, count]) => count > 1).map(([n]) => n);
+    const maxNum = Math.max(...seenNumbers);
+    const missing = maxNum - counts.size;
+
+    if (duplicates.length > 0) {
+      const shown = duplicates.slice(0, 20).join(', ') + (duplicates.length > 20 ? ', ...' : '');
+      warnings.push(`${duplicates.length} question number(s) appear more than once in the source file: ${shown}`);
+    }
+    if (missing > 0) {
+      warnings.push(
+        `Question numbers in the source file run up to ${maxNum}, but only ${counts.size} distinct numbers were found (${missing} are missing). The file's own numbering has gaps, most likely from earlier edits.`
+      );
+    }
+  }
+
+  return { valid, errors, warnings };
 }
 
 // Standard Template format — this app's own simpler convention (no
@@ -322,7 +356,9 @@ async function parseStandardTemplateFormat(fileBuffer: Buffer): Promise<ParseRes
   }
   finalize();
 
-  return { valid, errors };
+  // No question-number labels in this format (each "Q:" is just counted in
+  // order), so there's no numbering scheme to check for gaps/duplicates.
+  return { valid, errors, warnings: [] };
 }
 
 // The create forms no longer expose a format picker (Standard Template is
@@ -427,7 +463,7 @@ async function createQuiz(uid: string, body: unknown) {
   const d = parsed.data;
 
   const {
-    result: { valid, errors },
+    result: { valid, errors, warnings },
     detectedFormat,
   } = await fetchAndParse(d.fileUrl);
   if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
@@ -469,7 +505,7 @@ async function createQuiz(uid: string, body: unknown) {
     description: `Published quiz "${d.title}" (${valid.length} questions)`,
   });
 
-  return { quizId: quizRef.id, totalQuestions: valid.length, parseErrors: errors };
+  return { quizId: quizRef.id, totalQuestions: valid.length, parseErrors: errors, parseWarnings: warnings };
 }
 
 const updateQuizSchema = z.object({
@@ -634,7 +670,7 @@ async function createPracticeTest(uid: string, body: unknown) {
   const d = parsed.data;
 
   const {
-    result: { valid, errors },
+    result: { valid, errors, warnings },
     detectedFormat,
   } = await fetchAndParse(d.fileUrl);
   if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
@@ -670,7 +706,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     description: `Created practice test "${d.title}" (${valid.length} questions)`,
   });
 
-  return { testId: testRef.id, totalQuestions: valid.length, parseErrors: errors };
+  return { testId: testRef.id, totalQuestions: valid.length, parseErrors: errors, parseWarnings: warnings };
 }
 
 const updatePracticeTestSchema = z.object({
