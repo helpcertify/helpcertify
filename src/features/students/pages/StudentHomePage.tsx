@@ -336,7 +336,7 @@ export function StudentHomePage() {
           <p className="mb-3 text-sm text-ink">{nextStepMessage}</p>
           <Link
             to="/home/practice-tests"
-            className="inline-block rounded-lg bg-[#d98e0f] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="inline-block rounded-lg bg-[#d87f1d] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             Keep Practicing
           </Link>
@@ -398,14 +398,14 @@ export function StudentHomePage() {
                           className={
                             passed
                               ? 'rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-400'
-                              : 'rounded-full bg-[#d98e0f]/15 px-2 py-0.5 text-xs text-[#d98e0f]'
+                              : 'rounded-full bg-[#d87f1d]/15 px-2 py-0.5 text-xs text-[#d87f1d]'
                           }
                         >
                           {passed ? 'Passed' : 'Needs improvement'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#d98e0f] hover:underline">
+                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#d87f1d] hover:underline">
                           Review
                         </Link>
                       </td>

@@ -136,7 +136,7 @@ export function PracticeTakingPage() {
             Practice Session {isReattempt && <span className="text-sm text-ink-faint">(Reattempt)</span>}
           </h1>
           <div className="flex items-center gap-3 text-sm text-ink-faint">
-            {markedCount > 0 && <span className="text-[#d98e0f]">🚩 {markedCount} marked</span>}
+            {markedCount > 0 && <span className="text-[#d87f1d]">🚩 {markedCount} marked</span>}
             <span>
               {answeredCount} / {questions.length} answered
             </span>
@@ -230,7 +230,7 @@ export function PracticeTakingPage() {
                   onClick={() => toggleMark(current.id)}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                     marked[current.id]
-                      ? 'border-[#d98e0f] bg-[#d98e0f]/10 text-[#d98e0f]'
+                      ? 'border-[#d87f1d] bg-[#d87f1d]/10 text-[#d87f1d]'
                       : 'border-surface-border text-ink-faint hover:border-neutral-600'
                   }`}
                 >
@@ -265,7 +265,7 @@ export function PracticeTakingPage() {
                         : answers[q.id]
                           ? 'bg-brand-500/20 text-brand-ink'
                           : 'bg-white/5 text-ink-faint'
-                    } ${marked[q.id] ? 'ring-2 ring-[#d98e0f]' : ''}`}
+                    } ${marked[q.id] ? 'ring-2 ring-[#d87f1d]' : ''}`}
                   >
                     {i + 1}
                     {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}

@@ -102,7 +102,7 @@ export function PracticeTestsPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Available" value={available.length} color="text-brand-ink" />
-        <StatCard label="Started" value={startedCount} color="text-[#d98e0f]" />
+        <StatCard label="Started" value={startedCount} color="text-[#d87f1d]" />
         <StatCard label="Completed" value={completedCount} color="text-emerald-700 dark:text-emerald-400" />
       </div>
 
