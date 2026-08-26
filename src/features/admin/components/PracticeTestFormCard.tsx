@@ -265,7 +265,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               type="file"
               accept=".docx"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-surface"
+              className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#1D4ED8] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
             />
           </Field>
         )}
