@@ -4,12 +4,13 @@ import { contentAdminApi, type QuizSummary, type ParseErrorEntry } from '../api/
 import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { UploadReport } from '@/components/common/UploadReport';
+import { CategorySelect } from '@/components/common/CategorySelect';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
-import { CERTIFICATION_CATEGORIES, SKILL_LEVELS } from '@/types/models';
-import type { QuestionSourceFormat, DurationType, CertificationCategory, SkillLevel } from '@/types/models';
+import { SKILL_LEVELS } from '@/types/models';
+import type { QuestionSourceFormat, DurationType, SkillLevel } from '@/types/models';
 
 interface QuizFormCardProps {
   editingQuiz?: QuizSummary | null;
@@ -37,7 +38,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const pushToast = useUiStore((s) => s.pushToast);
 
   const [title, setTitle] = useState(editingQuiz?.title ?? '');
-  const [category, setCategory] = useState<CertificationCategory>(editingQuiz?.category ?? 'Other');
+  const [category, setCategory] = useState(editingQuiz?.category ?? 'Other');
   const [skillLevel, setSkillLevel] = useState<SkillLevel>(editingQuiz?.skillLevel ?? 'Foundation');
   const [description, setDescription] = useState(editingQuiz?.description ?? '');
   const [passMarkPercent, setPassMarkPercent] = useState(editingQuiz?.passMarkPercent?.toString() ?? '60');
@@ -184,23 +185,25 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
 
       <div className="space-y-5">
         <Field label="Title">
+          {/* spellCheck relies on the browser/OS's own dictionary (the
+              familiar red squiggly underline + right-click suggestions) —
+              no app-side dictionary is bundled, so acronyms like "CISM" or
+              "ISACA" may get flagged even though they're correct; there's
+              no way to distinguish an intentional acronym from a real typo
+              without a curated exceptions list, which isn't worth building
+              for this. */}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. CISM 2025 Full Bank"
+            spellCheck
             className="input-dark"
           />
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Category (certification body / vendor)">
-            <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
-              {CERTIFICATION_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <CategorySelect value={category} onChange={setCategory} />
           </Field>
           <Field label="Skill Level">
             <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)} className="input-dark">

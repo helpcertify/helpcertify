@@ -1,5 +1,5 @@
 import { callAction } from '@/lib/vercelApi';
-import type { QuestionSourceFormat, DurationType, CertificationCategory, SkillLevel } from '@/types/models';
+import type { QuestionSourceFormat, DurationType, SkillLevel } from '@/types/models';
 
 export interface QuestionOption {
   id: string;
@@ -43,7 +43,11 @@ export interface QuizSummary {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
-  category: CertificationCategory;
+  // A plain string, not the CertificationCategory union — the create forms
+  // let an admin type a category that isn't in the fixed list (see
+  // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
+  // non-empty string rather than restricting to the known set.
+  category: string;
   skillLevel: SkillLevel;
   description: string;
   passMarkPercent: number;
@@ -63,7 +67,11 @@ export interface PracticeTestSummary {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
-  category: CertificationCategory;
+  // A plain string, not the CertificationCategory union — the create forms
+  // let an admin type a category that isn't in the fixed list (see
+  // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
+  // non-empty string rather than restricting to the known set.
+  category: string;
   skillLevel: SkillLevel;
   description: string;
 }
@@ -82,7 +90,11 @@ export interface CreateQuizPayload {
   price: number;
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
-  category: CertificationCategory;
+  // A plain string, not the CertificationCategory union — the create forms
+  // let an admin type a category that isn't in the fixed list (see
+  // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
+  // non-empty string rather than restricting to the known set.
+  category: string;
   skillLevel: SkillLevel;
   description: string;
   passMarkPercent: number;
@@ -99,7 +111,11 @@ export interface CreatePracticeTestPayload {
   price: number;
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
-  category: CertificationCategory;
+  // A plain string, not the CertificationCategory union — the create forms
+  // let an admin type a category that isn't in the fixed list (see
+  // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
+  // non-empty string rather than restricting to the known set.
+  category: string;
   skillLevel: SkillLevel;
   description: string;
 }

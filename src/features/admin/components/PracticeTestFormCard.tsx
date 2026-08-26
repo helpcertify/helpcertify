@@ -4,12 +4,28 @@ import { contentAdminApi, type PracticeTestSummary, type ParseErrorEntry } from 
 import { uploadContentFile } from '../api/uploadApi';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { UploadReport } from '@/components/common/UploadReport';
+import { CategorySelect } from '@/components/common/CategorySelect';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
-import { CERTIFICATION_CATEGORIES, SKILL_LEVELS } from '@/types/models';
-import type { QuestionSourceFormat, CertificationCategory, SkillLevel } from '@/types/models';
+import { SKILL_LEVELS } from '@/types/models';
+import type { QuestionSourceFormat, SkillLevel } from '@/types/models';
+
+// Quick availability-window shortcuts — 1 Day/5 Days/1 Week/1 Month/3
+// Months/6 Months/1 Year, on request, since manually picking both From and
+// Until dates every time was slow. Picking one sets Until to (From, or now
+// if From is blank) + that duration; From is only auto-filled when it was
+// empty, never overwritten if the admin already set it.
+const AVAILABILITY_PRESETS: { label: string; unit: 'day' | 'month' | 'year'; amount: number }[] = [
+  { label: '1 Day', unit: 'day', amount: 1 },
+  { label: '5 Days', unit: 'day', amount: 5 },
+  { label: '1 Week', unit: 'day', amount: 7 },
+  { label: '1 Month', unit: 'month', amount: 1 },
+  { label: '3 Months', unit: 'month', amount: 3 },
+  { label: '6 Months', unit: 'month', amount: 6 },
+  { label: '1 Year', unit: 'year', amount: 1 },
+];
 
 interface PracticeTestFormCardProps {
   editingTest?: PracticeTestSummary | null;
@@ -36,7 +52,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const pushToast = useUiStore((s) => s.pushToast);
 
   const [title, setTitle] = useState(editingTest?.title ?? '');
-  const [category, setCategory] = useState<CertificationCategory>(editingTest?.category ?? 'Other');
+  const [category, setCategory] = useState(editingTest?.category ?? 'Other');
   const [skillLevel, setSkillLevel] = useState<SkillLevel>(editingTest?.skillLevel ?? 'Foundation');
   const [description, setDescription] = useState(editingTest?.description ?? '');
   const [availableFrom, setAvailableFrom] = useState(toLocalInputValue(editingTest?.availableFrom));
@@ -69,6 +85,16 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     errors: ParseErrorEntry[];
     warnings: string[];
   } | null>(null);
+
+  const applyAvailabilityPreset = (unit: 'day' | 'month' | 'year', amount: number) => {
+    const start = availableFrom ? new Date(availableFrom) : new Date();
+    if (!availableFrom) setAvailableFrom(toLocalInputValue(start));
+    const end = new Date(start);
+    if (unit === 'day') end.setDate(end.getDate() + amount);
+    else if (unit === 'month') end.setMonth(end.getMonth() + amount);
+    else end.setFullYear(end.getFullYear() + amount);
+    setAvailableUntil(toLocalInputValue(end));
+  };
 
   const resetForm = () => {
     setTitle('');
@@ -165,23 +191,25 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
 
       <div className="space-y-5">
         <Field label="Practice Test Title">
+          {/* spellCheck relies on the browser/OS's own dictionary (the
+              familiar red squiggly underline + right-click suggestions) —
+              no app-side dictionary is bundled, so acronyms like "CISM" or
+              "ISACA" may get flagged even though they're correct; there's
+              no way to distinguish an intentional acronym from a real typo
+              without a curated exceptions list, which isn't worth building
+              for this. */}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. CISM 2025 Full Bank"
+            spellCheck
             className="input-dark"
           />
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Category (certification body / vendor)">
-            <select value={category} onChange={(e) => setCategory(e.target.value as CertificationCategory)} className="input-dark">
-              {CERTIFICATION_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <CategorySelect value={category} onChange={setCategory} />
           </Field>
           <Field label="Skill Level">
             <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)} className="input-dark">
@@ -213,6 +241,21 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
             <div>
               <label className="mb-1 block text-xs text-ink-faint">Until</label>
               <DateTime12hInput value={availableUntil} onChange={setAvailableUntil} />
+            </div>
+            {/* Shortcuts for Until, on request — sets it to From (or now,
+                if From is still blank) plus the chosen duration, instead of
+                picking both dates by hand every time. */}
+            <div className="flex flex-wrap gap-1.5">
+              {AVAILABILITY_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => applyAvailabilityPreset(p.unit, p.amount)}
+                  className="rounded-full border border-surface-border px-3 py-1 text-xs text-ink-muted hover:border-brand-400"
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
         </Field>

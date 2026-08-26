@@ -6,41 +6,11 @@ import { z } from 'zod';
 import JSZip from 'jszip';
 import { randomBytes } from 'crypto';
 
-// Duplicated from src/types/models.ts's CERTIFICATION_CATEGORIES (this file
-// can't import across api/*.ts or from src/ — see the self-contained-file
-// note above) — keep the two lists in sync if this ever changes.
-const CERTIFICATION_CATEGORIES = [
-  'Adobe',
-  'Amazon Web Services (AWS)',
-  'Axelos (PRINCE2 / ITIL)',
-  'CFA Institute',
-  'Cisco',
-  'CompTIA',
-  'Databricks',
-  'EC-Council',
-  'GIAC',
-  'Google Cloud',
-  'HRCI',
-  'IIBA',
-  'ISACA',
-  '(ISC)²',
-  'ISO',
-  'Juniper Networks',
-  'Microsoft',
-  'Oracle',
-  'PMI (Project Management Institute)',
-  'Red Hat',
-  'Salesforce',
-  'SAP',
-  'SAS',
-  'Scrum Alliance',
-  'Scrum.org',
-  'SHRM',
-  'Six Sigma',
-  'Tableau',
-  'VMware',
-  'Other',
-] as const;
+// category is validated as any non-empty string (not a fixed enum) — the
+// admin create forms let an admin type a custom certification body/vendor
+// beyond src/types/models.ts's CERTIFICATION_CATEGORIES list (see
+// CategorySelect.tsx), so this file no longer needs its own duplicate of
+// that list the way it used to.
 
 // Duplicated from src/types/models.ts's SKILL_LEVELS — same reasoning.
 const SKILL_LEVELS = ['Foundation', 'Associate', 'Expert'] as const;
@@ -451,7 +421,7 @@ const createQuizSchema = z.object({
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
-  category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
+  category: z.string().trim().min(1).max(100).default('Other'),
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
   passMarkPercent: z.number().int().min(1).max(100).default(60),
@@ -522,7 +492,7 @@ const updateQuizSchema = z.object({
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
-  category: z.enum(CERTIFICATION_CATEGORIES).optional(),
+  category: z.string().trim().min(1).max(100).optional(),
   skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
   passMarkPercent: z.number().int().min(1).max(100).optional(),
@@ -659,7 +629,7 @@ const createPracticeTestSchema = z.object({
   price: z.number().int().min(0).default(0),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).default('INR'),
-  category: z.enum(CERTIFICATION_CATEGORIES).default('Other'),
+  category: z.string().trim().min(1).max(100).default('Other'),
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
 });
@@ -719,7 +689,7 @@ const updatePracticeTestSchema = z.object({
   price: z.number().int().min(0).optional(),
   originalPrice: z.number().int().min(0).nullable().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
-  category: z.enum(CERTIFICATION_CATEGORIES).optional(),
+  category: z.string().trim().min(1).max(100).optional(),
   skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
 });
