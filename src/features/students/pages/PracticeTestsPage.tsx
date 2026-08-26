@@ -212,6 +212,17 @@ export function PracticeTestsPage() {
                         </Link>
                       )}
                     </div>
+                    {/* Surfaced right here, not just buried on the detail
+                        page, so a learner can set (or jump back into) their
+                        study goal without an extra click through. */}
+                    {!done && test.studyPlannerEnabled !== false && (
+                      <Link
+                        to={`/home/practice-tests/${test.id}/study-plan`}
+                        className="rounded-lg border border-dashed border-surface-border py-1.5 text-center text-sm text-ink-muted hover:border-brand-400"
+                      >
+                        🎯 Set Your Study Goal
+                      </Link>
+                    )}
                     {done && (
                       <button
                         type="button"
