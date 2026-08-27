@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { contentAdminApi } from '../api/contentAdminApi';
-import { resultsApi } from '../api/resultsApi';
+import { resultsApi, type AttemptRow } from '../api/resultsApi';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useUiStore } from '@/store/useUiStore';
 
 // exceljs is a large dependency only needed when an admin actually clicks
@@ -15,6 +16,7 @@ export function PerformancePage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
+  const [deletingAttempt, setDeletingAttempt] = useState<AttemptRow | null>(null);
 
   const { data: quizData } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
   const quizzes = quizData?.quizzes ?? [];
@@ -33,6 +35,7 @@ export function PerformancePage() {
     onSuccess: () => {
       pushToast('Attempt deleted', 'success');
       queryClient.invalidateQueries({ queryKey: ['admin', 'results', activeQuizId] });
+      setDeletingAttempt(null);
     },
     onError: () => pushToast('Could not delete attempt', 'error'),
   });
@@ -114,9 +117,7 @@ export function PerformancePage() {
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm(`Delete ${a.userName}'s attempt?`)) deleteMutation.mutate(a.id);
-                      }}
+                      onClick={() => setDeletingAttempt(a)}
                       className="rounded-lg border border-surface-border px-2 py-1 text-xs text-ink-muted hover:border-red-500/50 hover:text-red-400"
                     >
                       Delete
@@ -128,6 +129,16 @@ export function PerformancePage() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deletingAttempt}
+        title={`Delete ${deletingAttempt?.userName}'s attempt?`}
+        message="This cannot be undone."
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+        danger
+        onConfirm={() => deletingAttempt && deleteMutation.mutate(deletingAttempt.id)}
+        onCancel={() => setDeletingAttempt(null)}
+      />
     </div>
   );
 }

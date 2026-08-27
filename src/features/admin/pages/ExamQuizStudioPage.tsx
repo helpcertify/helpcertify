@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { contentAdminApi, type QuizSummary } from '../api/contentAdminApi';
 import { QuizFormCard } from '../components/QuizFormCard';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
@@ -21,6 +22,7 @@ export function ExamQuizStudioPage() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const [editingQuiz, setEditingQuiz] = useState<QuizSummary | null>(null);
+  const [deletingQuiz, setDeletingQuiz] = useState<QuizSummary | null>(null);
 
   const { data } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
   const quizzes = data?.quizzes ?? [];
@@ -32,6 +34,7 @@ export function ExamQuizStudioPage() {
       pushToast('Quiz deleted', 'success');
       queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'dashboardStats'] });
+      setDeletingQuiz(null);
     },
     onError: () => pushToast('Could not delete quiz', 'error'),
   });
@@ -96,9 +99,7 @@ export function ExamQuizStudioPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (confirm(`Delete "${quiz.title}"? This cannot be undone.`)) deleteMutation.mutate(quiz.id);
-                    }}
+                    onClick={() => setDeletingQuiz(quiz)}
                     className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
                   >
                     Delete
@@ -109,6 +110,16 @@ export function ExamQuizStudioPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deletingQuiz}
+        title={`Delete "${deletingQuiz?.title}"?`}
+        message="This cannot be undone."
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+        danger
+        onConfirm={() => deletingQuiz && deleteMutation.mutate(deletingQuiz.id)}
+        onCancel={() => setDeletingQuiz(null)}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { contentAdminApi, type PracticeTestSummary } from '../api/contentAdminApi';
 import { PracticeTestFormCard } from '../components/PracticeTestFormCard';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
@@ -21,6 +22,7 @@ export function PracticeManagerPage() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const [editingTest, setEditingTest] = useState<PracticeTestSummary | null>(null);
+  const [deletingTest, setDeletingTest] = useState<PracticeTestSummary | null>(null);
 
   const { data } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const tests = data?.practiceTests ?? [];
@@ -31,6 +33,7 @@ export function PracticeManagerPage() {
       pushToast('Practice test deleted', 'success');
       queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'dashboardStats'] });
+      setDeletingTest(null);
     },
     onError: () => pushToast('Could not delete practice test', 'error'),
   });
@@ -99,9 +102,7 @@ export function PracticeManagerPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (confirm(`Delete "${test.title}"? This cannot be undone.`)) deleteMutation.mutate(test.id);
-                    }}
+                    onClick={() => setDeletingTest(test)}
                     className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
                   >
                     Delete
@@ -112,6 +113,16 @@ export function PracticeManagerPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deletingTest}
+        title={`Delete "${deletingTest?.title}"?`}
+        message="This cannot be undone."
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+        danger
+        onConfirm={() => deletingTest && deleteMutation.mutate(deletingTest.id)}
+        onCancel={() => setDeletingTest(null)}
+      />
     </div>
   );
 }
