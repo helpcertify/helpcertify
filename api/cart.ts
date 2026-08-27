@@ -249,7 +249,15 @@ async function applyCoupon(uid: string, body: unknown) {
 
 async function listMyPurchases(uid: string) {
   const snap = await db.collection('purchases').where('userId', '==', uid).get();
-  return { purchases: snap.docs.map((d) => ({ itemType: d.data().itemType as ItemType, itemId: d.data().itemId as string })) };
+  return {
+    purchases: snap.docs.map((d) => ({
+      itemType: d.data().itemType as ItemType,
+      itemId: d.data().itemId as string,
+      // Added for Billing & Orders' fuller product cards (purchase date) —
+      // was already stored on every purchase doc, just never returned here.
+      purchasedAt: d.data().purchasedAt as unknown,
+    })),
+  };
 }
 
 async function removeCoupon(uid: string) {
