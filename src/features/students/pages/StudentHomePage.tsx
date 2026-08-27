@@ -343,7 +343,10 @@ export function StudentHomePage() {
           <h2 className="mb-3 text-lg font-bold text-ink">My Exams</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ownedItems.slice(0, 6).map((item) => (
-              <div key={item.detailHref} className="rounded-xl border border-surface-border border-t-4 border-t-violet-400 bg-surface-raised p-4">
+              <div
+                key={item.detailHref}
+                className="flex h-full flex-col rounded-xl border border-surface-border border-t-4 border-t-violet-400 bg-surface-raised p-4"
+              >
                 <Link to={item.detailHref} className="hover:text-brand-ink">
                   <div className="mb-1 line-clamp-2 font-semibold text-ink">{item.title}</div>
                 </Link>
@@ -351,7 +354,7 @@ export function StudentHomePage() {
                 <div className="mb-3 text-xs text-ink-faint">{item.progressLabel}</div>
                 <Link
                   to={item.actionHref}
-                  className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
+                  className="mt-auto block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
                 >
                   {item.actionLabel}
                 </Link>
@@ -406,7 +409,7 @@ export function StudentHomePage() {
           <h2 className="mb-3 text-lg font-bold text-ink">Upcoming Mock Exams</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcomingMockExams.map((q) => (
-              <div key={q.id} className="rounded-xl border border-surface-border border-t-4 border-t-blue-400 bg-surface-raised p-4">
+              <div key={q.id} className="flex h-full flex-col rounded-xl border border-surface-border border-t-4 border-t-blue-400 bg-surface-raised p-4">
                 <div className="mb-1 line-clamp-2 font-semibold text-ink">{q.title}</div>
                 <div className="mb-3 space-y-0.5 text-xs text-ink-faint">
                   <div>{q.totalQuestions} questions · {q.durationMinutes} min</div>
@@ -415,7 +418,7 @@ export function StudentHomePage() {
                 </div>
                 <Link
                   to={`/quizzes/${q.id}/take`}
-                  className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
+                  className="mt-auto block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
                 >
                   Start Mock Exam
                 </Link>

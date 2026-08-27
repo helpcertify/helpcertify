@@ -101,7 +101,7 @@ export function CourseCarousel({ title, items, compactActions }: CourseCarouselP
         </button>
       )}
 
-      <div ref={scrollerRef} className="scrollbar-none flex items-start gap-3 overflow-x-auto scroll-smooth pb-1">
+      <div ref={scrollerRef} className="scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1">
         {items.map((item) => (
           <CarouselCard
             key={`${item.itemType}_${item.id}`}
@@ -162,11 +162,11 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
   });
 
   return (
-    <div className="w-44 shrink-0 overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400 sm:w-52">
+    <div className="flex w-44 shrink-0 flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400 sm:w-52">
       <Link to={href}>
         <CourseCoverImage id={item.id} title={item.title} className="h-24 w-full" />
       </Link>
-      <div className="p-3">
+      <div className="flex flex-1 flex-col p-3">
         <div className="mb-1 truncate text-[10px] uppercase tracking-wide text-ink-faint">
           {item.category} · {item.skillLevel}
         </div>
@@ -187,6 +187,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
           )}
         </div>
 
+        <div className="mt-auto">
         {!owned && (
           <div className={compactActions ? 'flex items-center gap-1' : 'flex flex-col gap-1.5'}>
             {inCart ? (
@@ -228,6 +229,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -269,13 +269,17 @@ function PracticeTestCard({
   );
 
   return (
-    <div className="group relative">
-      {/* Base card — always visible. */}
-      <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+    <div className="group relative h-full">
+      {/* Base card — always visible. h-full + flex column so every card in
+          a grid row matches the tallest one (the grid itself already
+          stretches this wrapper to the row height; flex-col + mt-auto on
+          the action block is what makes the *visible* card fill that same
+          height instead of just wrapping its own content). */}
+      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
         <Link to={detailHref}>
           <CourseCoverImage id={test.id} title={test.title} className="h-24 w-full" />
         </Link>
-        <div className="relative p-3.5">
+        <div className="relative flex flex-1 flex-col p-3.5">
           {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />}
           <Link to={detailHref} className="hover:text-brand-ink">
             <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
@@ -303,47 +307,53 @@ function PracticeTestCard({
             )}
           </div>
 
-          {!owned ? (
-            inCart ? (
-              <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
-                ✓ In Cart · View Cart
-              </Link>
+          {/* Spacer pushes the action block to the bottom of the card
+              regardless of how much room the title/rating/price took above
+              it, so the button row lines up across every card in a row. */}
+          <div className="mt-auto">
+            {!owned ? (
+              inCart ? (
+                <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
+                  ✓ In Cart · View Cart
+                </Link>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={addingToCart || paying}
+                    onClick={onAddToCart}
+                    className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                  >
+                    Add to Cart
+                  </button>
+                  <button
+                    type="button"
+                    disabled={paying}
+                    onClick={onBuyNow}
+                    className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {paying ? 'Opening…' : 'Buy Now'}
+                  </button>
+                </div>
+              )
             ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={addingToCart || paying}
-                  onClick={onAddToCart}
-                  className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
-                >
-                  Add to Cart
-                </button>
-                <button
-                  type="button"
-                  disabled={paying}
-                  onClick={onBuyNow}
-                  className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-                >
-                  {paying ? 'Opening…' : 'Buy Now'}
-                </button>
-              </div>
-            )
-          ) : (
-            primaryOwnedAction
-          )}
+              primaryOwnedAction
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Hover popover — desktop only (lg:), Udemy-style: floats beside the
-          card rather than on top of it (offset right, no repeated cover
-          image), with a small triangular pointer on its left edge tying it
-          back visually to the card it came from. Positioned absolute so it
-          never shifts grid layout; it's allowed to overlap the next card
-          since only one can be hovered at a time. */}
-      <div className="pointer-events-none invisible absolute -top-3 left-0 z-30 hidden w-[300px] opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 lg:block">
-        {/* Pointer notch, tied to the card's left edge (border-matched
-            square rotated 45deg, the classic speech-bubble tail trick). */}
-        <div className="absolute left-3 top-9 h-3.5 w-3.5 rotate-45 border-b border-l border-surface-border bg-surface-raised" />
+      {/* Hover popover — desktop only (lg:). Sits entirely to the right of
+          the card with a real gap (left-full + margin), so the card it
+          came from stays fully visible underneath rather than being
+          covered. A small triangular pointer sits in that gap, tying the
+          popover back to the card it came from. Positioned absolute so it
+          never shifts grid layout; it's allowed to overlap the *next*
+          card over since only one card can be hovered at a time. */}
+      <div className="pointer-events-none invisible absolute left-[calc(100%+0.9rem)] top-0 z-30 hidden w-[300px] opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 lg:block">
+        {/* Pointer, in the gap between the card and the popover (border-
+            matched square rotated 45deg, the classic speech-bubble tail). */}
+        <div className="absolute -left-[0.55rem] top-9 h-3.5 w-3.5 rotate-45 border-b border-l border-surface-border bg-surface-raised" />
         <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised p-4 shadow-2xl">
           <h3 className="mb-1.5 font-bold leading-snug text-ink">{test.title}</h3>
           <div className="mb-2 flex flex-wrap items-center gap-1.5">

@@ -227,7 +227,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
           : `You're right on track with ${testTitle}, ${percentComplete}% complete.`;
 
   return (
-    <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
+    <div className="flex h-full flex-col rounded-xl border border-surface-border bg-surface-raised p-5">
       <div className="mb-1 flex items-start justify-between gap-2">
         <div>
           <div className="text-xs uppercase tracking-wide text-ink-faint">{testCategory}</div>

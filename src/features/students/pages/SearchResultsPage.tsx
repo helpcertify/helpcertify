@@ -143,12 +143,12 @@ function ResultCard({
   currency: string;
 }) {
   return (
-    <Link to={href} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400">
+    <Link to={href} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400">
       <CourseCoverImage id={id} title={title} className="h-20 w-full" />
-      <div className="p-3.5">
+      <div className="flex flex-1 flex-col p-3.5">
         <div className="mb-0.5 text-xs uppercase tracking-wide text-ink-faint">{category}</div>
         <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{title}</h3>
-        <div className="text-xs font-semibold text-ink">{price > 0 ? formatMoney(price, currency as 'INR' | 'USD') : 'Free'}</div>
+        <div className="mt-auto text-xs font-semibold text-ink">{price > 0 ? formatMoney(price, currency as 'INR' | 'USD') : 'Free'}</div>
       </div>
     </Link>
   );

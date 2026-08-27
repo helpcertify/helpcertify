@@ -61,11 +61,14 @@ export function WishlistPage() {
             const inCart = inCartSet.has(`${item.itemType}_${item.itemId}`);
             const detailHref = item.itemType === 'quiz' ? `/home/quizzes/${item.itemId}` : `/home/practice-tests/${item.itemId}`;
             return (
-              <div key={`${item.itemType}_${item.itemId}`} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+              <div
+                key={`${item.itemType}_${item.itemId}`}
+                className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised"
+              >
                 <Link to={detailHref}>
                   <CourseCoverImage id={item.itemId} title={item.title} className="h-20 w-full" />
                 </Link>
-                <div className="relative p-3.5">
+                <div className="relative flex flex-1 flex-col p-3.5">
                   <WishlistButton itemType={item.itemType} itemId={item.itemId} variant="inline" className="absolute right-2.5 top-2.5" />
                   <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
                     <span>{item.category}</span>
@@ -97,6 +100,7 @@ export function WishlistPage() {
                     </div>
                   )}
 
+                  <div className="mt-auto">
                   {item.price === 0 ? (
                     <Link to={detailHref} className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90">
                       View
@@ -128,6 +132,7 @@ export function WishlistPage() {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             );

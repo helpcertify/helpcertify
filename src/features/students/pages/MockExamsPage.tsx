@@ -94,7 +94,12 @@ export function MockExamsPage() {
           const inCart = inCartSet.has(`quiz_${quiz.id}`);
 
           return (
-            <div key={quiz.id} className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+            // h-full + flex column so every card in a grid row matches the
+            // tallest one (the grid stretches this wrapper to row height;
+            // flex-1 + mt-auto below is what makes the button row line up
+            // across cards regardless of how much title/rating text sits
+            // above it).
+            <div key={quiz.id} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
               <Link to={`/home/quizzes/${quiz.id}`}>
                 <CourseCoverImage id={quiz.id} title={quiz.title} className="h-20 w-full" />
               </Link>
@@ -102,7 +107,7 @@ export function MockExamsPage() {
                   the colorful cover banner above — the heart lives here now
                   (variant="inline") since it was unreadable against some of
                   the banner's brighter gradient pairs. */}
-              <div className="relative p-3.5">
+              <div className="relative flex flex-1 flex-col p-3.5">
                 {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-2.5 top-2.5" />}
               <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
                 <span>{quiz.category ?? 'Other'}</span>
@@ -133,6 +138,7 @@ export function MockExamsPage() {
                 </div>
               )}
 
+              <div className="mt-auto">
               {!owned ? (
                 inCart ? (
                   <Link
@@ -174,6 +180,7 @@ export function MockExamsPage() {
                   Start Quiz
                 </Link>
               )}
+              </div>
               </div>
             </div>
           );

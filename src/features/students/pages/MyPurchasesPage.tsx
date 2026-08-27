@@ -61,13 +61,13 @@ export function MyPurchasesPage() {
             <Link
               key={`${item.itemType}_${item.id}`}
               to={item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`}
-              className="rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400"
+              className="flex h-full flex-col rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400"
             >
               <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">
                 {item.category} · {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}
               </div>
               <div className="line-clamp-2 font-medium leading-snug text-ink">{item.title}</div>
-              <div className="mt-2 text-sm text-brand-ink">Go start it →</div>
+              <div className="mt-auto pt-2 text-sm text-brand-ink">Go start it →</div>
             </Link>
           ))}
         </div>
