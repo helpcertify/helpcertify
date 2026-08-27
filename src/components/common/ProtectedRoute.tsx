@@ -28,6 +28,12 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   if (!profile) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
+  // Signed in, but hasn't entered their emailed OTP yet (only ever false
+  // when email OTP verification was on at registration) — every protected
+  // route is off-limits until they do, not just a nudge banner.
+  if (!profile.emailVerified) {
+    return <Navigate to="/verify-email" replace />;
+  }
   if (allowedRoles && !allowedRoles.includes(profile.role)) {
     return <Navigate to="/" replace />;
   }

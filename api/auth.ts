@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { createHash, randomInt } from 'node:crypto';
 import { z } from 'zod';
 
 // Replaces functions/src/_migrated-v1-reference/register.ts + provision-profile.ts.
@@ -53,6 +54,61 @@ interface FirebaseAuthError {
   code?: string;
 }
 
+// OTP codes expire 10 minutes after being (re)sent; a resend is throttled to
+// once per 30 seconds to keep someone from hammering the Resend API (and
+// their own inbox) via repeated clicks.
+const OTP_TTL_MS = 10 * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 30 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+
+function hashOtpCode(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+// Resend's REST API directly via fetch rather than the `resend` npm
+// package — avoids adding a dependency for what's a single POST call, and
+// matches how Razorpay/Firebase are already called from api/*.ts (plain
+// HTTP, no SDK). `verify.helpcertify.com` is the domain verified in the
+// Resend dashboard for this project.
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY is not configured');
+
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: 'Helpcertify <no-reply@verify.helpcertify.com>', to: [to], subject, html }),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`Resend request failed (${resp.status}): ${detail}`);
+  }
+}
+
+function otpEmailHtml(name: string, code: string): string {
+  return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+    <h2 style="color:#1D4ED8">Verify your email</h2>
+    <p>Hi ${name},</p>
+    <p>Your Helpcertify verification code is:</p>
+    <p style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#0F172A">${code}</p>
+    <p style="color:#64748B;font-size:14px">This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>
+  </div>`;
+}
+
+// Shared by register() and resendEmailOtp() — generates a fresh 6-digit
+// code, stores only its hash (same reasoning as never storing a plaintext
+// password), and emails the plaintext code to the user.
+async function issueEmailOtp(uid: string, email: string, name: string): Promise<void> {
+  const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+  await db.collection('emailOtps').doc(uid).set({
+    codeHash: hashOtpCode(code),
+    expiresAt: Timestamp.fromMillis(Date.now() + OTP_TTL_MS),
+    attempts: 0,
+    lastSentAt: FieldValue.serverTimestamp(),
+  });
+  await sendEmail(email, 'Your Helpcertify verification code', otpEmailHtml(name, code));
+}
+
 async function register(body: unknown) {
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
@@ -69,6 +125,9 @@ async function register(body: unknown) {
     throw err;
   }
 
+  const settingsSnap = await db.collection('appSettings').doc('general').get();
+  const emailOtpEnabled = settingsSnap.data()?.emailOtpEnabled === true;
+
   // Role lives only on the Firestore doc below, not an ID-token custom claim
   // — see api/admin.ts's requireAdmin for why (it's what lets an admin be
   // created straight from the Firebase Console, no Admin SDK code needed).
@@ -79,11 +138,80 @@ async function register(body: unknown) {
     role: 'student',
     avatarUrl: null,
     isActive: true,
+    // Grandfathered true whenever email OTP isn't turned on — only actually
+    // gates anything (see ProtectedRoute) when it's explicitly false.
+    emailVerified: !emailOtpEnabled,
     createdAt: now,
     updatedAt: now,
   });
 
-  return { uid };
+  if (emailOtpEnabled) {
+    await issueEmailOtp(uid, email, name);
+  }
+
+  return { uid, otpRequired: emailOtpEnabled };
+}
+
+const verifyEmailOtpSchema = z.object({ code: z.string().trim().length(6) });
+
+async function verifyEmailOtp(req: VercelRequest, body: unknown) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+
+  const parsed = verifyEmailOtpSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const otpRef = db.collection('emailOtps').doc(uid);
+  const otpSnap = await otpRef.get();
+  if (!otpSnap.exists) throw Err.invalidArgument('No pending verification for this account. Request a new code.');
+  const otp = otpSnap.data()!;
+
+  if ((otp.attempts ?? 0) >= OTP_MAX_ATTEMPTS) {
+    await otpRef.delete();
+    throw Err.invalidArgument('Too many incorrect attempts. Request a new code.');
+  }
+  if ((otp.expiresAt as Timestamp).toMillis() < Date.now()) {
+    throw Err.invalidArgument('This code has expired. Request a new one.');
+  }
+  if (hashOtpCode(parsed.data.code) !== otp.codeHash) {
+    await otpRef.update({ attempts: FieldValue.increment(1) });
+    throw Err.invalidArgument('Incorrect code. Please try again.');
+  }
+
+  await Promise.all([
+    db.collection('users').doc(uid).update({ emailVerified: true, updatedAt: FieldValue.serverTimestamp() }),
+    otpRef.delete(),
+  ]);
+  return { success: true };
+}
+
+async function resendEmailOtp(req: VercelRequest) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+
+  const userSnap = await db.collection('users').doc(uid).get();
+  const user = userSnap.data();
+  if (!userSnap.exists || !user) throw Err.unauthenticated('Account not found');
+  if (user.emailVerified === true) throw Err.conflict('This account is already verified');
+
+  const otpSnap = await db.collection('emailOtps').doc(uid).get();
+  const lastSentAt = otpSnap.data()?.lastSentAt as Timestamp | undefined;
+  if (lastSentAt && Date.now() - lastSentAt.toMillis() < OTP_RESEND_COOLDOWN_MS) {
+    throw Err.conflict('Please wait a moment before requesting another code');
+  }
+
+  await issueEmailOtp(uid, user.email as string, user.name as string);
+  return { success: true };
 }
 
 async function requireIdToken(req: VercelRequest): Promise<string> {
@@ -120,6 +248,9 @@ async function provisionProfile(req: VercelRequest) {
     role: 'student',
     avatarUrl: userRecord.photoURL ?? null,
     isActive: true,
+    // Google already verifies the address via OAuth — never OTP-gated,
+    // regardless of the emailOtpEnabled setting.
+    emailVerified: true,
     createdAt: now,
     updatedAt: now,
   });
@@ -169,6 +300,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updateProfile':
         res.status(200).json(await updateProfile(req, data));
+        return;
+      case 'verifyEmailOtp':
+        res.status(200).json(await verifyEmailOtp(req, data));
+        return;
+      case 'resendEmailOtp':
+        res.status(200).json(await resendEmailOtp(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

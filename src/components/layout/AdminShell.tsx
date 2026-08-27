@@ -11,6 +11,8 @@ const NAV_ITEMS = [
   { to: '/admin/practice-tests', label: 'Practice Exams' },
   { to: '/admin/performance', label: 'Learner Analytics' },
   { to: '/admin/coupons', label: 'Promo Codes' },
+  { to: '/admin/users', label: 'Users' },
+  { to: '/admin/settings', label: 'Settings' },
 ];
 
 // The nav links were `hidden sm:flex` with no mobile fallback at all —

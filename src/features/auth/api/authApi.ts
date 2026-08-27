@@ -57,4 +57,7 @@ export const authApi = {
 
   updateProfile: (payload: { headline?: string | null; bio?: string | null }) =>
     callAction<{ success: true }>('auth', 'updateProfile', { ...payload }),
+
+  verifyEmailOtp: (code: string) => callAction<{ success: true }>('auth', 'verifyEmailOtp', { code }),
+  resendEmailOtp: () => callAction<{ success: true }>('auth', 'resendEmailOtp'),
 };

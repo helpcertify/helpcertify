@@ -139,5 +139,21 @@ service cloud.firestore {
     match /adminLogs/{logId} {
       allow read, write: if false; // read via api/admin.ts's listAdminLogs action only
     }
+
+    // --- appSettings/{id} --- e.g. appSettings/general: emailOtpEnabled,
+    // mobileOtpEnabled. Read/written only via api/admin.ts's
+    // getAppSettings/updateAppSettings actions (admin-gated there) — never
+    // a direct client read, so this is fully server-only.
+    match /appSettings/{id} {
+      allow read, write: if false;
+    }
+
+    // --- emailOtps/{uid} --- pending email-verification code (hashed),
+    // written and checked only by api/auth.ts (register/verifyEmailOtp/
+    // resendEmailOtp) — never client-readable, even by its own owner (no
+    // reason for a signed-in-but-unverified session to see its own hash).
+    match /emailOtps/{uid} {
+      allow read, write: if false;
+    }
   }
 }

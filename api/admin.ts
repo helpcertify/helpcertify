@@ -154,6 +154,116 @@ async function listAdminLogs() {
   return { logs: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
 }
 
+// --- App settings (Email/Mobile OTP toggles) ---------------------------
+// A single appSettings/general doc rather than one doc per flag — this is
+// the only setting the app has right now, and a single doc keeps
+// getAppSettings/updateAppSettings a plain get/set instead of a query.
+
+async function getAppSettings() {
+  const snap = await db.collection('appSettings').doc('general').get();
+  const data = snap.data();
+  return {
+    emailOtpEnabled: data?.emailOtpEnabled === true,
+    // Always false in the response regardless of what's stored — there's
+    // no SMS provider wired up yet (see updateAppSettings), so this can
+    // never actually be true no matter what a stale doc might say.
+    mobileOtpEnabled: false,
+  };
+}
+
+const updateAppSettingsSchema = z.object({
+  emailOtpEnabled: z.boolean(),
+  // Accepted but ignored below — mobile OTP has no SMS provider wired up
+  // yet, so this can't actually be turned on. Still typed/validated here
+  // (rather than omitted) so the Settings page's checkbox has somewhere
+  // real to send its value once a provider is added.
+  mobileOtpEnabled: z.boolean(),
+});
+
+async function updateAppSettings(uid: string, body: unknown) {
+  const parsed = updateAppSettingsSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  await db.collection('appSettings').doc('general').set(
+    { emailOtpEnabled: parsed.data.emailOtpEnabled, mobileOtpEnabled: false, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updateAppSettings',
+    targetType: 'appSettings',
+    targetId: 'general',
+    description: `Set email OTP verification to ${parsed.data.emailOtpEnabled ? 'on' : 'off'}`,
+  });
+
+  return { success: true };
+}
+
+// --- Users list (Learner Analytics' "Users" tab) ------------------------
+// One read of every user doc plus one read of every purchase doc, joined
+// in memory by userId — simpler than N per-user count queries, and fine
+// at this app's current scale (see this file's header comment: no shared
+// helpers across api/*.ts, so this pattern is duplicated rather than
+// imported wherever a listing needs a purchase count per user).
+
+async function listUsersAdmin() {
+  const [usersSnap, purchasesSnap] = await Promise.all([
+    db.collection('users').orderBy('createdAt', 'desc').get(),
+    db.collection('purchases').get(),
+  ]);
+
+  const purchaseCountByUser = new Map<string, number>();
+  for (const doc of purchasesSnap.docs) {
+    const userId = doc.data().userId as string;
+    purchaseCountByUser.set(userId, (purchaseCountByUser.get(userId) ?? 0) + 1);
+  }
+
+  return {
+    users: usersSnap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        name: data.name as string,
+        email: data.email as string,
+        role: data.role as string,
+        isActive: data.isActive as boolean,
+        // Missing entirely = registered before this feature existed, or
+        // OTP was off at the time — never actually blocked, so treated as
+        // verified rather than shown as a false alarm.
+        emailVerified: data.emailVerified !== false,
+        createdAt: data.createdAt,
+        purchaseCount: purchaseCountByUser.get(d.id) ?? 0,
+      };
+    }),
+  };
+}
+
+const userDetailSchema = z.object({ uid: z.string().min(1) });
+
+async function getUserDetailAdmin(body: unknown) {
+  const parsed = userDetailSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const [userSnap, ordersSnap] = await Promise.all([
+    db.collection('users').doc(parsed.data.uid).get(),
+    // Two equality filters (userId, status) — no orderBy on a third field,
+    // so this doesn't need a composite index. Sorted in memory instead,
+    // fine at the per-user order volumes this app has.
+    db.collection('orders').where('userId', '==', parsed.data.uid).where('status', '==', 'paid').get(),
+  ]);
+  if (!userSnap.exists) throw Err.invalidArgument('User not found');
+
+  const orders = ordersSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as { id: string; createdAt?: { toMillis(): number } })
+    .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+
+  return {
+    user: { id: userSnap.id, ...userSnap.data() },
+    orders,
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -176,6 +286,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listAdminLogs':
         res.status(200).json(await listAdminLogs());
+        return;
+      case 'getAppSettings':
+        res.status(200).json(await getAppSettings());
+        return;
+      case 'updateAppSettings':
+        res.status(200).json(await updateAppSettings(uid, data));
+        return;
+      case 'listUsersAdmin':
+        res.status(200).json(await listUsersAdmin());
+        return;
+      case 'getUserDetailAdmin':
+        res.status(200).json(await getUserDetailAdmin(data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

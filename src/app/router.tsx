@@ -4,6 +4,7 @@ import { AdminShell } from '@/components/layout/AdminShell';
 import { StudentShell } from '@/components/layout/StudentShell';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { RegisterPage } from '@/features/auth/pages/RegisterPage';
+import { VerifyEmailPage } from '@/features/auth/pages/VerifyEmailPage';
 import { LandingPage } from '@/features/landing/pages/LandingPage';
 import { LegalPlaceholderPage } from '@/features/landing/pages/LegalPlaceholderPage';
 import { AdminHomePage } from '@/features/admin/pages/AdminHomePage';
@@ -29,6 +30,8 @@ import { SettingsPage } from '@/features/students/pages/SettingsPage';
 import { SearchResultsPage } from '@/features/students/pages/SearchResultsPage';
 import { HelpPage } from '@/features/students/pages/HelpPage';
 import { CouponsPage } from '@/features/admin/pages/CouponsPage';
+import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
+import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
 // course/exam/certificate routes on 2026-08-22 — see
@@ -39,6 +42,7 @@ export function AppRouter() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/privacy" element={<LegalPlaceholderPage title="Privacy Policy" />} />
       <Route path="/terms" element={<LegalPlaceholderPage title="Terms of Service" />} />
 
@@ -74,6 +78,8 @@ export function AppRouter() {
           <Route path="/admin/practice-tests/:testId/view" element={<PracticeTestAnswerKeyPage />} />
           <Route path="/admin/performance" element={<PerformancePage />} />
           <Route path="/admin/coupons" element={<CouponsPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>
 
