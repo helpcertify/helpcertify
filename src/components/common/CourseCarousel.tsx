@@ -5,11 +5,11 @@ import { cartApi } from '@/features/students/api/cartApi';
 import { useCheckout } from '@/features/students/hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
-import { CourseCoverImage } from './CourseCoverImage';
+import { CourseIcon } from './CourseIcon';
 import { StarRating } from './StarRating';
 import { BuyNowModal } from './BuyNowModal';
 import { WishlistButton } from './WishlistButton';
-import { ClickHereLink, CategoryBadge } from './CardBits';
+import { CategoryBadge } from './CardBits';
 import type { PurchasableItemType } from '@/types/models';
 
 export interface CarouselItem {
@@ -159,53 +159,57 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
     onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
   });
 
+  // Context-aware label instead of a generic "Go start it" for an owned
+  // item — a quiz is a timed Mock Exam, a practice test is untimed batched
+  // practice, so the verb differs slightly even though the underlying
+  // "go to the take page" behavior is identical either way.
+  const ownedCtaLabel = item.itemType === 'quiz' ? 'Start Mock Exam' : 'Start Practice';
+
   return (
-    // Widened and given a shorter cover relative to that width (h-28 on a
-    // w-60/w-72 card, versus the old h-24 on w-44/w-52) so the card reads
-    // as a landscape rectangle rather than the previous narrow, more
-    // square-ish shape. Same anatomy as PracticeTestsPage's card now (cover
-    // + Click here link, wishlist heart, category badge, rating, price,
-    // actions) so every card in the app reads the same way.
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg sm:w-72">
-      <div className="relative">
-        <Link to={href}>
-          <CourseCoverImage id={item.id} title={item.title} className="h-28 w-full" />
-        </Link>
-        <ClickHereLink href={href} />
-      </div>
-      <div className="relative flex flex-1 flex-col p-4">
+    // HelpCertify Electric Blue card: white surface, soft blue border/shadow,
+    // a subtle blue-gradient header strip (icon + title) instead of the old
+    // full-height saturated color banner, hover lift + shadow + border glow
+    // as the "clickable" signal (translateY per the brand spec).
+    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#DCE7FF] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
+      <div className="relative bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
         <WishlistButton itemType={item.itemType} itemId={item.id} variant="inline" className="absolute right-3 top-3" />
-        <Link to={href} className="cursor-pointer pr-8 hover:text-brand-ink hover:underline">
-          <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+        <Link to={href} className="flex items-start gap-3 pr-8">
+          <CourseIcon id={item.id} title={item.title} itemType={item.itemType} />
+          <h3 className="line-clamp-2 pt-1 text-[15px] font-semibold leading-snug text-[#0F172A]">{item.title}</h3>
         </Link>
+      </div>
+      <div className="flex flex-1 flex-col p-4">
         <div className="mb-2">
           <CategoryBadge category={item.category} skillLevel={item.skillLevel} />
         </div>
         {item.ratingCount > 0 ? (
           <div className="mb-2 flex items-center gap-1.5">
             <StarRating value={item.ratingAvg} size="sm" />
-            <span className="text-xs text-ink-faint">{item.ratingAvg.toFixed(1)} ({item.ratingCount})</span>
+            <span className="text-xs text-[#64748B]">{item.ratingAvg.toFixed(1)} ({item.ratingCount})</span>
           </div>
         ) : (
-          <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
+          <div className="mb-2 text-xs text-[#64748B]">No ratings yet</div>
         )}
         <div className="mb-3 flex items-center gap-2">
           {item.price > 0 ? (
             <>
               {item.originalPrice && item.originalPrice > item.price && (
-                <span className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
+                <span className="text-xs text-[#94A3B8] line-through">{formatMoney(item.originalPrice, item.currency)}</span>
               )}
-              <span className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</span>
+              <span className="text-lg font-bold text-[#0F172A]">{formatMoney(item.price, item.currency)}</span>
             </>
           ) : (
-            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Free</span>
+            <span className="font-bold text-[#16A34A]">Free</span>
           )}
         </div>
 
         <div className="mt-auto">
           {!owned ? (
             inCart ? (
-              <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
+              <Link
+                to="/home/cart"
+                className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]"
+              >
                 ✓ In Cart · View Cart
               </Link>
             ) : (
@@ -214,7 +218,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
                   type="button"
                   disabled={addToCartMutation.isPending || paying}
                   onClick={() => addToCartMutation.mutate()}
-                  className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                  className="flex-1 rounded-lg border border-[#CBD5E1] bg-white py-1.5 text-sm font-semibold text-[#334155] transition-colors hover:border-[#155EEF] hover:bg-[#F8FAFF] hover:text-[#155EEF] disabled:opacity-60"
                 >
                   {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
                 </button>
@@ -222,7 +226,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
                   type="button"
                   disabled={paying}
                   onClick={onBuyNow}
-                  className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
                 >
                   {paying ? 'Opening…' : 'Buy Now'}
                 </button>
@@ -231,9 +235,9 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
           ) : (
             <Link
               to={href}
-              className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+              className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
             >
-              Go start it →
+              {ownedCtaLabel}
             </Link>
           )}
         </div>

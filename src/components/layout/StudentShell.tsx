@@ -114,7 +114,7 @@ export function StudentShell() {
   // feedback that nav tab labels needed to read as solidly dark, not a
   // secondary/muted gray, to stay clearly visible.
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    clsx('rounded-lg px-3 py-2 text-sm', isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink hover:bg-white/5');
+    clsx('rounded-lg px-3 py-2 text-sm', isActive ? 'bg-[#E8F0FF] text-[#155EEF] font-medium' : 'text-ink hover:bg-white/5');
 
   const navLinks = (onNavigate: () => void) => (
     <>
@@ -256,12 +256,16 @@ export function StudentShell() {
 // looking for it. Amber (not blue/emerald) so it reads as a countdown
 // rather than a status/success indicator.
 function ExamCountdownCard({ daysToExam, testTitle, className = '' }: { daysToExam: number; testTitle: string; className?: string }) {
+  // Amber here is a semantic urgency color (a countdown genuinely matters
+  // to the learner), kept deliberately separate from the Electric Blue
+  // brand palette used everywhere else — see the HelpCertify theme's own
+  // "amber → rating / exam countdown / achievement" rule.
   return (
-    <div className={`rounded-lg border border-[#d87f1d]/40 bg-[#d87f1d]/10 px-3 py-2.5 ${className}`}>
-      <div className="mb-0.5 truncate text-[11px] uppercase tracking-wide text-ink-faint" title={testTitle}>
+    <div className={`rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 ${className}`}>
+      <div className="mb-0.5 truncate text-[11px] uppercase tracking-wide text-[#64748B]" title={testTitle}>
         {testTitle}
       </div>
-      <div className="text-lg font-bold text-[#d87f1d]">
+      <div className="text-lg font-bold text-[#C2410C]">
         {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
       </div>
     </div>

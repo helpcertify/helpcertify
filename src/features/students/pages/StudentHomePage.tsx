@@ -171,7 +171,7 @@ export function StudentHomePage() {
         {continueItem && (
           <Link
             to={continueItem.href}
-            className="inline-block rounded-lg bg-[#1D4ED8] px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
+            className="inline-block rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
           >
             Continue Practice
           </Link>
@@ -181,20 +181,25 @@ export function StudentHomePage() {
       {/* Continue where you left off — only shown while something is
           actually in progress (continueItem is null otherwise), so this
           heading never appears for a student who hasn't started anything
-          yet. */}
+          yet. HelpCertify Electric Blue theme: soft blue gradient instead of
+          the app's general brand-blue tint, matching the Recommended for
+          You cards' own header gradient. */}
       {continueItem && (
-        <div className="mb-8 rounded-xl border border-brand-400 bg-brand-500/10 p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue where you left off</h2>
+        <div className="mb-8 rounded-xl border border-[#B9CEFF] bg-gradient-to-r from-[#EFF6FF] to-[#F8FAFF] p-5">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[#64748B]">Continue where you left off</h2>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="font-semibold text-ink">{continueItem.title}</div>
-              <div className="text-xs text-ink-faint">{continueItem.category}</div>
-              <div className="mt-1 text-sm text-ink-muted">
+              <div className="font-semibold text-[#0F172A]">{continueItem.title}</div>
+              <div className="text-xs text-[#64748B]">{continueItem.category}</div>
+              <div className="mt-1 text-sm text-[#334155]">
                 {Math.round((continueItem.answeredCount / (continueItem.totalQuestions || 1)) * 100)}% complete ·{' '}
                 {continueItem.answeredCount}/{continueItem.totalQuestions} questions
               </div>
             </div>
-            <Link to={continueItem.href} className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-surface">
+            <Link
+              to={continueItem.href}
+              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+            >
               Continue →
             </Link>
           </div>
