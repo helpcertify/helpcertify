@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Link } from 'react-router-dom';
-import logoMark from '@/assets/logo-mark.svg';
+import logoMark from '@/assets/logo-mark.png';
 
 interface LogoProps {
   to?: string;
@@ -15,7 +15,7 @@ export function Logo({ to = '/', size = 'md', className }: LogoProps) {
       <img
         src={logoMark}
         alt=""
-        className={clsx(size === 'sm' ? 'h-6 w-6' : 'h-8 w-8')}
+        className={clsx('object-contain', size === 'sm' ? 'h-7 w-7' : 'h-9 w-9')}
       />
       <span className={clsx('font-semibold text-ink', size === 'sm' ? 'text-base' : 'text-lg')}>Helpcertify</span>
     </span>
