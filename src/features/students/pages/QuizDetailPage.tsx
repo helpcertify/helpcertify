@@ -93,129 +93,126 @@ export function QuizDetailPage() {
         ← Back to Mock Exams
       </Link>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        {/* Main column — heading, description, all the details, then the
-            free sample or reviews below. No bordered card wrapping this,
-            same as PracticeTestDetailPage. */}
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
-            <span>{quiz.category ?? 'Other'}</span>
-            <span>·</span>
-            <span>{quiz.skillLevel ?? 'Foundation'}</span>
+      {/* Single reading column — heading, description, then the purchase
+          card (moved down from a side-by-side sidebar, on request, so it
+          reads as part of the page's flow instead of sitting beside the
+          description), then the free sample or reviews. No bordered card
+          wrapping the whole page, same as PracticeTestDetailPage. */}
+      <div className="max-w-3xl">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
+          <span>{quiz.category ?? 'Other'}</span>
+          <span>·</span>
+          <span>{quiz.skillLevel ?? 'Foundation'}</span>
+        </div>
+        <h1 className="mb-2 text-3xl font-bold leading-tight text-ink">{quiz.title}</h1>
+
+        {(quiz.ratingCount ?? 0) > 0 && (
+          <div className="mb-3 flex items-center gap-2">
+            <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
+            <span className="text-sm text-ink-faint">
+              {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount} review{quiz.ratingCount === 1 ? '' : 's'})
+            </span>
           </div>
-          <h1 className="mb-2 text-3xl font-bold leading-tight text-ink">{quiz.title}</h1>
+        )}
 
-          {(quiz.ratingCount ?? 0) > 0 && (
-            <div className="mb-3 flex items-center gap-2">
-              <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
-              <span className="text-sm text-ink-faint">
-                {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount} review{quiz.ratingCount === 1 ? '' : 's'})
-              </span>
-            </div>
-          )}
-
-          <div className="mb-6 flex flex-wrap gap-4 text-sm text-ink-faint">
-            <span>📄 {quiz.totalQuestions} questions</span>
-            <span>⏱ {quiz.durationMinutes} min</span>
-          </div>
-
-          {quiz.description && (
-            <div className="mb-6">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">About this quiz</h2>
-              <p className="whitespace-pre-line text-sm text-ink-muted">{quiz.description}</p>
-            </div>
-          )}
-
-          {/* Same fixed 10 questions, same order, for every visitor every
-              time — see getQuizPreviewQuestions's orderBy('order'). */}
-          {!owned && previewCount > 0 && (
-            <PreviewQuestions itemType="quiz" itemId={quiz.id} previewQuestionCount={previewCount} />
-          )}
-
-          <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
+        <div className="mb-6 flex flex-wrap gap-4 text-sm text-ink-faint">
+          <span>📄 {quiz.totalQuestions} questions</span>
+          <span>⏱ {quiz.durationMinutes} min</span>
         </div>
 
-        {/* Sidebar — cover thumbnail, price, and every action, sticky so it
-            stays visible while the main column's description/reviews
-            scroll past it. */}
-        <div className="lg:sticky lg:top-20">
-          <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-            {/* Same light-blue gradient + icon header as every product
-                card in the app, not a colored cover banner. */}
-            <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
-              <CourseIcon id={quiz.id} title={quiz.title} itemType="quiz" />
-              <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{quiz.title}</h2>
-            </div>
-            <div className="p-5">
-              {price > 0 && (
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {quiz.originalPrice && quiz.originalPrice > price && (
-                      <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
-                    )}
-                    <span className="text-xl font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
-                  </div>
-                  {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" />}
+        {quiz.description && (
+          <div className="mb-6">
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">About this quiz</h2>
+            <p className="whitespace-pre-line text-sm text-ink-muted">{quiz.description}</p>
+          </div>
+        )}
+
+        {/* Purchase/action card — below the description, not a sticky
+            sidebar beside it. */}
+        <div className="mb-6 max-w-sm overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+          {/* Same light-blue gradient + icon header as every product
+              card in the app, not a colored cover banner. */}
+          <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
+            <CourseIcon id={quiz.id} title={quiz.title} itemType="quiz" />
+            <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{quiz.title}</h2>
+          </div>
+          <div className="p-5">
+            {price > 0 && (
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {quiz.originalPrice && quiz.originalPrice > price && (
+                    <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
+                  )}
+                  <span className="text-xl font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
                 </div>
-              )}
+                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" />}
+              </div>
+            )}
 
-              {!owned ? (
-                inCart ? (
-                  <Link
-                    to="/home/cart"
-                    className="block rounded-lg border border-[#1D4ED8]/50 py-2.5 text-center text-sm font-medium text-[#1D4ED8]"
-                  >
-                    ✓ In Cart · View Cart
-                  </Link>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      disabled={paying}
-                      onClick={() => setShowBuyNow(true)}
-                      className="w-full rounded-lg bg-[#1D4ED8] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {paying ? 'Opening…' : 'Buy Now'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={addToCartMutation.isPending || paying}
-                      onClick={() => addToCartMutation.mutate(quiz.id)}
-                      className="w-full rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
-                    >
-                      Add to Cart
-                    </button>
-                  </div>
-                )
-              ) : notYetOpen ? (
-                <span className="block text-center text-sm text-ink-faint">
-                  Opens {new Date(quiz.scheduledStart!.toMillis()).toLocaleString()}
-                </span>
-              ) : attempt?.status === 'in_progress' ? (
+            {!owned ? (
+              inCart ? (
                 <Link
-                  to={`/quizzes/${quiz.id}/take`}
-                  className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+                  to="/home/cart"
+                  className="block rounded-lg border border-[#1D4ED8]/50 py-2.5 text-center text-sm font-medium text-[#1D4ED8]"
                 >
-                  Resume
+                  ✓ In Cart · View Cart
                 </Link>
-              ) : attempt ? (
-                <span className="block rounded-lg bg-neutral-800 px-3 py-2.5 text-center text-sm text-ink-faint">Already attempted</span>
               ) : (
-                <Link
-                  to={`/quizzes/${quiz.id}/take`}
-                  className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
-                >
-                  Start Mock Exam
-                </Link>
-              )}
-            </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    disabled={paying}
+                    onClick={() => setShowBuyNow(true)}
+                    className="w-full rounded-lg bg-[#1D4ED8] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {paying ? 'Opening…' : 'Buy Now'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={addToCartMutation.isPending || paying}
+                    onClick={() => addToCartMutation.mutate(quiz.id)}
+                    className="w-full rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              )
+            ) : notYetOpen ? (
+              <span className="block text-center text-sm text-ink-faint">
+                Opens {new Date(quiz.scheduledStart!.toMillis()).toLocaleString()}
+              </span>
+            ) : attempt?.status === 'in_progress' ? (
+              <Link
+                to={`/quizzes/${quiz.id}/take`}
+                className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+              >
+                Resume
+              </Link>
+            ) : attempt ? (
+              <span className="block rounded-lg bg-neutral-800 px-3 py-2.5 text-center text-sm text-ink-faint">Already attempted</span>
+            ) : (
+              <Link
+                to={`/quizzes/${quiz.id}/take`}
+                className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+              >
+                Start Mock Exam
+              </Link>
+            )}
           </div>
         </div>
+
+        {/* Same fixed 10 questions, same order, for every visitor every
+            time — see getQuizPreviewQuestions's orderBy('order'). */}
+        {!owned && previewCount > 0 && (
+          <PreviewQuestions itemType="quiz" itemId={quiz.id} previewQuestionCount={previewCount} />
+        )}
+
+        <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
       </div>
 
-      {/* Full-width, below the two-column layout entirely (not squeezed
-          into the narrow main column), so all 4 cards are visible without
-          the card itself getting cramped by the sticky sidebar. */}
+      {/* Full-width, below the single-column layout entirely, so all 4
+          cards are visible without getting squeezed by the max-w-3xl
+          column above. */}
       <RelatedItems category={quiz.category ?? 'Other'} excludeItemType="quiz" excludeItemId={quiz.id} />
 
       {showBuyNow && (

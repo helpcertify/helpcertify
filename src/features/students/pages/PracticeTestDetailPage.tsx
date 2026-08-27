@@ -140,218 +140,216 @@ export function PracticeTestDetailPage() {
         ← Back to Practice Exams
       </Link>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        {/* Main column — heading, description, all the details, then the
-            free sample or reviews below. No bordered card wrapping this;
-            the page background itself is the canvas, same as a Udemy
-            course landing page. */}
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
-            <span>{test.category ?? 'Other'}</span>
-            <span>·</span>
-            <span>{test.skillLevel ?? 'Foundation'}</span>
+      {/* Single reading column — heading, description, then the purchase
+          card and study goal (moved down from a side-by-side sidebar, on
+          request, so they read as part of the page's flow instead of
+          sitting beside the description), then the free sample or
+          reviews. No bordered card wrapping the whole page; the page
+          background itself is the canvas, same as a Udemy course landing
+          page. */}
+      <div className="max-w-3xl">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
+          <span>{test.category ?? 'Other'}</span>
+          <span>·</span>
+          <span>{test.skillLevel ?? 'Foundation'}</span>
+        </div>
+        <h1 className="mb-2 text-3xl font-bold leading-tight text-ink">{test.title}</h1>
+
+        {(test.ratingCount ?? 0) > 0 && (
+          <div className="mb-3 flex items-center gap-2">
+            <StarRating value={test.ratingAvg ?? 0} size="sm" />
+            <span className="text-sm text-ink-faint">
+              {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount} review{test.ratingCount === 1 ? '' : 's'})
+            </span>
           </div>
-          <h1 className="mb-2 text-3xl font-bold leading-tight text-ink">{test.title}</h1>
+        )}
 
-          {(test.ratingCount ?? 0) > 0 && (
-            <div className="mb-3 flex items-center gap-2">
-              <StarRating value={test.ratingAvg ?? 0} size="sm" />
-              <span className="text-sm text-ink-faint">
-                {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount} review{test.ratingCount === 1 ? '' : 's'})
-              </span>
-            </div>
+        <div className="mb-6 flex flex-wrap gap-4 text-sm text-ink-faint">
+          <span>📄 {test.totalQuestions} questions</span>
+          <span>⏱ {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'You choose the session length'}</span>
+          {owned && (
+            <span>
+              ✅ {answered}/{test.totalQuestions} answered
+            </span>
           )}
+        </div>
 
-          <div className="mb-6 flex flex-wrap gap-4 text-sm text-ink-faint">
-            <span>📄 {test.totalQuestions} questions</span>
-            <span>⏱ {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'You choose the session length'}</span>
-            {owned && (
-              <span>
-                ✅ {answered}/{test.totalQuestions} answered
-              </span>
+        {test.description && (
+          <div className="mb-6">
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">About this practice test</h2>
+            <p className="whitespace-pre-line text-sm text-ink-muted">{test.description}</p>
+          </div>
+        )}
+
+        {/* Purchase/action card and study goal — below the description,
+            not a sticky sidebar beside it. */}
+        <div className="mb-6 max-w-sm overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+          {/* Same light-blue gradient + icon header as every product
+              card in the app, not a colored cover banner — the learner
+              is already on this item's own page, so this is just a
+              consistent identity strip, not another clickable card. */}
+          <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
+            <CourseIcon id={test.id} title={test.title} itemType="practiceTest" />
+            <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{test.title}</h2>
+          </div>
+          <div className="p-5">
+            {price > 0 && (
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {test.originalPrice && test.originalPrice > price && (
+                    <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
+                  )}
+                  <span className="text-xl font-bold text-ink">{formatMoney(price, test.currency)}</span>
+                </div>
+                {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" />}
+              </div>
+            )}
+
+            {state !== 'available' ? (
+              <div className="rounded-lg bg-neutral-800 px-3 py-2.5 text-center text-sm text-ink-faint">
+                🔒 {state === 'expired' ? 'Expired' : 'Upcoming'}. Available {formatDate(test.availableFrom)} →{' '}
+                {formatDate(test.availableUntil)}
+              </div>
+            ) : !owned ? (
+              inCart ? (
+                <Link
+                  to="/home/cart"
+                  className="block rounded-lg border border-[#1D4ED8]/50 py-2.5 text-center text-sm font-medium text-[#1D4ED8]"
+                >
+                  ✓ In Cart · View Cart
+                </Link>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    disabled={paying}
+                    onClick={() => setShowBuyNow(true)}
+                    className="w-full rounded-lg bg-[#1D4ED8] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {paying ? 'Opening…' : 'Buy Now'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={addToCartMutation.isPending || paying}
+                    onClick={() => addToCartMutation.mutate(test.id)}
+                    className="w-full rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              )
+            ) : (
+              <div>
+                {/* Only shown when the admin left session length up to the
+                    student (test.durationPerSessionMinutes is null) — an
+                    already-resumable session ignores this, since its
+                    duration was already fixed when it started. */}
+                {test.durationPerSessionMinutes == null && !done && (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-xs text-ink-faint">Session duration</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SESSION_DURATION_PRESETS.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setChosenDuration(m)}
+                          className={`rounded-full border px-3 py-1 text-xs ${
+                            chosenDuration === m
+                              ? 'border-[#1D4ED8] bg-[#1D4ED8]/10 text-[#1D4ED8]'
+                              : 'border-surface-border text-ink-muted hover:border-brand-400'
+                          }`}
+                        >
+                          {m} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  {!done && (
+                    <Link
+                      to={
+                        test.durationPerSessionMinutes == null
+                          ? `/practice-tests/${test.id}/take?sessionDuration=${chosenDuration}`
+                          : `/practice-tests/${test.id}/take`
+                      }
+                      className="block w-full rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+                    >
+                      {answered > 0 ? 'Resume' : 'Start Practice'}
+                    </Link>
+                  )}
+                  {answered > 0 && (
+                    <Link
+                      to={
+                        test.durationPerSessionMinutes == null
+                          ? `/practice-tests/${test.id}/take?reattempt=1&sessionDuration=${chosenDuration}`
+                          : `/practice-tests/${test.id}/take?reattempt=1`
+                      }
+                      className="block w-full rounded-lg border border-surface-border py-2.5 text-center text-sm text-ink-muted"
+                    >
+                      Reattempt
+                    </Link>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-
-          {test.description && (
-            <div className="mb-6">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">About this practice test</h2>
-              <p className="whitespace-pre-line text-sm text-ink-muted">{test.description}</p>
-            </div>
-          )}
-
-          {/* Same fixed 10 questions, same order, for every visitor every
-              time — see getPracticeTestPreviewQuestions's orderBy('order'),
-              nothing here randomizes or re-samples on reload. */}
-          {!owned && previewCount > 0 && (
-            <PreviewQuestions itemType="practiceTest" itemId={test.id} previewQuestionCount={previewCount} />
-          )}
-
-          {showGoalPanel && test.studyPlannerEnabled !== false && (
-            <StudyGoalPanel
-              testId={test.id}
-              test={test}
-              onSaved={() => {
-                setShowGoalPanel(false);
-                setSearchParams((prev) => {
-                  const next = new URLSearchParams(prev);
-                  next.delete('goal');
-                  return next;
-                });
-              }}
-            />
-          )}
-
-          <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
         </div>
 
-        {/* Sidebar — cover thumbnail, price, and every action, sticky so it
-            stays visible while the main column's description/reviews
-            scroll past it. */}
-        <div className="lg:sticky lg:top-20">
-          <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-            {/* Same light-blue gradient + icon header as every product
-                card in the app, not a colored cover banner — the learner
-                is already on this item's own page, so this is just a
-                consistent identity strip, not another clickable card. */}
-            <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
-              <CourseIcon id={test.id} title={test.title} itemType="practiceTest" />
-              <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{test.title}</h2>
-            </div>
-            <div className="p-5">
-              {price > 0 && (
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {test.originalPrice && test.originalPrice > price && (
-                      <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
-                    )}
-                    <span className="text-xl font-bold text-ink">{formatMoney(price, test.currency)}</span>
-                  </div>
-                  {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" />}
-                </div>
-              )}
-
-              {state !== 'available' ? (
-                <div className="rounded-lg bg-neutral-800 px-3 py-2.5 text-center text-sm text-ink-faint">
-                  🔒 {state === 'expired' ? 'Expired' : 'Upcoming'}. Available {formatDate(test.availableFrom)} →{' '}
-                  {formatDate(test.availableUntil)}
-                </div>
-              ) : !owned ? (
-                inCart ? (
-                  <Link
-                    to="/home/cart"
-                    className="block rounded-lg border border-[#1D4ED8]/50 py-2.5 text-center text-sm font-medium text-[#1D4ED8]"
-                  >
-                    ✓ In Cart · View Cart
-                  </Link>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      disabled={paying}
-                      onClick={() => setShowBuyNow(true)}
-                      className="w-full rounded-lg bg-[#1D4ED8] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      {paying ? 'Opening…' : 'Buy Now'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={addToCartMutation.isPending || paying}
-                      onClick={() => addToCartMutation.mutate(test.id)}
-                      className="w-full rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
-                    >
-                      Add to Cart
-                    </button>
-                  </div>
-                )
-              ) : (
-                <div>
-                  {/* Only shown when the admin left session length up to the
-                      student (test.durationPerSessionMinutes is null) — an
-                      already-resumable session ignores this, since its
-                      duration was already fixed when it started. */}
-                  {test.durationPerSessionMinutes == null && !done && (
-                    <div className="mb-3">
-                      <label className="mb-1 block text-xs text-ink-faint">Session duration</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {SESSION_DURATION_PRESETS.map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setChosenDuration(m)}
-                            className={`rounded-full border px-3 py-1 text-xs ${
-                              chosenDuration === m
-                                ? 'border-[#1D4ED8] bg-[#1D4ED8]/10 text-[#1D4ED8]'
-                                : 'border-surface-border text-ink-muted hover:border-brand-400'
-                            }`}
-                          >
-                            {m} min
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    {!done && (
-                      <Link
-                        to={
-                          test.durationPerSessionMinutes == null
-                            ? `/practice-tests/${test.id}/take?sessionDuration=${chosenDuration}`
-                            : `/practice-tests/${test.id}/take`
-                        }
-                        className="block w-full rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
-                      >
-                        {answered > 0 ? 'Resume' : 'Start Practice'}
-                      </Link>
-                    )}
-                    {answered > 0 && (
-                      <Link
-                        to={
-                          test.durationPerSessionMinutes == null
-                            ? `/practice-tests/${test.id}/take?reattempt=1&sessionDuration=${chosenDuration}`
-                            : `/practice-tests/${test.id}/take?reattempt=1`
-                        }
-                        className="block w-full rounded-lg border border-surface-border py-2.5 text-center text-sm text-ink-muted"
-                      >
-                        Reattempt
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Study goal — either a compact live summary of the plan already
+            in place (with an Edit link into the full panel below), or the
+            single call-to-action to create one. Kept out of the bordered
+            price/action card above since it's a distinct concern, not
+            another purchase-flow action. */}
+        {owned && test.studyPlannerEnabled !== false && (
+          <div className="mb-6 max-w-sm">
+            {existingPlan ? (
+              <PlanSummaryCard
+                test={test}
+                answered={answered}
+                plan={existingPlan}
+                onEdit={() => setShowGoalPanel(true)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowGoalPanel((v) => !v)}
+                className="block w-full rounded-lg border border-[#d87f1d] bg-[#d87f1d]/10 py-2.5 text-center text-sm font-medium text-[#d87f1d] hover:bg-[#d87f1d]/20"
+              >
+                {showGoalPanel ? '✕ Hide Study Goal' : '🎯 Set My Study Goal'}
+              </button>
+            )}
           </div>
+        )}
 
-          {/* Study goal — either a compact live summary of the plan already
-              in place (with an Edit link into the full panel above), or the
-              single call-to-action to create one. Kept out of the bordered
-              price/action card above since it's a distinct concern, not
-              another purchase-flow action. */}
-          {owned && test.studyPlannerEnabled !== false && (
-            <div className="mt-4">
-              {existingPlan ? (
-                <PlanSummaryCard
-                  test={test}
-                  answered={answered}
-                  plan={existingPlan}
-                  onEdit={() => setShowGoalPanel(true)}
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowGoalPanel((v) => !v)}
-                  className="block w-full rounded-lg border border-[#d87f1d] bg-[#d87f1d]/10 py-2.5 text-center text-sm font-medium text-[#d87f1d] hover:bg-[#d87f1d]/20"
-                >
-                  {showGoalPanel ? '✕ Hide Study Goal' : '🎯 Set Your Study Goal'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Same fixed 10 questions, same order, for every visitor every
+            time — see getPracticeTestPreviewQuestions's orderBy('order'),
+            nothing here randomizes or re-samples on reload. */}
+        {!owned && previewCount > 0 && (
+          <PreviewQuestions itemType="practiceTest" itemId={test.id} previewQuestionCount={previewCount} />
+        )}
+
+        {showGoalPanel && test.studyPlannerEnabled !== false && (
+          <StudyGoalPanel
+            testId={test.id}
+            test={test}
+            onSaved={() => {
+              setShowGoalPanel(false);
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('goal');
+                return next;
+              });
+            }}
+          />
+        )}
+
+        <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
       </div>
 
-      {/* Full-width, below the two-column layout entirely (not squeezed
-          into the narrow main column), so all 4 cards are visible without
-          the card itself getting cramped by the sticky sidebar. */}
+      {/* Full-width, below the single-column layout entirely, so all 4
+          cards are visible without getting squeezed by the max-w-3xl
+          column above. */}
       <RelatedItems category={test.category ?? 'Other'} excludeItemType="practiceTest" excludeItemId={test.id} />
 
       {showBuyNow && (
@@ -430,7 +428,7 @@ function PlanSummaryCard({
   return (
     <div className="overflow-hidden rounded-xl border border-[#1D4ED8]/30 bg-surface-raised">
       <div className="flex items-center justify-between bg-gradient-to-r from-[#1D4ED8] to-[#0f2f8f] px-4 py-2.5">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-white">Your Study Goal</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wide text-white">My Study Goal</h3>
         <button type="button" onClick={onEdit} className="text-xs font-medium text-white/80 hover:text-white hover:underline">
           Edit
         </button>

@@ -15,7 +15,7 @@ interface RelatedItemsProps {
   limit?: number;
 }
 
-// "Students also bought" — a 4-up grid at the very bottom of the page,
+// "You might also like" — a 4-up grid at the very bottom of the page,
 // below everything else. On a detail page this is same-category items
 // other than the one being viewed; on a landing page (no category given)
 // it's the catalog's best-rated items overall. Either way this is a
@@ -71,5 +71,5 @@ export function RelatedItems({ category, excludeItemType, excludeItemId, limit =
     candidates = candidates.filter((i) => !(i.itemType === excludeItemType && i.id === excludeItemId));
   }
 
-  return <CourseCarousel title="Students also bought" items={candidates.slice(0, limit)} variant="grid" />;
+  return <CourseCarousel title="You might also like" items={candidates.slice(0, limit)} variant="grid" />;
 }

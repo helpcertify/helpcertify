@@ -151,7 +151,7 @@ export function StudyGoalPanel({
           deliberate splash of color rather than the muted-gray treatment
           the rest of this page uses. */}
       <div className="bg-gradient-to-br from-[#1D4ED8] to-[#0f2f8f] p-5 text-white">
-        <h2 className="mb-1 text-lg font-bold">🎯 Set Your Study Goal</h2>
+        <h2 className="mb-1 text-lg font-bold">🎯 Set My Study Goal</h2>
         <p className="text-sm text-white/80">
           {existingPlan
             ? 'You already have a plan for this practice test. Choosing an option below replaces it.'

@@ -27,7 +27,7 @@ interface CourseCarouselProps {
   items: CarouselItem[];
   // 'carousel' (default) is the horizontally-scrolling row used for
   // Recommended for you. 'grid' instead wraps every card onto the page
-  // (flex-wrap, no scroll arrows) — used for "Students also bought" at the
+  // (flex-wrap, no scroll arrows) — used for "You might also like" at the
   // bottom of a detail/landing page, where all 4 cards should just be
   // visible at once rather than requiring a scroll gesture.
   variant?: 'carousel' | 'grid';

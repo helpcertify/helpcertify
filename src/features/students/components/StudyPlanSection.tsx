@@ -67,7 +67,7 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
             to={`/home/practice-tests/${unplannedTest.id}?goal=1`}
             className="inline-block rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            🎯 Set Your Study Goal
+            🎯 Set My Study Goal
           </Link>
         </div>
       )}

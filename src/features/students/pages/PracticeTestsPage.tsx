@@ -249,7 +249,7 @@ function PracticeTestCard({
       to={`/home/practice-tests/${test.id}?goal=1`}
       className="block w-full rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-semibold text-white hover:opacity-90"
     >
-      🎯 Set Your Study Goal
+      🎯 Set My Study Goal
     </Link>
   ) : (
     <Link

@@ -51,7 +51,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
                     onClick={onClose}
                     className="block border-t border-surface-border bg-[#d87f1d]/10 px-4 py-2 text-sm font-medium text-[#d87f1d] hover:bg-[#d87f1d]/15"
                   >
-                    🎯 Set Your Study Goal
+                    🎯 Set My Study Goal
                   </Link>
                 )}
               </div>
