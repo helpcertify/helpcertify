@@ -66,21 +66,31 @@ async function getOrCreateProgress(uid: string, testId: string) {
   return { ref, progress };
 }
 
-// sessionDurationMinutes is only used (and only required) when the test's
-// own durationPerSessionMinutes is null — an admin choosing, per test, to
-// let students pick their own session length instead of a fixed one (see
-// api/content-admin.ts's createPracticeTest). Ignored otherwise: the
-// admin's own setting always wins when one exists.
+// Practice sessions no longer have an enforced timer — Practice Question
+// Bank sessions are sized by question count (10/25/50/custom), not
+// minutes; a test's own durationPerSessionMinutes (still admin-settable in
+// content-admin.ts) is now purely an "approximately N minutes" estimate the
+// client computes itself, not something the server gates on. expiresAt
+// still exists on the session doc, but only as a generous stale-session
+// cleanup window — an abandoned in_progress session past this age is
+// treated as expired so a student isn't ever blocked from starting a new
+// one, not because their time genuinely "ran out."
+const SESSION_STALE_HOURS = 24;
+// Sensible ceiling for a single sitting — large enough for a "Custom" power
+// user, small enough that one session can't quietly claim most of a huge
+// bank in one shot.
+const MAX_SESSION_SIZE = 200;
+
 const startBatchSchema = z.object({
   testId: z.string().min(1),
-  batchSize: z.number().int().min(1).max(500).optional(),
-  sessionDurationMinutes: z.number().int().min(5).max(600).optional(),
+  batchSize: z.number().int().min(1).max(MAX_SESSION_SIZE).optional(),
+  feedbackMode: z.enum(['immediate', 'end_of_session']).optional(),
 });
 
 async function startOrResumeBatch(uid: string, body: unknown) {
   const parsed = startBatchSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { testId, batchSize, sessionDurationMinutes } = parsed.data;
+  const { testId, batchSize, feedbackMode } = parsed.data;
 
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
@@ -108,89 +118,86 @@ async function startOrResumeBatch(uid: string, body: unknown) {
     throw Err.failedPrecondition('This practice test is not currently available');
   }
 
-  const existing = await db
-    .collection('practiceSessions')
-    .where('userId', '==', uid)
-    .where('testId', '==', testId)
-    .where('status', '==', 'in_progress')
-    .limit(1)
-    .get();
-  if (!existing.empty) {
-    const session = existing.docs[0].data();
-    if ((session.expiresAt as Timestamp).toMillis() > now.toMillis()) {
-      return { sessionId: existing.docs[0].id, session, resumed: true };
+  // The existing-session check and the new session's creation both need to
+  // agree on "is there already an in_progress session" atomically — two
+  // tabs/devices calling this at the same instant could otherwise both pass
+  // the check and each get handed an overlapping batch of "unseen"
+  // questions before either one's answeredQuestionIds write ever lands.
+  // Wrapping both in one transaction closes that window.
+  return db.runTransaction(async (t) => {
+    const existingQuery = db
+      .collection('practiceSessions')
+      .where('userId', '==', uid)
+      .where('testId', '==', testId)
+      .where('status', '==', 'in_progress')
+      .limit(1);
+    const existing = await t.get(existingQuery);
+    if (!existing.empty) {
+      const existingDoc = existing.docs[0];
+      const session = existingDoc.data();
+      const staleMs = SESSION_STALE_HOURS * 60 * 60 * 1000;
+      if (now.toMillis() - (session.startedAt as Timestamp).toMillis() < staleMs) {
+        return { sessionId: existingDoc.id, session, resumed: true };
+      }
+      t.update(existingDoc.ref, { status: 'expired' });
     }
-    await existing.docs[0].ref.update({ status: 'expired' });
-  }
 
-  const { ref: progressRef, progress } = await getOrCreateProgress(uid, testId);
-  const answeredSet = new Set(progress.answeredQuestionIds);
+    const progressRef = db.collection('practiceProgress').doc(`${uid}_${testId}`);
+    const progressSnap = await t.get(progressRef);
+    const answeredQuestionIds = (progressSnap.data()?.answeredQuestionIds as string[] | undefined) ?? [];
+    const answeredSet = new Set(answeredQuestionIds);
 
-  const allQuestionsSnap = await db.collection('practiceTests').doc(testId).collection('questions').select().get();
-  const unansweredIds = allQuestionsSnap.docs.map((d) => d.id).filter((id) => !answeredSet.has(id));
-  if (unansweredIds.length === 0) {
-    throw Err.failedPrecondition('No unanswered questions remain. Use Reattempt Last Batch to keep practicing.');
-  }
+    const allQuestionsSnap = await db.collection('practiceTests').doc(testId).collection('questions').select().get();
+    const unansweredIds = allQuestionsSnap.docs.map((d) => d.id).filter((id) => !answeredSet.has(id));
+    if (unansweredIds.length === 0) {
+      throw Err.failedPrecondition('No unanswered questions remain. Use Reattempt Last Batch to keep practicing.');
+    }
 
-  const size = Math.min(batchSize ?? test.defaultInitialBatchSize, unansweredIds.length);
-  const batchQuestionIds = unansweredIds.slice(0, size);
+    const size = Math.min(batchSize ?? test.defaultInitialBatchSize, unansweredIds.length);
+    const batchQuestionIds = unansweredIds.slice(0, size);
 
-  // test.durationPerSessionMinutes is null when the admin left session
-  // length up to the student — in that case the client must supply one.
-  const durationMinutes: number | undefined = test.durationPerSessionMinutes ?? sessionDurationMinutes;
-  if (!durationMinutes) {
-    throw Err.invalidArgument('Choose how long this session should run before starting.');
-  }
+    const sessionRef = db.collection('practiceSessions').doc();
+    const session = {
+      userId: uid,
+      testId,
+      batchQuestionIds,
+      status: 'in_progress' as const,
+      startedAt: now,
+      submittedAt: null,
+      expiresAt: Timestamp.fromMillis(now.toMillis() + SESSION_STALE_HOURS * 60 * 60 * 1000),
+      answeredCount: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      isReattempt: false,
+      feedbackMode: feedbackMode ?? 'immediate',
+    };
+    t.set(sessionRef, session);
+    t.set(progressRef, { userId: uid, testId, lastBatchQuestionIds: batchQuestionIds, updatedAt: now }, { merge: true });
 
-  const sessionRef = db.collection('practiceSessions').doc();
-  const session = {
-    userId: uid,
-    testId,
-    batchQuestionIds,
-    status: 'in_progress' as const,
-    startedAt: now,
-    submittedAt: null,
-    expiresAt: Timestamp.fromMillis(now.toMillis() + durationMinutes * 60_000),
-    answeredCount: 0,
-    correctCount: 0,
-    incorrectCount: 0,
-    isReattempt: false,
-  };
-  await sessionRef.set(session);
-  await progressRef.set(
-    { userId: uid, testId, lastBatchQuestionIds: batchQuestionIds, updatedAt: now },
-    { merge: true }
-  );
-
-  return { sessionId: sessionRef.id, session, resumed: false };
+    return { sessionId: sessionRef.id, session, resumed: false };
+  });
 }
 
 const reattemptSchema = z.object({
   testId: z.string().min(1),
-  sessionDurationMinutes: z.number().int().min(5).max(600).optional(),
+  feedbackMode: z.enum(['immediate', 'end_of_session']).optional(),
 });
 
 async function reattemptLastBatch(uid: string, body: unknown) {
   const parsed = reattemptSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { testId, sessionDurationMinutes } = parsed.data;
+  const { testId, feedbackMode } = parsed.data;
 
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
-  const test = testSnap.data()!;
 
-  if ((test.price ?? 0) > 0) {
+  if ((testSnap.data()!.price ?? 0) > 0) {
     const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
     if (!purchaseSnap.exists) throw Err.paymentRequired();
   }
 
   const { progress } = await getOrCreateProgress(uid, testId);
   if (progress.lastBatchQuestionIds.length === 0) throw Err.failedPrecondition('No previous batch to reattempt');
-
-  const durationMinutes: number | undefined = test.durationPerSessionMinutes ?? sessionDurationMinutes;
-  if (!durationMinutes) {
-    throw Err.invalidArgument('Choose how long this session should run before starting.');
-  }
 
   const now = Timestamp.now();
   const sessionRef = db.collection('practiceSessions').doc();
@@ -201,11 +208,12 @@ async function reattemptLastBatch(uid: string, body: unknown) {
     status: 'in_progress' as const,
     startedAt: now,
     submittedAt: null,
-    expiresAt: Timestamp.fromMillis(now.toMillis() + durationMinutes * 60_000),
+    expiresAt: Timestamp.fromMillis(now.toMillis() + SESSION_STALE_HOURS * 60 * 60 * 1000),
     answeredCount: 0,
     correctCount: 0,
     incorrectCount: 0,
     isReattempt: true,
+    feedbackMode: feedbackMode ?? 'immediate',
   };
   await sessionRef.set(session);
   return { sessionId: sessionRef.id, session };
@@ -251,6 +259,7 @@ async function saveAnswer(uid: string, body: unknown) {
     .doc('answerKey')
     .get();
   const correctOptionId: string | null = keySnap.data()?.correctOptionId ?? null;
+  const explanation: string | null = keySnap.data()?.explanation ?? null;
   const isCorrect = correctOptionId === selectedOptionId;
 
   await answerRef.set({ selectedOptionId, isCorrect, answeredAt: Timestamp.now() });
@@ -272,7 +281,15 @@ async function saveAnswer(uid: string, body: unknown) {
     }
   }
 
-  return { isCorrect, correctOptionId };
+  // Review At End (feedbackMode === 'end_of_session') must never leak
+  // correctness mid-session — the answer is still recorded above (the
+  // server needs it for the end-of-session review), it's just withheld
+  // from this response. Missing feedbackMode (a session from before this
+  // field existed) behaves as 'immediate', same as it always has.
+  if (session.feedbackMode === 'end_of_session') {
+    return { isCorrect: null, correctOptionId: null, explanation: null };
+  }
+  return { isCorrect, correctOptionId, explanation };
 }
 
 // Free preview — same reasoning as api/quiz-session.ts's previewCheckAnswer:
@@ -451,6 +468,57 @@ async function submitBatch(uid: string, body: unknown) {
   return { session: { ...session, status: 'submitted' } };
 }
 
+// The end-of-session review screen (both feedback modes use this — Learn
+// As You Go for its "Review Answers" button, Review At End since it's the
+// only place those answers are ever revealed at all). Only for a
+// non-in_progress session, so a Review At End session can't have this
+// called mid-batch to route around the withholding in saveAnswer.
+async function getBatchReview(uid: string, body: unknown) {
+  const parsed = sessionIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const sessionRef = db.collection('practiceSessions').doc(parsed.data.sessionId);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) throw Err.notFound('Session not found');
+  const session = sessionSnap.data()!;
+  if (session.userId !== uid) throw Err.notFound('Session not found');
+  if (session.status === 'in_progress') throw Err.failedPrecondition('Finish this session before reviewing it');
+
+  const batchQuestionIds: string[] = session.batchQuestionIds;
+  const questionsRef = db.collection('practiceTests').doc(session.testId).collection('questions');
+
+  const [questionSnaps, keySnaps, answerSnaps] = await Promise.all([
+    db.getAll(...batchQuestionIds.map((id) => questionsRef.doc(id))),
+    db.getAll(...batchQuestionIds.map((id) => questionsRef.doc(id).collection('private').doc('answerKey'))),
+    db.getAll(...batchQuestionIds.map((id) => sessionRef.collection('answers').doc(id))),
+  ]);
+
+  const questions = batchQuestionIds.map((id, i) => {
+    const q = questionSnaps[i].data();
+    const key = keySnaps[i].data();
+    const answer = answerSnaps[i].data();
+    return {
+      questionId: id,
+      questionText: q?.questionText ?? '',
+      options: q?.options ?? [],
+      selectedOptionId: answer?.selectedOptionId ?? null,
+      correctOptionId: key?.correctOptionId ?? null,
+      explanation: key?.explanation ?? null,
+      isCorrect: answer?.isCorrect ?? false,
+    };
+  });
+
+  return {
+    questions,
+    summary: {
+      totalQuestions: batchQuestionIds.length,
+      answeredCount: session.answeredCount,
+      correctCount: session.correctCount,
+      incorrectCount: session.incorrectCount,
+    },
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -467,6 +535,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'reattemptLastBatch':
         res.status(200).json(await reattemptLastBatch(uid, data));
+        return;
+      case 'getBatchReview':
+        res.status(200).json(await getBatchReview(uid, data));
         return;
       case 'saveAnswer':
         res.status(200).json(await saveAnswer(uid, data));

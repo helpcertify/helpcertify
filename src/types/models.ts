@@ -332,6 +332,8 @@ export interface QuizAnswerDoc {
   answeredAt: Timestamp;
 }
 
+export type PracticeFeedbackMode = 'immediate' | 'end_of_session';
+
 /** practiceSessions/{sessionId} — one batch within a practice test. */
 export interface PracticeSessionDoc {
   userId: string;
@@ -345,6 +347,13 @@ export interface PracticeSessionDoc {
   correctCount: number;
   incorrectCount: number;
   isReattempt: boolean;
+  // 'immediate' (Learn As You Go) reveals correctness/explanation right
+  // after each answer; 'end_of_session' (Review At End) hides all of that
+  // until the whole batch is submitted (see api/practice-session.ts's
+  // saveAnswer, which enforces this server-side, not just in the UI).
+  // Missing on any session created before this field existed — treated as
+  // 'immediate', matching how every session behaved before this feature.
+  feedbackMode?: PracticeFeedbackMode;
 }
 
 /** practiceSessions/{sessionId}/answers/{questionId} — immediate feedback, so isCorrect is known right away. */

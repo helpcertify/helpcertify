@@ -1,27 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getPracticeQuestionsByIds } from '../api/studentContentApi';
-import { practiceSessionApi, type PracticeSessionState } from '../api/practiceSessionApi';
+import { practiceSessionApi, type BatchReviewQuestion, type PracticeSessionState } from '../api/practiceSessionApi';
 import { useUiStore } from '@/store/useUiStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VercelApiError } from '@/lib/vercelApi';
-import type { QuestionDoc } from '@/types/models';
+import type { PracticeFeedbackMode, QuestionDoc } from '@/types/models';
 
 interface AnswerFeedback {
-  isCorrect: boolean;
+  isCorrect: boolean | null;
   correctOptionId: string | null;
+  explanation: string | null;
 }
 
 export function PracticeTakingPage() {
   const { testId } = useParams<{ testId: string }>();
   const [searchParams] = useSearchParams();
   const isReattempt = searchParams.get('reattempt') === '1';
-  // Only meaningful when this test's own durationPerSessionMinutes is null
-  // (the admin left session length up to the student) — set by the
-  // duration picker on PracticeTestDetailPage.tsx before linking here.
-  // Ignored server-side whenever the test has its own fixed duration.
-  const sessionDurationParam = searchParams.get('sessionDuration');
-  const sessionDurationMinutes = sessionDurationParam ? Number(sessionDurationParam) : undefined;
+  const sessionSizeParam = searchParams.get('sessionSize');
+  const sessionSize = sessionSizeParam ? Number(sessionSizeParam) : undefined;
+  const feedbackModeParam = searchParams.get('feedbackMode');
+  const requestedFeedbackMode: PracticeFeedbackMode = feedbackModeParam === 'end_of_session' ? 'end_of_session' : 'immediate';
   const navigate = useNavigate();
   const pushToast = useUiStore((s) => s.pushToast);
 
@@ -33,16 +32,19 @@ export function PracticeTakingPage() {
   const [feedback, setFeedback] = useState<Record<string, AnswerFeedback>>({});
   const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [review, setReview] = useState<{
+    questions: BatchReviewQuestion[];
+    summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number };
+  } | null>(null);
   const startedRef = useRef(false);
 
   useEffect(() => {
     if (!testId || startedRef.current) return;
     startedRef.current = true;
     const start = isReattempt
-      ? practiceSessionApi.reattemptLastBatch(testId, sessionDurationMinutes)
-      : practiceSessionApi.startOrResumeBatch(testId, undefined, sessionDurationMinutes);
+      ? practiceSessionApi.reattemptLastBatch(testId, requestedFeedbackMode)
+      : practiceSessionApi.startOrResumeBatch(testId, sessionSize, requestedFeedbackMode);
     start
       .then(async (res) => {
         setSessionId(res.sessionId);
@@ -57,7 +59,14 @@ export function PracticeTakingPage() {
         pushToast(err instanceof Error ? err.message : 'Could not start this practice session', 'error');
         navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home/practice-tests');
       });
-  }, [testId, isReattempt, sessionDurationMinutes, navigate, pushToast]);
+  }, [testId, isReattempt, sessionSize, requestedFeedbackMode, navigate, pushToast]);
+
+  // The server's own record of this session's mode is what actually gates
+  // the UI, not the query param used to request it — a resumed session
+  // keeps whatever mode it was started with (session.feedbackMode falls
+  // back to 'immediate' for a session created before this field existed).
+  const feedbackMode: PracticeFeedbackMode = session?.feedbackMode ?? 'immediate';
+  const isImmediate = feedbackMode === 'immediate';
 
   const current = questions[currentIndex];
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
@@ -76,7 +85,10 @@ export function PracticeTakingPage() {
     setSaving(true);
     try {
       const res = await practiceSessionApi.saveAnswer(sessionId, current.id, optionId);
-      setFeedback((prev) => ({ ...prev, [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId } }));
+      setFeedback((prev) => ({
+        ...prev,
+        [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId, explanation: res.explanation },
+      }));
     } catch {
       pushToast('Could not save that answer', 'error');
     } finally {
@@ -90,17 +102,18 @@ export function PracticeTakingPage() {
     if (!sessionId) return;
     try {
       await practiceSessionApi.submitBatch(sessionId);
-      setSubmitted(true);
+      const data = await practiceSessionApi.getBatchReview(sessionId);
+      setReview(data);
     } catch {
-      pushToast('Could not submit this batch', 'error');
+      pushToast('Could not submit this session', 'error');
     }
   };
 
   const unansweredCount = questions.length - answeredCount;
 
-  // Finish is available from any question in the batch, not just the last
-  // one — clicking it with questions still unanswered confirms first (with
-  // the actual count) rather than finishing immediately.
+  // Finish is available from any question in the session, not just the
+  // last one — clicking it with questions still unanswered confirms first
+  // (with the actual count) rather than finishing immediately.
   const handleFinishClick = () => {
     if (unansweredCount > 0) {
       setShowFinishConfirm(true);
@@ -109,37 +122,22 @@ export function PracticeTakingPage() {
     }
   };
 
-  if (submitted) {
-    const correct = Object.values(feedback).filter((f) => f.isCorrect).length;
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-        <div className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-8 text-center">
-          <h1 className="mb-4 text-xl font-bold text-ink">Batch Complete</h1>
-          <div className="text-3xl font-bold text-brand-ink">
-            {correct} / {questions.length}
-          </div>
-          <p className="mt-1 text-sm text-ink-faint">correct in this batch</p>
-          <button
-            type="button"
-            onClick={() => navigate('/home/practice-tests')}
-            className="mt-6 w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-surface"
-          >
-            Back to Practice Exams
-          </button>
-        </div>
-      </div>
-    );
+  if (review) {
+    return <PracticeReviewScreen review={review} onDone={() => navigate('/home/practice-tests')} />;
   }
 
   if (!session || !current) return <div className="p-8 text-ink-faint">Loading practice session…</div>;
 
   const result = feedback[current.id];
-  const answered = !!result;
+  // Only 'immediate' mode ever has a non-null isCorrect — 'end_of_session'
+  // always gets isCorrect: null back from saveAnswer, so this can never
+  // accidentally reveal correctness in that mode even if `result` exists.
+  const revealed = isImmediate && !!result && result.isCorrect !== null;
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">
             Practice Session {isReattempt && <span className="text-sm text-ink-faint">(Reattempt)</span>}
           </h1>
@@ -149,6 +147,9 @@ export function PracticeTakingPage() {
               {answeredCount} / {questions.length} answered
             </span>
           </div>
+        </div>
+        <div className="mb-4 text-xs text-[#64748B]">
+          Question {currentIndex + 1} of {questions.length}
         </div>
 
         {/* Right-side question navigator on desktop (mirrors QuizTakingPage) —
@@ -163,54 +164,94 @@ export function PracticeTakingPage() {
               <div className="space-y-2">
                 {current.options.map((opt) => {
                   const selected = answers[current.id] === opt.id;
-                  const isTheCorrectOption = answered && result.correctOptionId === opt.id;
-                  const isWrongPick = answered && selected && !result.isCorrect;
+                  const isTheCorrectOption = revealed && result.correctOptionId === opt.id;
+                  const isWrongPick = revealed && selected && !result.isCorrect;
 
                   // The plain -300 shades read fine on a near-black dark-theme
                   // card but washed out to near-illegible on the light theme's
                   // white card — dark: variants pick a solid, readable shade
                   // per theme instead of one compromise color for both.
                   let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
-                  if (answered) {
-                    if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-                    else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-300';
+                  if (revealed) {
+                    if (isTheCorrectOption) cls = 'border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]';
+                    else if (isWrongPick) cls = 'border-[#DC2626] bg-[#FEF2F2] text-[#DC2626]';
                     else cls = 'border-surface-border text-ink-faint opacity-60';
                   } else if (selected) {
-                    cls = 'border-brand-400 bg-brand-500/10 text-brand-ink';
+                    cls = 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]';
                   }
 
                   return (
                     <button
                       key={opt.id}
                       type="button"
-                      disabled={saving}
+                      disabled={saving || !!result}
                       onClick={() => handleSelect(opt.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-left text-sm disabled:cursor-not-allowed ${cls}`}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm disabled:cursor-not-allowed ${cls}`}
                     >
                       <span>{opt.text}</span>
-                      {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓ Correct answer</span>}
-                      {isWrongPick && <span className="shrink-0 text-xs font-semibold">✗ Incorrect</span>}
+                      {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓</span>}
+                      {isWrongPick && <span className="shrink-0 text-xs font-semibold">✕</span>}
                     </button>
                   );
                 })}
               </div>
               {saving && <div className="mt-3 text-sm text-ink-faint">Checking…</div>}
-              {/* Only a positive confirmation banner — a wrong pick is
-                  already unambiguous from the red/green option highlighting
-                  above, so a second "Incorrect" line was redundant and (per
-                  the same light-theme contrast issue) hard to read. */}
-              {answered && result.isCorrect && (
-                <div className="mt-3 rounded-lg bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                  ✓ Correct!
+
+              {/* Learn As You Go: correctness + explanation, right away —
+                  Section 17-19's hierarchy (correct/your-answer callouts,
+                  then the admin-authored explanation, exactly as stored;
+                  no fabricated "why your answer is wrong"/"exam tip"
+                  sub-sections, since the schema only has one explanation
+                  field per question). Review At End: never shown — result
+                  is always undefined-equivalent there (isCorrect is null),
+                  so `revealed` is false and none of this renders. */}
+              {revealed && (
+                <div className="mt-4 space-y-3">
+                  {result.isCorrect ? (
+                    <div className="rounded-lg border border-[#16A34A] bg-[#F0FDF4] px-4 py-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-[#16A34A]">✓ Correct</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-[#DC2626] bg-[#FEF2F2] px-4 py-3">
+                        <div className="text-xs font-bold uppercase tracking-wide text-[#DC2626]">✕ Your Answer</div>
+                        <div className="mt-1 text-sm text-[#1E293B]">
+                          {current.options.find((o) => o.id === answers[current.id])?.text}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-[#16A34A] bg-[#F0FDF4] px-4 py-3">
+                        <div className="text-xs font-bold uppercase tracking-wide text-[#16A34A]">✓ Correct Answer</div>
+                        <div className="mt-1 text-sm text-[#1E293B]">
+                          {current.options.find((o) => o.id === result.correctOptionId)?.text}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {result.explanation && (
+                    <div className="rounded-lg border border-surface-border bg-surface p-4">
+                      <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Explanation</div>
+                      <p className="whitespace-pre-line text-sm text-[#1E293B]">{result.explanation}</p>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Review At End: no correctness of any kind, just a neutral
+                  confirmation that the answer was saved. */}
+              {!isImmediate && !!result && (
+                <div className="mt-3 rounded-lg bg-[#F8FAFC] px-4 py-2 text-sm text-[#64748B]">Answer saved.</div>
               )}
             </div>
 
             {/* Previous/Next stay together as one tight row for fast
                 navigation. Mark for Review moved out of the question header
                 (it was squeezing question text into a narrow column) down
-                next to Finish Batch — both are "side" actions, separate from
-                the Previous/Next pair a thumb reaches for most often. */}
+                next to Finish Session — both are "side" actions, separate
+                from the Previous/Next pair a thumb reaches for most often.
+                In Learn As You Go, Next only appears once the current
+                question's result is back — Section 20: the learner should
+                have time to read the explanation before moving on, not be
+                swept forward automatically. */}
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -221,14 +262,14 @@ export function PracticeTakingPage() {
                 >
                   ← Previous
                 </button>
-                {currentIndex < questions.length - 1 && (
+                {currentIndex < questions.length - 1 && (!isImmediate || !!result) && (
                   <button
                     type="button"
                     disabled={saving}
                     onClick={() => setCurrentIndex((i) => i + 1)}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                    className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
                   >
-                    Next →
+                    Next Question →
                   </button>
                 )}
               </div>
@@ -238,7 +279,7 @@ export function PracticeTakingPage() {
                   onClick={() => toggleMark(current.id)}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                     marked[current.id]
-                      ? 'border-[#d87f1d] bg-[#d87f1d]/10 text-[#d87f1d]'
+                      ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]'
                       : 'border-surface-border text-ink-faint hover:border-neutral-600'
                   }`}
                 >
@@ -248,9 +289,9 @@ export function PracticeTakingPage() {
                   type="button"
                   disabled={saving}
                   onClick={handleFinishClick}
-                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
                 >
-                  Finish Batch
+                  Finish Session
                 </button>
               </div>
             </div>
@@ -269,11 +310,11 @@ export function PracticeTakingPage() {
                     onClick={() => setCurrentIndex(i)}
                     className={`relative h-8 w-8 shrink-0 rounded text-xs font-medium ${
                       i === currentIndex
-                        ? 'bg-brand-500 text-surface'
+                        ? 'bg-[#155EEF] text-white'
                         : answers[q.id]
-                          ? 'bg-brand-500/20 text-brand-ink'
+                          ? 'bg-[#155EEF]/20 text-[#155EEF]'
                           : 'bg-white/5 text-ink-faint'
-                    } ${marked[q.id] ? 'ring-2 ring-[#d87f1d]' : ''}`}
+                    } ${marked[q.id] ? 'ring-2 ring-[#F59E0B]' : ''}`}
                   >
                     {i + 1}
                     {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}
@@ -287,8 +328,8 @@ export function PracticeTakingPage() {
 
       <ConfirmDialog
         open={showFinishConfirm}
-        title="Finish this batch now?"
-        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered in this batch. Once you finish, you won't be able to come back and answer them here. You can always start a new session for the rest. Finish anyway?`}
+        title="Finish this session now?"
+        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered in this session. Once you finish, you won't be able to come back and answer them here. You can always start a new session for the rest. Finish anyway?`}
         confirmLabel="Finish anyway"
         cancelLabel="Keep working"
         onConfirm={() => {
@@ -297,6 +338,139 @@ export function PracticeTakingPage() {
         }}
         onCancel={() => setShowFinishConfirm(false)}
       />
+    </div>
+  );
+}
+
+type ReviewFilter = 'all' | 'correct' | 'incorrect';
+
+// Section 22/23 — shown after Finish Session in either feedback mode. This
+// is the only place a Review At End session's answers/explanations are
+// ever revealed (see getBatchReview's own in_progress guard server-side).
+function PracticeReviewScreen({
+  review,
+  onDone,
+}: {
+  review: { questions: BatchReviewQuestion[]; summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number } };
+  onDone: () => void;
+}) {
+  const [filter, setFilter] = useState<ReviewFilter>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(review.questions[0]?.questionId ?? null);
+
+  const accuracy = review.summary.answeredCount > 0 ? Math.round((review.summary.correctCount / review.summary.answeredCount) * 100) : 0;
+  const filtered = review.questions.filter((q) => {
+    if (filter === 'correct') return q.isCorrect;
+    if (filter === 'incorrect') return q.selectedOptionId !== null && !q.isCorrect;
+    return true;
+  });
+  const selected = review.questions.find((q) => q.questionId === selectedId) ?? null;
+
+  return (
+    <div className="min-h-screen bg-surface px-4 py-6">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+          <h1 className="mb-1 text-[22px] font-bold text-[#0F172A]">Practice Complete</h1>
+          <p className="mb-4 text-sm text-[#64748B]">{review.summary.totalQuestions} Questions</p>
+          <div className="mx-auto grid max-w-md grid-cols-3 gap-4">
+            <div>
+              <div className="text-2xl font-bold text-[#16A34A]">{review.summary.correctCount}</div>
+              <div className="text-xs text-[#64748B]">Correct</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#DC2626]">{review.summary.incorrectCount}</div>
+              <div className="text-xs text-[#64748B]">Incorrect</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#155EEF]">{accuracy}%</div>
+              <div className="text-xs text-[#64748B]">Accuracy</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Answer Review</h2>
+          <div className="flex gap-1">
+            {(['all', 'correct', 'incorrect'] as ReviewFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                  filter === f ? 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]' : 'border-surface-border text-ink-muted'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+          <div className="rounded-lg border border-surface-border p-3">
+            <div className="flex flex-wrap gap-2">
+              {filtered.map((q) => {
+                const idx = review.questions.findIndex((x) => x.questionId === q.questionId);
+                return (
+                  <button
+                    key={q.questionId}
+                    type="button"
+                    onClick={() => setSelectedId(q.questionId)}
+                    className={`flex h-9 w-9 items-center justify-center rounded text-xs font-semibold ${
+                      selectedId === q.questionId
+                        ? 'bg-[#155EEF] text-white'
+                        : q.isCorrect
+                          ? 'bg-[#F0FDF4] text-[#16A34A]'
+                          : q.selectedOptionId
+                            ? 'bg-[#FEF2F2] text-[#DC2626]'
+                            : 'bg-surface-raised text-ink-faint'
+                    }`}
+                  >
+                    {idx + 1} {q.isCorrect ? '✓' : q.selectedOptionId ? '✕' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selected && (
+            <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#64748B]">
+                Question {review.questions.findIndex((x) => x.questionId === selected.questionId) + 1}
+              </div>
+              <p className="mb-4 text-sm font-medium text-[#1E293B]">{selected.questionText}</p>
+
+              {!selected.isCorrect && selected.selectedOptionId && (
+                <div className="mb-3 rounded-lg border border-[#DC2626] bg-[#FEF2F2] px-4 py-3">
+                  <div className="text-xs font-bold uppercase tracking-wide text-[#DC2626]">✕ Your Answer</div>
+                  <div className="mt-1 text-sm text-[#1E293B]">
+                    {selected.options.find((o) => o.id === selected.selectedOptionId)?.text}
+                  </div>
+                </div>
+              )}
+              <div className="mb-3 rounded-lg border border-[#16A34A] bg-[#F0FDF4] px-4 py-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-[#16A34A]">✓ Correct Answer</div>
+                <div className="mt-1 text-sm text-[#1E293B]">
+                  {selected.options.find((o) => o.id === selected.correctOptionId)?.text}
+                </div>
+              </div>
+              {selected.explanation && (
+                <div className="rounded-lg border border-surface-border bg-surface p-4">
+                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Explanation</div>
+                  <p className="whitespace-pre-line text-sm text-[#1E293B]">{selected.explanation}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-6 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+        >
+          Finish Session
+        </button>
+      </div>
     </div>
   );
 }

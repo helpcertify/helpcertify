@@ -1,5 +1,5 @@
 import { callAction } from '@/lib/vercelApi';
-import type { StudyDaySelection, StudyPlanningMode } from '@/types/models';
+import type { PracticeFeedbackMode, QuestionOption, StudyDaySelection, StudyPlanningMode } from '@/types/models';
 
 export interface PracticeSessionState {
   status: 'in_progress' | 'submitted' | 'expired';
@@ -14,33 +14,54 @@ export interface PracticeSessionState {
   correctCount: number;
   incorrectCount: number;
   isReattempt: boolean;
+  feedbackMode?: PracticeFeedbackMode;
+}
+
+export interface BatchReviewQuestion {
+  questionId: string;
+  questionText: string;
+  options: QuestionOption[];
+  selectedOptionId: string | null;
+  correctOptionId: string | null;
+  explanation: string | null;
+  isCorrect: boolean;
 }
 
 export const practiceSessionApi = {
-  // sessionDurationMinutes is only actually used (and only required) when
-  // the test's own durationPerSessionMinutes is null — i.e. the admin left
-  // session length up to the student (see PracticeTestDetailPage.tsx's
-  // duration picker, shown only in that case). Harmless to pass otherwise;
-  // the server ignores it whenever the test has its own fixed duration.
-  startOrResumeBatch: (testId: string, batchSize?: number, sessionDurationMinutes?: number) =>
+  // sessionSize is the primary "how much would you like to practice"
+  // control (10/25/50/custom) — see PracticeTestDetailPage.tsx's session
+  // setup card. feedbackMode picks Learn As You Go vs Review At End,
+  // defaulting server-side to 'immediate' when omitted.
+  startOrResumeBatch: (testId: string, sessionSize?: number, feedbackMode?: PracticeFeedbackMode) =>
     callAction<{ sessionId: string; session: PracticeSessionState; resumed: boolean }>(
       'practice-session',
       'startOrResumeBatch',
-      { testId, batchSize, sessionDurationMinutes }
+      { testId, batchSize: sessionSize, feedbackMode }
     ),
-  reattemptLastBatch: (testId: string, sessionDurationMinutes?: number) =>
+  reattemptLastBatch: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
     callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'reattemptLastBatch', {
       testId,
-      sessionDurationMinutes,
+      feedbackMode,
     }),
+  // isCorrect/correctOptionId/explanation are all null when the session's
+  // feedbackMode is 'end_of_session' — nothing to show until the batch is
+  // submitted (see api/practice-session.ts's saveAnswer, which withholds
+  // these server-side, not just in this response's shape).
   saveAnswer: (sessionId: string, questionId: string, selectedOptionId: string) =>
-    callAction<{ isCorrect: boolean; correctOptionId: string | null }>('practice-session', 'saveAnswer', {
-      sessionId,
-      questionId,
-      selectedOptionId,
-    }),
+    callAction<{ isCorrect: boolean | null; correctOptionId: string | null; explanation: string | null }>(
+      'practice-session',
+      'saveAnswer',
+      { sessionId, questionId, selectedOptionId }
+    ),
   submitBatch: (sessionId: string) =>
     callAction<{ session: PracticeSessionState }>('practice-session', 'submitBatch', { sessionId }),
+  // Only callable once the session is no longer in_progress (submitted or
+  // expired) — see api/practice-session.ts's getBatchReview.
+  getBatchReview: (sessionId: string) =>
+    callAction<{
+      questions: BatchReviewQuestion[];
+      summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number };
+    }>('practice-session', 'getBatchReview', { sessionId }),
   previewCheckAnswer: (testId: string, questionId: string, selectedOptionId: string) =>
     callAction<{ isCorrect: boolean; correctOptionId: string | null }>('practice-session', 'previewCheckAnswer', {
       testId,

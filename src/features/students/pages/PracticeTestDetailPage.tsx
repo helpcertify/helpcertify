@@ -24,11 +24,19 @@ function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
 }
 
-// Only shown when the admin left session length up to the student
-// (test.durationPerSessionMinutes is null) — same preset spirit as the
-// admin's own availability-window shortcuts, but for picking one session's
-// length rather than a purchase window.
-const SESSION_DURATION_PRESETS = [15, 30, 45, 60, 90, 120];
+// Practice Question Bank session sizing — question count is the primary
+// control (not a duration in minutes, even for a test the admin gave a
+// fixed durationPerSessionMinutes; that field is now purely the basis for
+// the secondary "approximately N minutes" estimate below, never a gate on
+// starting or how long a session lasts — see api/practice-session.ts's
+// header comment on SESSION_STALE_HOURS).
+const SESSION_SIZE_PRESETS = [
+  { size: 10, label: 'Quick Practice' },
+  { size: 25, label: 'Focus Session', recommended: true },
+  { size: 50, label: 'Deep Practice' },
+] as const;
+const DEFAULT_SESSION_SIZE = 25;
+const MAX_CUSTOM_SESSION_SIZE = 200;
 
 // A fixed 10-question free sample regardless of the admin's own
 // previewQuestionCount setting (which still governs the free-preview limit
@@ -52,7 +60,9 @@ export function PracticeTestDetailPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
-  const [chosenDuration, setChosenDuration] = useState(SESSION_DURATION_PRESETS[2]);
+  const [sessionSize, setSessionSize] = useState<number>(DEFAULT_SESSION_SIZE);
+  const [customSize, setCustomSize] = useState('');
+  const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_of_session'>('immediate');
   // Inline goal-setup, not a separate page/route — every other entry point
   // (the Practice Exams card, its hover popover, the dashboard nudge, the
   // purchase-success modal) links here with ?goal=1 rather than to a
@@ -81,6 +91,28 @@ export function PracticeTestDetailPage() {
   const { data: existingPlan } = useQuery({
     queryKey: ['student', 'studyPlan', uid, testId],
     queryFn: () => getStudyPlan(uid!, testId!),
+    enabled: !!uid && !!testId,
+  });
+  // "Continue where you left off" — an unfinished (in_progress) session,
+  // read directly via the client SDK same as the queries above (firestore.
+  // rules already lets a signed-in learner read their own practiceSessions
+  // docs). Only ever one in_progress session per learner per test (see
+  // api/practice-session.ts's startOrResumeBatch), so a single doc read.
+  const { data: unfinishedSession } = useQuery({
+    queryKey: ['student', 'unfinishedPracticeSession', uid, testId],
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, 'practiceSessions'),
+          where('userId', '==', uid),
+          where('testId', '==', testId),
+          where('status', '==', 'in_progress')
+        )
+      );
+      if (snap.empty) return null;
+      const data = snap.docs[0].data();
+      return { id: snap.docs[0].id, batchSize: (data.batchQuestionIds as string[]).length, answeredCount: data.answeredCount as number };
+    },
     enabled: !!uid && !!testId,
   });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
@@ -201,8 +233,20 @@ export function PracticeTestDetailPage() {
             test={test}
             done={done}
             answered={answered}
-            chosenDuration={chosenDuration}
-            onChooseDuration={setChosenDuration}
+            sessionSize={sessionSize}
+            onChooseSessionSize={(s) => {
+              setSessionSize(s);
+              setCustomSize('');
+            }}
+            customSize={customSize}
+            onCustomSizeChange={(v) => {
+              setCustomSize(v);
+              const n = Number(v);
+              if (n > 0) setSessionSize(Math.min(n, MAX_CUSTOM_SESSION_SIZE));
+            }}
+            feedbackMode={feedbackMode}
+            onChooseFeedbackMode={setFeedbackMode}
+            unfinishedSession={unfinishedSession ?? null}
           />
           {test.studyPlannerEnabled !== false ? (
             <div>
@@ -301,73 +345,176 @@ export function PracticeTestDetailPage() {
 // Section 11 of the design system: session-duration presets (unchanged
 // functionality) plus the Start Practice / Reattempt actions, restyled into
 // its own card instead of living inside a purchase-card sidebar.
+interface UnfinishedSession {
+  id: string;
+  batchSize: number;
+  answeredCount: number;
+}
+
 function PracticeSetupCard({
   test,
   done,
   answered,
-  chosenDuration,
-  onChooseDuration,
+  sessionSize,
+  onChooseSessionSize,
+  customSize,
+  onCustomSizeChange,
+  feedbackMode,
+  onChooseFeedbackMode,
+  unfinishedSession,
 }: {
-  test: { id: string; durationPerSessionMinutes: number | null };
+  test: { id: string; totalQuestions: number; defaultMinutesPerQuestion?: number };
   done: boolean;
   answered: number;
-  chosenDuration: number;
-  onChooseDuration: (m: number) => void;
+  sessionSize: number;
+  onChooseSessionSize: (size: number) => void;
+  customSize: string;
+  onCustomSizeChange: (value: string) => void;
+  feedbackMode: 'immediate' | 'end_of_session';
+  onChooseFeedbackMode: (mode: 'immediate' | 'end_of_session') => void;
+  unfinishedSession: UnfinishedSession | null;
 }) {
+  const remainingNew = Math.max(0, test.totalQuestions - answered);
+  const percentComplete = test.totalQuestions > 0 ? Math.round((answered / test.totalQuestions) * 100) : 0;
+  const minutesPerQuestion = test.defaultMinutesPerQuestion ?? 1.8;
+  const estLow = Math.round(sessionSize * minutesPerQuestion * 0.85);
+  const estHigh = Math.round(sessionSize * minutesPerQuestion * 1.15);
+
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
       <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Practice Setup</h2>
 
-      {/* Only shown when the admin left session length up to the student
-          (test.durationPerSessionMinutes is null) — an already-resumable
-          session ignores this, since its duration was already fixed when
-          it started. */}
-      {test.durationPerSessionMinutes == null && !done && (
-        <div className="mb-4">
-          <label className="mb-2 block text-xs font-medium text-[#64748B]">Session Duration</label>
-          <div className="flex flex-wrap gap-2">
-            {SESSION_DURATION_PRESETS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => onChooseDuration(m)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium ${
-                  chosenDuration === m ? 'border-[#155EEF] bg-[#155EEF] text-white' : 'border-[#CBD5E1] bg-white text-[#334155] dark:bg-transparent'
-                }`}
-              >
-                {m} min
-              </button>
-            ))}
-          </div>
+      {/* Unique coverage — Section 3's "YOUR PROGRESS" bar. Never treats
+          answeredCount as anything other than unique questions ever
+          submitted (see practiceProgress.answeredQuestionIds), so this
+          number can't inflate from repeated Reattempt sessions. */}
+      <div className="mb-5">
+        <div className="mb-1 flex items-center justify-between text-xs text-[#64748B]">
+          <span>
+            {answered} / {test.totalQuestions} Practiced
+          </span>
+          <span>{percentComplete}%</span>
         </div>
-      )}
+        <div className="h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
+          <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
+        </div>
+        {!done && <div className="mt-1 text-xs text-[#64748B]">{remainingNew} new questions remaining</div>}
+      </div>
 
-      <div className="flex flex-col gap-2">
-        {!done && (
+      {done ? (
+        <div className="rounded-lg bg-[#F0FDF4] px-4 py-3 text-center text-sm font-medium text-[#16A34A]">
+          🎯 You've practiced all {test.totalQuestions} questions in this bank.
+        </div>
+      ) : unfinishedSession ? (
+        // Section 10 — an unfinished session is never silently discarded;
+        // Resume Practice continues that exact session (startOrResumeBatch
+        // returns it as-is), it doesn't start a new one with these pickers.
+        <div className="mb-2 rounded-lg border border-[#DCE7FF] bg-[#EFF6FF] p-4">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#155EEF]">Continue Where You Left Off</div>
+          <div className="mb-3 text-sm text-[#1E293B]">
+            {unfinishedSession.answeredCount} / {unfinishedSession.batchSize} completed ·{' '}
+            {unfinishedSession.batchSize - unfinishedSession.answeredCount} question
+            {unfinishedSession.batchSize - unfinishedSession.answeredCount === 1 ? '' : 's'} remaining
+          </div>
           <Link
-            to={
-              test.durationPerSessionMinutes == null
-                ? `/practice-tests/${test.id}/take?sessionDuration=${chosenDuration}`
-                : `/practice-tests/${test.id}/take`
-            }
+            to={`/practice-tests/${test.id}/take`}
             className="block w-full rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
           >
-            {answered > 0 ? 'Resume →' : 'Start Practice →'}
+            Resume Practice →
           </Link>
-        )}
-        {answered > 0 && (
+        </div>
+      ) : (
+        <>
+          <div className="mb-4">
+            <label className="mb-2 block text-xs font-medium text-[#64748B]">How much would you like to practice?</label>
+            <div className="space-y-2">
+              {SESSION_SIZE_PRESETS.map((preset) => (
+                <button
+                  key={preset.size}
+                  type="button"
+                  onClick={() => onChooseSessionSize(preset.size)}
+                  className={`flex w-full items-center justify-between rounded-lg border px-4 py-2.5 text-left ${
+                    sessionSize === preset.size && !customSize
+                      ? 'border-[#155EEF] bg-[#EFF6FF]'
+                      : 'border-[#E2E8F0] hover:border-[#155EEF]'
+                  }`}
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-[#0F172A]">{preset.size} Questions</span>
+                    <span className="block text-xs text-[#64748B]">{preset.label}</span>
+                  </span>
+                  {'recommended' in preset && preset.recommended && (
+                    <span className="rounded-full bg-[#155EEF]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#155EEF]">
+                      Recommended
+                    </span>
+                  )}
+                </button>
+              ))}
+              <div
+                className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${
+                  customSize ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0]'
+                }`}
+              >
+                <span className="text-sm font-semibold text-[#0F172A]">Custom</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.min(MAX_CUSTOM_SESSION_SIZE, remainingNew)}
+                  value={customSize}
+                  onChange={(e) => onCustomSizeChange(e.target.value)}
+                  placeholder="e.g. 40"
+                  className="w-24 rounded-md border border-[#CBD5E1] bg-white px-2 py-1 text-sm text-[#1E293B] outline-none focus:border-[#155EEF] dark:bg-transparent"
+                />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-[#64748B]">
+              {sessionSize} Questions · approximately {estLow}–{estHigh} minutes
+            </div>
+          </div>
+
+          <div className="mb-5">
+            <label className="mb-2 block text-xs font-medium text-[#64748B]">How would you like to practice?</label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => onChooseFeedbackMode('immediate')}
+                className={`rounded-lg border p-3 text-left ${
+                  feedbackMode === 'immediate' ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'
+                }`}
+              >
+                <div className="text-sm font-semibold text-[#0F172A]">⚡ Learn As You Go</div>
+                <div className="mt-0.5 text-xs text-[#64748B]">See the answer and explanation after every question.</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onChooseFeedbackMode('end_of_session')}
+                className={`rounded-lg border p-3 text-left ${
+                  feedbackMode === 'end_of_session' ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'
+                }`}
+              >
+                <div className="text-sm font-semibold text-[#0F172A]">📝 Review At End</div>
+                <div className="mt-0.5 text-xs text-[#64748B]">See answers after finishing the whole session.</div>
+              </button>
+            </div>
+          </div>
+
           <Link
-            to={
-              test.durationPerSessionMinutes == null
-                ? `/practice-tests/${test.id}/take?reattempt=1&sessionDuration=${chosenDuration}`
-                : `/practice-tests/${test.id}/take?reattempt=1`
-            }
-            className="block w-full rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+            to={`/practice-tests/${test.id}/take?sessionSize=${sessionSize}&feedbackMode=${feedbackMode}`}
+            className="block w-full rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
           >
-            Reattempt
+            Start Practice →
           </Link>
-        )}
-      </div>
+        </>
+      )}
+
+      {answered > 0 && !unfinishedSession && (
+        <Link
+          to={`/practice-tests/${test.id}/take?reattempt=1&feedbackMode=${feedbackMode}`}
+          className="mt-2 block w-full rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+        >
+          Reattempt Last Session
+        </Link>
+      )}
     </div>
   );
 }
