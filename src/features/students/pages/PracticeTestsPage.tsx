@@ -12,7 +12,6 @@ import { toDate } from '@/utils/formatDate';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
-import { RelatedItems } from '@/components/common/RelatedItems';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -170,12 +169,6 @@ export function PracticeTestsPage() {
           </div>
         </>
       )}
-
-      {/* Full-width, at the very end of the page — a general "Students
-          also bought" assortment since there's no single item here to
-          relate to (unlike the detail page, which scopes this to the
-          current item's own category). */}
-      <RelatedItems />
 
       {buyNowTest && (
         <BuyNowModal

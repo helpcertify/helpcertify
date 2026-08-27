@@ -12,6 +12,10 @@ interface PreviewQuestionsProps {
   // PracticeTestDoc) — passed down from the detail page rather than
   // refetched here, since that page already has the parent doc loaded.
   previewQuestionCount: number;
+  // Opens the same Buy Now modal the Course Access card's own button
+  // opens — passed down rather than duplicated here, so there's one Buy
+  // Now flow, just two entry points into it.
+  onBuyNow?: () => void;
 }
 
 // Free preview — shows the first few questions of a not-yet-owned quiz/
@@ -21,7 +25,7 @@ interface PreviewQuestionsProps {
 // session — see those two files for the server-side re-check that keeps
 // this from ever exposing more than the first few questions' answers, even
 // to someone scripting direct calls to the endpoint.
-export function PreviewQuestions({ itemType, itemId, previewQuestionCount }: PreviewQuestionsProps) {
+export function PreviewQuestions({ itemType, itemId, previewQuestionCount, onBuyNow }: PreviewQuestionsProps) {
   const { data: questions } = useQuery({
     queryKey: ['student', 'previewQuestions', itemType, itemId, previewQuestionCount],
     queryFn: () =>
@@ -108,9 +112,18 @@ export function PreviewQuestions({ itemType, itemId, previewQuestionCount }: Pre
               Next Question →
             </button>
           ) : (
-            <span className="text-xs font-medium text-[#64748B]">
-              You've completed your free preview. Buy to unlock the rest.
-            </span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-[#64748B]">You've completed your free preview.</span>
+              {onBuyNow && (
+                <button
+                  type="button"
+                  onClick={onBuyNow}
+                  className="rounded-lg bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+                >
+                  Buy Now to unlock the rest
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -237,7 +237,12 @@ export function PracticeTestDetailPage() {
             onBuyNow={() => setShowBuyNow(true)}
           />
           {previewCount > 0 ? (
-            <PreviewQuestions itemType="practiceTest" itemId={test.id} previewQuestionCount={previewCount} />
+            <PreviewQuestions
+              itemType="practiceTest"
+              itemId={test.id}
+              previewQuestionCount={previewCount}
+              onBuyNow={() => setShowBuyNow(true)}
+            />
           ) : (
             <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
               <h2 className="mb-2 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Free Preview</h2>

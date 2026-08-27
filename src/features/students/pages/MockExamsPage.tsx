@@ -11,7 +11,6 @@ import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
-import { RelatedItems } from '@/components/common/RelatedItems';
 import type { QuizDoc } from '@/types/models';
 
 // Full-length, timed exam simulations — this is the content that used to
@@ -152,12 +151,6 @@ export function MockExamsPage() {
           );
         })}
       </div>
-
-      {/* Full-width, at the very end of the page — a general "Students
-          also bought" assortment since there's no single item here to
-          relate to (unlike the detail pages, which scope this to the
-          current item's own category). */}
-      <RelatedItems />
 
       {buyNowQuiz && (
         <BuyNowModal

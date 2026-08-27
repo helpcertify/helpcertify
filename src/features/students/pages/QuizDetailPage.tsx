@@ -13,7 +13,6 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
-import { RelatedItems } from '@/components/common/RelatedItems';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
@@ -205,13 +204,16 @@ export function QuizDetailPage() {
         {/* Same fixed 10 questions, same order, for every visitor every
             time — see getQuizPreviewQuestions's orderBy('order'). */}
         {!owned && previewCount > 0 && (
-          <PreviewQuestions itemType="quiz" itemId={quiz.id} previewQuestionCount={previewCount} />
+          <PreviewQuestions
+            itemType="quiz"
+            itemId={quiz.id}
+            previewQuestionCount={previewCount}
+            onBuyNow={() => setShowBuyNow(true)}
+          />
         )}
       </div>
 
       <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
-
-      <RelatedItems category={quiz.category ?? 'Other'} excludeItemType="quiz" excludeItemId={quiz.id} />
 
       {showBuyNow && (
         <BuyNowModal

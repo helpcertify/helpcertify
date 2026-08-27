@@ -22,7 +22,7 @@ export function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
     return (
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" onClick={() => onChange(n)} aria-label={`${n} star${n > 1 ? 's' : ''}`} className="text-[#d87f1d]">
+          <button key={n} type="button" onClick={() => onChange(n)} aria-label={`${n} star${n > 1 ? 's' : ''}`} className="text-[#F59E0B]">
             <StarIcon filled={n <= value} style={{ width: px, height: px }} />
           </button>
         ))}
@@ -33,14 +33,19 @@ export function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
   return (
     <div className="relative inline-flex" style={{ width: px * 5, height: px }}>
-      <div className="absolute inset-0 flex text-ink-faint/30">
+      {/* Background row must render outline (unfilled) stars explicitly —
+          StarIcon defaults filled to true, so leaving this unset made every
+          "empty" star render as a solid star in a faint color instead of a
+          proper outline, everywhere a read-only rating is shown (product
+          cards, detail-page headers, review lists). */}
+      <div className="absolute inset-0 flex text-[#CBD5E1]">
         {[1, 2, 3, 4, 5].map((n) => (
-          <StarIcon key={n} style={{ width: px, height: px }} />
+          <StarIcon key={n} filled={false} style={{ width: px, height: px }} />
         ))}
       </div>
-      <div className="absolute inset-0 flex overflow-hidden text-[#d87f1d]" style={{ width: `${pct}%` }}>
+      <div className="absolute inset-0 flex overflow-hidden text-[#F59E0B]" style={{ width: `${pct}%` }}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <StarIcon key={n} style={{ width: px, height: px }} />
+          <StarIcon key={n} filled style={{ width: px, height: px }} />
         ))}
       </div>
     </div>

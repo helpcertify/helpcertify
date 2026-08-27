@@ -25,12 +25,6 @@ export interface CarouselItem {
 interface CourseCarouselProps {
   title: string;
   items: CarouselItem[];
-  // 'carousel' (default) is the horizontally-scrolling row used for
-  // Recommended for you. 'grid' instead wraps every card onto the page
-  // (flex-wrap, no scroll arrows) — used for "You might also like" at the
-  // bottom of a detail/landing page, where all 4 cards should just be
-  // visible at once rather than requiring a scroll gesture.
-  variant?: 'carousel' | 'grid';
 }
 
 // A horizontally-scrolling row of cards with prev/next arrows, shown only
@@ -44,7 +38,7 @@ interface CourseCarouselProps {
 // it works self-sufficiently regardless of which page renders it (and
 // React Query dedupes the fetch against whatever the parent already
 // loaded — no extra network round trip in practice).
-export function CourseCarousel({ title, items, variant = 'carousel' }: CourseCarouselProps) {
+export function CourseCarousel({ title, items }: CourseCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -82,7 +76,7 @@ export function CourseCarousel({ title, items, variant = 'carousel' }: CourseCar
     <div className="relative mb-8">
       <h2 className="mb-3 text-lg font-bold text-ink">{title}</h2>
 
-      {variant === 'carousel' && canScrollLeft && (
+      {canScrollLeft && (
         <button
           type="button"
           onClick={() => scroll(-1)}
@@ -92,7 +86,7 @@ export function CourseCarousel({ title, items, variant = 'carousel' }: CourseCar
           ‹
         </button>
       )}
-      {variant === 'carousel' && canScrollRight && (
+      {canScrollRight && (
         <button
           type="button"
           onClick={() => scroll(1)}
@@ -103,14 +97,7 @@ export function CourseCarousel({ title, items, variant = 'carousel' }: CourseCar
         </button>
       )}
 
-      <div
-        ref={scrollerRef}
-        className={
-          variant === 'grid'
-            ? 'flex flex-wrap items-stretch gap-4'
-            : 'scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1'
-        }
-      >
+      <div ref={scrollerRef} className="scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1">
         {items.map((item) => (
           <CarouselCard
             key={`${item.itemType}_${item.id}`}
