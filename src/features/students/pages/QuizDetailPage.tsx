@@ -132,7 +132,6 @@ export function QuizDetailPage() {
             <PreviewQuestions itemType="quiz" itemId={quiz.id} previewQuestionCount={previewCount} />
           )}
 
-          <RelatedItems category={quiz.category ?? 'Other'} excludeItemType="quiz" excludeItemId={quiz.id} />
           <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
         </div>
 
@@ -213,6 +212,11 @@ export function QuizDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Full-width, below the two-column layout entirely (not squeezed
+          into the narrow main column), so all 4 cards are visible without
+          the card itself getting cramped by the sticky sidebar. */}
+      <RelatedItems category={quiz.category ?? 'Other'} excludeItemType="quiz" excludeItemId={quiz.id} />
 
       {showBuyNow && (
         <BuyNowModal

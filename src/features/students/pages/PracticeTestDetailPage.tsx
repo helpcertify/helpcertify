@@ -201,7 +201,6 @@ export function PracticeTestDetailPage() {
             />
           )}
 
-          <RelatedItems category={test.category ?? 'Other'} excludeItemType="practiceTest" excludeItemId={test.id} />
           <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
         </div>
 
@@ -349,6 +348,11 @@ export function PracticeTestDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Full-width, below the two-column layout entirely (not squeezed
+          into the narrow main column), so all 4 cards are visible without
+          the card itself getting cramped by the sticky sidebar. */}
+      <RelatedItems category={test.category ?? 'Other'} excludeItemType="practiceTest" excludeItemId={test.id} />
 
       {showBuyNow && (
         <BuyNowModal
