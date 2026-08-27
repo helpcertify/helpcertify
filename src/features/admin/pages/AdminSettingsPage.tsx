@@ -70,7 +70,7 @@ export function AdminSettingsPage() {
           type="button"
           disabled={!dirty || saveMutation.isPending}
           onClick={() => saveMutation.mutate({ emailOtpEnabled, mobileOtpEnabled: false })}
-          className="mt-5 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="mt-5 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {saveMutation.isPending ? 'Saving…' : 'Save Changes'}
         </button>

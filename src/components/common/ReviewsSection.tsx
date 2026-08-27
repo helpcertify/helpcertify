@@ -131,7 +131,7 @@ export function ReviewsSection({ itemType, itemId, owned }: ReviewsSectionProps)
                   type="button"
                   disabled={rating === 0 || submitMutation.isPending}
                   onClick={() => submitMutation.mutate()}
-                  className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {submitMutation.isPending ? 'Saving…' : myReview ? 'Save Changes' : 'Submit Review'}
                 </button>

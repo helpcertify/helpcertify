@@ -22,13 +22,10 @@ import { WishlistButton } from '@/components/common/WishlistButton';
 // on request, so every visitor sees the same "try 10 questions" experience.
 const SAMPLE_PREVIEW_COUNT = 10;
 
-// The "course landing page" a student sees before (or after) buying a
-// quiz, reached by clicking a card on MockExamsPage/MyPurchasesPage rather
-// than acting on the card's buttons directly. Laid out the same way as
-// PracticeTestDetailPage (plain heading + description in a main column, a
-// sticky sidebar for the cover/price/actions) instead of one big bordered
-// card, so the two "course landing pages" in the app read as one design
-// system rather than two different layouts.
+// Master HelpCertify design-system layout — same visual language as
+// PracticeTestDetailPage (full-width header card, two-column Course
+// Access + Free Preview, full-width Reviews). Purely a visual pass; the
+// underlying data/mutations are unchanged from before this restyle.
 export function QuizDetailPage() {
   const { quizId } = useParams<{ quizId: string }>();
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
@@ -88,62 +85,63 @@ export function QuizDetailPage() {
   const previewCount = quiz.previewQuestionCount === 0 ? 0 : SAMPLE_PREVIEW_COUNT;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-[1440px]">
       <Link to="/home/mock-exams" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Mock Exams
       </Link>
 
-      {/* Single reading column — heading, description, then the purchase
-          card (moved down from a side-by-side sidebar, on request, so it
-          reads as part of the page's flow instead of sitting beside the
-          description), then the free sample or reviews. No bordered card
-          wrapping the whole page, same as PracticeTestDetailPage. */}
-      <div className="max-w-3xl">
-        <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
-          <span>{quiz.category ?? 'Other'}</span>
-          <span>·</span>
-          <span>{quiz.skillLevel ?? 'Foundation'}</span>
-        </div>
-        <h1 className="mb-2 text-3xl font-bold leading-tight text-ink">{quiz.title}</h1>
-
-        {(quiz.ratingCount ?? 0) > 0 && (
-          <div className="mb-3 flex items-center gap-2">
-            <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
-            <span className="text-sm text-ink-faint">
-              {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount} review{quiz.ratingCount === 1 ? '' : 's'})
-            </span>
+      {/* Header — full width, badges/title/rating/stats on the left, a
+          decorative certification mark on the right. */}
+      <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+            <span>{quiz.category ?? 'Other'}</span>
+            <span>·</span>
+            <span>{quiz.skillLevel ?? 'Foundation'}</span>
           </div>
-        )}
+          <h1 className="mb-2 text-[28px] font-bold leading-tight text-[#0F172A]">{quiz.title}</h1>
 
-        <div className="mb-6 flex flex-wrap gap-4 text-sm text-ink-faint">
-          <span>📄 {quiz.totalQuestions} questions</span>
-          <span>⏱ {quiz.durationMinutes} min</span>
+          {(quiz.ratingCount ?? 0) > 0 && (
+            <div className="mb-3 flex items-center gap-2">
+              <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
+              <span className="text-sm text-[#64748B]">
+                {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount} review{quiz.ratingCount === 1 ? '' : 's'})
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#475569]">
+            <span>▣ {quiz.totalQuestions} Questions</span>
+            <span>◷ {quiz.durationMinutes} min</span>
+          </div>
+
+          {quiz.description && (
+            <p className="mt-4 max-w-[760px] whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{quiz.description}</p>
+          )}
         </div>
 
-        {quiz.description && (
-          <div className="mb-6">
-            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink-faint">About this quiz</h2>
-            <p className="whitespace-pre-line text-sm text-ink-muted">{quiz.description}</p>
-          </div>
-        )}
-
-        {/* Purchase/action card — below the description, not a sticky
-            sidebar beside it. */}
-        <div className="mb-6 max-w-sm overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-          {/* Same light-blue gradient + icon header as every product
-              card in the app, not a colored cover banner. */}
-          <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
+        <div className="hidden shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] p-6 sm:flex">
+          <div className="scale-[1.8]">
             <CourseIcon id={quiz.id} title={quiz.title} itemType="quiz" />
-            <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{quiz.title}</h2>
           </div>
-          <div className="p-5">
+        </div>
+      </div>
+
+      {/* Course Access + Free Preview when not owned; Course Access alone
+          (centered, capped width) when owned — there's no practice-setup/
+          study-plan equivalent for a timed Mock Exam. */}
+      <div className={`mb-6 grid grid-cols-1 gap-6 ${!owned && previewCount > 0 ? 'lg:grid-cols-[0.7fr_1.3fr] lg:items-start' : ''}`}>
+        <div className={!owned && previewCount > 0 ? '' : 'max-w-sm'}>
+          <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+            <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Course Access</h2>
+
             {price > 0 && (
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   {quiz.originalPrice && quiz.originalPrice > price && (
-                    <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
+                    <span className="text-sm text-[#94A3B8] line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
                   )}
-                  <span className="text-xl font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
+                  <span className="text-[26px] font-bold text-[#0F172A]">{formatMoney(price, quiz.currency)}</span>
                 </div>
                 {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" />}
               </div>
@@ -153,7 +151,7 @@ export function QuizDetailPage() {
               inCart ? (
                 <Link
                   to="/home/cart"
-                  className="block rounded-lg border border-[#1D4ED8]/50 py-2.5 text-center text-sm font-medium text-[#1D4ED8]"
+                  className="block rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
                 >
                   ✓ In Cart · View Cart
                 </Link>
@@ -163,7 +161,7 @@ export function QuizDetailPage() {
                     type="button"
                     disabled={paying}
                     onClick={() => setShowBuyNow(true)}
-                    className="w-full rounded-lg bg-[#1D4ED8] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                    className="w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
                   >
                     {paying ? 'Opening…' : 'Buy Now'}
                   </button>
@@ -171,29 +169,29 @@ export function QuizDetailPage() {
                     type="button"
                     disabled={addToCartMutation.isPending || paying}
                     onClick={() => addToCartMutation.mutate(quiz.id)}
-                    className="w-full rounded-lg border border-surface-border py-2.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                    className="w-full rounded-lg border border-[#155EEF] py-2.5 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] disabled:opacity-60"
                   >
-                    Add to Cart
+                    {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
                   </button>
                 </div>
               )
             ) : notYetOpen ? (
-              <span className="block text-center text-sm text-ink-faint">
+              <span className="block text-center text-sm text-[#64748B]">
                 Opens {new Date(quiz.scheduledStart!.toMillis()).toLocaleString()}
               </span>
             ) : attempt?.status === 'in_progress' ? (
               <Link
                 to={`/quizzes/${quiz.id}/take`}
-                className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+                className="block rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
               >
                 Resume
               </Link>
             ) : attempt ? (
-              <span className="block rounded-lg bg-neutral-800 px-3 py-2.5 text-center text-sm text-ink-faint">Already attempted</span>
+              <span className="block rounded-lg bg-[#F1F5F9] px-3 py-2.5 text-center text-sm text-[#64748B]">Already attempted</span>
             ) : (
               <Link
                 to={`/quizzes/${quiz.id}/take`}
-                className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
+                className="block rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
               >
                 Start Mock Exam
               </Link>
@@ -206,13 +204,10 @@ export function QuizDetailPage() {
         {!owned && previewCount > 0 && (
           <PreviewQuestions itemType="quiz" itemId={quiz.id} previewQuestionCount={previewCount} />
         )}
-
-        <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
       </div>
 
-      {/* Full-width, below the single-column layout entirely, so all 4
-          cards are visible without getting squeezed by the max-w-3xl
-          column above. */}
+      <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
+
       <RelatedItems category={quiz.category ?? 'Other'} excludeItemType="quiz" excludeItemId={quiz.id} />
 
       {showBuyNow && (

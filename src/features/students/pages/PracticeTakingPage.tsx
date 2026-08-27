@@ -122,7 +122,7 @@ export function PracticeTakingPage() {
           <button
             type="button"
             onClick={() => navigate('/home/practice-tests')}
-            className="mt-6 w-full rounded-lg bg-[#1D4ED8] py-2.5 font-medium text-surface"
+            className="mt-6 w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-surface"
           >
             Back to Practice Exams
           </button>
@@ -248,7 +248,7 @@ export function PracticeTakingPage() {
                   type="button"
                   disabled={saving}
                   onClick={handleFinishClick}
-                  className="rounded-lg bg-[#1D4ED8] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
                 >
                   Finish Batch
                 </button>

@@ -60,14 +60,14 @@ export function PreviewQuestions({ itemType, itemId, previewQuestionCount }: Pre
   };
 
   return (
-    <div className="mb-6 rounded-xl border border-surface-border bg-surface p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Free Preview</h2>
-        <span className="text-xs text-ink-faint">
+    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Free Preview</h2>
+        <span className="text-xs font-medium text-[#64748B]">
           Question {index + 1} of {questions.length}
         </span>
       </div>
-      <p className="mb-4 text-sm text-ink">{question.questionText}</p>
+      <p className="mb-4 text-sm text-[#1E293B]">{question.questionText}</p>
       <div className="space-y-2">
         {question.options.map((opt) => {
           const isSelected = selected === opt.id;
@@ -103,12 +103,14 @@ export function PreviewQuestions({ itemType, itemId, previewQuestionCount }: Pre
             <button
               type="button"
               onClick={next}
-              className="rounded-lg bg-[#1D4ED8] px-4 py-1.5 text-sm font-medium text-white hover:opacity-90"
+              className="rounded-lg bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
             >
-              Next Question
+              Next Question →
             </button>
           ) : (
-            <span className="text-xs text-ink-faint">That's the free preview. Buy to unlock the rest.</span>
+            <span className="text-xs font-medium text-[#64748B]">
+              You've completed your free preview. Buy to unlock the rest.
+            </span>
           )}
         </div>
       )}

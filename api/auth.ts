@@ -87,7 +87,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
 
 function otpEmailHtml(name: string, code: string): string {
   return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-    <h2 style="color:#1D4ED8">Verify your email</h2>
+    <h2 style="color:#155EEF">Verify your email</h2>
     <p>Hi ${name},</p>
     <p>Your Helpcertify verification code is:</p>
     <p style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#0F172A">${code}</p>

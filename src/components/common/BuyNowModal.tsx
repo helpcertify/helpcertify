@@ -51,7 +51,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, onC
           type="button"
           disabled={paying}
           onClick={() => onConfirm(couponInput.trim() || undefined)}
-          className="w-full rounded-lg bg-[#1D4ED8] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
+          className="w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {paying ? 'Opening payment…' : 'Continue to Payment'}
         </button>

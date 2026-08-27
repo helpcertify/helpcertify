@@ -225,7 +225,7 @@ export function StudentHomePage() {
                 </div>
                 <Link
                   to={`/quizzes/${q.id}/take`}
-                  className="mt-auto block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
+                  className="mt-auto block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-medium text-surface"
                 >
                   Start Mock Exam
                 </Link>

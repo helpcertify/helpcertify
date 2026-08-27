@@ -5,20 +5,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Blue accent (matches the Buy Now / Finish / Submit buttons, which
-        // were already this exact Tailwind blue scale — the rebrand makes
-        // the whole app consistent with them rather than introducing a
-        // second blue). 50/400/500/600 stay fixed across both themes, same
-        // as before. `ink` is the one shade that's theme-aware: brand-300/
-        // 400 read fine as text against a near-black dark background, but
-        // are too pale for reliable contrast against a white one — ink
-        // swaps to a solid, darker blue in light mode instead.
+        // Electric Blue — the one brand/action color used everywhere
+        // (buttons, links, selected nav, focus rings, badges). 50/400/500/
+        // 600 stay fixed across both themes; `ink` is the one shade that's
+        // theme-aware: 155EEF reads fine as text on a near-black dark
+        // background but needs a brighter tint for reliable contrast there.
+        // See the HelpCertify design-system spec: 500 is "Primary Electric
+        // Blue" (#155EEF), 600 is "Primary Hover" (#004EEB).
         brand: {
-          50: '#eff6ff',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
+          50: '#eff6ff', // "Light Blue Surface"
+          300: '#8bb4f8',
+          400: '#5b93f5',
+          500: '#155EEF', // Primary Electric Blue
+          600: '#004EEB', // Primary Hover
+          700: '#003DB8', // Primary Pressed
           ink: 'rgb(var(--color-brand-ink) / <alpha-value>)',
         },
         // surface/ink are CSS-variable-backed (defined per-theme in
@@ -39,7 +39,7 @@ export default {
         },
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(90deg, #60a5fa 0%, #2563eb 100%)',
+        'brand-gradient': 'linear-gradient(90deg, #5b93f5 0%, #155EEF 100%)',
       },
     },
   },

@@ -213,7 +213,7 @@ export function ProfileActivitySections() {
                 <div className="mb-3 text-xs text-ink-faint">{item.progressLabel}</div>
                 <Link
                   to={item.actionHref}
-                  className="mt-auto block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
+                  className="mt-auto block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-medium text-surface"
                 >
                   {item.actionLabel}
                 </Link>
@@ -295,7 +295,7 @@ export function ProfileActivitySections() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#1D4ED8] hover:underline">
+                        <Link to={`/home/past-quizzes/${a.quizId}`} className="font-medium text-[#155EEF] hover:underline">
                           Review
                         </Link>
                       </td>

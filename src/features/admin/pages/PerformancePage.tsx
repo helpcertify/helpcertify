@@ -71,7 +71,7 @@ export function PerformancePage() {
             type="button"
             disabled={attempts.length === 0}
             onClick={() => exportResultsToExcel(activeQuiz?.title ?? 'quiz', attempts)}
-            className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
+            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
           >
             ↓ Export to Excel
           </button>

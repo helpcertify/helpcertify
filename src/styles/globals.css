@@ -24,7 +24,7 @@
      though the old values technically passed WCAG AA. */
   --color-ink-muted: 51 65 85; /* slate-700, was slate-600 (71 85 105) */
   --color-ink-faint: 71 85 105; /* slate-600, was slate-500 (100 116 139) */
-  --color-brand-ink: 29 78 216; /* blue-700 — solid enough for text on a white/light card */
+  --color-brand-ink: 21 94 239; /* #155EEF — the HelpCertify design-system's Primary Electric Blue */
 }
 
 .dark {

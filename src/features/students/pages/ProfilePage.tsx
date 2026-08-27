@@ -121,7 +121,7 @@ export function ProfilePage() {
               type="button"
               disabled={savingProfile}
               onClick={handleSaveProfile}
-              className="rounded-lg bg-[#1D4ED8] px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+              className="rounded-lg bg-[#155EEF] px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
               {savingProfile ? 'Saving…' : 'Save Profile'}
             </button>

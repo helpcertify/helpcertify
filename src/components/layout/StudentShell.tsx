@@ -183,7 +183,7 @@ export function StudentShell() {
           <Link
             to="/home/cart"
             aria-label="Cart"
-            className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#1D4ED8] text-[#1D4ED8] hover:bg-[#1D4ED8]/10"
+            className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#155EEF] text-[#155EEF] hover:bg-[#155EEF]/10"
           >
             <CartIcon className="h-4 w-4" />
             {cartCount > 0 && (
@@ -198,7 +198,7 @@ export function StudentShell() {
           <Link
             to="/home/profile"
             aria-label="My Profile"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-semibold text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#155EEF] text-xs font-semibold text-white"
           >
             {initials(profile?.name)}
           </Link>

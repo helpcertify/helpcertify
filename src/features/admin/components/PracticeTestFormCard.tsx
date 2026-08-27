@@ -214,7 +214,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         <button
           type="button"
           onClick={() => downloadTemplate(sourceFormat)}
-          className="rounded-lg border border-[#1D4ED8] px-3 py-1.5 text-sm text-[#1D4ED8] hover:opacity-80"
+          className="rounded-lg border border-[#155EEF] px-3 py-1.5 text-sm text-[#155EEF] hover:opacity-80"
         >
           ↓ Template
         </button>
@@ -407,7 +407,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               type="file"
               accept=".docx"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#1D4ED8] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+              className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#155EEF] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
             />
           </Field>
         )}
@@ -416,7 +416,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           type="button"
           disabled={pending || !title || (!isEditing && !file)}
           onClick={() => (isEditing ? updateMutation.mutate() : createMutation.mutate())}
-          className="w-full rounded-lg bg-[#1D4ED8] py-3 font-medium text-surface disabled:opacity-50"
+          className="w-full rounded-lg bg-[#155EEF] py-3 font-medium text-surface disabled:opacity-50"
         >
           {uploading ? 'Uploading…' : pending ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Practice Test'}
         </button>

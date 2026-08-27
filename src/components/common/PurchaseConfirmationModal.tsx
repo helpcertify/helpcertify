@@ -25,7 +25,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
             plain white/gray success dialog — the checkmark itself stays
             semantic green (a "this worked" signal), kept separate from the
             blue brand accent behind it. */}
-        <div className="bg-gradient-to-br from-[#1D4ED8] to-[#0f2f8f] px-8 pb-7 pt-8 text-center">
+        <div className="bg-gradient-to-br from-[#155EEF] to-[#0f2f8f] px-8 pb-7 pt-8 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/15 text-3xl text-emerald-300">✓</div>
           <h2 className="mb-1 text-xl font-bold text-white">Payment Successful!</h2>
           <p className="text-sm text-white/80">
@@ -40,7 +40,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
                 <Link
                   to={i.itemType === 'quiz' ? '/home' : '/home/practice-tests'}
                   onClick={onClose}
-                  className="block border-l-4 border-l-[#1D4ED8] px-4 py-3 hover:bg-brand-500/5"
+                  className="block border-l-4 border-l-[#155EEF] px-4 py-3 hover:bg-brand-500/5"
                 >
                   <div className="font-medium text-ink">{i.title}</div>
                   <div className="text-sm text-brand-ink">Go start it →</div>

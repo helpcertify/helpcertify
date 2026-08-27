@@ -13,11 +13,11 @@ export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'info' | 'dang
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-[#1D4ED8] text-surface hover:opacity-90',
-  secondary: 'border border-surface-border text-ink-muted hover:border-brand-400 hover:text-ink',
+  primary: 'bg-[#155EEF] text-white hover:bg-[#004EEB] active:bg-[#003DB8]',
+  secondary: 'border border-[#155EEF] text-[#155EEF] bg-surface hover:bg-[#EFF6FF]',
   success: 'bg-emerald-600 text-white hover:bg-emerald-500',
-  info: 'bg-[#1D4ED8] text-white hover:opacity-90',
-  danger: 'border border-surface-border text-ink-muted hover:border-red-500/50 hover:text-red-400',
+  info: 'bg-[#155EEF] text-white hover:bg-[#004EEB] active:bg-[#003DB8]',
+  danger: 'border border-surface-border text-[#DC2626] hover:border-red-500/50',
   ghost: 'text-ink-muted hover:bg-surface-raised',
 };
 

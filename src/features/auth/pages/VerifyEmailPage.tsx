@@ -89,7 +89,7 @@ export function VerifyEmailPage() {
           <button
             type="submit"
             disabled={verifyMutation.isPending || code.length !== 6}
-            className="w-full rounded-lg bg-[#1D4ED8] py-2 font-medium text-surface disabled:opacity-60"
+            className="w-full rounded-lg bg-[#155EEF] py-2 font-medium text-surface disabled:opacity-60"
           >
             {verifyMutation.isPending ? 'Verifying…' : 'Verify'}
           </button>

@@ -70,7 +70,7 @@ export function SearchResultsPage() {
             </button>
           )}
         </div>
-        <button type="submit" className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+        <button type="submit" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
           Search
         </button>
       </form>

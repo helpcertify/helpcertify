@@ -65,7 +65,7 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
           </p>
           <Link
             to={`/home/practice-tests/${unplannedTest.id}?goal=1`}
-            className="inline-block rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="inline-block rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             🎯 Set My Study Goal
           </Link>
@@ -168,7 +168,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
       ? { label: `✅ Ahead by ${status.deltaQuestions}`, className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
       : status.status === 'catch_up'
         ? { label: `🟡 +${status.extraPerDay}/day to catch up`, className: 'bg-[#d87f1d]/15 text-[#d87f1d]' }
-        : { label: '🟢 On track', className: 'bg-[#1D4ED8]/15 text-[#1D4ED8]' };
+        : { label: '🟢 On track', className: 'bg-[#155EEF]/15 text-[#155EEF]' };
 
   const streak = computeStudyStreak({
     today,
@@ -252,7 +252,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
         <span>{percentComplete}%</span>
       </div>
       <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-surface">
-        <div className="h-full rounded-full bg-[#1D4ED8]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
+        <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
       </div>
 
       {bankComplete ? (
@@ -273,7 +273,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
           ) : (
             <Link
               to={`/practice-tests/${testId}/take`}
-              className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-white hover:opacity-90"
+              className="block rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-medium text-white hover:opacity-90"
             >
               Start Today's Session →
             </Link>
