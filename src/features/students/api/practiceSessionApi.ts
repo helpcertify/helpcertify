@@ -47,7 +47,7 @@ export const practiceSessionApi = {
       questionId,
       selectedOptionId,
     }),
-  // See StudyPlanSetupPage.tsx — baselineDailyTarget is computed client-side
+  // See StudyGoalPanel.tsx — baselineDailyTarget is computed client-side
   // by the same calculation engine that renders the result card, then sent
   // along to be stored (see api/practice-session.ts's saveStudyPlan for why
   // that's fine to trust: it's a UX reference point, not a security value).

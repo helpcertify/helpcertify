@@ -254,7 +254,7 @@ function PracticeTestCard({
     </button>
   ) : test.studyPlannerEnabled !== false ? (
     <Link
-      to={`/home/practice-tests/${test.id}/study-plan`}
+      to={`/home/practice-tests/${test.id}?goal=1`}
       className="block w-full rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
     >
       🎯 Set Your Study Goal
@@ -422,7 +422,7 @@ function PracticeTestCard({
               )}
               {!done && test.studyPlannerEnabled !== false && (
                 <Link
-                  to={`/home/practice-tests/${test.id}/study-plan`}
+                  to={`/home/practice-tests/${test.id}?goal=1`}
                   className="block rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
                 >
                   🎯 Set Your Study Goal

@@ -19,7 +19,6 @@ import { StudentQuizDashboardPage } from '@/features/students/pages/StudentQuizD
 import { PracticeTestsPage } from '@/features/students/pages/PracticeTestsPage';
 import { QuizDetailPage } from '@/features/students/pages/QuizDetailPage';
 import { PracticeTestDetailPage } from '@/features/students/pages/PracticeTestDetailPage';
-import { StudyPlanSetupPage } from '@/features/students/pages/StudyPlanSetupPage';
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
 import { CartPage } from '@/features/students/pages/CartPage';
@@ -51,8 +50,9 @@ export function AppRouter() {
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
           <Route path="/home/quizzes/:quizId" element={<QuizDetailPage />} />
+          {/* Goal-setup lives inline on the detail page itself (opened via
+              ?goal=1), not a separate route — see StudyGoalPanel.tsx. */}
           <Route path="/home/practice-tests/:testId" element={<PracticeTestDetailPage />} />
-          <Route path="/home/practice-tests/:testId/study-plan" element={<StudyPlanSetupPage />} />
           <Route path="/home/purchases" element={<MyPurchasesPage />} />
           <Route path="/home/wishlist" element={<WishlistPage />} />
           <Route path="/home/profile" element={<ProfilePage />} />

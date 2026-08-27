@@ -64,7 +64,7 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
             Set a study goal for {unplannedTest.title} to see your daily target and progress here.
           </p>
           <Link
-            to={`/home/practice-tests/${unplannedTest.id}/study-plan`}
+            to={`/home/practice-tests/${unplannedTest.id}?goal=1`}
             className="inline-block rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             🎯 Set Your Study Goal

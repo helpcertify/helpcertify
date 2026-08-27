@@ -47,7 +47,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
                 </Link>
                 {i.itemType === 'practiceTest' && (
                   <Link
-                    to={`/home/practice-tests/${i.itemId}/study-plan`}
+                    to={`/home/practice-tests/${i.itemId}?goal=1`}
                     onClick={onClose}
                     className="block border-t border-surface-border bg-[#d87f1d]/10 px-4 py-2 text-sm font-medium text-[#d87f1d] hover:bg-[#d87f1d]/15"
                   >

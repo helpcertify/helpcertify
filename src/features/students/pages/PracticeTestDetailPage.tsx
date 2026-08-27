@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -17,6 +17,7 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { RelatedItems } from '@/components/common/RelatedItems';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { StudyGoalPanel } from '../components/StudyGoalPanel';
 
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -41,6 +42,13 @@ export function PracticeTestDetailPage() {
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
   const [chosenDuration, setChosenDuration] = useState(SESSION_DURATION_PRESETS[2]);
+  // Inline goal-setup, not a separate page/route — every other entry point
+  // (the Practice Exams card, its hover popover, the dashboard nudge, the
+  // purchase-success modal) links here with ?goal=1 rather than to a
+  // /study-plan route, so this single flag opens the same panel regardless
+  // of where the learner came from.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showGoalPanel, setShowGoalPanel] = useState(searchParams.get('goal') === '1');
 
   const { data: test, isLoading } = useQuery({
     queryKey: ['student', 'practiceTest', testId],
@@ -110,7 +118,7 @@ export function PracticeTestDetailPage() {
   const done = answered >= test.totalQuestions;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Practice Exams
       </Link>
@@ -250,16 +258,32 @@ export function PracticeTestDetailPage() {
                   )}
                 </div>
                 {test.studyPlannerEnabled !== false && (
-                  <Link
-                    to={`/home/practice-tests/${test.id}/study-plan`}
-                    className="mt-3 block rounded-lg border border-surface-border py-2 text-center text-sm text-ink-muted hover:border-brand-400"
+                  <button
+                    type="button"
+                    onClick={() => setShowGoalPanel((v) => !v)}
+                    className="mt-3 block w-full rounded-lg border border-[#d87f1d] bg-[#d87f1d]/10 py-2 text-center text-sm font-medium text-[#d87f1d] hover:bg-[#d87f1d]/20"
                   >
-                    🎯 Set Your Study Goal
-                  </Link>
+                    {showGoalPanel ? '✕ Hide Study Goal' : '🎯 Set Your Study Goal'}
+                  </button>
                 )}
               </div>
             )}
           </div>
+
+          {showGoalPanel && test.studyPlannerEnabled !== false && (
+            <StudyGoalPanel
+              testId={test.id}
+              test={test}
+              onSaved={() => {
+                setShowGoalPanel(false);
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete('goal');
+                  return next;
+                });
+              }}
+            />
+          )}
 
           <RelatedItems category={test.category ?? 'Other'} excludeItemType="practiceTest" excludeItemId={test.id} />
           <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
