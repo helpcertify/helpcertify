@@ -333,6 +333,7 @@ export interface QuizAnswerDoc {
 }
 
 export type PracticeFeedbackMode = 'immediate' | 'end_of_session';
+export type PracticeConfidence = 'guessing' | 'unsure' | 'confident';
 
 /** practiceSessions/{sessionId} — one batch within a practice test. */
 export interface PracticeSessionDoc {
@@ -354,6 +355,17 @@ export interface PracticeSessionDoc {
   // Missing on any session created before this field existed — treated as
   // 'immediate', matching how every session behaved before this feature.
   feedbackMode?: PracticeFeedbackMode;
+  // Practice Momentum (Release 2) — Master My Mistakes session, drawn from
+  // practiceProgress.incorrectQuestionIds rather than unseen questions.
+  // Same "doesn't count toward unique coverage" treatment as isReattempt,
+  // kept as its own flag rather than overloading isReattempt so the
+  // completion screen can tell "redo my last batch" from "drill my
+  // mistakes" apart.
+  isMastery?: boolean;
+  // Correct-answer-in-a-row within this session; resets to 0 on a miss.
+  // Practice Test only — never read or written by quiz-session.ts.
+  currentStreak?: number;
+  bestStreakThisSession?: number;
 }
 
 /** practiceSessions/{sessionId}/answers/{questionId} — immediate feedback, so isCorrect is known right away. */
@@ -361,6 +373,10 @@ export interface PracticeAnswerDoc {
   selectedOptionId: string;
   isCorrect: boolean;
   answeredAt: Timestamp;
+  // Optional self-rating, learning analytics only — never affects grading
+  // (see api/practice-session.ts's saveAnswer: confidence is stored
+  // alongside isCorrect, computed independently of it).
+  confidence?: PracticeConfidence;
 }
 
 /** practiceProgress/{uid_testId} — denormalized so "resume, only unanswered" doesn't scan every past session. */
@@ -370,6 +386,15 @@ export interface PracticeProgressDoc {
   answeredQuestionIds: string[];
   lastBatchQuestionIds: string[];
   updatedAt: Timestamp;
+  // Practice Momentum (Release 2) — motivational only, never read by any
+  // entitlement/progress/coverage calculation. bestStreak is this test's
+  // all-time longest correct-streak (compared at submitBatch); xpTotal is
+  // lifetime XP for this test; incorrectQuestionIds feeds Master My
+  // Mistakes — added on a miss, removed the moment that same question is
+  // answered correctly again in any session.
+  bestStreak?: number;
+  xpTotal?: number;
+  incorrectQuestionIds?: string[];
 }
 
 // Personal Study Planner (Phase 1) — attaches to a practice test only, not a

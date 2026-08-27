@@ -1,5 +1,5 @@
 import { callAction } from '@/lib/vercelApi';
-import type { PracticeFeedbackMode, QuestionOption, StudyDaySelection, StudyPlanningMode } from '@/types/models';
+import type { PracticeConfidence, PracticeFeedbackMode, QuestionOption, StudyDaySelection, StudyPlanningMode } from '@/types/models';
 
 export interface PracticeSessionState {
   status: 'in_progress' | 'submitted' | 'expired';
@@ -15,6 +15,9 @@ export interface PracticeSessionState {
   incorrectCount: number;
   isReattempt: boolean;
   feedbackMode?: PracticeFeedbackMode;
+  isMastery?: boolean;
+  currentStreak?: number;
+  bestStreakThisSession?: number;
 }
 
 export interface BatchReviewQuestion {
@@ -43,18 +46,33 @@ export const practiceSessionApi = {
       testId,
       feedbackMode,
     }),
+  // Master My Mistakes (Section 31) — drills practiceProgress.
+  // incorrectQuestionIds instead of unseen questions; throws if there are
+  // none right now (see api/practice-session.ts's startMasteryBatch).
+  startMasteryBatch: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
+    callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'startMasteryBatch', {
+      testId,
+      feedbackMode,
+    }),
   // isCorrect/correctOptionId/explanation are all null when the session's
   // feedbackMode is 'end_of_session' — nothing to show until the batch is
   // submitted (see api/practice-session.ts's saveAnswer, which withholds
-  // these server-side, not just in this response's shape).
-  saveAnswer: (sessionId: string, questionId: string, selectedOptionId: string) =>
-    callAction<{ isCorrect: boolean | null; correctOptionId: string | null; explanation: string | null }>(
-      'practice-session',
-      'saveAnswer',
-      { sessionId, questionId, selectedOptionId }
-    ),
+  // these server-side, not just in this response's shape). streak/
+  // xpAwarded are always present (Practice Momentum, motivational only).
+  saveAnswer: (sessionId: string, questionId: string, selectedOptionId: string, confidence?: PracticeConfidence) =>
+    callAction<{
+      isCorrect: boolean | null;
+      correctOptionId: string | null;
+      explanation: string | null;
+      streak: number;
+      xpAwarded: number;
+    }>('practice-session', 'saveAnswer', { sessionId, questionId, selectedOptionId, confidence }),
   submitBatch: (sessionId: string) =>
-    callAction<{ session: PracticeSessionState }>('practice-session', 'submitBatch', { sessionId }),
+    callAction<{ session: PracticeSessionState; newPersonalBest: boolean; bestStreak: number }>(
+      'practice-session',
+      'submitBatch',
+      { sessionId }
+    ),
   // Only callable once the session is no longer in_progress (submitted or
   // expired) — see api/practice-session.ts's getBatchReview.
   getBatchReview: (sessionId: string) =>

@@ -62,7 +62,13 @@ async function getOrCreateProgress(uid: string, testId: string) {
   const ref = db.collection('practiceProgress').doc(`${uid}_${testId}`);
   const snap = await ref.get();
   if (snap.exists) return { ref, progress: snap.data()! };
-  const progress = { userId: uid, testId, answeredQuestionIds: [] as string[], lastBatchQuestionIds: [] as string[] };
+  const progress = {
+    userId: uid,
+    testId,
+    answeredQuestionIds: [] as string[],
+    lastBatchQuestionIds: [] as string[],
+    incorrectQuestionIds: [] as string[],
+  };
   return { ref, progress };
 }
 
@@ -219,6 +225,54 @@ async function reattemptLastBatch(uid: string, body: unknown) {
   return { sessionId: sessionRef.id, session };
 }
 
+const masterySchema = z.object({
+  testId: z.string().min(1),
+  feedbackMode: z.enum(['immediate', 'end_of_session']).optional(),
+});
+
+// Master My Mistakes (Section 31) — an intentional-repeat session over
+// practiceProgress.incorrectQuestionIds, never unseen questions. Doesn't
+// touch answeredQuestionIds (see saveAnswer's isMastery check), so this
+// can never inflate unique-coverage.
+const MAX_MASTERY_SIZE = 100;
+
+async function startMasteryBatch(uid: string, body: unknown) {
+  const parsed = masterySchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { testId, feedbackMode } = parsed.data;
+
+  const testSnap = await db.collection('practiceTests').doc(testId).get();
+  if (!testSnap.exists) throw Err.notFound('Practice test not found');
+  if ((testSnap.data()!.price ?? 0) > 0) {
+    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
+    if (!purchaseSnap.exists) throw Err.paymentRequired();
+  }
+
+  const { progress } = await getOrCreateProgress(uid, testId);
+  const incorrectQuestionIds = (progress.incorrectQuestionIds as string[] | undefined) ?? [];
+  if (incorrectQuestionIds.length === 0) throw Err.failedPrecondition('No mistakes to master right now');
+
+  const now = Timestamp.now();
+  const sessionRef = db.collection('practiceSessions').doc();
+  const session = {
+    userId: uid,
+    testId,
+    batchQuestionIds: incorrectQuestionIds.slice(0, MAX_MASTERY_SIZE),
+    status: 'in_progress' as const,
+    startedAt: now,
+    submittedAt: null,
+    expiresAt: Timestamp.fromMillis(now.toMillis() + SESSION_STALE_HOURS * 60 * 60 * 1000),
+    answeredCount: 0,
+    correctCount: 0,
+    incorrectCount: 0,
+    isReattempt: false,
+    isMastery: true,
+    feedbackMode: feedbackMode ?? 'immediate',
+  };
+  await sessionRef.set(session);
+  return { sessionId: sessionRef.id, session };
+}
+
 async function loadOwnedInProgressSession(uid: string, sessionId: string) {
   const ref = db.collection('practiceSessions').doc(sessionId);
   const snap = await ref.get();
@@ -237,12 +291,25 @@ const saveAnswerSchema = z.object({
   sessionId: z.string().min(1),
   questionId: z.string().min(1),
   selectedOptionId: z.string().min(1),
+  // Optional self-rating — learning analytics only, never used in the
+  // isCorrect computation below.
+  confidence: z.enum(['guessing', 'unsure', 'confident']).optional(),
 });
+
+// Practice Momentum XP (Section 25) — motivational only, never read by any
+// entitlement/coverage/accuracy calculation. A Master My Mistakes session
+// (isMastery) awards the smaller "reviewed a weak question" amount instead
+// of the normal first-attempt amounts, since it's intentional repetition,
+// not new coverage.
+function xpForAnswer(isCorrect: boolean, isMastery: boolean): number {
+  if (isMastery) return isCorrect ? 2 : 0;
+  return isCorrect ? 10 : 5;
+}
 
 async function saveAnswer(uid: string, body: unknown) {
   const parsed = saveAnswerSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { sessionId, questionId, selectedOptionId } = parsed.data;
+  const { sessionId, questionId, selectedOptionId, confidence } = parsed.data;
 
   const { ref, session } = await loadOwnedInProgressSession(uid, sessionId);
   if (!session.batchQuestionIds.includes(questionId)) throw Err.invalidArgument('Question is not part of this session');
@@ -262,24 +329,61 @@ async function saveAnswer(uid: string, body: unknown) {
   const explanation: string | null = keySnap.data()?.explanation ?? null;
   const isCorrect = correctOptionId === selectedOptionId;
 
-  await answerRef.set({ selectedOptionId, isCorrect, answeredAt: Timestamp.now() });
+  await answerRef.set({
+    selectedOptionId,
+    isCorrect,
+    answeredAt: Timestamp.now(),
+    ...(confidence ? { confidence } : {}),
+  });
 
+  // Correct-streak — Practice Test only, resets to 0 on a miss. Tracked on
+  // the session doc itself (this batch's own streak), not persisted
+  // globally; submitBatch compares this session's best against the
+  // test's all-time bestStreak on practiceProgress.
+  const nextStreak = isCorrect ? ((session.currentStreak as number | undefined) ?? 0) + 1 : 0;
+  const nextBestThisSession = Math.max((session.bestStreakThisSession as number | undefined) ?? 0, nextStreak);
+
+  let xpAwarded = 0;
   if (!wasAnswered) {
+    xpAwarded = xpForAnswer(isCorrect, !!session.isMastery);
     await ref.update({
       answeredCount: FieldValue.increment(1),
       correctCount: FieldValue.increment(isCorrect ? 1 : 0),
       incorrectCount: FieldValue.increment(isCorrect ? 0 : 1),
+      currentStreak: nextStreak,
+      bestStreakThisSession: nextBestThisSession,
     });
     // Practice progress only tracks "seen at least once" for fresh-batch
-    // purposes on the student's real first pass — a reattempt (isReattempt)
-    // re-serves already-seen questions and shouldn't affect this set.
-    if (!session.isReattempt) {
-      await db
-        .collection('practiceProgress')
-        .doc(`${uid}_${session.testId}`)
-        .set({ answeredQuestionIds: FieldValue.arrayUnion(questionId), updatedAt: Timestamp.now() }, { merge: true });
+    // purposes on the student's real first pass — a reattempt/mastery
+    // session re-serves already-seen questions and shouldn't affect this
+    // set. incorrectQuestionIds, by contrast, is updated regardless of
+    // session type — a mistake mastered during a Master My Mistakes
+    // session should still drop off that list.
+    const progressUpdate: Record<string, unknown> = {
+      xpTotal: FieldValue.increment(xpAwarded),
+      incorrectQuestionIds: isCorrect ? FieldValue.arrayRemove(questionId) : FieldValue.arrayUnion(questionId),
+      updatedAt: Timestamp.now(),
+    };
+    if (!session.isReattempt && !session.isMastery) {
+      progressUpdate.answeredQuestionIds = FieldValue.arrayUnion(questionId);
     }
+    await db.collection('practiceProgress').doc(`${uid}_${session.testId}`).set(progressUpdate, { merge: true });
+  } else {
+    // A repeat submission within the same session (shouldn't normally
+    // happen from the UI, which disables an already-answered question) —
+    // still reflect the current streak/XP truth back to the client rather
+    // than silently returning stale numbers.
+    await ref.update({ currentStreak: nextStreak, bestStreakThisSession: nextBestThisSession });
   }
+
+  // Streak is shown live regardless of feedback mode — Section 24 doesn't
+  // treat it as something that leaks correctness the way the correct
+  // option/explanation would (a streak counter alone doesn't tell you
+  // which specific answer was right), but see PracticeTakingPage.tsx: it
+  // still only ever displays the streak once Review At End's session is
+  // over, matching Section 24's "do not show during Review At End until
+  // the session is completed."
+  const streakInfo = { streak: nextStreak, xpAwarded };
 
   // Review At End (feedbackMode === 'end_of_session') must never leak
   // correctness mid-session — the answer is still recorded above (the
@@ -287,9 +391,9 @@ async function saveAnswer(uid: string, body: unknown) {
   // from this response. Missing feedbackMode (a session from before this
   // field existed) behaves as 'immediate', same as it always has.
   if (session.feedbackMode === 'end_of_session') {
-    return { isCorrect: null, correctOptionId: null, explanation: null };
+    return { isCorrect: null, correctOptionId: null, explanation: null, ...streakInfo };
   }
-  return { isCorrect, correctOptionId, explanation };
+  return { isCorrect, correctOptionId, explanation, ...streakInfo };
 }
 
 // Free preview — same reasoning as api/quiz-session.ts's previewCheckAnswer:
@@ -447,6 +551,17 @@ async function recordMilestone(uid: string, body: unknown) {
       reachedAt: Timestamp.now(),
       ...(value !== undefined ? { value } : {}),
     });
+    // Section 26's "Today's Goal Complete → +25 XP" bonus reuses this
+    // same write-once guarantee (a 'dailyTargetBonus_<date>' key can only
+    // ever be created once) rather than a second endpoint — the .create()
+    // above already raced-and-won by the time this runs, so the increment
+    // below can't double-award even from two simultaneous requests.
+    if (milestoneKey.startsWith('dailyTargetBonus_')) {
+      await db
+        .collection('practiceProgress')
+        .doc(`${uid}_${testId}`)
+        .set({ xpTotal: FieldValue.increment(25), updatedAt: Timestamp.now() }, { merge: true });
+    }
     return { created: true };
   } catch (err) {
     const code = (err as { code?: number | string })?.code;
@@ -465,7 +580,25 @@ async function submitBatch(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { ref, session } = await loadOwnedInProgressSession(uid, parsed.data.sessionId);
   await ref.update({ status: 'submitted', submittedAt: Timestamp.now() });
-  return { session: { ...session, status: 'submitted' } };
+
+  // Personal best (Section 24: "New Personal Best") — compared against the
+  // test's all-time bestStreak only once the session is actually done, not
+  // continuously mid-session, so a still-in-progress streak can't
+  // prematurely claim a best that a later question in the same session
+  // might beat again.
+  const bestThisSession = (session.bestStreakThisSession as number | undefined) ?? 0;
+  let newPersonalBest = false;
+  if (bestThisSession >= 2) {
+    const progressRef = db.collection('practiceProgress').doc(`${uid}_${session.testId}`);
+    const progressSnap = await progressRef.get();
+    const priorBest = (progressSnap.data()?.bestStreak as number | undefined) ?? 0;
+    if (bestThisSession > priorBest) {
+      await progressRef.set({ bestStreak: bestThisSession, updatedAt: Timestamp.now() }, { merge: true });
+      newPersonalBest = true;
+    }
+  }
+
+  return { session: { ...session, status: 'submitted' }, newPersonalBest, bestStreak: bestThisSession };
 }
 
 // The end-of-session review screen (both feedback modes use this — Learn
@@ -535,6 +668,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'reattemptLastBatch':
         res.status(200).json(await reattemptLastBatch(uid, data));
+        return;
+      case 'startMasteryBatch':
+        res.status(200).json(await startMasteryBatch(uid, data));
         return;
       case 'getBatchReview':
         res.status(200).json(await getBatchReview(uid, data));

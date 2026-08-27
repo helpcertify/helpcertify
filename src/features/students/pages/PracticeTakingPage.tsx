@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getPracticeQuestionsByIds } from '../api/studentContentApi';
+import { useQuery } from '@tanstack/react-query';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getPracticeQuestionsByIds, getPracticeTestById } from '../api/studentContentApi';
+import { getStudyPlan } from '../api/studyPlanApi';
 import { practiceSessionApi, type BatchReviewQuestion, type PracticeSessionState } from '../api/practiceSessionApi';
+import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VercelApiError } from '@/lib/vercelApi';
-import type { PracticeFeedbackMode, QuestionDoc } from '@/types/models';
+import { toDate } from '@/utils/formatDate';
+import { computeExamDatePlan, questionsPerDayFromMinutes, buildDailyAnsweredMap, dateKey } from '../lib/studyPlan';
+import type { PracticeConfidence, PracticeFeedbackMode, QuestionDoc } from '@/types/models';
 
 interface AnswerFeedback {
   isCorrect: boolean | null;
@@ -13,16 +20,24 @@ interface AnswerFeedback {
   explanation: string | null;
 }
 
+const CONFIDENCE_OPTIONS: { value: PracticeConfidence; emoji: string; label: string }[] = [
+  { value: 'guessing', emoji: '🤔', label: 'Guessing' },
+  { value: 'unsure', emoji: '🙂', label: 'Unsure' },
+  { value: 'confident', emoji: '💪', label: 'Confident' },
+];
+
 export function PracticeTakingPage() {
   const { testId } = useParams<{ testId: string }>();
   const [searchParams] = useSearchParams();
   const isReattempt = searchParams.get('reattempt') === '1';
+  const isMastery = searchParams.get('mastery') === '1';
   const sessionSizeParam = searchParams.get('sessionSize');
   const sessionSize = sessionSizeParam ? Number(sessionSizeParam) : undefined;
   const feedbackModeParam = searchParams.get('feedbackMode');
   const requestedFeedbackMode: PracticeFeedbackMode = feedbackModeParam === 'end_of_session' ? 'end_of_session' : 'immediate';
   const navigate = useNavigate();
   const pushToast = useUiStore((s) => s.pushToast);
+  const uid = useAuthStore((s) => s.firebaseUser?.uid);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [session, setSession] = useState<PracticeSessionState | null>(null);
@@ -30,25 +45,34 @@ export function PracticeTakingPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, AnswerFeedback>>({});
+  const [pendingOption, setPendingOption] = useState<Record<string, string>>({});
+  const [pendingConfidence, setPendingConfidence] = useState<Record<string, PracticeConfidence>>({});
   const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
   const [review, setReview] = useState<{
     questions: BatchReviewQuestion[];
     summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number };
+    newPersonalBest: boolean;
+    bestStreak: number;
   } | null>(null);
   const startedRef = useRef(false);
 
   useEffect(() => {
     if (!testId || startedRef.current) return;
     startedRef.current = true;
-    const start = isReattempt
-      ? practiceSessionApi.reattemptLastBatch(testId, requestedFeedbackMode)
-      : practiceSessionApi.startOrResumeBatch(testId, sessionSize, requestedFeedbackMode);
+    const start = isMastery
+      ? practiceSessionApi.startMasteryBatch(testId, requestedFeedbackMode)
+      : isReattempt
+        ? practiceSessionApi.reattemptLastBatch(testId, requestedFeedbackMode)
+        : practiceSessionApi.startOrResumeBatch(testId, sessionSize, requestedFeedbackMode);
     start
       .then(async (res) => {
         setSessionId(res.sessionId);
         setSession(res.session);
+        setStreak(res.session.currentStreak ?? 0);
         const qs = await getPracticeQuestionsByIds(testId, res.session.batchQuestionIds);
         // Preserve the server-assigned batch order rather than Firestore's
         // per-doc fetch order (Promise.all doesn't guarantee it).
@@ -59,36 +83,129 @@ export function PracticeTakingPage() {
         pushToast(err instanceof Error ? err.message : 'Could not start this practice session', 'error');
         navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home/practice-tests');
       });
-  }, [testId, isReattempt, sessionSize, requestedFeedbackMode, navigate, pushToast]);
+  }, [testId, isReattempt, isMastery, sessionSize, requestedFeedbackMode, navigate, pushToast]);
 
-  // The server's own record of this session's mode is what actually gates
-  // the UI, not the query param used to request it — a resumed session
-  // keeps whatever mode it was started with (session.feedbackMode falls
-  // back to 'immediate' for a session created before this field existed).
+  // The server's own record of this session's mode/type is what actually
+  // gates the UI, not the query params used to request it — a resumed
+  // session keeps whatever it was started with.
   const feedbackMode: PracticeFeedbackMode = session?.feedbackMode ?? 'immediate';
   const isImmediate = feedbackMode === 'immediate';
+  const isMasterySession = !!session?.isMastery;
+
+  // Today's Target — reuses the exact same Study Plan calculation engine
+  // and daily-answered-map pattern as StudyPlanSection.tsx/
+  // PracticeTestDetailPage's PlanSummaryCard, just computed here so it can
+  // be shown live during the session (Section 26). Only fetched for a
+  // normal, non-mastery/non-reattempt session — the daily target is about
+  // new-question coverage, which those two don't contribute to anyway.
+  const trackingDailyTarget = !isReattempt && !isMastery;
+  const { data: test } = useQuery({
+    queryKey: ['student', 'practiceTest', testId],
+    queryFn: () => getPracticeTestById(testId!),
+    enabled: !!testId && trackingDailyTarget,
+  });
+  const { data: existingPlan } = useQuery({
+    queryKey: ['student', 'studyPlan', uid, testId],
+    queryFn: () => getStudyPlan(uid!, testId!),
+    enabled: !!uid && !!testId && trackingDailyTarget,
+  });
+  const { data: uniqueAnsweredCount } = useQuery({
+    queryKey: ['student', 'myPracticeProgressCount', uid, testId],
+    queryFn: async () => {
+      const snap = await getDoc(doc(db, 'practiceProgress', `${uid}_${testId}`));
+      return snap.exists() ? ((snap.data().answeredQuestionIds as string[] | undefined)?.length ?? 0) : 0;
+    },
+    enabled: !!uid && !!testId && trackingDailyTarget,
+  });
+  const { data: dailyAnsweredMap } = useQuery({
+    queryKey: ['student', 'streakSessions', uid, testId],
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, 'practiceSessions'),
+          where('userId', '==', uid),
+          where('testId', '==', testId),
+          where('isReattempt', '==', false)
+        )
+      );
+      const sessions = snap.docs
+        .map((d) => d.data())
+        .filter((d) => !d.isMastery)
+        .map((d) => ({ startedAt: toDate(d.startedAt), answeredCount: (d.answeredCount as number) ?? 0 }));
+      return buildDailyAnsweredMap(sessions);
+    },
+    enabled: !!uid && !!testId && trackingDailyTarget && !!existingPlan,
+  });
+
+  const dailyTarget = useMemo(() => {
+    if (!trackingDailyTarget || !existingPlan || !test) return 0;
+    const totalQuestions = test.totalQuestions ?? 0;
+    const minutesPerQuestion = test.defaultMinutesPerQuestion ?? 1.8;
+    const answered = uniqueAnsweredCount ?? 0;
+    const today = new Date();
+    if (existingPlan.planningMode === 'examDate' && existingPlan.targetExamDate) {
+      return computeExamDatePlan({
+        today,
+        targetExamDate: toDate(existingPlan.targetExamDate),
+        totalQuestions,
+        uniqueAnsweredCount: answered,
+        studyDays: existingPlan.studyDays,
+        revisionBufferDays: existingPlan.revisionBufferDays,
+        minutesPerQuestion,
+      }).dailyTarget;
+    }
+    return existingPlan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(existingPlan.paceMinutesPerDay ?? 0, minutesPerQuestion);
+  }, [trackingDailyTarget, existingPlan, test, uniqueAnsweredCount]);
+
+  const [answeredToday, setAnsweredToday] = useState<number | null>(null);
+  useEffect(() => {
+    if (dailyAnsweredMap && answeredToday === null) {
+      setAnsweredToday(dailyAnsweredMap[dateKey(new Date())] ?? 0);
+    }
+  }, [dailyAnsweredMap, answeredToday]);
+
+  // Award the one-time daily-target-complete bonus (Section 26) the moment
+  // this session's own answers push today's count to the target — reuses
+  // the existing write-once recordMilestone action (see api/practice-
+  // session.ts), so a duplicate call here (e.g. answering further past the
+  // target) is a harmless no-op, not a double award.
+  useEffect(() => {
+    if (dailyTarget > 0 && answeredToday !== null && answeredToday >= dailyTarget && testId) {
+      practiceSessionApi.recordMilestone(testId, `dailyTargetBonus_${dateKey(new Date())}`).catch(() => {});
+    }
+  }, [answeredToday, dailyTarget, testId]);
 
   const current = questions[currentIndex];
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
   const markedCount = useMemo(() => Object.values(marked).filter(Boolean).length, [marked]);
 
+  const selectOption = (optionId: string) => {
+    if (!current || answers[current.id]) return;
+    setPendingOption((prev) => ({ ...prev, [current.id]: optionId }));
+  };
+  const selectConfidence = (value: PracticeConfidence) => {
+    if (!current) return;
+    setPendingConfidence((prev) => ({ ...prev, [current.id]: value }));
+  };
+
   // Grading a practice answer is a real network round-trip (the answer key
   // lives server-side, on purpose — it's never shipped to the client up
-  // front). Tapping an option then immediately tapping Next/Finish before
-  // that round-trip resolves used to look like feedback "randomly" not
-  // showing — confirmed live: fast taps outran the response. `saving` now
-  // blocks Next/Finish and the options themselves until this question's
-  // result is back, so the result is always seen before you can move on.
-  const handleSelect = async (optionId: string) => {
-    if (!sessionId || !current || saving) return;
-    setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
+  // front). `saving` blocks the Submit button and every option until the
+  // result is back, so fast taps can't outrun the response.
+  const submitAnswer = async () => {
+    const optionId = current && pendingOption[current.id];
+    if (!sessionId || !current || !optionId || saving) return;
     setSaving(true);
     try {
-      const res = await practiceSessionApi.saveAnswer(sessionId, current.id, optionId);
+      const res = await practiceSessionApi.saveAnswer(sessionId, current.id, optionId, pendingConfidence[current.id]);
+      setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
       setFeedback((prev) => ({
         ...prev,
         [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId, explanation: res.explanation },
       }));
+      setStreak(res.streak);
+      setSessionXp((xp) => xp + res.xpAwarded);
+      if (trackingDailyTarget) setAnsweredToday((prev) => (prev ?? 0) + 1);
     } catch {
       pushToast('Could not save that answer', 'error');
     } finally {
@@ -101,9 +218,9 @@ export function PracticeTakingPage() {
   const handleFinish = async () => {
     if (!sessionId) return;
     try {
-      await practiceSessionApi.submitBatch(sessionId);
+      const { newPersonalBest, bestStreak } = await practiceSessionApi.submitBatch(sessionId);
       const data = await practiceSessionApi.getBatchReview(sessionId);
-      setReview(data);
+      setReview({ ...data, newPersonalBest, bestStreak });
     } catch {
       pushToast('Could not submit this session', 'error');
     }
@@ -123,7 +240,14 @@ export function PracticeTakingPage() {
   };
 
   if (review) {
-    return <PracticeReviewScreen review={review} onDone={() => navigate('/home/practice-tests')} />;
+    return (
+      <PracticeReviewScreen
+        review={review}
+        sessionXp={sessionXp}
+        onDone={() => navigate('/home/practice-tests')}
+        onMasterMistakes={() => navigate(`/practice-tests/${testId}/take?mastery=1&feedbackMode=${feedbackMode}`)}
+      />
+    );
   }
 
   if (!session || !current) return <div className="p-8 text-ink-faint">Loading practice session…</div>;
@@ -133,28 +257,42 @@ export function PracticeTakingPage() {
   // always gets isCorrect: null back from saveAnswer, so this can never
   // accidentally reveal correctness in that mode even if `result` exists.
   const revealed = isImmediate && !!result && result.isCorrect !== null;
+  const selectedOptionId = answers[current.id] ?? pendingOption[current.id];
+  const isSubmittedForCurrent = !!answers[current.id];
+  const percentThroughSession = questions.length > 0 ? Math.round(((currentIndex + 1) / questions.length) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">
-            Practice Session {isReattempt && <span className="text-sm text-ink-faint">(Reattempt)</span>}
+            {isMasterySession ? 'Master My Mistakes' : 'Practice Session'}
+            {isReattempt && !isMasterySession && <span className="ml-2 text-sm text-ink-faint">(Reattempt)</span>}
           </h1>
           <div className="flex items-center gap-3 text-sm text-ink-faint">
-            {markedCount > 0 && <span className="text-[#d87f1d]">🚩 {markedCount} marked</span>}
+            {markedCount > 0 && <span className="text-[#F59E0B]">🚩 {markedCount} marked</span>}
             <span>
               {answeredCount} / {questions.length} answered
             </span>
           </div>
         </div>
-        <div className="mb-4 text-xs text-[#64748B]">
-          Question {currentIndex + 1} of {questions.length}
+        <div className="mb-2 flex items-center justify-between text-xs text-[#64748B]">
+          <span>
+            Question {currentIndex + 1} of {questions.length}
+          </span>
+          {/* Streak only ever shown once >= 2 (Section 24), and only in
+              Learn As You Go while the session is still running — Review At
+              End never reveals anything correctness-adjacent mid-session. */}
+          {isImmediate && streak >= 2 && <span className="font-semibold text-[#F59E0B]">🔥 {streak} Streak</span>}
+        </div>
+        <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
+          <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${percentThroughSession}%` }} />
         </div>
 
-        {/* Right-side question navigator on desktop (mirrors QuizTakingPage) —
-            stacks above the question on mobile. Marked-for-review questions
-            get an amber ring + flag so they're easy to spot and jump back to. */}
+        {/* Right-side panel: question navigator + (Learn As You Go only)
+            the Today's Goal / Streak / Session XP momentum stats. Marked-
+            for-review questions get an amber ring + flag so they're easy
+            to spot and jump back to. */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="order-2 lg:order-1">
             <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
@@ -163,14 +301,10 @@ export function PracticeTakingPage() {
               </h2>
               <div className="space-y-2">
                 {current.options.map((opt) => {
-                  const selected = answers[current.id] === opt.id;
+                  const selected = selectedOptionId === opt.id;
                   const isTheCorrectOption = revealed && result.correctOptionId === opt.id;
                   const isWrongPick = revealed && selected && !result.isCorrect;
 
-                  // The plain -300 shades read fine on a near-black dark-theme
-                  // card but washed out to near-illegible on the light theme's
-                  // white card — dark: variants pick a solid, readable shade
-                  // per theme instead of one compromise color for both.
                   let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
                   if (revealed) {
                     if (isTheCorrectOption) cls = 'border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]';
@@ -184,8 +318,8 @@ export function PracticeTakingPage() {
                     <button
                       key={opt.id}
                       type="button"
-                      disabled={saving || !!result}
-                      onClick={() => handleSelect(opt.id)}
+                      disabled={saving || isSubmittedForCurrent}
+                      onClick={() => selectOption(opt.id)}
                       className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm disabled:cursor-not-allowed ${cls}`}
                     >
                       <span>{opt.text}</span>
@@ -195,7 +329,38 @@ export function PracticeTakingPage() {
                   );
                 })}
               </div>
-              {saving && <div className="mt-3 text-sm text-ink-faint">Checking…</div>}
+
+              {/* Confidence — optional, shown once an option is picked but
+                  before submitting; never affects grading (Section 16). */}
+              {!isSubmittedForCurrent && selectedOptionId && (
+                <div className="mt-4">
+                  <label className="mb-2 block text-xs font-medium text-[#64748B]">How confident are you?</label>
+                  <div className="flex gap-2">
+                    {CONFIDENCE_OPTIONS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => selectConfidence(c.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-sm ${
+                          pendingConfidence[current.id] === c.value
+                            ? 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]'
+                            : 'border-surface-border text-ink-muted hover:border-neutral-600'
+                        }`}
+                      >
+                        {c.emoji} {c.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={submitAnswer}
+                    className="mt-3 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+                  >
+                    {saving ? 'Checking…' : 'Submit Answer'}
+                  </button>
+                </div>
+              )}
 
               {/* Learn As You Go: correctness + explanation, right away —
                   Section 17-19's hierarchy (correct/your-answer callouts,
@@ -238,7 +403,7 @@ export function PracticeTakingPage() {
 
               {/* Review At End: no correctness of any kind, just a neutral
                   confirmation that the answer was saved. */}
-              {!isImmediate && !!result && (
+              {!isImmediate && isSubmittedForCurrent && (
                 <div className="mt-3 rounded-lg bg-[#F8FAFC] px-4 py-2 text-sm text-[#64748B]">Answer saved.</div>
               )}
             </div>
@@ -262,7 +427,7 @@ export function PracticeTakingPage() {
                 >
                   ← Previous
                 </button>
-                {currentIndex < questions.length - 1 && (!isImmediate || !!result) && (
+                {currentIndex < questions.length - 1 && (!isImmediate || isSubmittedForCurrent) && (
                   <button
                     type="button"
                     disabled={saving}
@@ -297,7 +462,26 @@ export function PracticeTakingPage() {
             </div>
           </div>
 
-          <div className="order-1 lg:order-2">
+          <div className="order-1 flex flex-col gap-4 lg:order-2">
+            {isImmediate && trackingDailyTarget && dailyTarget > 0 && (
+              <div className="rounded-lg border border-surface-border bg-surface-raised p-4 lg:sticky lg:top-6">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Session</div>
+                <div className="mb-3">
+                  <div className="text-xs text-[#64748B]">🎯 Today's Goal</div>
+                  <div className="text-lg font-bold text-[#0F172A]">
+                    {answeredToday ?? 0} / {dailyTarget}
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <div className="text-xs text-[#64748B]">🔥 Current Streak</div>
+                  <div className="text-lg font-bold text-[#0F172A]">{streak}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-[#64748B]">⚡ Session XP</div>
+                  <div className="text-lg font-bold text-[#0F172A]">{sessionXp}</div>
+                </div>
+              </div>
+            )}
             <div className="rounded-lg border border-surface-border p-3 lg:sticky lg:top-6">
               <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 Questions ({answeredCount}/{questions.length} answered)
@@ -349,10 +533,19 @@ type ReviewFilter = 'all' | 'correct' | 'incorrect';
 // ever revealed (see getBatchReview's own in_progress guard server-side).
 function PracticeReviewScreen({
   review,
+  sessionXp,
   onDone,
+  onMasterMistakes,
 }: {
-  review: { questions: BatchReviewQuestion[]; summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number } };
+  review: {
+    questions: BatchReviewQuestion[];
+    summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number };
+    newPersonalBest: boolean;
+    bestStreak: number;
+  };
+  sessionXp: number;
   onDone: () => void;
+  onMasterMistakes: () => void;
 }) {
   const [filter, setFilter] = useState<ReviewFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(review.questions[0]?.questionId ?? null);
@@ -385,7 +578,42 @@ function PracticeReviewScreen({
               <div className="text-xs text-[#64748B]">Accuracy</div>
             </div>
           </div>
+
+          {(review.bestStreak >= 2 || sessionXp > 0) && (
+            <div className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-4 border-t border-[#E2E8F0] pt-4">
+              {review.bestStreak >= 2 && (
+                <div>
+                  <div className="text-lg font-bold text-[#F59E0B]">
+                    {review.newPersonalBest ? `🏆 New Best: ${review.bestStreak}!` : `🔥 ${review.bestStreak}`}
+                  </div>
+                  <div className="text-xs text-[#64748B]">Best Streak</div>
+                </div>
+              )}
+              {sessionXp > 0 && (
+                <div>
+                  <div className="text-lg font-bold text-[#155EEF]">⚡ {sessionXp}</div>
+                  <div className="text-xs text-[#64748B]">Session XP</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {review.summary.incorrectCount > 0 && (
+          <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+            <div className="mb-1 text-sm font-bold text-[#0F172A]">
+              {review.summary.incorrectCount} Question{review.summary.incorrectCount === 1 ? '' : 's'} to Master
+            </div>
+            <p className="mb-3 text-sm text-[#64748B]">These are the questions you missed.</p>
+            <button
+              type="button"
+              onClick={onMasterMistakes}
+              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
+            >
+              Master My Mistakes →
+            </button>
+          </div>
+        )}
 
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Answer Review</h2>
