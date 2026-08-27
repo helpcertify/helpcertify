@@ -25,17 +25,27 @@ export function ToastStack() {
           key={toast.id}
           role="status"
           className={clsx(
-            'flex items-center gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg',
-            toast.variant === 'success' && 'border-emerald-800 bg-emerald-950 text-emerald-300',
-            toast.variant === 'error' && 'border-red-800 bg-red-950 text-red-300',
-            toast.variant === 'info' && 'border-surface-border bg-surface-raised text-ink'
+            'flex items-center gap-3 rounded-lg border border-l-4 border-surface-border bg-surface-raised px-4 py-3 text-sm text-ink shadow-lg',
+            toast.variant === 'success' && 'border-l-emerald-500',
+            toast.variant === 'error' && 'border-l-red-500',
+            toast.variant === 'info' && 'border-l-brand-500'
           )}
         >
+          <span
+            className={clsx(
+              'text-base leading-none',
+              toast.variant === 'success' && 'text-emerald-500',
+              toast.variant === 'error' && 'text-red-500',
+              toast.variant === 'info' && 'text-brand-500'
+            )}
+          >
+            {toast.variant === 'success' ? '✓' : toast.variant === 'error' ? '!' : 'ⓘ'}
+          </span>
           <span>{toast.message}</span>
           <button
             type="button"
             onClick={() => dismissToast(toast.id)}
-            className="text-current opacity-60 hover:opacity-100"
+            className="text-ink-faint opacity-60 hover:opacity-100"
             aria-label="Dismiss"
           >
             ×
