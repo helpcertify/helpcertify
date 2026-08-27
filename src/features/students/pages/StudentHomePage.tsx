@@ -294,14 +294,14 @@ export function StudentHomePage() {
 
   return (
     <div>
-      {/* Welcome and primary action */}
+      {/* Welcome and primary action — the subtitle restating what to
+          continue was removed on request: it's redundant now that
+          "Continue where you left off" sits right below with the same
+          title front and center. */}
       <div className="mb-8">
-        <h1 className="mb-1 text-2xl font-bold text-ink">
+        <h1 className="mb-4 text-2xl font-bold text-ink">
           {timeOfDayGreeting(new Date().getHours())}{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.
         </h1>
-        <p className="mb-4 text-sm text-ink-faint">
-          {continueItem ? `Continue preparing for ${continueItem.title}.` : "Let's find what to prepare for next."}
-        </p>
         {continueItem && (
           <Link
             to={continueItem.href}
@@ -312,12 +312,11 @@ export function StudentHomePage() {
         )}
       </div>
 
-      <StudyPlanSection cards={studyPlanCards} unplannedTest={unplannedTest ? { id: unplannedTest.id, title: unplannedTest.title } : null} />
-
       {/* Continue where you left off — only shown while something is
           actually in progress (continueItem is null otherwise), so this
           heading never appears for a student who hasn't started anything
-          yet. */}
+          yet. Moved directly under the greeting/Continue Practice button on
+          request, ahead of Your Study Plan. */}
       {continueItem && (
         <div className="mb-8 rounded-xl border border-brand-400 bg-brand-500/10 p-5">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Continue where you left off</h2>
@@ -336,6 +335,8 @@ export function StudentHomePage() {
           </div>
         </div>
       )}
+
+      <StudyPlanSection cards={studyPlanCards} unplannedTest={unplannedTest ? { id: unplannedTest.id, title: unplannedTest.title } : null} />
 
       {/* My Exams */}
       {ownedItems.length > 0 && (
