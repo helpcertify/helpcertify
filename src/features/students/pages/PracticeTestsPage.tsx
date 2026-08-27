@@ -249,7 +249,7 @@ function PracticeTestCard({
       to={`/practice-tests/${test.id}/take`}
       className="block w-full rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
     >
-      {answered > 0 ? 'Resume' : 'Start'}
+      {answered > 0 ? 'Resume' : 'Start Practice'}
     </Link>
   );
 

@@ -10,7 +10,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
-import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { RelatedItems } from '@/components/common/RelatedItems';
@@ -141,7 +141,12 @@ export function QuizDetailPage() {
             scroll past it. */}
         <div className="lg:sticky lg:top-20">
           <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-            <CourseCoverImage id={quiz.id} title={quiz.title} className="h-36 w-full" />
+            {/* Same light-blue gradient + icon header as every product
+                card in the app, not a colored cover banner. */}
+            <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
+              <CourseIcon id={quiz.id} title={quiz.title} itemType="quiz" />
+              <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{quiz.title}</h2>
+            </div>
             <div className="p-5">
               {price > 0 && (
                 <div className="mb-4 flex items-center justify-between gap-2">
@@ -201,7 +206,7 @@ export function QuizDetailPage() {
                   to={`/quizzes/${quiz.id}/take`}
                   className="block rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
                 >
-                  Start Quiz
+                  Start Mock Exam
                 </Link>
               )}
             </div>

@@ -12,7 +12,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
-import { CourseCoverImage } from '@/components/common/CourseCoverImage';
+import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { RelatedItems } from '@/components/common/RelatedItems';
@@ -210,7 +210,14 @@ export function PracticeTestDetailPage() {
             scroll past it. */}
         <div className="lg:sticky lg:top-20">
           <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-            <CourseCoverImage id={test.id} title={test.title} className="h-36 w-full" />
+            {/* Same light-blue gradient + icon header as every product
+                card in the app, not a colored cover banner — the learner
+                is already on this item's own page, so this is just a
+                consistent identity strip, not another clickable card. */}
+            <div className="flex items-center gap-3 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
+              <CourseIcon id={test.id} title={test.title} itemType="practiceTest" />
+              <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#0F172A]">{test.title}</h2>
+            </div>
             <div className="p-5">
               {price > 0 && (
                 <div className="mb-4 flex items-center justify-between gap-2">
@@ -294,7 +301,7 @@ export function PracticeTestDetailPage() {
                         }
                         className="block w-full rounded-lg bg-[#1D4ED8] py-2.5 text-center text-sm font-medium text-surface"
                       >
-                        {answered > 0 ? 'Resume' : 'Start'}
+                        {answered > 0 ? 'Resume' : 'Start Practice'}
                       </Link>
                     )}
                     {answered > 0 && (

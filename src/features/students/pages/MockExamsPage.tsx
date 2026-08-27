@@ -128,7 +128,7 @@ export function MockExamsPage() {
             <span className="block rounded-lg bg-[#F1F5F9] px-3 py-1.5 text-center text-sm text-[#64748B]">Already attempted</span>
           ) : (
             <Link to={`/quizzes/${quiz.id}/take`} className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]">
-              Start Quiz
+              Start Mock Exam
             </Link>
           );
 
