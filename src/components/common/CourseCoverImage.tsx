@@ -1,10 +1,12 @@
 // Self-generated (no external image/asset needed) banner cover for quiz/
-// practice test cards — a bold colored background with the exam/course
-// name itself as large white text (matching a "Certified Information
-// Systems Auditor (CISA)"-style banner), plus a small certificate-badge
-// accent in the corner. Each item deterministically gets one of a handful
-// of color pairs based on a hash of its id, so the same item always shows
-// the same color and different items get variety.
+// practice test cards — a soft, muted colored background with the exam/
+// course name itself as large white text. Each item deterministically gets
+// one of a handful of color pairs based on a hash of its id, so the same
+// item always shows the same color and different items get variety. The
+// "Click here" affordance and any corner badge are drawn as real HTML
+// overlays by the calling card, not inside this SVG (a plain decorative
+// banner keeps this component simple and keeps the click target a real
+// link, not shape hit-testing on an SVG element).
 
 function hashString(s: string): number {
   let h = 0;
@@ -12,13 +14,17 @@ function hashString(s: string): number {
   return h;
 }
 
+// Muted/dusty tones rather than the previous saturated navy/burgundy/deep-
+// violet set — softer on the eye while still dark enough for white 800-
+// weight text to stay readable (a truly light pastel wouldn't have enough
+// contrast for that).
 const PALETTE: [string, string][] = [
-  ['#1e3a8a', '#1e293b'], // navy -> slate
-  ['#166534', '#14532d'], // green -> deep green
-  ['#6d28d9', '#4c1d95'], // purple -> deep violet
-  ['#9f1239', '#881337'], // burgundy
-  ['#0f766e', '#134e4a'], // teal -> deep teal
-  ['#c2410c', '#7c2d12'], // orange -> brown
+  ['#4f6f8f', '#3f5972'], // dusty blue
+  ['#5f8f6f', '#4a7259'], // sage green
+  ['#7a6a9f', '#5f5280'], // muted plum
+  ['#b56b76', '#95535d'], // dusty rose
+  ['#4f8f8a', '#3f716c'], // muted teal
+  ['#c08a4f', '#9c6d3a'], // warm ochre
 ];
 
 // No real text-measurement API in plain SVG, so this is an approximation:
@@ -98,12 +104,6 @@ export function CourseCoverImage({ id, title, className = '' }: { id: string; ti
           );
         })}
       </text>
-
-      {/* small certification-badge accent, corner-placed and low-key next to the text */}
-      <g transform="translate(296, 140)" opacity="0.9">
-        <circle r="11" fill="none" stroke="white" strokeWidth="1.6" />
-        <path d="M-4.5 0 L-1 3.5 L5.5 -4.5" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
     </svg>
   );
 }

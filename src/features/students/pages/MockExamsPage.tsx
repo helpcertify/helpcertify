@@ -13,6 +13,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { ClickHereLink, CategoryBadge } from '@/components/common/CardBits';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { QuizDoc } from '@/types/models';
 
@@ -100,43 +101,47 @@ export function MockExamsPage() {
             // across cards regardless of how much title/rating text sits
             // above it).
             <div key={quiz.id} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
-              <Link to={`/home/quizzes/${quiz.id}`}>
-                <CourseCoverImage id={quiz.id} title={quiz.title} className="h-20 w-full" />
-              </Link>
+              <div className="relative">
+                <Link to={`/home/quizzes/${quiz.id}`}>
+                  <CourseCoverImage id={quiz.id} title={quiz.title} className="h-20 w-full" />
+                </Link>
+                <ClickHereLink href={`/home/quizzes/${quiz.id}`} />
+              </div>
               {/* Card body sits on the plain surface-raised background, unlike
                   the colorful cover banner above — the heart lives here now
                   (variant="inline") since it was unreadable against some of
                   the banner's brighter gradient pairs. */}
               <div className="relative flex flex-1 flex-col p-3.5">
-                {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-2.5 top-2.5" />}
-              <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
-                <span>{quiz.category ?? 'Other'}</span>
-                <span>·</span>
-                <span>{quiz.skillLevel ?? 'Foundation'}</span>
-              </div>
+                <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" className="absolute right-2.5 top-2.5" />
               <Link to={`/home/quizzes/${quiz.id}`} className="hover:text-brand-ink">
                 <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{quiz.title}</h3>
               </Link>
-              {(quiz.ratingCount ?? 0) > 0 && (
-                <div className="mb-1 flex items-center gap-1.5">
+              <div className="mb-2">
+                <CategoryBadge category={quiz.category ?? 'Other'} skillLevel={quiz.skillLevel ?? 'Foundation'} />
+              </div>
+              {(quiz.ratingCount ?? 0) > 0 ? (
+                <div className="mb-2 flex items-center gap-1.5">
                   <StarRating value={quiz.ratingAvg ?? 0} size="sm" />
                   <span className="text-xs text-ink-faint">
                     {(quiz.ratingAvg ?? 0).toFixed(1)} ({quiz.ratingCount})
                   </span>
                 </div>
+              ) : (
+                <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
               )}
-              <div className="mb-2 text-xs text-ink-faint">
-                {quiz.totalQuestions} questions · {quiz.durationMinutes} min
-              </div>
 
-              {price > 0 && (
-                <div className="mb-2 flex items-center gap-2">
-                  {quiz.originalPrice && quiz.originalPrice > price && (
-                    <span className="text-xs text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
-                  )}
-                  <span className="font-semibold text-ink">{formatMoney(price, quiz.currency)}</span>
-                </div>
-              )}
+              <div className="mb-3 flex items-center gap-2">
+                {price > 0 ? (
+                  <>
+                    {quiz.originalPrice && quiz.originalPrice > price && (
+                      <span className="text-xs text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
+                    )}
+                    <span className="font-semibold text-ink">{formatMoney(price, quiz.currency)}</span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">Free</span>
+                )}
+              </div>
 
               <div className="mt-auto">
               {!owned ? (

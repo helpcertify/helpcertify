@@ -10,6 +10,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
+import { ClickHereLink, CategoryBadge } from '@/components/common/CardBits';
 
 export function WishlistPage() {
   const queryClient = useQueryClient();
@@ -63,42 +64,45 @@ export function WishlistPage() {
             return (
               <div
                 key={`${item.itemType}_${item.itemId}`}
-                className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised"
+                className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg"
               >
-                <Link to={detailHref}>
-                  <CourseCoverImage id={item.itemId} title={item.title} className="h-20 w-full" />
-                </Link>
+                <div className="relative">
+                  <Link to={detailHref}>
+                    <CourseCoverImage id={item.itemId} title={item.title} className="h-20 w-full" />
+                  </Link>
+                  <ClickHereLink href={detailHref} />
+                </div>
                 <div className="relative flex flex-1 flex-col p-3.5">
                   <WishlistButton itemType={item.itemType} itemId={item.itemId} variant="inline" className="absolute right-2.5 top-2.5" />
-                  <div className="mb-0.5 flex flex-wrap items-center gap-1.5 pr-8 text-xs uppercase tracking-wide text-ink-faint">
-                    <span>{item.category}</span>
-                    <span>·</span>
-                    <span>{item.skillLevel}</span>
-                  </div>
-                  <Link to={detailHref} className="hover:text-brand-ink">
-                    <h3 className="mb-0.5 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+                  <Link to={detailHref} className="cursor-pointer hover:text-brand-ink hover:underline">
+                    <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{item.title}</h3>
                   </Link>
-                  {item.ratingCount > 0 && (
-                    <div className="mb-1 flex items-center gap-1.5">
+                  <div className="mb-2">
+                    <CategoryBadge category={item.category} skillLevel={item.skillLevel} />
+                  </div>
+                  {item.ratingCount > 0 ? (
+                    <div className="mb-2 flex items-center gap-1.5">
                       <StarRating value={item.ratingAvg} size="sm" />
                       <span className="text-xs text-ink-faint">
                         {item.ratingAvg.toFixed(1)} ({item.ratingCount})
                       </span>
                     </div>
+                  ) : (
+                    <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
                   )}
-                  <div className="mb-2 text-xs text-ink-faint">
-                    {item.totalQuestions} questions ·{' '}
-                    {item.durationMinutes ? `${item.durationMinutes} min` : 'you choose duration'}
-                  </div>
 
-                  {item.price > 0 && (
-                    <div className="mb-2 flex items-center gap-2">
-                      {item.originalPrice && item.originalPrice > item.price && (
-                        <span className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
-                      )}
-                      <span className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</span>
-                    </div>
-                  )}
+                  <div className="mb-3 flex items-center gap-2">
+                    {item.price > 0 ? (
+                      <>
+                        {item.originalPrice && item.originalPrice > item.price && (
+                          <span className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
+                        )}
+                        <span className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</span>
+                      </>
+                    ) : (
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">Free</span>
+                    )}
+                  </div>
 
                   <div className="mt-auto">
                   {item.price === 0 ? (

@@ -203,7 +203,7 @@ export function StudentHomePage() {
 
       {/* Recommended for you — moved directly below "Continue where you
           left off" on request. */}
-      <CourseCarousel title="Recommended for you" items={recommended} compactActions />
+      <CourseCarousel title="Recommended for you" items={recommended} />
 
       {/* Upcoming or incomplete Mock Exams */}
       {upcomingMockExams.length > 0 && (

@@ -14,6 +14,7 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { StarRating } from '@/components/common/StarRating';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { ClickHereLink, CategoryBadge } from '@/components/common/CardBits';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { PracticeTestDoc } from '@/types/models';
 
@@ -22,16 +23,6 @@ import type { PracticeTestDoc } from '@/types/models';
 // shape; a bare `ts.seconds * 1000` silently produced an Invalid Date here.
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
-}
-
-// Turns a free-text description into short bullet points for the hover
-// card — one line per newline if the admin already wrote it that way,
-// otherwise a naive sentence split. Capped so a very long description can't
-// blow out the hover card's height.
-function descriptionBullets(description: string): string[] {
-  const byLine = description.split('\n').map((l) => l.trim()).filter(Boolean);
-  const raw = byLine.length > 1 ? byLine : description.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
-  return raw.slice(0, 5);
 }
 
 // jsPDF (certificate.ts) is a meaningful chunk of code that only a fraction
@@ -223,11 +214,6 @@ interface PracticeTestCardProps {
   onDownloadCertificate: () => void;
 }
 
-// A Udemy-style card: the base card stays deliberately minimal (name over a
-// colored banner, rating, price, one primary action), and hovering it
-// (desktop only — lg:) pops out a second, fuller card beside it (not on top
-// of it) with the actual description, full stats, and every action, instead
-// of cramming all of that into the grid at all times.
 function PracticeTestCard({
   test,
   answered,
@@ -242,7 +228,6 @@ function PracticeTestCard({
   const done = answered >= test.totalQuestions;
   const price = test.price ?? 0;
   const detailHref = `/home/practice-tests/${test.id}`;
-  const bullets = test.description ? descriptionBullets(test.description) : [];
 
   const primaryOwnedAction = done ? (
     <button
@@ -269,27 +254,28 @@ function PracticeTestCard({
   );
 
   return (
-    <div className="group relative h-full">
-      {/* Base card — always visible. h-full + flex column so every card in
-          a grid row matches the tallest one (the grid itself already
-          stretches this wrapper to the row height; flex-col + mt-auto on
-          the action block is what makes the *visible* card fill that same
-          height instead of just wrapping its own content). */}
-      {/* hover:-translate-y-0.5 + hover:shadow-lg + hover:border-brand-400
-          together are the "this is clickable" signal — a lift/shadow reads
-          as the card physically responding to the pointer, distinct from
-          static content, without needing the whole card to literally be one
-          giant link (it can't be, it holds its own buttons). */}
-      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
+    // h-full + flex column so every card in a grid row matches the tallest
+    // one (the grid itself already stretches this wrapper to the row
+    // height; flex-col + mt-auto on the action block is what makes the
+    // *visible* card fill that same height instead of just wrapping its own
+    // content). hover:-translate-y-0.5 + hover:shadow-lg + hover:border-
+    // brand-400 together are the "this is clickable" signal.
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
+      <div className="relative">
         <Link to={detailHref} className="cursor-pointer">
           <CourseCoverImage id={test.id} title={test.title} className="h-24 w-full" />
         </Link>
-        <div className="relative flex flex-1 flex-col p-3.5">
-          {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />}
-          <Link to={detailHref} className="cursor-pointer hover:text-brand-ink hover:underline">
-            <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
-          </Link>
-          {(test.ratingCount ?? 0) > 0 ? (
+        <ClickHereLink href={detailHref} />
+      </div>
+      <div className="relative flex flex-1 flex-col p-3.5">
+        <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />
+        <Link to={detailHref} className="cursor-pointer hover:text-brand-ink hover:underline">
+          <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
+        </Link>
+        <div className="mb-2">
+          <CategoryBadge category={test.category ?? 'Other'} skillLevel={test.skillLevel ?? 'Foundation'} />
+        </div>
+        {(test.ratingCount ?? 0) > 0 ? (
             <div className="mb-2 flex items-center gap-1.5">
               <StarRating value={test.ratingAvg ?? 0} size="sm" />
               <span className="text-xs text-ink-faint">
@@ -345,116 +331,6 @@ function PracticeTestCard({
               primaryOwnedAction
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Hover popover — desktop only (lg:). Sits entirely to the right of
-          the card with a real gap (left-full + margin), so the card it
-          came from stays fully visible underneath rather than being
-          covered. A small triangular pointer sits in that gap, tying the
-          popover back to the card it came from. Positioned absolute so it
-          never shifts grid layout; it's allowed to overlap the *next*
-          card over since only one card can be hovered at a time. */}
-      <div className="pointer-events-none invisible absolute left-[calc(100%+0.9rem)] top-0 z-30 hidden w-[300px] opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 lg:block">
-        {/* Pointer, in the gap between the card and the popover (border-
-            matched square rotated 45deg, the classic speech-bubble tail). */}
-        <div className="absolute -left-[0.55rem] top-9 h-3.5 w-3.5 rotate-45 border-b border-l border-surface-border bg-surface-raised" />
-        <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised p-4 shadow-2xl">
-          <h3 className="mb-1.5 font-bold leading-snug text-ink">{test.title}</h3>
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="rounded bg-[#1D4ED8] px-2 py-0.5 text-xs font-semibold text-white">{test.category ?? 'Other'}</span>
-            <span className="rounded bg-surface px-2 py-0.5 text-xs text-ink-muted">{test.skillLevel ?? 'Foundation'}</span>
-          </div>
-          {(test.ratingCount ?? 0) > 0 && (
-            <div className="mb-2 flex items-center gap-1.5">
-              <StarRating value={test.ratingAvg ?? 0} size="sm" />
-              <span className="text-xs text-ink-faint">
-                {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount} review{test.ratingCount === 1 ? '' : 's'})
-              </span>
-            </div>
-          )}
-          <div className="mb-3 text-xs text-ink-faint">
-            📄 {test.totalQuestions} questions ·{' '}
-            {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min/session` : 'you choose session length'}
-            {owned && <> · {answered}/{test.totalQuestions} answered</>}
-          </div>
-          {bullets.length > 0 && (
-            <ul className="mb-3 space-y-1.5 text-xs text-ink-muted">
-              {bullets.map((b, i) => (
-                <li key={i} className="flex gap-1.5">
-                  <span className="text-emerald-600 dark:text-emerald-400">✓</span>
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {!owned ? (
-            inCart ? (
-              <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
-                ✓ In Cart · View Cart
-              </Link>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={paying}
-                  onClick={onBuyNow}
-                  className="flex-1 rounded-lg bg-[#1D4ED8] py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-                >
-                  {paying ? 'Opening…' : 'Buy Now'}
-                </button>
-                <button
-                  type="button"
-                  disabled={addingToCart || paying}
-                  onClick={onAddToCart}
-                  aria-label="Add to cart"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-surface-border text-ink-muted hover:border-brand-400 hover:text-brand-ink disabled:opacity-60"
-                >
-                  🛒
-                </button>
-              </div>
-            )
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {!done && (
-                <div className="flex gap-2">
-                  <Link
-                    to={`/practice-tests/${test.id}/take`}
-                    className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-surface"
-                  >
-                    {answered > 0 ? 'Resume' : 'Start'}
-                  </Link>
-                  {answered > 0 && (
-                    <Link
-                      to={`/practice-tests/${test.id}/take?reattempt=1`}
-                      className="flex-1 rounded-lg border border-surface-border py-1.5 text-center text-sm text-ink-muted"
-                    >
-                      Reattempt
-                    </Link>
-                  )}
-                </div>
-              )}
-              {!done && test.studyPlannerEnabled !== false && (
-                <Link
-                  to={`/home/practice-tests/${test.id}?goal=1`}
-                  className="block rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
-                >
-                  🎯 Set Your Study Goal
-                </Link>
-              )}
-              {done && (
-                <button
-                  type="button"
-                  onClick={onDownloadCertificate}
-                  className="rounded-lg border border-brand-400 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
-                >
-                  🎓 Download Certificate
-                </button>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

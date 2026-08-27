@@ -8,6 +8,8 @@ import { formatMoney } from '@/utils/currency';
 import { CourseCoverImage } from './CourseCoverImage';
 import { StarRating } from './StarRating';
 import { BuyNowModal } from './BuyNowModal';
+import { WishlistButton } from './WishlistButton';
+import { ClickHereLink, CategoryBadge } from './CardBits';
 import type { PurchasableItemType } from '@/types/models';
 
 export interface CarouselItem {
@@ -27,14 +29,12 @@ export interface CarouselItem {
 interface CourseCarouselProps {
   title: string;
   items: CarouselItem[];
-  compactActions?: boolean;
 }
 
-// A horizontally-scrolling row of compact cards with prev/next arrows,
-// shown only when there's actually more to reveal in that direction. Each
-// card carries its own Add to Cart / Buy Now (or a Start/Resume link once
-// owned), same as every other card in the app — no hover-expand panel
-// (that was tried and then explicitly removed on request).
+// A horizontally-scrolling row of cards with prev/next arrows, shown only
+// when there's actually more to reveal in that direction. Each card carries
+// its own Add to Cart / Buy Now / wishlist heart (or a Start/Resume link
+// once owned), same anatomy as every other product card in the app.
 //
 // Ownership/cart-membership is computed here rather than passed in by the
 // caller: this component fetches the same ['student','cart']/
@@ -42,7 +42,7 @@ interface CourseCarouselProps {
 // it works self-sufficiently regardless of which page renders it (and
 // React Query dedupes the fetch against whatever the parent already
 // loaded — no extra network round trip in practice).
-export function CourseCarousel({ title, items, compactActions }: CourseCarouselProps) {
+export function CourseCarousel({ title, items }: CourseCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -110,7 +110,6 @@ export function CourseCarousel({ title, items, compactActions }: CourseCarouselP
             inCart={inCartSet.has(`${item.itemType}_${item.id}`)}
             paying={paying}
             onBuyNow={() => setBuyNowItem(item)}
-            compactActions={compactActions}
           />
         ))}
       </div>
@@ -144,10 +143,9 @@ interface CarouselCardProps {
   inCart: boolean;
   paying: boolean;
   onBuyNow: () => void;
-  compactActions?: boolean;
 }
 
-function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }: CarouselCardProps) {
+function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardProps) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const href = item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`;
@@ -165,74 +163,79 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
     // Widened and given a shorter cover relative to that width (h-28 on a
     // w-60/w-72 card, versus the old h-24 on w-44/w-52) so the card reads
     // as a landscape rectangle rather than the previous narrow, more
-    // square-ish shape.
+    // square-ish shape. Same anatomy as PracticeTestsPage's card now (cover
+    // + Click here link, wishlist heart, category badge, rating, price,
+    // actions) so every card in the app reads the same way.
     <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg sm:w-72">
-      <Link to={href}>
-        <CourseCoverImage id={item.id} title={item.title} className="h-28 w-full" />
-      </Link>
-      <div className="flex flex-1 flex-col p-4">
-        <div className="mb-1 truncate text-[10px] uppercase tracking-wide text-ink-faint">
-          {item.category} · {item.skillLevel}
-        </div>
-        <Link to={href} className="hover:text-brand-ink">
-          <h3 className="line-clamp-2 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+      <div className="relative">
+        <Link to={href}>
+          <CourseCoverImage id={item.id} title={item.title} className="h-28 w-full" />
         </Link>
-        {item.ratingCount > 0 && (
-          <div className="mt-1 flex items-center gap-1">
+        <ClickHereLink href={href} />
+      </div>
+      <div className="relative flex flex-1 flex-col p-4">
+        <WishlistButton itemType={item.itemType} itemId={item.id} variant="inline" className="absolute right-3 top-3" />
+        <Link to={href} className="cursor-pointer pr-8 hover:text-brand-ink hover:underline">
+          <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+        </Link>
+        <div className="mb-2">
+          <CategoryBadge category={item.category} skillLevel={item.skillLevel} />
+        </div>
+        {item.ratingCount > 0 ? (
+          <div className="mb-2 flex items-center gap-1.5">
             <StarRating value={item.ratingAvg} size="sm" />
-            <span className="text-xs text-ink-faint">{item.ratingAvg.toFixed(1)}</span>
+            <span className="text-xs text-ink-faint">{item.ratingAvg.toFixed(1)} ({item.ratingCount})</span>
           </div>
+        ) : (
+          <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
         )}
-        <div className="mt-1 text-[10px] text-ink-faint">{item.totalQuestions} questions</div>
-        <div className="mb-2 mt-1 text-xs font-semibold text-ink">
-          {item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}
-          {item.originalPrice && item.originalPrice > item.price && (
-            <span className="ml-1.5 text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
+        <div className="mb-3 flex items-center gap-2">
+          {item.price > 0 ? (
+            <>
+              {item.originalPrice && item.originalPrice > item.price && (
+                <span className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</span>
+              )}
+              <span className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</span>
+            </>
+          ) : (
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Free</span>
           )}
         </div>
 
         <div className="mt-auto">
-        {!owned && (
-          <div className={compactActions ? 'flex items-center gap-1' : 'flex flex-col gap-1.5'}>
-            {inCart ? (
-              <Link
-                to="/home/cart"
-                className={
-                  compactActions
-                    ? 'min-w-0 flex-1 truncate rounded-lg border border-[#1D4ED8]/50 px-1 py-1 text-center text-[10px] font-medium text-[#1D4ED8]'
-                    : 'rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-xs font-medium text-[#1D4ED8]'
-                }
-              >
-                ✓ In Cart
+          {!owned ? (
+            inCart ? (
+              <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
+                ✓ In Cart · View Cart
               </Link>
             ) : (
-              <button
-                type="button"
-                disabled={addToCartMutation.isPending}
-                onClick={() => addToCartMutation.mutate()}
-                className={
-                  compactActions
-                    ? 'min-w-0 flex-1 truncate rounded-lg border border-surface-border px-1 py-1 text-[10px] font-medium text-ink-muted hover:opacity-80 disabled:opacity-60'
-                    : 'rounded-lg border border-surface-border py-1.5 text-xs font-medium text-ink-muted hover:opacity-80 disabled:opacity-60'
-                }
-              >
-                {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={paying}
-              onClick={onBuyNow}
-              className={
-                compactActions
-                  ? 'min-w-0 flex-1 truncate rounded-lg bg-[#1D4ED8] px-1 py-1 text-[10px] font-medium text-white hover:opacity-90 disabled:opacity-60'
-                  : 'rounded-lg bg-[#1D4ED8] py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60'
-              }
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={addToCartMutation.isPending || paying}
+                  onClick={() => addToCartMutation.mutate()}
+                  className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
+                >
+                  {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
+                </button>
+                <button
+                  type="button"
+                  disabled={paying}
+                  onClick={onBuyNow}
+                  className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                >
+                  {paying ? 'Opening…' : 'Buy Now'}
+                </button>
+              </div>
+            )
+          ) : (
+            <Link
+              to={href}
+              className="block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
             >
-              {paying ? 'Opening…' : 'Buy Now'}
-            </button>
-          </div>
-        )}
+              Go start it →
+            </Link>
+          )}
         </div>
       </div>
     </div>

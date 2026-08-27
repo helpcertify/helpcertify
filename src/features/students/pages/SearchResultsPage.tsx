@@ -143,7 +143,7 @@ function ResultCard({
   currency: string;
 }) {
   return (
-    <Link to={href} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400">
+    <Link to={href} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
       <CourseCoverImage id={id} title={title} className="h-20 w-full" />
       <div className="flex flex-1 flex-col p-3.5">
         <div className="mb-0.5 text-xs uppercase tracking-wide text-ink-faint">{category}</div>
