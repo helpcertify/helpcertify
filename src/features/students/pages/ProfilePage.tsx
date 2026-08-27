@@ -3,6 +3,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { friendlyAuthError } from '@/lib/errorMessages';
+import { ProfileActivitySections } from '../components/ProfileActivitySections';
 
 // Was a modal (ProfileModal) triggered from the sidebar's "My Profile"
 // button; moved to a real page/route on request, same content, just laid
@@ -71,7 +72,7 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-5xl">
       <h1 className="mb-1 text-2xl font-bold text-ink">My Profile</h1>
       <p className="mb-6 text-sm text-ink-faint">Your account details, and how you appear to yourself here.</p>
 
@@ -168,6 +169,12 @@ export function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Your Study Plan, My Exams, Performance Summary, Recommended Next
+          Step, and Recent Attempts moved here from the Home dashboard on
+          request, so Home stays focused on "what to do right now" and this
+          page holds the fuller activity/progress picture. */}
+      <ProfileActivitySections />
     </div>
   );
 }

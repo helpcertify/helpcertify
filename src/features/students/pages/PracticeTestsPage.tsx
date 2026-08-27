@@ -275,13 +275,18 @@ function PracticeTestCard({
           stretches this wrapper to the row height; flex-col + mt-auto on
           the action block is what makes the *visible* card fill that same
           height instead of just wrapping its own content). */}
-      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
-        <Link to={detailHref}>
+      {/* hover:-translate-y-0.5 + hover:shadow-lg + hover:border-brand-400
+          together are the "this is clickable" signal — a lift/shadow reads
+          as the card physically responding to the pointer, distinct from
+          static content, without needing the whole card to literally be one
+          giant link (it can't be, it holds its own buttons). */}
+      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
+        <Link to={detailHref} className="cursor-pointer">
           <CourseCoverImage id={test.id} title={test.title} className="h-24 w-full" />
         </Link>
         <div className="relative flex flex-1 flex-col p-3.5">
           {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />}
-          <Link to={detailHref} className="hover:text-brand-ink">
+          <Link to={detailHref} className="cursor-pointer hover:text-brand-ink hover:underline">
             <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
           </Link>
           {(test.ratingCount ?? 0) > 0 ? (

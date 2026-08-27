@@ -71,7 +71,7 @@ export function CourseCarousel({ title, items, compactActions }: CourseCarouselP
   }, [items.length]);
 
   const scroll = (direction: 1 | -1) => {
-    scrollerRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' });
+    scrollerRef.current?.scrollBy({ left: direction * 300, behavior: 'smooth' });
   };
 
   if (items.length === 0) return null;
@@ -162,11 +162,15 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow, compactActions }:
   });
 
   return (
-    <div className="flex w-44 shrink-0 flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised hover:border-brand-400 sm:w-52">
+    // Widened and given a shorter cover relative to that width (h-28 on a
+    // w-60/w-72 card, versus the old h-24 on w-44/w-52) so the card reads
+    // as a landscape rectangle rather than the previous narrow, more
+    // square-ish shape.
+    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg sm:w-72">
       <Link to={href}>
-        <CourseCoverImage id={item.id} title={item.title} className="h-24 w-full" />
+        <CourseCoverImage id={item.id} title={item.title} className="h-28 w-full" />
       </Link>
-      <div className="flex flex-1 flex-col p-3">
+      <div className="flex flex-1 flex-col p-4">
         <div className="mb-1 truncate text-[10px] uppercase tracking-wide text-ink-faint">
           {item.category} · {item.skillLevel}
         </div>

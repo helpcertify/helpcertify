@@ -99,7 +99,7 @@ export function MockExamsPage() {
             // flex-1 + mt-auto below is what makes the button row line up
             // across cards regardless of how much title/rating text sits
             // above it).
-            <div key={quiz.id} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+            <div key={quiz.id} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
               <Link to={`/home/quizzes/${quiz.id}`}>
                 <CourseCoverImage id={quiz.id} title={quiz.title} className="h-20 w-full" />
               </Link>
