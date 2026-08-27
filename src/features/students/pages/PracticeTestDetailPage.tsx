@@ -135,14 +135,18 @@ export function PracticeTestDetailPage() {
   const previewCount = test.previewQuestionCount === 0 ? 0 : SAMPLE_PREVIEW_COUNT;
 
   return (
-    <div className="mx-auto max-w-[1440px]">
+    // Fills the width StudentShell's sidebar leaves available (up to a
+    // 1440px cap) instead of centering a much-narrower fixed column inside
+    // it — that mismatch was the source of the large dead margins either
+    // side of the page.
+    <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
       <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Practice Exams
       </Link>
 
       {/* Header — full width, badges/title/rating/stats on the left, a
           decorative certification mark on the right. Description text is
-          capped at ~760px even though the row itself spans the page, so
+          capped at ~750px even though the row itself spans the page, so
           long paragraphs stay readable. */}
       <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
         <div className="min-w-0">
@@ -162,14 +166,18 @@ export function PracticeTestDetailPage() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#475569]">
+          {/* One horizontal line with bullet separators rather than a
+              stack — same three facts as before, grouped tighter. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#475569]">
             <span>▣ {test.totalQuestions} Questions</span>
+            <span className="text-[#CBD5E1]">•</span>
             <span>◷ {owned ? `${answered}/${test.totalQuestions} Answered` : 'Not started'}</span>
+            <span className="text-[#CBD5E1]">•</span>
             <span>{test.category ?? 'Other'}</span>
           </div>
 
           {test.description && (
-            <p className="mt-4 max-w-[760px] whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{test.description}</p>
+            <p className="mt-4 max-w-[750px] whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{test.description}</p>
           )}
         </div>
 
@@ -184,9 +192,11 @@ export function PracticeTestDetailPage() {
       </div>
 
       {/* Two-column row: Practice Setup + Study Plan when owned, Course
-          Access + Free Preview when not. */}
+          Access + Free Preview when not. Study Plan gets slightly more
+          width — it's carrying progress, exam countdown, and today's
+          target, more content than Practice Setup's duration picker. */}
       {owned ? (
-        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <PracticeSetupCard
             test={test}
             done={done}
@@ -501,27 +511,31 @@ function PlanSummaryCard({
         </button>
       </div>
 
-      <div className="mb-4 flex items-center justify-between gap-4">
+      {/* Three stats across the card's full width — the days-to-exam
+          countdown, completion progress, and today's target used to be
+          three separately-boxed rows; grouping them into one row uses the
+          Study Plan card's extra width (0.9fr/1.1fr split above) instead
+          of leaving it empty. */}
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <div className="text-[26px] font-bold text-[#0F172A]">📅 {countdownLabel}</div>
           <div className="text-xs text-[#64748B]">{countdownValue}</div>
         </div>
-        <div className="text-right">
-          <div className="text-sm font-semibold text-[#0F172A]">
-            {answered} / {totalQuestions} completed
+        <div>
+          <div className="text-[26px] font-bold text-[#0F172A]">
+            {answered}/{totalQuestions}
           </div>
-          <div className="text-xs text-[#64748B]">{percentComplete}%</div>
+          <div className="text-xs text-[#64748B]">completed ({percentComplete}%)</div>
+        </div>
+        <div>
+          <div className="text-[26px] font-bold text-[#155EEF]">
+            {dailyTarget} Q{dailyTarget === 1 ? '' : 's'}
+          </div>
+          <div className="text-xs text-[#64748B]">today's target</div>
         </div>
       </div>
-      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
         <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
-      </div>
-
-      <div className="rounded-lg bg-[#F8FAFC] p-3 text-center">
-        <div className="text-[10px] uppercase tracking-wide text-[#64748B]">Today's Target</div>
-        <div className="text-xl font-bold text-[#0F172A]">
-          {dailyTarget} Question{dailyTarget === 1 ? '' : 's'}
-        </div>
       </div>
     </div>
   );

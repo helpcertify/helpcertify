@@ -85,7 +85,10 @@ export function QuizDetailPage() {
   const previewCount = quiz.previewQuestionCount === 0 ? 0 : SAMPLE_PREVIEW_COUNT;
 
   return (
-    <div className="mx-auto max-w-[1440px]">
+    // Fills the width StudentShell's sidebar leaves available (up to a
+    // 1440px cap) instead of centering a much-narrower fixed column inside
+    // it — same fix as PracticeTestDetailPage, same underlying cause.
+    <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
       <Link to="/home/mock-exams" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Mock Exams
       </Link>
