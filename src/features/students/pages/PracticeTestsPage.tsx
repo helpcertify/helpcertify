@@ -9,12 +9,8 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
-import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
-import { CourseCoverImage } from '@/components/common/CourseCoverImage';
-import { StarRating } from '@/components/common/StarRating';
-import { WishlistButton } from '@/components/common/WishlistButton';
-import { ClickHereLink, CategoryBadge } from '@/components/common/CardBits';
+import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { PracticeTestDoc } from '@/types/models';
 
@@ -118,7 +114,11 @@ export function PracticeTestsPage() {
           Nothing matches those filters. Try clearing the search or picking "All".
         </p>
       ) : (
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        // Fixed-width cards (flex-wrap, not a CSS grid that stretches each
+        // cell) so every card is the exact same size as the Home
+        // dashboard's Recommended for You cards, on request — not just
+        // visually similar but literally the same w-60/sm:w-72.
+        <div className="mb-8 flex flex-wrap gap-4">
           {filteredAvailable.map((test) => (
             <PracticeTestCard
               key={test.id}
@@ -233,105 +233,69 @@ function PracticeTestCard({
     <button
       type="button"
       onClick={onDownloadCertificate}
-      className="w-full rounded-lg border border-brand-400 py-1.5 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
+      className="w-full rounded-lg border border-[#155EEF] py-1.5 text-sm font-semibold text-[#155EEF] hover:bg-[#F8FAFF]"
     >
       🎓 Download Certificate
     </button>
   ) : test.studyPlannerEnabled !== false ? (
     <Link
       to={`/home/practice-tests/${test.id}?goal=1`}
-      className="block w-full rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+      className="block w-full rounded-lg bg-[#d87f1d] py-1.5 text-center text-sm font-semibold text-white hover:opacity-90"
     >
       🎯 Set Your Study Goal
     </Link>
   ) : (
     <Link
       to={`/practice-tests/${test.id}/take`}
-      className="block w-full rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+      className="block w-full rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
     >
       {answered > 0 ? 'Resume' : 'Start'}
     </Link>
   );
 
-  return (
-    // h-full + flex column so every card in a grid row matches the tallest
-    // one (the grid itself already stretches this wrapper to the row
-    // height; flex-col + mt-auto on the action block is what makes the
-    // *visible* card fill that same height instead of just wrapping its own
-    // content). hover:-translate-y-0.5 + hover:shadow-lg + hover:border-
-    // brand-400 together are the "this is clickable" signal.
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
-      <div className="relative">
-        <Link to={detailHref} className="cursor-pointer">
-          <CourseCoverImage id={test.id} title={test.title} className="h-24 w-full" />
-        </Link>
-        <ClickHereLink href={detailHref} />
+  const footer = !owned ? (
+    inCart ? (
+      <Link to="/home/cart" className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]">
+        ✓ In Cart · View Cart
+      </Link>
+    ) : (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={addingToCart || paying}
+          onClick={onAddToCart}
+          className="flex-1 rounded-lg border border-[#CBD5E1] bg-white py-1.5 text-sm font-semibold text-[#334155] transition-colors hover:border-[#155EEF] hover:bg-[#F8FAFF] hover:text-[#155EEF] disabled:opacity-60"
+        >
+          Add to Cart
+        </button>
+        <button
+          type="button"
+          disabled={paying}
+          onClick={onBuyNow}
+          className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+        >
+          {paying ? 'Opening…' : 'Buy Now'}
+        </button>
       </div>
-      <div className="relative flex flex-1 flex-col p-3.5">
-        <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" className="absolute right-2.5 top-2.5" />
-        <Link to={detailHref} className="cursor-pointer hover:text-brand-ink hover:underline">
-          <h3 className="mb-1 line-clamp-2 pr-8 text-sm font-bold leading-snug text-ink">{test.title}</h3>
-        </Link>
-        <div className="mb-2">
-          <CategoryBadge category={test.category ?? 'Other'} skillLevel={test.skillLevel ?? 'Foundation'} />
-        </div>
-        {(test.ratingCount ?? 0) > 0 ? (
-            <div className="mb-2 flex items-center gap-1.5">
-              <StarRating value={test.ratingAvg ?? 0} size="sm" />
-              <span className="text-xs text-ink-faint">
-                {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount})
-              </span>
-            </div>
-          ) : (
-            <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
-          )}
-          <div className="mb-3 flex items-center gap-2">
-            {price > 0 ? (
-              <>
-                {test.originalPrice && test.originalPrice > price && (
-                  <span className="text-xs text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
-                )}
-                <span className="font-semibold text-ink">{formatMoney(price, test.currency)}</span>
-              </>
-            ) : (
-              <span className="font-semibold text-emerald-700 dark:text-emerald-400">Free</span>
-            )}
-          </div>
+    )
+  ) : (
+    primaryOwnedAction
+  );
 
-          {/* Spacer pushes the action block to the bottom of the card
-              regardless of how much room the title/rating/price took above
-              it, so the button row lines up across every card in a row. */}
-          <div className="mt-auto">
-            {!owned ? (
-              inCart ? (
-                <Link to="/home/cart" className="block rounded-lg border border-[#1D4ED8]/50 py-1.5 text-center text-sm font-medium text-[#1D4ED8]">
-                  ✓ In Cart · View Cart
-                </Link>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={addingToCart || paying}
-                    onClick={onAddToCart}
-                    className="flex-1 rounded-lg border border-surface-border py-1.5 text-sm font-medium text-ink-muted hover:opacity-80 disabled:opacity-60"
-                  >
-                    Add to Cart
-                  </button>
-                  <button
-                    type="button"
-                    disabled={paying}
-                    onClick={onBuyNow}
-                    className="flex-1 rounded-lg bg-[#1D4ED8] py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-                  >
-                    {paying ? 'Opening…' : 'Buy Now'}
-                  </button>
-                </div>
-              )
-            ) : (
-              primaryOwnedAction
-            )}
-          </div>
-      </div>
-    </div>
+  return (
+    <ProductCardShell
+      id={test.id}
+      itemType="practiceTest"
+      title={test.title}
+      category={test.category ?? 'Other'}
+      skillLevel={test.skillLevel ?? 'Foundation'}
+      ratingAvg={test.ratingAvg ?? 0}
+      ratingCount={test.ratingCount ?? 0}
+      price={price}
+      originalPrice={test.originalPrice ?? null}
+      currency={test.currency ?? 'INR'}
+      detailHref={detailHref}
+      footer={footer}
+    />
   );
 }

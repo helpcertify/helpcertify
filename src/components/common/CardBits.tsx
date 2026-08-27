@@ -5,14 +5,15 @@ import { Link } from 'react-router-dom';
 // clickable" and "what is this" signals look and read identically
 // everywhere, per request.
 
-// Sits over the bottom-right corner of a card's colored cover banner,
-// replacing the small checkmark badge that used to live there — a plain
-// checkmark didn't tell anyone it was interactive, this does.
+// Sits at the bottom-right of a card's light-blue header section, telling
+// the learner the card itself is clickable (not just its title/icon) -
+// blue-on-light-blue since the header is now a soft gradient rather than
+// the old dark colored banner (white text would have no contrast here).
 export function ClickHereLink({ href }: { href: string }) {
   return (
     <Link
       to={href}
-      className="absolute bottom-2 right-2.5 text-xs font-semibold text-white underline decoration-white/70 underline-offset-2 hover:decoration-white"
+      className="absolute bottom-2 right-3 text-xs font-semibold text-[#155EEF] underline decoration-[#155EEF]/60 underline-offset-2 hover:decoration-[#155EEF]"
     >
       Click here →
     </Link>

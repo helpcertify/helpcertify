@@ -96,12 +96,12 @@ export function MyPurchasesPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home/mock-exams" className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+            <Link to="/home/mock-exams" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]">
               Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"
-              className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
             >
               Browse Practice Exams
             </Link>
@@ -113,30 +113,33 @@ export function MyPurchasesPage() {
             const detailHref = item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`;
             const done = item.totalQuestions > 0 && item.answered >= item.totalQuestions;
             return (
-              <div key={`${item.itemType}_${item.id}`} className="flex h-full flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised">
+              <div
+                key={`${item.itemType}_${item.id}`}
+                className="flex h-full flex-col overflow-hidden rounded-[14px] border border-[#DCE7FF] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)]"
+              >
                 <Link to={detailHref}>
                   <CourseCoverImage id={item.id} title={item.title} className="h-24 w-full" />
                 </Link>
                 <div className="flex flex-1 flex-col p-3.5">
-                  <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-ink-faint">
+                  <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-wide text-[#64748B]">
                     <span>{item.category}</span>
                     <span>·</span>
                     <span>{item.skillLevel}</span>
                     <span>·</span>
                     <span>{item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'}</span>
                   </div>
-                  <Link to={detailHref} className="hover:text-brand-ink">
-                    <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{item.title}</h3>
+                  <Link to={detailHref} className="hover:text-[#155EEF]">
+                    <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-[#0F172A]">{item.title}</h3>
                   </Link>
                   {item.ratingCount > 0 && (
                     <div className="mb-1.5 flex items-center gap-1.5">
                       <StarRating value={item.ratingAvg} size="sm" />
-                      <span className="text-xs text-ink-faint">
+                      <span className="text-xs text-[#64748B]">
                         {item.ratingAvg.toFixed(1)} ({item.ratingCount})
                       </span>
                     </div>
                   )}
-                  <div className="mb-1.5 text-xs text-ink-faint">
+                  <div className="mb-1.5 text-xs text-[#64748B]">
                     📄 {item.totalQuestions} questions ·{' '}
                     {item.itemType === 'quiz'
                       ? `${item.durationMinutes} min`
@@ -144,18 +147,18 @@ export function MyPurchasesPage() {
                         ? `${item.durationPerSessionMinutes} min/session`
                         : 'you choose session length'}
                   </div>
-                  <div className="mb-2 text-xs text-ink-faint">
+                  <div className="mb-2 text-xs text-[#64748B]">
                     {item.answered}/{item.totalQuestions} answered
                     {done && ' · Completed'}
                   </div>
-                  <div className="mb-3 text-xs text-ink-faint">
+                  <div className="mb-3 text-xs text-[#64748B]">
                     Purchased {toDate(item.purchasedAt).toLocaleDateString()} · Value{' '}
                     {item.price > 0 ? formatMoney(item.price, item.currency) : 'Free'}
                   </div>
 
                   <Link
                     to={detailHref}
-                    className="mt-auto block rounded-lg bg-[#1D4ED8] py-1.5 text-center text-sm font-medium text-white hover:opacity-90"
+                    className="mt-auto block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
                   >
                     Go start it →
                   </Link>

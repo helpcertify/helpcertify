@@ -4,12 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cartApi } from '@/features/students/api/cartApi';
 import { useCheckout } from '@/features/students/hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
-import { formatMoney } from '@/utils/currency';
-import { CourseIcon } from './CourseIcon';
-import { StarRating } from './StarRating';
 import { BuyNowModal } from './BuyNowModal';
-import { WishlistButton } from './WishlistButton';
-import { CategoryBadge } from './CardBits';
+import { ProductCardShell } from './ProductCardShell';
 import type { PurchasableItemType } from '@/types/models';
 
 export interface CarouselItem {
@@ -165,83 +161,54 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
   // "go to the take page" behavior is identical either way.
   const ownedCtaLabel = item.itemType === 'quiz' ? 'Start Mock Exam' : 'Start Practice';
 
-  return (
-    // HelpCertify Electric Blue card: white surface, soft blue border/shadow,
-    // a subtle blue-gradient header strip (icon + title) instead of the old
-    // full-height saturated color banner, hover lift + shadow + border glow
-    // as the "clickable" signal (translateY per the brand spec).
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#DCE7FF] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
-      <div className="relative bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4">
-        <WishlistButton itemType={item.itemType} itemId={item.id} variant="inline" className="absolute right-3 top-3" />
-        <Link to={href} className="flex items-start gap-3 pr-8">
-          <CourseIcon id={item.id} title={item.title} itemType={item.itemType} />
-          <h3 className="line-clamp-2 pt-1 text-[15px] font-semibold leading-snug text-[#0F172A]">{item.title}</h3>
-        </Link>
+  const footer = !owned ? (
+    inCart ? (
+      <Link to="/home/cart" className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]">
+        ✓ In Cart · View Cart
+      </Link>
+    ) : (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={addToCartMutation.isPending || paying}
+          onClick={() => addToCartMutation.mutate()}
+          className="flex-1 rounded-lg border border-[#CBD5E1] bg-white py-1.5 text-sm font-semibold text-[#334155] transition-colors hover:border-[#155EEF] hover:bg-[#F8FAFF] hover:text-[#155EEF] disabled:opacity-60"
+        >
+          {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
+        </button>
+        <button
+          type="button"
+          disabled={paying}
+          onClick={onBuyNow}
+          className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+        >
+          {paying ? 'Opening…' : 'Buy Now'}
+        </button>
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        <div className="mb-2">
-          <CategoryBadge category={item.category} skillLevel={item.skillLevel} />
-        </div>
-        {item.ratingCount > 0 ? (
-          <div className="mb-2 flex items-center gap-1.5">
-            <StarRating value={item.ratingAvg} size="sm" />
-            <span className="text-xs text-[#64748B]">{item.ratingAvg.toFixed(1)} ({item.ratingCount})</span>
-          </div>
-        ) : (
-          <div className="mb-2 text-xs text-[#64748B]">No ratings yet</div>
-        )}
-        <div className="mb-3 flex items-center gap-2">
-          {item.price > 0 ? (
-            <>
-              {item.originalPrice && item.originalPrice > item.price && (
-                <span className="text-xs text-[#94A3B8] line-through">{formatMoney(item.originalPrice, item.currency)}</span>
-              )}
-              <span className="text-lg font-bold text-[#0F172A]">{formatMoney(item.price, item.currency)}</span>
-            </>
-          ) : (
-            <span className="font-bold text-[#16A34A]">Free</span>
-          )}
-        </div>
+    )
+  ) : (
+    <Link
+      to={href}
+      className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+    >
+      {ownedCtaLabel}
+    </Link>
+  );
 
-        <div className="mt-auto">
-          {!owned ? (
-            inCart ? (
-              <Link
-                to="/home/cart"
-                className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]"
-              >
-                ✓ In Cart · View Cart
-              </Link>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={addToCartMutation.isPending || paying}
-                  onClick={() => addToCartMutation.mutate()}
-                  className="flex-1 rounded-lg border border-[#CBD5E1] bg-white py-1.5 text-sm font-semibold text-[#334155] transition-colors hover:border-[#155EEF] hover:bg-[#F8FAFF] hover:text-[#155EEF] disabled:opacity-60"
-                >
-                  {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
-                </button>
-                <button
-                  type="button"
-                  disabled={paying}
-                  onClick={onBuyNow}
-                  className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
-                >
-                  {paying ? 'Opening…' : 'Buy Now'}
-                </button>
-              </div>
-            )
-          ) : (
-            <Link
-              to={href}
-              className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
-            >
-              {ownedCtaLabel}
-            </Link>
-          )}
-        </div>
-      </div>
-    </div>
+  return (
+    <ProductCardShell
+      id={item.id}
+      itemType={item.itemType}
+      title={item.title}
+      category={item.category}
+      skillLevel={item.skillLevel}
+      ratingAvg={item.ratingAvg}
+      ratingCount={item.ratingCount}
+      price={item.price}
+      originalPrice={item.originalPrice}
+      currency={item.currency}
+      detailHref={href}
+      footer={footer}
+    />
   );
 }
