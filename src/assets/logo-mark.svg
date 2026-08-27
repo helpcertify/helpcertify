@@ -1,0 +1,35 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Helpcertify">
+  <defs>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1F7A73"/>
+      <stop offset="100%" stop-color="#0F5C58"/>
+    </linearGradient>
+    <linearGradient id="checkGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5FCFB8"/>
+      <stop offset="100%" stop-color="#2E9E8E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded badge shape -->
+  <rect x="4" y="16" width="80" height="72" rx="20" fill="url(#badgeGrad)"/>
+
+  <!-- checkmark -->
+  <path
+    d="M24 50 L40 66 L70 32"
+    fill="none"
+    stroke="url(#checkGrad)"
+    stroke-width="13"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- graduation cap -->
+  <g transform="translate(56,2)">
+    <polygon points="20,0 40,11 20,22 0,11" fill="#1B3A4B"/>
+    <rect x="10" y="11" width="20" height="8" rx="2" fill="#173444"/>
+    <circle cx="20" cy="11" r="2" fill="#173444"/>
+    <path d="M32 13 L32 24" stroke="#173444" stroke-width="2" stroke-linecap="round"/>
+    <path d="M32 24 q3 3 0 7 q-3 3 0 6" fill="none" stroke="#E3A93A" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="32" cy="37" r="2.2" fill="#E3A93A"/>
+  </g>
+</svg>
