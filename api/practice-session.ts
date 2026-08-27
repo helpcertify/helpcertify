@@ -68,6 +68,7 @@ async function getOrCreateProgress(uid: string, testId: string) {
     answeredQuestionIds: [] as string[],
     lastBatchQuestionIds: [] as string[],
     incorrectQuestionIds: [] as string[],
+    questionStats: {} as Record<string, { attempts: number; correct: number; lastConfidence?: string }>,
   };
   return { ref, progress };
 }
@@ -273,6 +274,110 @@ async function startMasteryBatch(uid: string, body: unknown) {
   return { sessionId: sessionRef.id, session };
 }
 
+// Weak Areas (Section 5/11) — without question-level domain metadata (see
+// QuestionDoc.domain, currently untagged on every existing question), this
+// is defined as persistently-low cumulative accuracy rather than a
+// domain/topic grouping: any seen question with correct/attempts below
+// WEAK_ACCURACY_THRESHOLD, ordered weakest-first (the closest this release
+// gets to "adaptive question selection" — prioritizing what most needs
+// review, not just repeating in arbitrary order). A stricter, longer-memory
+// set than incorrectQuestionIds (which only reflects the single most recent
+// attempt) — a question missed once long ago but since answered right
+// twice more isn't "weak," even though it may have left incorrectQuestionIds
+// only recently.
+const WEAK_ACCURACY_THRESHOLD = 0.5;
+const MAX_WEAK_AREAS_SIZE = 100;
+
+async function startWeakAreasBatch(uid: string, body: unknown) {
+  const parsed = masterySchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { testId, feedbackMode } = parsed.data;
+
+  const testSnap = await db.collection('practiceTests').doc(testId).get();
+  if (!testSnap.exists) throw Err.notFound('Practice test not found');
+  if ((testSnap.data()!.price ?? 0) > 0) {
+    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
+    if (!purchaseSnap.exists) throw Err.paymentRequired();
+  }
+
+  const { progress } = await getOrCreateProgress(uid, testId);
+  const questionStats = (progress.questionStats ?? {}) as Record<string, { attempts: number; correct: number }>;
+  const weakIds = Object.entries(questionStats)
+    .filter(([, s]) => s.attempts > 0 && s.correct / s.attempts < WEAK_ACCURACY_THRESHOLD)
+    .sort(([, a], [, b]) => a.correct / a.attempts - b.correct / b.attempts)
+    .map(([id]) => id);
+  if (weakIds.length === 0) throw Err.failedPrecondition('No weak areas to practice right now');
+
+  const now = Timestamp.now();
+  const sessionRef = db.collection('practiceSessions').doc();
+  const session = {
+    userId: uid,
+    testId,
+    batchQuestionIds: weakIds.slice(0, MAX_WEAK_AREAS_SIZE),
+    status: 'in_progress' as const,
+    startedAt: now,
+    submittedAt: null,
+    expiresAt: Timestamp.fromMillis(now.toMillis() + SESSION_STALE_HOURS * 60 * 60 * 1000),
+    answeredCount: 0,
+    correctCount: 0,
+    incorrectCount: 0,
+    isReattempt: false,
+    isWeakAreas: true,
+    feedbackMode: feedbackMode ?? 'immediate',
+  };
+  await sessionRef.set(session);
+  return { sessionId: sessionRef.id, session };
+}
+
+// Revision Cycle (Section 32) — only once the whole bank has genuinely
+// been covered once (uniqueCoverage === totalQuestions); draws from every
+// question in the bank, not just unseen ones (there are none left), and
+// (like mastery/weak-areas) never touches answeredQuestionIds.
+const MAX_REVISION_SIZE = 100;
+
+async function startRevisionCycle(uid: string, body: unknown) {
+  const parsed = masterySchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { testId, feedbackMode } = parsed.data;
+
+  const testSnap = await db.collection('practiceTests').doc(testId).get();
+  if (!testSnap.exists) throw Err.notFound('Practice test not found');
+  const test = testSnap.data()!;
+  if ((test.price ?? 0) > 0) {
+    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
+    if (!purchaseSnap.exists) throw Err.paymentRequired();
+  }
+
+  const { progress } = await getOrCreateProgress(uid, testId);
+  const answeredCount = (progress.answeredQuestionIds as string[] | undefined)?.length ?? 0;
+  if (answeredCount < (test.totalQuestions as number)) {
+    throw Err.failedPrecondition('Finish practicing every question at least once before starting a revision cycle');
+  }
+
+  const allQuestionsSnap = await db.collection('practiceTests').doc(testId).collection('questions').select().get();
+  const allIds = allQuestionsSnap.docs.map((d) => d.id);
+
+  const now = Timestamp.now();
+  const sessionRef = db.collection('practiceSessions').doc();
+  const session = {
+    userId: uid,
+    testId,
+    batchQuestionIds: allIds.slice(0, MAX_REVISION_SIZE),
+    status: 'in_progress' as const,
+    startedAt: now,
+    submittedAt: null,
+    expiresAt: Timestamp.fromMillis(now.toMillis() + SESSION_STALE_HOURS * 60 * 60 * 1000),
+    answeredCount: 0,
+    correctCount: 0,
+    incorrectCount: 0,
+    isReattempt: false,
+    isRevision: true,
+    feedbackMode: feedbackMode ?? 'immediate',
+  };
+  await sessionRef.set(session);
+  return { sessionId: sessionRef.id, session };
+}
+
 async function loadOwnedInProgressSession(uid: string, sessionId: string) {
   const ref = db.collection('practiceSessions').doc(sessionId);
   const snap = await ref.get();
@@ -297,12 +402,12 @@ const saveAnswerSchema = z.object({
 });
 
 // Practice Momentum XP (Section 25) — motivational only, never read by any
-// entitlement/coverage/accuracy calculation. A Master My Mistakes session
-// (isMastery) awards the smaller "reviewed a weak question" amount instead
-// of the normal first-attempt amounts, since it's intentional repetition,
-// not new coverage.
-function xpForAnswer(isCorrect: boolean, isMastery: boolean): number {
-  if (isMastery) return isCorrect ? 2 : 0;
+// entitlement/coverage/accuracy calculation. Any intentional-repeat session
+// (Master My Mistakes, Weak Areas, Revision Cycle) awards the smaller
+// "reviewed a weak question" amount instead of the normal first-attempt
+// amounts, since it's review, not new coverage.
+function xpForAnswer(isCorrect: boolean, isReview: boolean): number {
+  if (isReview) return isCorrect ? 2 : 0;
   return isCorrect ? 10 : 5;
 }
 
@@ -345,7 +450,7 @@ async function saveAnswer(uid: string, body: unknown) {
 
   let xpAwarded = 0;
   if (!wasAnswered) {
-    xpAwarded = xpForAnswer(isCorrect, !!session.isMastery);
+    xpAwarded = xpForAnswer(isCorrect, !!session.isMastery || !!session.isWeakAreas || !!session.isRevision);
     await ref.update({
       answeredCount: FieldValue.increment(1),
       correctCount: FieldValue.increment(isCorrect ? 1 : 0),
@@ -364,9 +469,21 @@ async function saveAnswer(uid: string, body: unknown) {
       incorrectQuestionIds: isCorrect ? FieldValue.arrayRemove(questionId) : FieldValue.arrayUnion(questionId),
       updatedAt: Timestamp.now(),
     };
-    if (!session.isReattempt && !session.isMastery) {
+    if (!session.isReattempt && !session.isMastery && !session.isWeakAreas && !session.isRevision) {
       progressUpdate.answeredQuestionIds = FieldValue.arrayUnion(questionId);
     }
+    // Cumulative per-question accuracy (Section 28's "unique coverage" vs
+    // "total answers submitted" distinction, and Section 29/30's Mastered/
+    // Learning/Needs Review buckets) — updated regardless of session type,
+    // since a mastery/weak-areas/revision repeat is still a real attempt at
+    // this specific question, just not new coverage.
+    progressUpdate.questionStats = {
+      [questionId]: {
+        attempts: FieldValue.increment(1),
+        correct: FieldValue.increment(isCorrect ? 1 : 0),
+        ...(confidence ? { lastConfidence: confidence } : {}),
+      },
+    };
     await db.collection('practiceProgress').doc(`${uid}_${session.testId}`).set(progressUpdate, { merge: true });
   } else {
     // A repeat submission within the same session (shouldn't normally
@@ -671,6 +788,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'startMasteryBatch':
         res.status(200).json(await startMasteryBatch(uid, data));
+        return;
+      case 'startWeakAreasBatch':
+        res.status(200).json(await startWeakAreasBatch(uid, data));
+        return;
+      case 'startRevisionCycle':
+        res.status(200).json(await startRevisionCycle(uid, data));
         return;
       case 'getBatchReview':
         res.status(200).json(await getBatchReview(uid, data));

@@ -31,6 +31,8 @@ export function PracticeTakingPage() {
   const [searchParams] = useSearchParams();
   const isReattempt = searchParams.get('reattempt') === '1';
   const isMastery = searchParams.get('mastery') === '1';
+  const isWeakAreas = searchParams.get('weakAreas') === '1';
+  const isRevision = searchParams.get('revision') === '1';
   const sessionSizeParam = searchParams.get('sessionSize');
   const sessionSize = sessionSizeParam ? Number(sessionSizeParam) : undefined;
   const feedbackModeParam = searchParams.get('feedbackMode');
@@ -65,9 +67,13 @@ export function PracticeTakingPage() {
     startedRef.current = true;
     const start = isMastery
       ? practiceSessionApi.startMasteryBatch(testId, requestedFeedbackMode)
-      : isReattempt
-        ? practiceSessionApi.reattemptLastBatch(testId, requestedFeedbackMode)
-        : practiceSessionApi.startOrResumeBatch(testId, sessionSize, requestedFeedbackMode);
+      : isWeakAreas
+        ? practiceSessionApi.startWeakAreasBatch(testId, requestedFeedbackMode)
+        : isRevision
+          ? practiceSessionApi.startRevisionCycle(testId, requestedFeedbackMode)
+          : isReattempt
+            ? practiceSessionApi.reattemptLastBatch(testId, requestedFeedbackMode)
+            : practiceSessionApi.startOrResumeBatch(testId, sessionSize, requestedFeedbackMode);
     start
       .then(async (res) => {
         setSessionId(res.sessionId);
@@ -83,22 +89,22 @@ export function PracticeTakingPage() {
         pushToast(err instanceof Error ? err.message : 'Could not start this practice session', 'error');
         navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home/practice-tests');
       });
-  }, [testId, isReattempt, isMastery, sessionSize, requestedFeedbackMode, navigate, pushToast]);
+  }, [testId, isReattempt, isMastery, isWeakAreas, isRevision, sessionSize, requestedFeedbackMode, navigate, pushToast]);
 
   // The server's own record of this session's mode/type is what actually
   // gates the UI, not the query params used to request it — a resumed
   // session keeps whatever it was started with.
   const feedbackMode: PracticeFeedbackMode = session?.feedbackMode ?? 'immediate';
   const isImmediate = feedbackMode === 'immediate';
-  const isMasterySession = !!session?.isMastery;
+  const isMasterySession = !!session?.isMastery || !!session?.isWeakAreas || !!session?.isRevision;
 
   // Today's Target — reuses the exact same Study Plan calculation engine
   // and daily-answered-map pattern as StudyPlanSection.tsx/
   // PracticeTestDetailPage's PlanSummaryCard, just computed here so it can
   // be shown live during the session (Section 26). Only fetched for a
-  // normal, non-mastery/non-reattempt session — the daily target is about
-  // new-question coverage, which those two don't contribute to anyway.
-  const trackingDailyTarget = !isReattempt && !isMastery;
+  // normal session — none of the intentional-repeat modes contribute new
+  // coverage, so the daily target doesn't apply to them.
+  const trackingDailyTarget = !isReattempt && !isMastery && !isWeakAreas && !isRevision;
   const { data: test } = useQuery({
     queryKey: ['student', 'practiceTest', testId],
     queryFn: () => getPracticeTestById(testId!),
@@ -266,7 +272,13 @@ export function PracticeTakingPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">
-            {isMasterySession ? 'Master My Mistakes' : 'Practice Session'}
+            {session?.isMastery
+              ? 'Master My Mistakes'
+              : session?.isWeakAreas
+                ? 'Practice Weak Areas'
+                : session?.isRevision
+                  ? 'Revision Cycle'
+                  : 'Practice Session'}
             {isReattempt && !isMasterySession && <span className="ml-2 text-sm text-ink-faint">(Reattempt)</span>}
           </h1>
           <div className="flex items-center gap-3 text-sm text-ink-faint">

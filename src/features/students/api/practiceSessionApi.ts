@@ -16,6 +16,8 @@ export interface PracticeSessionState {
   isReattempt: boolean;
   feedbackMode?: PracticeFeedbackMode;
   isMastery?: boolean;
+  isWeakAreas?: boolean;
+  isRevision?: boolean;
   currentStreak?: number;
   bestStreakThisSession?: number;
 }
@@ -51,6 +53,22 @@ export const practiceSessionApi = {
   // none right now (see api/practice-session.ts's startMasteryBatch).
   startMasteryBatch: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
     callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'startMasteryBatch', {
+      testId,
+      feedbackMode,
+    }),
+  // Weak Areas (Section 5/11) — persistently-low cumulative accuracy
+  // questions, weakest first; throws if none qualify right now (see
+  // api/practice-session.ts's startWeakAreasBatch).
+  startWeakAreasBatch: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
+    callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'startWeakAreasBatch', {
+      testId,
+      feedbackMode,
+    }),
+  // Revision Cycle (Section 32) — only startable once the whole bank has
+  // genuinely been covered once (see api/practice-session.ts's
+  // startRevisionCycle, which rejects it otherwise).
+  startRevisionCycle: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
+    callAction<{ sessionId: string; session: PracticeSessionState }>('practice-session', 'startRevisionCycle', {
       testId,
       feedbackMode,
     }),

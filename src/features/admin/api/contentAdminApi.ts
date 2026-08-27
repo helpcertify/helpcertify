@@ -21,6 +21,9 @@ export interface EditableQuestion {
   questionText: string;
   options: QuestionOption[];
   correctOptionId: string | null;
+  // Optional domain/topic tag (Intelligent Learning) — the only way a
+  // question ever gets one; never set by the bulk .docx upload parser.
+  domain?: string;
 }
 
 export interface QuizSummary {
@@ -155,8 +158,14 @@ export const contentAdminApi = {
   listQuizzesAdmin: () => callAction<{ quizzes: QuizSummary[] }>('content-admin', 'listQuizzesAdmin'),
   getQuizAnswerKey: (quizId: string) =>
     callAction<{ quiz: QuizSummary; questions: EditableQuestion[] }>('content-admin', 'getQuizAnswerKey', { quizId }),
-  updateQuizQuestion: (payload: { quizId: string; questionId: string; questionText: string; options: QuestionOption[]; correctOptionId: string }) =>
-    callAction<{ success: true }>('content-admin', 'updateQuizQuestion', { ...payload }),
+  updateQuizQuestion: (payload: {
+    quizId: string;
+    questionId: string;
+    questionText: string;
+    options: QuestionOption[];
+    correctOptionId: string;
+    domain?: string;
+  }) => callAction<{ success: true }>('content-admin', 'updateQuizQuestion', { ...payload }),
 
   createPracticeTest: (payload: CreatePracticeTestPayload) =>
     callAction<{ testId: string; totalQuestions: number; parseErrors: ParseErrorEntry[]; parseWarnings: string[] }>(
@@ -182,5 +191,6 @@ export const contentAdminApi = {
     questionText: string;
     options: QuestionOption[];
     correctOptionId: string;
+    domain?: string;
   }) => callAction<{ success: true }>('content-admin', 'updatePracticeTestQuestion', { ...payload }),
 };

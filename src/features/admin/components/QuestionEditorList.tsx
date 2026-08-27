@@ -5,6 +5,7 @@ interface SaveData {
   questionText: string;
   options: QuestionOption[];
   correctOptionId: string;
+  domain?: string;
 }
 
 interface ListProps {
@@ -35,9 +36,14 @@ export function QuestionEditorList({ questions, onSave }: ListProps) {
         ) : (
           <div key={q.id}>
             <div className="mb-2 flex items-start justify-between gap-3">
-              <h3 className="font-bold text-ink">
-                Q{i + 1}: {q.questionText}
-              </h3>
+              <div>
+                <h3 className="font-bold text-ink">
+                  Q{i + 1}: {q.questionText}
+                </h3>
+                {q.domain && (
+                  <span className="mt-1 inline-block rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-ink">{q.domain}</span>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingId(q.id)}
@@ -74,6 +80,7 @@ function QuestionEditForm({
   const [questionText, setQuestionText] = useState(question.questionText);
   const [options, setOptions] = useState<QuestionOption[]>(question.options.map((o) => ({ ...o })));
   const [correctOptionId, setCorrectOptionId] = useState(question.correctOptionId ?? question.options[0]?.id ?? '');
+  const [domain, setDomain] = useState(question.domain ?? '');
   const [saving, setSaving] = useState(false);
 
   const updateOptionText = (id: string, text: string) =>
@@ -82,7 +89,7 @@ function QuestionEditForm({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave({ questionText, options, correctOptionId });
+      await onSave({ questionText, options, correctOptionId, domain });
     } finally {
       setSaving(false);
     }
@@ -95,6 +102,15 @@ function QuestionEditForm({
         value={questionText}
         onChange={(e) => setQuestionText(e.target.value)}
         rows={3}
+        className="input-dark mb-4"
+      />
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+        Domain / Topic (optional)
+      </label>
+      <input
+        value={domain}
+        onChange={(e) => setDomain(e.target.value)}
+        placeholder="e.g. Information Security Governance"
         className="input-dark mb-4"
       />
       <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">

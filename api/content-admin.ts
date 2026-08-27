@@ -583,6 +583,10 @@ const updateQuestionFieldsSchema = z.object({
   questionText: z.string().trim().min(1),
   options: z.array(questionOptionSchema).min(2),
   correctOptionId: z.string().min(1),
+  // Optional domain/topic tag (Intelligent Learning, Release 3) — the only
+  // way a question ever gets one; the bulk .docx upload parser never sets
+  // it. Sent as '' to clear a previously-set tag.
+  domain: z.string().trim().max(100).optional(),
 });
 type UpdateQuestionFields = z.infer<typeof updateQuestionFieldsSchema>;
 
@@ -599,7 +603,7 @@ async function updateQuestionCommon(
     throw Err.invalidArgument('correctOptionId must match one of the given options');
   }
 
-  await qRef.update({ questionText: d.questionText, options: d.options });
+  await qRef.update({ questionText: d.questionText, options: d.options, domain: d.domain?.trim() || FieldValue.delete() });
   await qRef.collection('private').doc('answerKey').set({ correctOptionId: d.correctOptionId }, { merge: true });
   await writeAdminLog({
     performedBy: uid,

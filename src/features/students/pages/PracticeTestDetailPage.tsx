@@ -84,7 +84,11 @@ export function PracticeTestDetailPage() {
       );
       if (snap.empty) return null;
       const data = snap.docs[0].data();
-      return { answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [] };
+      return {
+        answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [],
+        incorrectQuestionIds: (data.incorrectQuestionIds as string[]) ?? [],
+        questionStats: (data.questionStats as Record<string, { attempts: number; correct: number }>) ?? {},
+      };
     },
     enabled: !!uid && !!testId,
   });
@@ -166,6 +170,39 @@ export function PracticeTestDetailPage() {
   const done = answered >= test.totalQuestions;
   const previewCount = test.previewQuestionCount === 0 ? 0 : SAMPLE_PREVIEW_COUNT;
 
+  // Intelligent Learning (Release 3) — derived entirely from
+  // practiceProgress.questionStats, never a separate stored value. Weak
+  // Areas: persistently-low cumulative accuracy (a longer memory than
+  // incorrectQuestionIds, which only reflects the single most recent
+  // attempt). Accuracy: cumulative correct/attempts across every answered
+  // question — not "first-attempt accuracy" specifically, since that isn't
+  // tracked separately from cumulative attempts.
+  const questionStats = progress?.questionStats ?? {};
+  const statsEntries = Object.values(questionStats);
+  const weakAreasCount = statsEntries.filter((s) => s.attempts > 0 && s.correct / s.attempts < 0.5).length;
+  const totalAttempts = statsEntries.reduce((sum, s) => sum + s.attempts, 0);
+  const totalCorrect = statsEntries.reduce((sum, s) => sum + s.correct, 0);
+  const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+
+  // Section 29's Question Bank Dashboard — Mastered/Learning/Needs Review
+  // buckets, derived from questionStats + incorrectQuestionIds rather than
+  // a separately stored state (Section 8: "do not unnecessarily duplicate
+  // data if these states can be derived reliably from existing attempt
+  // records"). Needs Review reuses incorrectQuestionIds (last answer
+  // wrong); Mastered/Learning splits the rest by cumulative accuracy.
+  const incorrectSet = new Set(progress?.incorrectQuestionIds ?? []);
+  let masteredCount = 0;
+  let learningCount = 0;
+  for (const qid of progress?.answeredQuestionIds ?? []) {
+    if (incorrectSet.has(qid)) continue;
+    const s = questionStats[qid];
+    const acc = s && s.attempts > 0 ? s.correct / s.attempts : 0;
+    if (acc >= 0.8) masteredCount++;
+    else learningCount++;
+  }
+  const needsReviewCount = incorrectSet.size;
+  const unseenCount = Math.max(0, test.totalQuestions - answered);
+
   return (
     // Fills the width StudentShell's sidebar leaves available (up to a
     // 1440px cap) instead of centering a much-narrower fixed column inside
@@ -223,6 +260,32 @@ export function PracticeTestDetailPage() {
         </div>
       </div>
 
+      {/* Section 29's Question Bank Dashboard — only once there's actually
+          something to show; an all-unseen bank has nothing to bucket yet. */}
+      {owned && answered > 0 && (
+        <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+          <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Your Question Bank</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <div className="text-2xl font-bold text-[#16A34A]">{masteredCount}</div>
+              <div className="text-xs text-[#64748B]">Mastered</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#155EEF]">{learningCount}</div>
+              <div className="text-xs text-[#64748B]">Learning</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#F59E0B]">{needsReviewCount}</div>
+              <div className="text-xs text-[#64748B]">Needs Review</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#94A3B8]">{unseenCount}</div>
+              <div className="text-xs text-[#64748B]">Unseen</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Two-column row: Practice Setup + Study Plan when owned, Course
           Access + Free Preview when not. Study Plan gets slightly more
           width — it's carrying progress, exam countdown, and today's
@@ -247,6 +310,9 @@ export function PracticeTestDetailPage() {
             feedbackMode={feedbackMode}
             onChooseFeedbackMode={setFeedbackMode}
             unfinishedSession={unfinishedSession ?? null}
+            incorrectCount={progress?.incorrectQuestionIds.length ?? 0}
+            weakAreasCount={weakAreasCount}
+            accuracy={overallAccuracy}
           />
           {test.studyPlannerEnabled !== false ? (
             <div>
@@ -362,6 +428,9 @@ function PracticeSetupCard({
   feedbackMode,
   onChooseFeedbackMode,
   unfinishedSession,
+  incorrectCount,
+  weakAreasCount,
+  accuracy,
 }: {
   test: { id: string; totalQuestions: number; defaultMinutesPerQuestion?: number };
   done: boolean;
@@ -373,6 +442,9 @@ function PracticeSetupCard({
   feedbackMode: 'immediate' | 'end_of_session';
   onChooseFeedbackMode: (mode: 'immediate' | 'end_of_session') => void;
   unfinishedSession: UnfinishedSession | null;
+  incorrectCount: number;
+  weakAreasCount: number;
+  accuracy: number;
 }) {
   const remainingNew = Math.max(0, test.totalQuestions - answered);
   const percentComplete = test.totalQuestions > 0 ? Math.round((answered / test.totalQuestions) * 100) : 0;
@@ -402,8 +474,40 @@ function PracticeSetupCard({
       </div>
 
       {done ? (
-        <div className="rounded-lg bg-[#F0FDF4] px-4 py-3 text-center text-sm font-medium text-[#16A34A]">
-          🎯 You've practiced all {test.totalQuestions} questions in this bank.
+        // Section 32 — the "coverage complete" transition to revision, not
+        // a silent restart. Every entry point here uses an intentional-
+        // repeat session type (isMastery/isWeakAreas/isRevision), so none
+        // of this touches unique coverage (already 100% anyway).
+        <div className="rounded-lg border border-[#DCE7FF] bg-[#EFF6FF] p-4 text-center">
+          <div className="mb-1 text-sm font-bold text-[#0F172A]">🎯 Question Bank Complete</div>
+          <p className="mb-3 text-xs text-[#64748B]">
+            You've practiced all {test.totalQuestions} questions. Accuracy: {accuracy}%
+            {incorrectCount > 0 && ` · ${incorrectCount} question${incorrectCount === 1 ? '' : 's'} to review`}
+          </p>
+          <div className="flex flex-col gap-2">
+            {incorrectCount > 0 && (
+              <Link
+                to={`/practice-tests/${test.id}/take?mastery=1&feedbackMode=${feedbackMode}`}
+                className="block w-full rounded-lg bg-[#155EEF] py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
+              >
+                Master My Mistakes
+              </Link>
+            )}
+            {weakAreasCount > 0 && (
+              <Link
+                to={`/practice-tests/${test.id}/take?weakAreas=1&feedbackMode=${feedbackMode}`}
+                className="block w-full rounded-lg border border-[#155EEF] py-2 text-sm font-semibold text-[#155EEF] hover:bg-white"
+              >
+                Practice Weak Areas
+              </Link>
+            )}
+            <Link
+              to={`/practice-tests/${test.id}/take?revision=1&feedbackMode=${feedbackMode}`}
+              className="block w-full rounded-lg border border-[#E2E8F0] bg-white py-2 text-sm font-semibold text-[#334155] hover:border-[#155EEF] dark:bg-transparent"
+            >
+              Start Revision Cycle
+            </Link>
+          </div>
         </div>
       ) : unfinishedSession ? (
         // Section 10 — an unfinished session is never silently discarded;

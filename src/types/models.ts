@@ -83,6 +83,12 @@ export interface QuestionDoc {
   order: number;
   questionText: string;
   options: QuestionOption[];
+  // Optional domain/topic tag, settable via the admin question editor
+  // (QuestionEditorList.tsx) — never set by the bulk .docx upload parser.
+  // Missing on every question until an admin tags it; Domain Progress
+  // (Release 3) is intentionally not built yet since there's no tagged
+  // content to show it against.
+  domain?: string;
 }
 
 /** .../questions/{questionId}/private/answerKey — split from the public doc because
@@ -362,6 +368,13 @@ export interface PracticeSessionDoc {
   // completion screen can tell "redo my last batch" from "drill my
   // mistakes" apart.
   isMastery?: boolean;
+  // Intelligent Learning (Release 3) — same "doesn't count toward unique
+  // coverage" treatment, drawn from a different source: isWeakAreas from
+  // practiceProgress.questionStats entries with low cumulative accuracy;
+  // isRevision from the full question bank, only ever startable once
+  // uniqueCoverage is already 100% (Section 32's "Revision Cycle").
+  isWeakAreas?: boolean;
+  isRevision?: boolean;
   // Correct-answer-in-a-row within this session; resets to 0 on a miss.
   // Practice Test only — never read or written by quiz-session.ts.
   currentStreak?: number;
@@ -395,6 +408,13 @@ export interface PracticeProgressDoc {
   bestStreak?: number;
   xpTotal?: number;
   incorrectQuestionIds?: string[];
+  // Intelligent Learning (Release 3) — cumulative attempts/correct per
+  // question across every session type (normal, reattempt, mastery, weak
+  // areas, revision), plus the most recent confidence rating. Powers the
+  // Question Bank Dashboard's Mastered/Learning/Needs Review buckets and
+  // Weak Areas selection — never read by any entitlement/coverage
+  // calculation, and never affects grading.
+  questionStats?: Record<string, { attempts: number; correct: number; lastConfidence?: PracticeConfidence }>;
 }
 
 // Personal Study Planner (Phase 1) — attaches to a practice test only, not a
