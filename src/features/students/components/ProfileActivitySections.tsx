@@ -136,7 +136,7 @@ export function ProfileActivitySections() {
       progressLabel: attempt ? `${attempt.answeredCount}/${attempt.totalQuestions || q.totalQuestions} answered` : 'Not started',
       detailHref: `/home/quizzes/${q.id}`,
       actionHref: `/quizzes/${q.id}/take`,
-      actionLabel: attempt?.status === 'in_progress' ? 'Resume' : attempt ? 'Review' : 'Start Practice',
+      actionLabel: attempt?.status === 'in_progress' ? 'Resume' : attempt ? 'Review' : 'Start Mock Exam',
     });
   }
   for (const t of practiceBuckets?.available ?? []) {
