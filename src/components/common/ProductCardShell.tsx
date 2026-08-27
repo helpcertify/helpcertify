@@ -19,6 +19,10 @@ interface ProductCardShellProps {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   detailHref: string;
+  // Optional page-specific facts between the price and the footer (Billing
+  // & Orders' purchase date/answered-progress/duration line, for example) -
+  // most callers don't need this at all.
+  extra?: ReactNode;
   // Each page keeps its own owned/in-cart/reattempt/session-duration/study-
   // goal logic — this shell only owns the look (cover, badge, rating,
   // price), not the action buttons, since that logic genuinely differs per
@@ -45,6 +49,7 @@ export function ProductCardShell({
   originalPrice,
   currency,
   detailHref,
+  extra,
   footer,
 }: ProductCardShellProps) {
   return (
@@ -84,6 +89,8 @@ export function ProductCardShell({
             <span className="font-bold text-[#16A34A]">Free</span>
           )}
         </div>
+
+        {extra}
 
         <div className="mt-auto">{footer}</div>
       </div>

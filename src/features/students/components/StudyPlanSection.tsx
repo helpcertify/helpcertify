@@ -52,7 +52,7 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
 
   return (
     <div className="mb-8">
-      <h2 className="mb-3 text-lg font-bold text-ink">Your Study Plan</h2>
+      <h2 className="mb-3 text-lg font-bold text-ink">My Study Plan</h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {cards.map((c) => (
           <StudyPlanCard key={c.testId} {...c} />
