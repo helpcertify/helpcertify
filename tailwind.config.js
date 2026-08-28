@@ -41,6 +41,13 @@ export default {
       backgroundImage: {
         'brand-gradient': 'linear-gradient(90deg, #5b93f5 0%, #155EEF 100%)',
       },
+      // Inter, loaded from Google Fonts in index.html — the HelpCertify
+      // design system's intended body/UI face. Was never actually wired
+      // up here, so every page had been silently falling back to the
+      // browser's default sans-serif (Segoe UI on Windows) the whole time.
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
     },
   },
   plugins: [],

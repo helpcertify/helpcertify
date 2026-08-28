@@ -769,24 +769,23 @@ function PlanSummaryCard({
         </button>
       </div>
 
-      {/* Three stats across the card's full width — the days-to-exam
-          countdown, completion progress, and today's target used to be
-          three separately-boxed rows; grouping them into one row uses the
-          Study Plan card's extra width (0.9fr/1.1fr split above) instead
-          of leaving it empty. */}
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* Exam countdown on its own full-width line — a date string is long
+          enough that sharing a 3-column grid with the two shorter stats
+          below forced it to wrap mid-word. Completion progress and today's
+          target keep their side-by-side row underneath. */}
+      <div className="mb-4">
+        <div className="whitespace-nowrap text-[22px] font-bold tracking-tight text-[#0F172A]">📅 {countdownLabel}</div>
+        <div className="text-xs text-[#64748B]">{countdownValue}</div>
+      </div>
+      <div className="mb-4 grid grid-cols-2 gap-4">
         <div>
-          <div className="text-[26px] font-bold text-[#0F172A]">📅 {countdownLabel}</div>
-          <div className="text-xs text-[#64748B]">{countdownValue}</div>
-        </div>
-        <div>
-          <div className="text-[26px] font-bold text-[#0F172A]">
+          <div className="text-[26px] font-bold tracking-tight text-[#0F172A]">
             {answered}/{totalQuestions}
           </div>
           <div className="text-xs text-[#64748B]">completed ({percentComplete}%)</div>
         </div>
         <div>
-          <div className="text-[26px] font-bold text-[#155EEF]">
+          <div className="text-[26px] font-bold tracking-tight text-[#155EEF]">
             {dailyTarget} Q{dailyTarget === 1 ? '' : 's'}
           </div>
           <div className="text-xs text-[#64748B]">today's target</div>
