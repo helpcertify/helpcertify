@@ -16,7 +16,7 @@ const ACTIONS = [
   {
     to: '/admin/performance',
     title: 'View Learner Analytics',
-    body: 'Review student rankings, attempts, and quiz analytics from one place.',
+    body: 'Review learner rankings, attempts, and quiz analytics from one place.',
   },
 ];
 
@@ -31,7 +31,7 @@ export function AdminHomePage() {
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-4">
         <StatCard label="Total Quizzes" value={stats?.totalQuizzes} />
         <StatCard label="Practice Exams" value={stats?.totalPracticeTests} />
-        <StatCard label="Student Attempts" value={stats?.studentAttempts} />
+        <StatCard label="Learner Attempts" value={stats?.studentAttempts} />
         <StatCard label="Admin Accounts" value={stats?.adminAccounts} />
       </div>
 

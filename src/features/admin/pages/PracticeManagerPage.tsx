@@ -54,11 +54,11 @@ export function PracticeManagerPage() {
             <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">📖 How Practice Mode Works</h2>
             <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink-faint">
               <li>Upload a large question bank (any size).</li>
-              <li>Set an availability window: students can only access within these dates.</li>
+              <li>Set an availability window: learners can only access within these dates.</li>
               <li>Initial batch size sets how many questions the first session delivers.</li>
-              <li>Students can resume anytime: only unanswered questions are shown, and they pick how many each session.</li>
+              <li>Learners can resume anytime: only unanswered questions are shown, and they pick how many each session.</li>
               <li>Immediate answer feedback is always ON in practice mode.</li>
-              <li>Students can reattempt their last batch to reinforce weak areas.</li>
+              <li>Learners can reattempt their last batch to reinforce weak areas.</li>
             </ol>
           </div>
         </div>
@@ -81,7 +81,7 @@ export function PracticeManagerPage() {
                 </div>
                 <div className="space-y-0.5 text-sm text-ink-faint">
                   <div>Questions: {test.totalQuestions}</div>
-                  <div>Session: {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min` : 'Student chooses'}</div>
+                  <div>Session: {test.durationPerSessionMinutes ? `${test.durationPerSessionMinutes} min` : 'Learner chooses'}</div>
                   <div>
                     From {formatDate(test.availableFrom)} to {formatDate(test.availableUntil)}
                   </div>

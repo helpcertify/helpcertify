@@ -243,7 +243,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
           />
         </Field>
 
-        <Field label="Description (shown on the student-facing detail page)">
+        <Field label="Description (shown on the learner-facing detail page)">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}

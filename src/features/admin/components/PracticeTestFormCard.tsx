@@ -273,7 +273,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           </Field>
         </div>
 
-        <Field label="Description (shown on the student-facing detail page)">
+        <Field label="Description (shown on the learner-facing detail page)">
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -360,7 +360,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           />
         </Field>
 
-        <Field label="Study Planner (personal study goal + daily target on the student dashboard)">
+        <Field label="Study Planner (personal study goal + daily target on the learner dashboard)">
           <label className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
             <input
               type="checkbox"

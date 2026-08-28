@@ -132,7 +132,7 @@ export function PracticeTestsPage() {
               onBuyNow={() => setBuyNowTest(test)}
               onDownloadCertificate={() =>
                 downloadCertificate({
-                  studentName: profile?.name ?? 'Student',
+                  studentName: profile?.name ?? 'Learner',
                   itemTitle: test.title,
                   itemType: 'practiceTest',
                   category: test.category ?? 'Other',

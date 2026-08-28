@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { resultsApi } from '@/features/admin/api/resultsApi';
 
-// Reuses the same "Student Results" table shape as the admin Performance
-// page, scoped to just the signed-in student's own attempt (their rank
+// Reuses the same "Learner Results" table shape as the admin Performance
+// page, scoped to just the signed-in learner's own attempt (their rank
 // within the full leaderboard, but only their own row is returned/shown).
 export function StudentQuizDashboardPage() {
   const { quizId } = useParams<{ quizId: string }>();
@@ -18,7 +18,7 @@ export function StudentQuizDashboardPage() {
       <Link to="/home/past-quizzes" className="mb-4 inline-block text-sm text-brand-ink">
         ← Back to Past Quizzes
       </Link>
-      <h1 className="mb-1 text-2xl font-bold text-ink">Student Dashboard</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Learner Dashboard</h1>
       {isLoading && <p className="text-ink-faint">Loading…</p>}
       {data && (
         <>

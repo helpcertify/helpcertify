@@ -157,7 +157,7 @@ export function ReviewsSection({ itemType, itemId, owned }: ReviewsSectionProps)
           {reviews.map((r) => (
             <div key={r.id} className="rounded-lg border border-surface-border p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-ink">{r.userName || 'Student'}</span>
+                <span className="text-sm font-medium text-ink">{r.userName || 'Learner'}</span>
                 <StarRating value={r.rating} size="sm" />
               </div>
               {r.comment && <p className="text-sm text-ink-muted">{r.comment}</p>}

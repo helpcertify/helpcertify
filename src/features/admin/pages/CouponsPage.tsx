@@ -57,7 +57,7 @@ export function CouponsPage() {
   return (
     <div>
       <h1 className="mb-1 text-2xl font-bold text-ink">Promo Codes</h1>
-      <p className="mb-6 text-sm text-ink-faint">Discount codes redeemable in the student cart at checkout.</p>
+      <p className="mb-6 text-sm text-ink-faint">Discount codes redeemable in the learner cart at checkout.</p>
 
       <div className="mb-8 rounded-xl border border-surface-border bg-surface-raised p-6">
         <h2 className="mb-4 font-medium text-ink">Create Coupon</h2>

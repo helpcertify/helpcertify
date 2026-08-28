@@ -63,7 +63,7 @@ export function PerformancePage() {
       </div>
 
       <div>
-        <h2 className="mb-1 text-lg font-bold text-ink">Student Results</h2>
+        <h2 className="mb-1 text-lg font-bold text-ink">Learner Results</h2>
         <p className="mb-4 text-sm text-ink-faint">{activeQuiz?.title ?? 'Select a quiz'}</p>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">

@@ -5,7 +5,7 @@ import { AdminAccessModal } from '@/features/auth/components/AdminAccessModal';
 
 const STATS = [
   { label: 'Certifications', value: '3+' },
-  { label: 'Students', value: '10k+' },
+  { label: 'Learners', value: '10k+' },
   { label: 'Success Rate', value: '95%' },
 ];
 
