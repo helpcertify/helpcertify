@@ -7,6 +7,7 @@ import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { CourseCarousel, type CarouselItem } from '@/components/common/CourseCarousel';
+import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
 import { toDate } from '@/utils/formatDate';
 import {
   computeExamDatePlan,
@@ -306,6 +307,10 @@ export function StudentHomePage() {
           </div>
         )}
       </div>
+
+      {/* Refer & Earn — same banner (and same "hide it once it's used"
+          logic) as My Profile's, see WelcomeCouponBanner. */}
+      <WelcomeCouponBanner className="mb-6" />
 
       {/* Today's Mission — today's progress toward the primary goal's daily
           target, distinct from "Continue where you left off" below (which

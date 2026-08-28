@@ -53,6 +53,18 @@ type ItemType = 'quiz' | 'practiceTest';
 const REFERRAL_REWARD_DEFAULTS = { type: 'flat' as const, value: 50000 }; // ₹500, in paise
 const REFERRAL_COUPON_EXPIRY_DAYS = 90;
 
+// "HELPR" (Helpcertify, Referrer) plus 4 characters from a clean,
+// unambiguous alphabet (no 0/O/1/I) — e.g. "HELPRQ2XM" (9 characters
+// total), short enough to type by hand and readable as belonging to this
+// app, unlike the previous "REF"+8-hex-char scheme.
+const COUPON_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateReferralRewardCouponCode(): string {
+  const bytes = randomBytes(4);
+  let suffix = '';
+  for (const b of bytes) suffix += COUPON_CODE_ALPHABET[b % COUPON_CODE_ALPHABET.length];
+  return `HELPR${suffix}`;
+}
+
 async function grantReferralRewardIfEligible(refereeUid: string, batch: FirebaseFirestore.WriteBatch): Promise<void> {
   const priorPaidOrders = await db.collection('orders').where('userId', '==', refereeUid).where('status', '==', 'paid').limit(1).get();
   if (!priorPaidOrders.empty) return; // not their first purchase
@@ -67,7 +79,7 @@ async function grantReferralRewardIfEligible(refereeUid: string, batch: Firebase
   const rewardType: 'flat' | 'percent' = settings?.referrerRewardType ?? REFERRAL_REWARD_DEFAULTS.type;
   const rewardValue: number = settings?.referrerRewardValue ?? REFERRAL_REWARD_DEFAULTS.value;
 
-  const couponCode = `REF${randomBytes(4).toString('hex').toUpperCase()}`;
+  const couponCode = generateReferralRewardCouponCode();
   batch.set(db.collection('coupons').doc(couponCode), {
     discountType: rewardType,
     discountValue: rewardValue,

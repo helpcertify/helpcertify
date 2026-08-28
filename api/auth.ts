@@ -125,6 +125,18 @@ function generateReferralCode(): string {
   return code;
 }
 
+// The referee's own welcome coupon's code — "HELPW" (Helpcertify, Welcome)
+// plus 4 characters from the same clean alphabet as generateReferralCode
+// above, e.g. "HELPWX7K2" (9 characters total, short enough to type by
+// hand and read as belonging to this app, unlike the previous
+// "WELCOME"+8-hex-char scheme).
+function generateWelcomeCouponCode(): string {
+  const bytes = randomBytes(4);
+  let suffix = '';
+  for (const b of bytes) suffix += REFERRAL_CODE_ALPHABET[b % REFERRAL_CODE_ALPHABET.length];
+  return `HELPW${suffix}`;
+}
+
 // Refer & Earn — the new user's own welcome coupon, granted immediately at
 // signup (not gated on a purchase like the referrer's reward is) since it
 // exists to encourage that very first purchase, not reward one that
@@ -164,7 +176,7 @@ async function linkReferral(
   const rewardType: 'flat' | 'percent' = settings?.refereeRewardType ?? REFEREE_REWARD_DEFAULTS.type;
   const rewardValue: number = settings?.refereeRewardValue ?? REFEREE_REWARD_DEFAULTS.value;
 
-  const refereeCouponCode = `WELCOME${randomBytes(4).toString('hex').toUpperCase()}`;
+  const refereeCouponCode = generateWelcomeCouponCode();
   await db.collection('coupons').doc(refereeCouponCode).set({
     discountType: rewardType,
     discountValue: rewardValue,

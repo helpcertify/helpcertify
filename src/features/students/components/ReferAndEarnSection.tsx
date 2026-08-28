@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
+import { WelcomeCouponBanner } from './WelcomeCouponBanner';
 import { toDate } from '@/utils/formatDate';
 import { formatReward } from '@/utils/currency';
 import type { ReferralDoc } from '@/types/models';
@@ -48,22 +49,6 @@ export function ReferAndEarnSection() {
     enabled: !!firebaseUser?.uid,
   });
 
-  // This account's own welcome coupon, if it was created via someone else's
-  // referral link — persists here in case the one-time signup toast
-  // (RegisterPage.tsx) got missed. The referrals/{myUid} doc (as referee) is
-  // the same doc api/auth.ts's linkReferral wrote at signup, not a second
-  // source of truth.
-  const { data: myWelcomeCoupon } = useQuery({
-    queryKey: ['student', 'myWelcomeCoupon', firebaseUser?.uid],
-    queryFn: async () => {
-      const snap = await getDoc(doc(db, 'referrals', firebaseUser!.uid));
-      const data = snap.data() as ReferralDoc | undefined;
-      if (!data?.refereeCouponCode) return null;
-      return { code: data.refereeCouponCode, type: data.refereeRewardType ?? 'flat', value: data.refereeRewardValue ?? 0 };
-    },
-    enabled: !!firebaseUser?.uid,
-  });
-
   if (!profile) return null;
 
   const referralLink = profile.referralCode ? `${window.location.origin}/register?ref=${profile.referralCode}` : null;
@@ -85,16 +70,7 @@ export function ReferAndEarnSection() {
         Share your link with friends. When someone signs up and makes their first purchase, you get a reward coupon.
       </p>
 
-      {myWelcomeCoupon && (
-        <div className="mb-5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] p-3">
-          <div className="text-sm font-bold text-[#16A34A]">
-            🎉 You have a {formatReward(myWelcomeCoupon.type, myWelcomeCoupon.value)} off welcome coupon
-          </div>
-          <div className="text-xs text-[#64748B]">
-            Enter code <span className="font-mono font-semibold text-[#0F172A]">{myWelcomeCoupon.code}</span> at checkout.
-          </div>
-        </div>
-      )}
+      <WelcomeCouponBanner className="mb-5" />
 
       <div className="mb-5 flex flex-col gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 sm:flex-row sm:items-center">
         <input

@@ -147,6 +147,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- coupons/{code} ---
+    // Written only by api/coupons.ts (admin-created codes) and by
+    // api/auth.ts/api/checkout.ts/api/razorpay-webhook.ts (Refer & Earn
+    // reward coupons) — all Admin SDK, bypassing these rules. A learner
+    // can only ever read a coupon that was minted specifically for them
+    // (restrictedToUserId), e.g. to check whether their own Refer & Earn
+    // coupon has already been used (usedCount) — a regular admin-created
+    // coupon (no restrictedToUserId) stays unreadable by anyone but an
+    // admin, since a learner never needs to read one directly (they just
+    // type the code and the backend validates it).
+    match /coupons/{code} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.restrictedToUserId == request.auth.uid);
+      allow write: if false;
+    }
+
     // --- adminLogs/{logId} ---
     match /adminLogs/{logId} {
       allow read, write: if false; // read via api/admin.ts's listAdminLogs action only
