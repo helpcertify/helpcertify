@@ -12,7 +12,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VercelApiError } from '@/lib/vercelApi';
 import { toDate } from '@/utils/formatDate';
 import { computeExamDatePlan, questionsPerDayFromMinutes, buildDailyAnsweredMap, dateKey } from '../lib/studyPlan';
-import type { PracticeConfidence, PracticeFeedbackMode, QuestionDoc } from '@/types/models';
+import type { PracticeFeedbackMode, QuestionDoc } from '@/types/models';
 
 interface AnswerFeedback {
   isCorrect: boolean | null;
@@ -20,13 +20,13 @@ interface AnswerFeedback {
   explanation: string | null;
 }
 
-const CONFIDENCE_OPTIONS: { value: PracticeConfidence; emoji: string; label: string }[] = [
-  { value: 'guessing', emoji: '🤔', label: 'Guessing' },
-  { value: 'unsure', emoji: '🙂', label: 'Unsure' },
-  { value: 'confident', emoji: '💪', label: 'Confident' },
-];
-
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+// A generic, non-question-specific reminder — not fabricated per-question
+// content. AnswerKeyDoc has one explanation string, not separate why-
+// correct/why-wrong/exam-tip fields, so this is the same static line every
+// time, distinct from the real admin-authored explanation above it.
+const EXAM_TIP = 'Eliminate the options that are only partially related, and choose the one that most directly addresses what the question is actually asking.';
 
 // Practice Session — the Practice Momentum experience, visually matched to
 // the supplied reference (two-column shell: dominant question column +
@@ -55,13 +55,11 @@ export function PracticeTakingPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, AnswerFeedback>>({});
   const [pendingOption, setPendingOption] = useState<Record<string, string>>({});
-  const [pendingConfidence, setPendingConfidence] = useState<Record<string, PracticeConfidence>>({});
   const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [streak, setStreak] = useState(0);
-  const [sessionXp, setSessionXp] = useState(0);
   const [review, setReview] = useState<{
     questions: BatchReviewQuestion[];
     summary: { totalQuestions: number; answeredCount: number; correctCount: number; incorrectCount: number };
@@ -200,10 +198,6 @@ export function PracticeTakingPage() {
     if (!current || answers[current.id]) return;
     setPendingOption((prev) => ({ ...prev, [current.id]: optionId }));
   };
-  const selectConfidence = (value: PracticeConfidence) => {
-    if (!current) return;
-    setPendingConfidence((prev) => ({ ...prev, [current.id]: value }));
-  };
 
   // Grading a practice answer is a real network round-trip (the answer key
   // lives server-side, on purpose — it's never shipped to the client up
@@ -214,14 +208,13 @@ export function PracticeTakingPage() {
     if (!sessionId || !current || !optionId || saving) return;
     setSaving(true);
     try {
-      const res = await practiceSessionApi.saveAnswer(sessionId, current.id, optionId, pendingConfidence[current.id]);
+      const res = await practiceSessionApi.saveAnswer(sessionId, current.id, optionId);
       setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
       setFeedback((prev) => ({
         ...prev,
         [current.id]: { isCorrect: res.isCorrect, correctOptionId: res.correctOptionId, explanation: res.explanation },
       }));
       setStreak(res.streak);
-      setSessionXp((xp) => xp + res.xpAwarded);
       if (trackingDailyTarget) setAnsweredToday((prev) => (prev ?? 0) + 1);
     } catch {
       pushToast('Could not save that answer', 'error');
@@ -259,12 +252,7 @@ export function PracticeTakingPage() {
 
   if (review) {
     return (
-      <PracticeReviewScreen
-        review={review}
-        sessionXp={sessionXp}
-        onDone={() => navigate('/home/practice-tests')}
-        onMasterMistakes={() => navigate(`/practice-tests/${testId}/take?mastery=1&feedbackMode=${feedbackMode}`)}
-      />
+      <PracticeReviewScreen review={review} onDone={() => navigate('/home/practice-tests')} />
     );
   }
 
@@ -399,36 +387,15 @@ export function PracticeTakingPage() {
                 })}
               </div>
 
-              {/* Confidence — optional, shown once an option is picked but
-                  before submitting; never affects grading (Section 16). */}
               {!isSubmittedForCurrent && selectedOptionId && (
-                <div className="mt-4">
-                  <label className="mb-2 block text-xs font-medium text-[#64748B]">How confident are you?</label>
-                  <div className="flex gap-2">
-                    {CONFIDENCE_OPTIONS.map((c) => (
-                      <button
-                        key={c.value}
-                        type="button"
-                        onClick={() => selectConfidence(c.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm ${
-                          pendingConfidence[current.id] === c.value
-                            ? 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]'
-                            : 'border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
-                        }`}
-                      >
-                        {c.emoji} {c.label}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={submitAnswer}
-                    className="mt-3 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
-                  >
-                    {saving ? 'Checking…' : 'Submit Answer'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={submitAnswer}
+                  className="mt-4 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+                >
+                  {saving ? 'Checking…' : 'Submit Answer'}
+                </button>
               )}
 
               {/* Learn As You Go: one unified explanation panel, not
@@ -436,15 +403,19 @@ export function PracticeTakingPage() {
                   what was selected vs correct. Only one explanation string
                   exists per question (AnswerKeyDoc.explanation), so this
                   shows that single admin-authored text under "Why this is
-                  correct" rather than fabricating separate why-your-answer-
-                  is-wrong/exam-tip content that doesn't exist in the data.
-                  Review At End: never shown — result is always
-                  undefined-equivalent there (isCorrect is null), so
-                  `revealed` is false and none of this renders. */}
+                  correct"; the Exam Tip below it is a static, non-question-
+                  specific reminder, not fabricated per-question content
+                  (there's no such field in the schema). Review At End:
+                  never shown — result is always undefined-equivalent there
+                  (isCorrect is null), so `revealed` is false and none of
+                  this renders. */}
               {revealed && result.explanation && (
                 <div className="mt-5 rounded-lg border border-[#E2E8F0] bg-[#F0FDF4] p-4">
                   <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#16A34A]">✓ Why this is correct</div>
                   <p className="whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{result.explanation}</p>
+                  <div className="my-3 border-t border-dashed border-[#BBF7D0]" />
+                  <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#0F172A]">💡 Exam Tip</div>
+                  <p className="text-sm leading-relaxed text-[#1E293B]">{EXAM_TIP}</p>
                 </div>
               )}
 
@@ -555,16 +526,8 @@ export function PracticeTakingPage() {
             {isImmediate && (
               <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
                 <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">🔥 Practice Momentum</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-[#64748B]">🔥 Current Streak</div>
-                    <div className="text-xl font-bold text-[#0F172A]">{streak}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-[#64748B]">⚡ Session XP</div>
-                    <div className="text-xl font-bold text-[#0F172A]">{sessionXp}</div>
-                  </div>
-                </div>
+                <div className="text-xs text-[#64748B]">🔥 Current Streak</div>
+                <div className="text-xl font-bold text-[#0F172A]">{streak}</div>
                 {streak >= 2 && <p className="mt-2 text-xs font-medium text-[#F59E0B]">Keep it going!</p>}
               </div>
             )}
@@ -604,7 +567,7 @@ export function PracticeTakingPage() {
                       key={q.id}
                       type="button"
                       onClick={() => setCurrentIndex(i)}
-                      className={`relative flex h-9 flex-col items-center justify-center rounded-md text-xs font-semibold leading-none ${
+                      className={`relative flex h-9 items-center justify-center rounded-md text-xs font-semibold ${
                         isCurrent
                           ? 'bg-[#155EEF] text-white'
                           : isAnswered
@@ -612,8 +575,7 @@ export function PracticeTakingPage() {
                             : 'border border-[#E2E8F0] bg-white text-[#64748B] dark:bg-transparent'
                       } ${marked[q.id] ? 'ring-2 ring-[#F59E0B]' : ''}`}
                     >
-                      <span>{i + 1}</span>
-                      {isAnswered && !isCurrent && <span className="text-[10px] text-[#16A34A]">✓</span>}
+                      {i + 1}
                       {marked[q.id] && <span className="absolute -right-1 -top-1 text-[9px] leading-none">🚩</span>}
                     </button>
                   );
@@ -685,9 +647,7 @@ type ReviewFilter = 'all' | 'correct' | 'incorrect';
 // ever revealed (see getBatchReview's own in_progress guard server-side).
 function PracticeReviewScreen({
   review,
-  sessionXp,
   onDone,
-  onMasterMistakes,
 }: {
   review: {
     questions: BatchReviewQuestion[];
@@ -695,9 +655,7 @@ function PracticeReviewScreen({
     newPersonalBest: boolean;
     bestStreak: number;
   };
-  sessionXp: number;
   onDone: () => void;
-  onMasterMistakes: () => void;
 }) {
   const [filter, setFilter] = useState<ReviewFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(review.questions[0]?.questionId ?? null);
@@ -714,58 +672,31 @@ function PracticeReviewScreen({
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-          <h1 className="mb-1 text-[22px] font-bold text-[#0F172A]">Practice Complete</h1>
-          <p className="mb-4 text-sm text-[#64748B]">{review.summary.totalQuestions} Questions</p>
-          <div className="mx-auto grid max-w-md grid-cols-3 gap-4">
+          <h1 className="mb-5 text-[22px] font-bold text-[#0F172A]">Practice Complete</h1>
+          <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Practice Momentum</div>
+          <div className="mx-auto grid max-w-md grid-cols-2 gap-x-4 gap-y-4 text-left">
             <div>
-              <div className="text-2xl font-bold text-[#16A34A]">{review.summary.correctCount}</div>
+              <div className="text-lg font-bold text-[#F59E0B]">
+                {review.newPersonalBest ? '🏆' : '🔥'} {review.bestStreak}
+              </div>
+              <div className="text-xs text-[#64748B]">Correct Streak</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#155EEF]">🎯 {accuracy}%</div>
+              <div className="text-xs text-[#64748B]">Session Accuracy</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#0F172A]">
+                📚 {review.summary.answeredCount}/{review.summary.totalQuestions}
+              </div>
+              <div className="text-xs text-[#64748B]">Questions</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#16A34A]">✓ {review.summary.correctCount}</div>
               <div className="text-xs text-[#64748B]">Correct</div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-[#DC2626]">{review.summary.incorrectCount}</div>
-              <div className="text-xs text-[#64748B]">Incorrect</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-[#155EEF]">{accuracy}%</div>
-              <div className="text-xs text-[#64748B]">Accuracy</div>
-            </div>
           </div>
-
-          {(review.bestStreak >= 2 || sessionXp > 0) && (
-            <div className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-4 border-t border-[#E2E8F0] pt-4">
-              {review.bestStreak >= 2 && (
-                <div>
-                  <div className="text-lg font-bold text-[#F59E0B]">
-                    {review.newPersonalBest ? `🏆 New Best: ${review.bestStreak}!` : `🔥 ${review.bestStreak}`}
-                  </div>
-                  <div className="text-xs text-[#64748B]">Best Streak</div>
-                </div>
-              )}
-              {sessionXp > 0 && (
-                <div>
-                  <div className="text-lg font-bold text-[#155EEF]">⚡ {sessionXp}</div>
-                  <div className="text-xs text-[#64748B]">Session XP</div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
-
-        {review.summary.incorrectCount > 0 && (
-          <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-            <div className="mb-1 text-sm font-bold text-[#0F172A]">
-              {review.summary.incorrectCount} Question{review.summary.incorrectCount === 1 ? '' : 's'} to Master
-            </div>
-            <p className="mb-3 text-sm text-[#64748B]">These are the questions you missed.</p>
-            <button
-              type="button"
-              onClick={onMasterMistakes}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
-            >
-              Master My Mistakes →
-            </button>
-          </div>
-        )}
 
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Answer Review</h2>
