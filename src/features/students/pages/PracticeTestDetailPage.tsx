@@ -730,6 +730,7 @@ function PlanSummaryCard({
 
   let dailyTarget: number;
   let countdownLabel: string;
+  let countdownNote: string | null = null;
   let countdownValue: string;
 
   if (plan.planningMode === 'examDate' && plan.targetExamDate) {
@@ -757,8 +758,9 @@ function PlanSummaryCard({
       paceQuestionsPerDay: dailyTarget,
     });
     const daysToSuggestedExam = calendarDaysBetween(today, pacePlan.suggestedExamDate);
-    const daysLabel = daysToSuggestedExam >= 0 ? `${daysToSuggestedExam} day${daysToSuggestedExam === 1 ? '' : 's'} left` : 'passed';
-    countdownLabel = `Est. ${formatShortDate(pacePlan.suggestedExamDate)} (${daysLabel})`;
+    countdownLabel = `Est. ${formatShortDate(pacePlan.suggestedExamDate)}`;
+    countdownNote =
+      daysToSuggestedExam >= 0 ? `(${daysToSuggestedExam} day${daysToSuggestedExam === 1 ? '' : 's'} left)` : '(passed)';
     countdownValue = 'suggested exam';
   }
 
@@ -776,7 +778,10 @@ function PlanSummaryCard({
           below forced it to wrap mid-word. Completion progress and today's
           target keep their side-by-side row underneath. */}
       <div className="mb-4">
-        <div className="text-[20px] font-bold leading-snug tracking-tight text-[#0F172A]">📅 {countdownLabel}</div>
+        <div className="text-[20px] font-bold leading-snug tracking-tight text-[#0F172A]">
+          📅 {countdownLabel}
+          {countdownNote && <span className="ml-1 text-xs font-normal text-[#64748B]">{countdownNote}</span>}
+        </div>
         <div className="text-xs text-[#64748B]">{countdownValue}</div>
       </div>
       <div className="mb-4 grid grid-cols-2 gap-4">
