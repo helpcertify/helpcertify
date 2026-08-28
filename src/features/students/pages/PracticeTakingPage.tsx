@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -26,6 +26,13 @@ const CONFIDENCE_OPTIONS: { value: PracticeConfidence; emoji: string; label: str
   { value: 'confident', emoji: '💪', label: 'Confident' },
 ];
 
+const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+// Practice Session — the Practice Momentum experience, visually matched to
+// the supplied reference (two-column shell: dominant question column +
+// 360px sidebar). Mock Exam's own taking page (QuizTakingPage.tsx) is a
+// separate file and is untouched — none of Practice Momentum (streak, XP,
+// Today's Goal, immediate feedback/explanations) belongs there.
 export function PracticeTakingPage() {
   const { testId } = useParams<{ testId: string }>();
   const [searchParams] = useSearchParams();
@@ -52,6 +59,7 @@ export function PracticeTakingPage() {
   const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [streak, setStreak] = useState(0);
   const [sessionXp, setSessionXp] = useState(0);
   const [review, setReview] = useState<{
@@ -96,7 +104,16 @@ export function PracticeTakingPage() {
   // session keeps whatever it was started with.
   const feedbackMode: PracticeFeedbackMode = session?.feedbackMode ?? 'immediate';
   const isImmediate = feedbackMode === 'immediate';
-  const isMasterySession = !!session?.isMastery || !!session?.isWeakAreas || !!session?.isRevision;
+  const isIntentionalRepeat = !!session?.isMastery || !!session?.isWeakAreas || !!session?.isRevision;
+
+  // The practice test's own title/estimate — needed for the header
+  // regardless of session type (unlike Today's Target below, which only
+  // applies to a normal, new-coverage session).
+  const { data: test } = useQuery({
+    queryKey: ['student', 'practiceTest', testId],
+    queryFn: () => getPracticeTestById(testId!),
+    enabled: !!testId,
+  });
 
   // Today's Target — reuses the exact same Study Plan calculation engine
   // and daily-answered-map pattern as StudyPlanSection.tsx/
@@ -104,12 +121,7 @@ export function PracticeTakingPage() {
   // be shown live during the session (Section 26). Only fetched for a
   // normal session — none of the intentional-repeat modes contribute new
   // coverage, so the daily target doesn't apply to them.
-  const trackingDailyTarget = !isReattempt && !isMastery && !isWeakAreas && !isRevision;
-  const { data: test } = useQuery({
-    queryKey: ['student', 'practiceTest', testId],
-    queryFn: () => getPracticeTestById(testId!),
-    enabled: !!testId && trackingDailyTarget,
-  });
+  const trackingDailyTarget = !isReattempt && !isIntentionalRepeat;
   const { data: existingPlan } = useQuery({
     queryKey: ['student', 'studyPlan', uid, testId],
     queryFn: () => getStudyPlan(uid!, testId!),
@@ -136,7 +148,7 @@ export function PracticeTakingPage() {
       );
       const sessions = snap.docs
         .map((d) => d.data())
-        .filter((d) => !d.isMastery)
+        .filter((d) => !d.isMastery && !d.isWeakAreas && !d.isRevision)
         .map((d) => ({ startedAt: toDate(d.startedAt), answeredCount: (d.answeredCount as number) ?? 0 }));
       return buildDailyAnsweredMap(sessions);
     },
@@ -183,7 +195,6 @@ export function PracticeTakingPage() {
 
   const current = questions[currentIndex];
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
-  const markedCount = useMemo(() => Object.values(marked).filter(Boolean).length, [marked]);
 
   const selectOption = (optionId: string) => {
     if (!current || answers[current.id]) return;
@@ -233,6 +244,7 @@ export function PracticeTakingPage() {
   };
 
   const unansweredCount = questions.length - answeredCount;
+  const isLastQuestion = currentIndex === questions.length - 1;
 
   // Finish is available from any question in the session, not just the
   // last one — clicking it with questions still unanswered confirms first
@@ -265,66 +277,74 @@ export function PracticeTakingPage() {
   const revealed = isImmediate && !!result && result.isCorrect !== null;
   const selectedOptionId = answers[current.id] ?? pendingOption[current.id];
   const isSubmittedForCurrent = !!answers[current.id];
-  const percentThroughSession = questions.length > 0 ? Math.round(((currentIndex + 1) / questions.length) * 100) : 0;
+  const percentComplete = questions.length > 0 ? Math.round(((currentIndex + 1) / questions.length) * 100) : 0;
+
+  const sessionTitle = session.isMastery
+    ? 'Master My Mistakes'
+    : session.isWeakAreas
+      ? 'Practice Weak Areas'
+      : session.isRevision
+        ? 'Revision Cycle'
+        : test?.title ?? 'Practice Test';
 
   return (
-    <div className="min-h-screen bg-surface px-4 py-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-1 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-ink">
-            {session?.isMastery
-              ? 'Master My Mistakes'
-              : session?.isWeakAreas
-                ? 'Practice Weak Areas'
-                : session?.isRevision
-                  ? 'Revision Cycle'
-                  : 'Practice Session'}
-            {isReattempt && !isMasterySession && <span className="ml-2 text-sm text-ink-faint">(Reattempt)</span>}
-          </h1>
-          <div className="flex items-center gap-3 text-sm text-ink-faint">
-            {markedCount > 0 && <span className="text-[#F59E0B]">🚩 {markedCount} marked</span>}
-            <span>
-              {answeredCount} / {questions.length} answered
+    <div className="min-h-screen bg-surface px-4 py-5 sm:px-6">
+      <div className="mx-auto w-full max-w-[1500px]">
+        {/* Session header — title/mode pill (left), question count + progress
+            (center), End Session (right). */}
+        <div className="mb-5 flex flex-col gap-4 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 shrink-0">
+            <div className="truncate text-base font-bold text-[#0F172A]">📖 {sessionTitle}</div>
+            <span
+              className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                isImmediate ? 'bg-[#EFF6FF] text-[#155EEF]' : 'bg-[#F8FAFC] text-[#64748B]'
+              }`}
+            >
+              {isImmediate ? '⚡ Learn As You Go' : '📝 Review At The End'}
             </span>
           </div>
-        </div>
-        <div className="mb-2 flex items-center justify-between text-xs text-[#64748B]">
-          <span>
-            Question {currentIndex + 1} of {questions.length}
-          </span>
-          {/* Streak only ever shown once >= 2 (Section 24), and only in
-              Learn As You Go while the session is still running — Review At
-              End never reveals anything correctness-adjacent mid-session. */}
-          {isImmediate && streak >= 2 && <span className="font-semibold text-[#F59E0B]">🔥 {streak} Streak</span>}
-        </div>
-        <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
-          <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${percentThroughSession}%` }} />
+
+          <div className="flex-1 sm:max-w-md">
+            <div className="mb-1.5 text-center text-sm font-semibold text-[#0F172A]">
+              Question {currentIndex + 1} of {questions.length}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#F1F5F9]">
+                <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${percentComplete}%` }} />
+              </div>
+              <span className="shrink-0 text-xs text-[#64748B]">{percentComplete}% Complete</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowEndConfirm(true)}
+            className="shrink-0 self-start rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#DC2626] hover:border-[#FCA5A5] sm:self-auto"
+          >
+            ⏻ End Session
+          </button>
         </div>
 
-        {/* Right-side panel: question navigator + (Learn As You Go only)
-            the Today's Goal / Streak / Session XP momentum stats. Marked-
-            for-review questions get an amber ring + flag so they're easy
-            to spot and jump back to. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
-          <div className="order-2 lg:order-1">
-            <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <h2 className="mb-4 font-medium text-ink">
-                Q{currentIndex + 1}. {current.questionText}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Left column — question, answers, explanation, bottom nav. */}
+          <div>
+            <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
+              <h2 className="mb-4 text-lg font-semibold leading-relaxed text-[#0F172A]">
+                <span className="font-bold text-[#155EEF]">Q{currentIndex + 1}.</span> {current.questionText}
               </h2>
-              <div className="space-y-2">
-                {current.options.map((opt) => {
+
+              <div className="space-y-2.5">
+                {current.options.map((opt, i) => {
                   const selected = selectedOptionId === opt.id;
                   const isTheCorrectOption = revealed && result.correctOptionId === opt.id;
                   const isWrongPick = revealed && selected && !result.isCorrect;
+                  const isCorrectAndYours = isTheCorrectOption && selected;
 
-                  let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
-                  if (revealed) {
-                    if (isTheCorrectOption) cls = 'border-[#16A34A] bg-[#F0FDF4] text-[#16A34A]';
-                    else if (isWrongPick) cls = 'border-[#DC2626] bg-[#FEF2F2] text-[#DC2626]';
-                    else cls = 'border-surface-border text-ink-faint opacity-60';
-                  } else if (selected) {
-                    cls = 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]';
-                  }
+                  let cls = 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1] dark:bg-transparent';
+                  if (isWrongPick) cls = 'border-[#FCA5A5] bg-[#FEF2F2] text-[#1E293B]';
+                  else if (isTheCorrectOption) cls = 'border-[#86EFAC] bg-[#F0FDF4] text-[#1E293B]';
+                  else if (revealed) cls = 'border-[#E2E8F0] bg-white text-[#94A3B8] opacity-70 dark:bg-transparent';
+                  else if (selected) cls = 'border-[#155EEF] bg-[#EFF6FF] text-[#0F172A]';
 
                   return (
                     <button
@@ -332,11 +352,48 @@ export function PracticeTakingPage() {
                       type="button"
                       disabled={saving || isSubmittedForCurrent}
                       onClick={() => selectOption(opt.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm disabled:cursor-not-allowed ${cls}`}
+                      className={`flex w-full min-h-[58px] items-center gap-3 rounded-lg border px-4 py-3 text-left disabled:cursor-not-allowed ${cls}`}
                     >
-                      <span>{opt.text}</span>
-                      {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓</span>}
-                      {isWrongPick && <span className="shrink-0 text-xs font-semibold">✕</span>}
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm font-bold ${
+                          isWrongPick
+                            ? 'bg-[#DC2626]/10 text-[#DC2626]'
+                            : isTheCorrectOption
+                              ? 'bg-[#16A34A]/10 text-[#16A34A]'
+                              : selected
+                                ? 'bg-[#155EEF]/10 text-[#155EEF]'
+                                : 'bg-[#F1F5F9] text-[#64748B]'
+                        }`}
+                      >
+                        {OPTION_LETTERS[i] ?? i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-medium">{opt.text}</span>
+                        {isWrongPick && <span className="mt-0.5 block text-xs font-semibold text-[#DC2626]">● Your answer</span>}
+                        {isCorrectAndYours && (
+                          <span className="mt-0.5 block text-xs font-semibold text-[#16A34A]">● Correct · Your answer</span>
+                        )}
+                        {isTheCorrectOption && !selected && (
+                          <span className="mt-0.5 block text-xs font-semibold text-[#16A34A]">● Correct answer</span>
+                        )}
+                      </span>
+                      {revealed ? (
+                        (isWrongPick || isTheCorrectOption) && (
+                          <span
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
+                              isWrongPick ? 'bg-[#DC2626]' : 'bg-[#16A34A]'
+                            }`}
+                          >
+                            {isWrongPick ? '✕' : '✓'}
+                          </span>
+                        )
+                      ) : (
+                        <span
+                          className={`h-4 w-4 shrink-0 rounded-full border-2 ${
+                            selected ? 'border-[#155EEF] bg-[#155EEF]' : 'border-[#CBD5E1]'
+                          }`}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -356,7 +413,7 @@ export function PracticeTakingPage() {
                         className={`rounded-lg border px-3 py-1.5 text-sm ${
                           pendingConfidence[current.id] === c.value
                             ? 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]'
-                            : 'border-surface-border text-ink-muted hover:border-neutral-600'
+                            : 'border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
                         }`}
                       >
                         {c.emoji} {c.label}
@@ -374,42 +431,20 @@ export function PracticeTakingPage() {
                 </div>
               )}
 
-              {/* Learn As You Go: correctness + explanation, right away —
-                  Section 17-19's hierarchy (correct/your-answer callouts,
-                  then the admin-authored explanation, exactly as stored;
-                  no fabricated "why your answer is wrong"/"exam tip"
-                  sub-sections, since the schema only has one explanation
-                  field per question). Review At End: never shown — result
-                  is always undefined-equivalent there (isCorrect is null),
-                  so `revealed` is false and none of this renders. */}
-              {revealed && (
-                <div className="mt-4 space-y-3">
-                  {result.isCorrect ? (
-                    <div className="rounded-lg border border-[#16A34A] bg-[#F0FDF4] px-4 py-3">
-                      <div className="flex items-center gap-2 text-sm font-bold text-[#16A34A]">✓ Correct</div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="rounded-lg border border-[#DC2626] bg-[#FEF2F2] px-4 py-3">
-                        <div className="text-xs font-bold uppercase tracking-wide text-[#DC2626]">✕ Your Answer</div>
-                        <div className="mt-1 text-sm text-[#1E293B]">
-                          {current.options.find((o) => o.id === answers[current.id])?.text}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-[#16A34A] bg-[#F0FDF4] px-4 py-3">
-                        <div className="text-xs font-bold uppercase tracking-wide text-[#16A34A]">✓ Correct Answer</div>
-                        <div className="mt-1 text-sm text-[#1E293B]">
-                          {current.options.find((o) => o.id === result.correctOptionId)?.text}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  {result.explanation && (
-                    <div className="rounded-lg border border-surface-border bg-surface p-4">
-                      <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Explanation</div>
-                      <p className="whitespace-pre-line text-sm text-[#1E293B]">{result.explanation}</p>
-                    </div>
-                  )}
+              {/* Learn As You Go: one unified explanation panel, not
+                  separate boxes — the answer choices above already show
+                  what was selected vs correct. Only one explanation string
+                  exists per question (AnswerKeyDoc.explanation), so this
+                  shows that single admin-authored text under "Why this is
+                  correct" rather than fabricating separate why-your-answer-
+                  is-wrong/exam-tip content that doesn't exist in the data.
+                  Review At End: never shown — result is always
+                  undefined-equivalent there (isCorrect is null), so
+                  `revealed` is false and none of this renders. */}
+              {revealed && result.explanation && (
+                <div className="mt-5 rounded-lg border border-[#E2E8F0] bg-[#F0FDF4] p-4">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#16A34A]">✓ Why this is correct</div>
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{result.explanation}</p>
                 </div>
               )}
 
@@ -420,106 +455,193 @@ export function PracticeTakingPage() {
               )}
             </div>
 
-            {/* Previous/Next stay together as one tight row for fast
-                navigation. Mark for Review moved out of the question header
-                (it was squeezing question text into a narrow column) down
-                next to Finish Session — both are "side" actions, separate
-                from the Previous/Next pair a thumb reaches for most often.
-                In Learn As You Go, Next only appears once the current
-                question's result is back — Section 20: the learner should
-                have time to read the explanation before moving on, not be
-                swept forward automatically. */}
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
+            {/* Bottom navigation — one row: Previous / Mark for Review /
+                Next Question (the only strong primary CTA). Finish Session
+                lives in the sidebar instead of competing with Next. In
+                Learn As You Go, Next only appears once the current
+                question's result is back (Section 20 — time to read the
+                explanation first). On the final question, Next becomes
+                Finish Practice. */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                disabled={currentIndex === 0}
+                onClick={() => setCurrentIndex((i) => i - 1)}
+                className="rounded-lg border border-[#E2E8F0] px-4 py-2.5 text-sm font-semibold text-[#334155] disabled:opacity-40"
+              >
+                ← Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleMark(current.id)}
+                className={`rounded-lg border px-4 py-2.5 text-sm font-semibold ${
+                  marked[current.id] ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]' : 'border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
+                }`}
+              >
+                🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
+              </button>
+              {isLastQuestion ? (
                 <button
                   type="button"
-                  disabled={currentIndex === 0}
-                  onClick={() => setCurrentIndex((i) => i - 1)}
-                  className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-40"
+                  disabled={saving || (isImmediate && !isSubmittedForCurrent)}
+                  onClick={handleFinishClick}
+                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
                 >
-                  ← Previous
+                  Finish Practice →
                 </button>
-                {currentIndex < questions.length - 1 && (!isImmediate || isSubmittedForCurrent) && (
+              ) : (
+                (!isImmediate || isSubmittedForCurrent) && (
                   <button
                     type="button"
                     disabled={saving}
                     onClick={() => setCurrentIndex((i) => i + 1)}
-                    className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+                    className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
                   >
                     Next Question →
                   </button>
-                )}
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => toggleMark(current.id)}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                    marked[current.id]
-                      ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]'
-                      : 'border-surface-border text-ink-faint hover:border-neutral-600'
-                  }`}
-                >
-                  🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleFinishClick}
-                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
-                >
-                  Finish Session
-                </button>
-              </div>
+                )
+              )}
             </div>
           </div>
 
-          <div className="order-1 flex flex-col gap-4 lg:order-2">
-            {isImmediate && trackingDailyTarget && dailyTarget > 0 && (
-              <div className="rounded-lg border border-surface-border bg-surface-raised p-4 lg:sticky lg:top-6">
-                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Session</div>
-                <div className="mb-3">
-                  <div className="text-xs text-[#64748B]">🎯 Today's Goal</div>
-                  <div className="text-lg font-bold text-[#0F172A]">
-                    {answeredToday ?? 0} / {dailyTarget}
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-xs text-[#64748B]">🔥 Current Streak</div>
-                  <div className="text-lg font-bold text-[#0F172A]">{streak}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[#64748B]">⚡ Session XP</div>
-                  <div className="text-lg font-bold text-[#0F172A]">{sessionXp}</div>
-                </div>
+          {/* Right sidebar — Your Progress (Today's Goal), Practice
+              Momentum, Questions navigator, Finish Session. Practice
+              Momentum only shown in Learn As You Go (Section 24/26): a
+              Review At End session reveals no streak/XP truth mid-session,
+              same as the question/answer/explanation area. */}
+          <div className="flex flex-col gap-4">
+            {isImmediate && (
+              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised lg:sticky lg:top-5">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Your Progress</div>
+                <div className="mb-1 text-xs font-semibold text-[#64748B]">🎯 Today's Goal</div>
+                {trackingDailyTarget && dailyTarget > 0 ? (
+                  <>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-[#0F172A]">
+                        {answeredToday ?? 0} / {dailyTarget} Questions
+                      </span>
+                      <span className="text-sm font-semibold text-[#0F172A]">
+                        {Math.min(100, Math.round(((answeredToday ?? 0) / dailyTarget) * 100))}%
+                      </span>
+                    </div>
+                    <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
+                      <div
+                        className="h-full rounded-full bg-[#155EEF]"
+                        style={{ width: `${Math.min(100, Math.round(((answeredToday ?? 0) / dailyTarget) * 100))}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-[#64748B]">
+                      {(answeredToday ?? 0) >= dailyTarget
+                        ? "You're on track for your exam."
+                        : `${dailyTarget - (answeredToday ?? 0)} more question${dailyTarget - (answeredToday ?? 0) === 1 ? '' : 's'} to stay on track`}
+                    </div>
+                  </>
+                ) : trackingDailyTarget && test ? (
+                  <>
+                    <p className="mb-3 text-xs text-[#64748B]">Set a study goal to get a daily target.</p>
+                    <Link
+                      to={`/home/practice-tests/${test.id}?goal=1`}
+                      className="block rounded-lg border border-[#155EEF] py-2 text-center text-xs font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+                    >
+                      Set Study Goal
+                    </Link>
+                  </>
+                ) : (
+                  <p className="text-xs text-[#64748B]">Not tracked for this session type.</p>
+                )}
               </div>
             )}
-            <div className="rounded-lg border border-surface-border p-3 lg:sticky lg:top-6">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                Questions ({answeredCount}/{questions.length} answered)
+
+            {isImmediate && (
+              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">🔥 Practice Momentum</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-[#64748B]">🔥 Current Streak</div>
+                    <div className="text-xl font-bold text-[#0F172A]">{streak}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#64748B]">⚡ Session XP</div>
+                    <div className="text-xl font-bold text-[#0F172A]">{sessionXp}</div>
+                  </div>
+                </div>
+                {streak >= 2 && <p className="mt-2 text-xs font-medium text-[#F59E0B]">Keep it going!</p>}
               </div>
-              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
-                {questions.map((q, i) => (
-                  <button
-                    key={q.id}
-                    type="button"
-                    onClick={() => setCurrentIndex(i)}
-                    className={`relative h-8 w-8 shrink-0 rounded text-xs font-medium ${
-                      i === currentIndex
-                        ? 'bg-[#155EEF] text-white'
-                        : answers[q.id]
-                          ? 'bg-[#155EEF]/20 text-[#155EEF]'
-                          : 'bg-white/5 text-ink-faint'
-                    } ${marked[q.id] ? 'ring-2 ring-[#F59E0B]' : ''}`}
-                  >
-                    {i + 1}
-                    {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}
-                  </button>
-                ))}
+            )}
+
+            {/* Question navigator — represents navigation status only
+                (answered/current/unanswered/marked), never correctness
+                (Section 20). Only ever holds this session's own batch, not
+                the whole question bank, so this never risks loading 1,500+
+                questions into the browser (Section 31). */}
+            <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
+              <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">
+                Questions ({answeredCount}/{questions.length} Answered)
+              </div>
+              {/* Green here means "answered," not "correct" — every
+                  answered question gets this same color regardless of
+                  right/wrong, so it never leaks correctness (Section 20).
+                  Correctness only ever appears on the question/answer
+                  card itself. */}
+              <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#64748B]">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#16A34A]" /> Answered
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#155EEF]" /> Current
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-full border border-[#CBD5E1] bg-white" /> Unanswered
+                </span>
+                <span className="inline-flex items-center gap-1">🚩 Review</span>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {questions.map((q, i) => {
+                  const isAnswered = !!answers[q.id];
+                  const isCurrent = i === currentIndex;
+                  return (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => setCurrentIndex(i)}
+                      className={`relative flex h-9 flex-col items-center justify-center rounded-md text-xs font-semibold leading-none ${
+                        isCurrent
+                          ? 'bg-[#155EEF] text-white'
+                          : isAnswered
+                            ? 'bg-[#F0FDF4] text-[#0F172A]'
+                            : 'border border-[#E2E8F0] bg-white text-[#64748B] dark:bg-transparent'
+                      } ${marked[q.id] ? 'ring-2 ring-[#F59E0B]' : ''}`}
+                    >
+                      <span>{i + 1}</span>
+                      {isAnswered && !isCurrent && <span className="text-[10px] text-[#16A34A]">✓</span>}
+                      {marked[q.id] && <span className="absolute -right-1 -top-1 text-[9px] leading-none">🚩</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
+            {/* Finish Session — secondary, not competing with Next
+                Question for primary-CTA attention. */}
+            <button
+              type="button"
+              onClick={handleFinishClick}
+              className="rounded-lg border border-[#E2E8F0] bg-white py-2.5 text-sm font-semibold text-[#334155] hover:border-[#CBD5E1] dark:bg-transparent"
+            >
+              🏁 Finish Session
+            </button>
           </div>
         </div>
+
+        {isImmediate && (
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-[#DCE7FF] bg-[#EFF6FF] p-4 text-sm text-[#1E293B]">
+            <span className="shrink-0 text-[#155EEF]">ℹ</span>
+            <p>
+              <span className="font-semibold text-[#0F172A]">Tip:</span> Use the explanation to build your understanding. The
+              more you learn now, the stronger you will be in your exam.
+            </p>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
@@ -533,6 +655,24 @@ export function PracticeTakingPage() {
           handleFinish();
         }}
         onCancel={() => setShowFinishConfirm(false)}
+      />
+
+      {/* End Session — never terminates instantly. The session doc stays
+          in_progress (nothing is submitted here), so it's resumable later
+          exactly like any other unfinished session — same persistence
+          PracticeTestDetailPage's "Continue Where You Left Off" already
+          reads. */}
+      <ConfirmDialog
+        open={showEndConfirm}
+        title="End practice session?"
+        message={`You've completed ${answeredCount} of ${questions.length} questions. Your completed answers will be saved, and you can resume this session later.`}
+        confirmLabel="End Session"
+        cancelLabel="Continue Practicing"
+        onConfirm={() => {
+          setShowEndConfirm(false);
+          navigate('/home/practice-tests');
+        }}
+        onCancel={() => setShowEndConfirm(false)}
       />
     </div>
   );
