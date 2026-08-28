@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
-import { db } from '@/lib/firebase';
 import { cartApi } from '@/features/students/api/cartApi';
 import { CartIcon, HeartIcon, BellIcon, SearchIcon } from '@/components/common/icons';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
-import { toDate, formatShortDate } from '@/utils/formatDate';
-import { calendarDaysBetween } from '@/features/students/lib/studyPlan';
-import type { StudyPlanDoc } from '@/types/models';
+import { formatShortDate } from '@/utils/formatDate';
+import { useExamCountdowns } from '@/features/students/hooks/useExamCountdowns';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -57,7 +54,6 @@ function initials(name?: string): string {
 // campus-specific.
 export function StudentShell() {
   const navigate = useNavigate();
-  const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -68,72 +64,9 @@ export function StudentShell() {
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
   const cartCount = cart?.items.length ?? 0;
 
-  // The exam countdown(s) pinned above Sign Out, visible on every page —
-  // only considers plans where the learner actually chose a target exam
-  // date (Option A). A pace-mode plan's "suggested" exam date is a rolling
-  // estimate, not a date the learner committed to, so it isn't a fitting
-  // permanent reminder here (it's already shown on that plan's own card on
-  // the Home dashboard). One card per exam GOAL, nearest first — a learner
-  // preparing for more than one certification should see all of them, but
-  // several practice tests covering the *same* certification (e.g. "CISA
-  // Practice Test 1/2/3") must collapse into a single card, keyed on the
-  // exam's own name + provider rather than on each test's id. A test's
-  // `examName` (falling back to its `title` when unset) is the exam name;
-  // `category` is already the existing certification-body/provider field.
-  const { data: examCountdowns } = useQuery({
-    queryKey: ['student', 'examCountdowns', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
-      const plans = snap.docs
-        .map((d) => d.data() as StudyPlanDoc)
-        .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
-        .map((p) => ({ testId: p.testId, examDate: toDate(p.targetExamDate) }))
-        .filter((p) => calendarDaysBetween(new Date(), p.examDate) >= 0);
-
-      const withTestInfo = await Promise.all(
-        plans.map(async (p) => {
-          const testSnap = await getDoc(doc(db, 'practiceTests', p.testId));
-          const data = testSnap.data();
-          // A study plan whose practice test doc no longer exists (deleted
-          // by an admin after the learner set a goal on it) isn't a real
-          // exam goal any more — there's nothing to show a title/provider
-          // for, and no test to actually resume. Rendering it as
-          // "Untitled Practice Test / Other" reads as a live, valid exam,
-          // which is actively misleading, so it's dropped instead. The
-          // underlying study plan itself is left untouched (never deleted
-          // here) in case the test comes back.
-          if (!data) {
-            console.warn(`Study plan for testId "${p.testId}" points at a practice test that no longer exists — hiding its exam card.`);
-            return null;
-          }
-          const title = (data.title as string | undefined) ?? 'Untitled Practice Test';
-          const examName = (data.examName as string | undefined)?.trim() || title;
-          const provider = (data.category as string | undefined) ?? 'Other';
-          return { ...p, examName, provider };
-        })
-      );
-
-      const byGoal = new Map<string, NonNullable<(typeof withTestInfo)[number]>>();
-      for (const entry of withTestInfo) {
-        if (!entry) continue;
-        const key = `${entry.examName}::${entry.provider}`;
-        const existing = byGoal.get(key);
-        if (!existing || entry.examDate < existing.examDate) byGoal.set(key, entry);
-      }
-
-      return [...byGoal.values()]
-        .map((entry) => ({
-          testId: entry.testId,
-          examName: entry.examName,
-          provider: entry.provider,
-          examDate: entry.examDate,
-          daysToExam: calendarDaysBetween(new Date(), entry.examDate),
-        }))
-        .sort((a, b) => a.daysToExam - b.daysToExam);
-    },
-    enabled: !!uid,
-    staleTime: 5 * 60_000,
-  });
+  // The exam countdown(s) pinned above Sign Out, visible on every page — see
+  // useExamCountdowns for the plan-selection/dedup logic.
+  const { data: examCountdowns } = useExamCountdowns();
 
   const handleSignOut = async () => {
     await authApi.logout();
@@ -150,6 +83,12 @@ export function StudentShell() {
   // model, so this is an honest "nothing to show yet" affordance rather
   // than a fabricated unread badge.
   const handleNotificationsClick = () => pushToast("You're all caught up. No new notifications yet.", 'info');
+
+  // There's no referral program/tracking anywhere in this data model either
+  // — the card is a static visual placeholder (shown as a static teaser on
+  // request), so clicking it is an honest "not live yet" toast rather than
+  // a dead link or a fabricated referral flow.
+  const handleReferClick = () => pushToast('Referrals are launching soon. Check back here!', 'info');
 
   // text-ink (not text-ink-muted) for the inactive state — real user
   // feedback that nav tab labels needed to read as solidly dark, not a
@@ -261,6 +200,7 @@ export function StudentShell() {
               </div>
             </div>
           )}
+          <ReferAndEarnCard onClick={handleReferClick} className="mt-2" />
           <button
             type="button"
             onClick={handleSignOut}
@@ -290,6 +230,7 @@ export function StudentShell() {
                 </div>
               </div>
             )}
+            <ReferAndEarnCard onClick={handleReferClick} className="mb-3" />
             <button
               type="button"
               onClick={handleSignOut}
@@ -307,6 +248,33 @@ export function StudentShell() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Static visual placeholder — there's no referral program/tracking/payout
+// anywhere in this data model, so this never claims to actually credit
+// anyone; it's a teaser for a feature that doesn't exist yet, on request.
+function ReferAndEarnCard({ onClick, className = '' }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-left ${className}`}
+    >
+      <div className="flex items-center gap-2.5">
+        <span className="text-xl" aria-hidden="true">
+          🎁
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-[#0F172A]">Refer & Earn</div>
+          <div className="text-xs text-[#64748B]">Invite friends and earn up to</div>
+        </div>
+      </div>
+      <div className="mt-1.5 flex items-center justify-between">
+        <span className="text-base font-bold text-[#155EEF]">₹500</span>
+        <span className="text-sm text-[#155EEF]">→</span>
+      </div>
+    </button>
   );
 }
 

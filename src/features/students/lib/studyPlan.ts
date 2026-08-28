@@ -304,6 +304,44 @@ export function buildDailyAnsweredMap(sessions: { startedAt: Date; answeredCount
   return map;
 }
 
+// Same bucketing as buildDailyAnsweredMap, but for correctCount - kept as
+// its own map rather than changing buildDailyAnsweredMap's return shape, so
+// every existing caller of that function is completely unaffected. Used by
+// the Home dashboard's weekly accuracy stat.
+export function buildDailyCorrectMap(sessions: { startedAt: Date; correctCount: number }[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const s of sessions) {
+    const key = dateKey(s.startedAt);
+    map[key] = (map[key] ?? 0) + s.correctCount;
+  }
+  return map;
+}
+
+// Sums a daily map over a trailing `days`-day window ending at `today`
+// (inclusive), optionally shifted back by `offsetDays` first - e.g.
+// offsetDays=7 sums the 7 days *before* the current week, for a week-over-
+// week comparison. Home dashboard's "Questions Practiced"/accuracy rollups.
+export function sumTrailingDays(dailyMap: Record<string, number>, today: Date, days: number, offsetDays = 0): number {
+  let total = 0;
+  for (let i = 0; i < days; i++) {
+    const day = addDays(startOfDay(today), -(i + offsetDays));
+    total += dailyMap[dateKey(day)] ?? 0;
+  }
+  return total;
+}
+
+// How many distinct days in the trailing window have any recorded activity
+// at all - Home dashboard's "Study Days" stat (not the same as the
+// scheduled-day-met-target streak above, just a plain activity count).
+export function countActiveDaysTrailing(dailyMap: Record<string, number>, today: Date, days: number): number {
+  let count = 0;
+  for (let i = 0; i < days; i++) {
+    const day = addDays(startOfDay(today), -i);
+    if ((dailyMap[dateKey(day)] ?? 0) > 0) count++;
+  }
+  return count;
+}
+
 export interface StudyStreakInputs {
   today: Date;
   studyDays: StudyDaySelection;

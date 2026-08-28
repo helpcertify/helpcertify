@@ -5,7 +5,20 @@ import { db } from '@/lib/firebase';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { CourseCarousel, type CarouselItem } from '@/components/common/CourseCarousel';
+import { toDate } from '@/utils/formatDate';
+import {
+  computeExamDatePlan,
+  questionsPerDayFromMinutes,
+  calendarDaysBetween,
+  computeStudyStreak,
+  buildDailyAnsweredMap,
+  buildDailyCorrectMap,
+  sumTrailingDays,
+  countActiveDaysTrailing,
+} from '../lib/studyPlan';
+import type { StudyPlanDoc } from '@/types/models';
 
 // A time-of-day greeting reads as personal without needing any extra data
 // collection: `new Date()` in the browser already reflects the learner's own
@@ -19,19 +32,22 @@ function timeOfDayGreeting(hour: number): string {
 }
 
 // The personalized "what to do right now" dashboard — deliberately kept to
-// just the greeting/Continue Practice, Continue where you left off,
-// Recommended for you, and Upcoming Mock Exams. The fuller activity/
-// progress picture (Your Study Plan, My Exams, Performance Summary,
-// Recommended Next Step, Recent Attempts) moved to My Profile on request
-// (see ProfileActivitySections.tsx) — this page stays focused on today's
-// next action instead of also being a full history/analytics view.
+// just the greeting/Continue Practice, Today's Mission + stat row (both
+// scoped to a single "primary" exam goal — see below), Continue where you
+// left off, and Recommended for you. The fuller activity/progress picture
+// (Your Study Plan per test, My Exams, Performance Summary, Recent
+// Attempts) stays on My Profile (see ProfileActivitySections.tsx) — this
+// page is "today's next action for your main goal," not a second full
+// history/analytics view.
 export function StudentHomePage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const profile = useAuthStore((s) => s.profile);
+  const today = new Date();
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
   const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
+  const { data: examCountdowns } = useExamCountdowns();
 
   const { data: myAttempts } = useQuery({
     queryKey: ['student', 'myQuizAttemptsFull', uid],
@@ -61,8 +77,21 @@ export function StudentHomePage() {
           testId: data.testId as string,
           answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [],
           updatedAt: data.updatedAt as { toMillis?: () => number } | undefined,
+          bestStreak: (data.bestStreak as number) ?? 0,
         };
       });
+    },
+    enabled: !!uid,
+  });
+
+  // Every study plan the learner has, one per practice test — same query
+  // (and cache key) ProfileActivitySections already populates, reused here
+  // rather than re-fetched.
+  const { data: studyPlans } = useQuery({
+    queryKey: ['student', 'studyPlans', uid],
+    queryFn: async () => {
+      const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
+      return snap.docs.map((d) => d.data() as StudyPlanDoc);
     },
     enabled: !!uid,
   });
@@ -71,11 +100,98 @@ export function StudentHomePage() {
   const quizById = new Map((quizzes ?? []).map((q) => [q.id, q]));
   const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
+  // All three buckets, not just "available" — a plan set on a test whose
+  // window has since lapsed should still resolve to real data instead of
+  // silently disappearing from this "primary goal" pick.
+  const anyTestById = new Map(
+    [...(practiceBuckets?.available ?? []), ...(practiceBuckets?.upcoming ?? []), ...(practiceBuckets?.expired ?? [])].map((t) => [
+      t.id,
+      t,
+    ])
+  );
+
+  // The "primary" exam goal driving Today's Mission/the stat row/This
+  // Week's Progress below — a single focus, matching the single "CISA
+  // Exam" badge next to the greeting, not one strip per test (that's what
+  // My Profile's "Your Learning Journey" is for). Prefers whichever
+  // committed exam date is soonest; falls back to any other active plan
+  // (pace-mode) if there's no exam-date plan at all.
+  const plansWithTest = (studyPlans ?? []).filter((p) => anyTestById.has(p.testId));
+  const examDatePlans = plansWithTest
+    .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
+    .map((p) => ({ plan: p, daysToExam: calendarDaysBetween(today, toDate(p.targetExamDate)) }))
+    .filter((p) => p.daysToExam >= 0)
+    .sort((a, b) => a.daysToExam - b.daysToExam);
+  const primaryPlan = examDatePlans[0]?.plan ?? plansWithTest[0] ?? null;
+  const primaryTest = primaryPlan ? (anyTestById.get(primaryPlan.testId) ?? null) : null;
+
+  const primaryProgress = primaryTest ? (practiceProgressDocs ?? []).find((p) => p.testId === primaryTest.id) : undefined;
+  const uniqueAnsweredCount = primaryProgress?.answeredQuestionIds.length ?? 0;
+  const bestStreakAllTime = primaryProgress?.bestStreak ?? 0;
+
+  // Non-reattempt sessions for just the primary test — same convention as
+  // StudyPlanSection's own streak query (a reattempt re-answers already-
+  // completed questions, so it isn't "new questions today/this week").
+  const { data: primarySessions } = useQuery({
+    queryKey: ['student', 'homeDashboardSessions', uid, primaryTest?.id],
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, 'practiceSessions'),
+          where('userId', '==', uid),
+          where('testId', '==', primaryTest!.id),
+          where('isReattempt', '==', false)
+        )
+      );
+      return snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          startedAt: toDate(data.startedAt),
+          answeredCount: (data.answeredCount as number) ?? 0,
+          correctCount: (data.correctCount as number) ?? 0,
+        };
+      });
+    },
+    enabled: !!uid && !!primaryTest,
+  });
+
+  const minutesPerQuestion = primaryTest?.defaultMinutesPerQuestion ?? 1.8;
+  let dailyTarget = 0;
+  if (primaryPlan && primaryTest) {
+    if (primaryPlan.planningMode === 'examDate' && primaryPlan.targetExamDate) {
+      dailyTarget = computeExamDatePlan({
+        today,
+        targetExamDate: toDate(primaryPlan.targetExamDate),
+        totalQuestions: primaryTest.totalQuestions,
+        uniqueAnsweredCount,
+        studyDays: primaryPlan.studyDays,
+        revisionBufferDays: primaryPlan.revisionBufferDays,
+        minutesPerQuestion,
+      }).dailyTarget;
+    } else {
+      dailyTarget =
+        primaryPlan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(primaryPlan.paceMinutesPerDay ?? 0, minutesPerQuestion);
+    }
+  }
+
+  const dailyAnsweredMap = buildDailyAnsweredMap(primarySessions ?? []);
+  const dailyCorrectMap = buildDailyCorrectMap(primarySessions ?? []);
+  const todayAnswered = sumTrailingDays(dailyAnsweredMap, today, 1);
+  const thisWeekAnswered = sumTrailingDays(dailyAnsweredMap, today, 7);
+  const thisWeekCorrect = sumTrailingDays(dailyCorrectMap, today, 7);
+  const lastWeekAnswered = sumTrailingDays(dailyAnsweredMap, today, 7, 7);
+  const lastWeekCorrect = sumTrailingDays(dailyCorrectMap, today, 7, 7);
+  const weeklyAccuracy = thisWeekAnswered > 0 ? Math.round((thisWeekCorrect / thisWeekAnswered) * 100) : null;
+  const lastWeekAccuracy = lastWeekAnswered > 0 ? Math.round((lastWeekCorrect / lastWeekAnswered) * 100) : null;
+  const accuracyDelta = weeklyAccuracy !== null && lastWeekAccuracy !== null ? weeklyAccuracy - lastWeekAccuracy : null;
+  const studyDaysThisWeek = countActiveDaysTrailing(dailyAnsweredMap, today, 7);
+  const studyStreak = primaryPlan ? computeStudyStreak({ today, studyDays: primaryPlan.studyDays, dailyTarget, dailyAnsweredMap }) : 0;
+  const nearestExam = examCountdowns?.[0] ?? null;
 
   // Recommended for you — ranked by rating (falls back to catalog order
   // when nothing has a rating yet), capped to 10 on request. Pulls from both
   // quizzes (Mock Exams) and practice tests: an earlier version only looked
-  // at quizzes, which silently hid this whole section for a student whose
+  // at quizzes, which silently hid this whole section for a learner whose
   // platform mostly has published practice tests rather than quizzes (the
   // section renders nothing at all once its item list is empty, see
   // CourseCarousel). Not personalized in any real sense (no click/purchase
@@ -158,29 +274,154 @@ export function StudentHomePage() {
     .filter((q) => ((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`)) && !attemptByQuizId.get(q.id))
     .slice(0, 4);
 
+  const hasMissionData = !!(primaryPlan && primaryTest && dailyTarget > 0);
+  const todayPercent = hasMissionData ? Math.min(100, Math.round((todayAnswered / dailyTarget) * 100)) : 0;
+  const questionsRemainingToday = hasMissionData ? Math.max(0, dailyTarget - todayAnswered) : 0;
+
   return (
     <div>
-      {/* Welcome and primary action — the subtitle restating what to
-          continue was removed on request: it's redundant now that
-          "Continue where you left off" sits right below with the same
-          title front and center. */}
-      <div className="mb-8">
-        <h1 className="mb-4 text-2xl font-bold text-ink">
-          {timeOfDayGreeting(new Date().getHours())}{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.
-        </h1>
-        {continueItem && (
-          <Link
-            to={continueItem.href}
-            className="inline-block rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
-          >
-            Continue Practice
-          </Link>
+      {/* Welcome, primary action, and (when there's a committed exam date)
+          a small countdown badge — the same nearest-exam data the sidebar's
+          "Your Exams" cards use, just the single soonest one here. */}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1 text-2xl font-bold text-ink">
+            {timeOfDayGreeting(new Date().getHours())}
+            {profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}! 👋
+          </h1>
+          <p className="text-sm text-ink-faint">Every question you practice today brings you one step closer to success.</p>
+        </div>
+        {nearestExam && (
+          <div className="flex items-center gap-2.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-2">
+            <span className="text-lg" aria-hidden="true">
+              📅
+            </span>
+            <div>
+              <div className="text-xs text-ink-faint">{nearestExam.examName} Exam</div>
+              <div className="text-xs font-bold uppercase tracking-wide text-[#D87F1D]">
+                {nearestExam.daysToExam === 0 ? 'Exam is today' : `${nearestExam.daysToExam} Days to Go`}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
+      {/* Today's Mission — today's progress toward the primary goal's daily
+          target, distinct from "Continue where you left off" below (which
+          tracks whatever's actually in progress, possibly a different
+          test). Only shown once there's a real plan with a real target to
+          measure against. */}
+      {hasMissionData && (
+        <div className="mb-6 flex flex-col gap-4 rounded-xl border border-[#BFDBFE] bg-gradient-to-br from-[#EFF6FF] to-[#F8FAFF] p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div
+              className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-3xl shadow-sm sm:flex"
+              aria-hidden="true"
+            >
+              🎯
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Today's Mission</div>
+              <div className="text-2xl font-bold text-[#0F172A]">
+                {Math.min(todayAnswered, dailyTarget)} of {dailyTarget} Questions
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="h-2 w-40 overflow-hidden rounded-full bg-white sm:w-56">
+                  <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${todayPercent}%` }} />
+                </div>
+                <span className="text-sm font-semibold text-[#155EEF]">{todayPercent}%</span>
+              </div>
+              <p className="mt-2 text-xs text-[#64748B]">
+                {questionsRemainingToday === 0
+                  ? "Today's goal is complete. Nice work!"
+                  : `You're doing great! Just ${questionsRemainingToday} more question${questionsRemainingToday === 1 ? '' : 's'} to complete today's goal.`}
+              </p>
+            </div>
+          </div>
+          <Link
+            to={`/home/practice-tests/${primaryTest!.id}`}
+            className="shrink-0 rounded-lg bg-[#155EEF] px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+          >
+            Start Practicing →
+          </Link>
+        </div>
+      )}
+
+      {/* Stat row (Practiced/Accuracy/Study Streak/Today's Target) beside
+          This Week's Progress — same primary-goal scope as Today's Mission
+          above, so all these numbers describe the one focus test, not a
+          cross-test aggregate. */}
+      {hasMissionData && (
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard
+              icon="📚"
+              value={`${uniqueAnsweredCount} / ${primaryTest!.totalQuestions}`}
+              valueColor="#0F172A"
+              label="Practiced"
+              sub={`${Math.max(0, primaryTest!.totalQuestions - uniqueAnsweredCount)} questions remaining`}
+            />
+            <StatCard
+              icon="📈"
+              value={weeklyAccuracy !== null ? `${weeklyAccuracy}%` : '—'}
+              valueColor="#16A34A"
+              label="Accuracy"
+              sub={
+                accuracyDelta === null
+                  ? 'This week'
+                  : accuracyDelta >= 0
+                    ? `↑ ${accuracyDelta}% this week`
+                    : `↓ ${Math.abs(accuracyDelta)}% this week`
+              }
+              subColor={accuracyDelta !== null && accuracyDelta < 0 ? '#DC2626' : '#16A34A'}
+            />
+            <StatCard
+              icon="🔥"
+              value={`${studyStreak} Day${studyStreak === 1 ? '' : 's'}`}
+              valueColor="#D87F1D"
+              label="Study Streak"
+              sub={studyStreak > 0 ? 'Keep it going!' : 'Start today'}
+            />
+            <StatCard icon="🎯" value={String(dailyTarget)} valueColor="#7C3AED" label="Today's Target" sub="Daily goal" />
+          </div>
+
+          <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">This Week's Progress</div>
+              <Link to="/home/profile" className="text-xs font-medium text-[#155EEF] hover:underline">
+                View Details →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-lg font-bold text-[#0F172A]">{thisWeekAnswered}</div>
+                <div className="text-xs text-[#64748B]">Questions</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-[#16A34A]">{weeklyAccuracy !== null ? `${weeklyAccuracy}%` : '—'}</div>
+                <div className="text-xs text-[#64748B]">Accuracy</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-[#155EEF]">{studyDaysThisWeek}</div>
+                <div className="text-xs text-[#64748B]">Study Days</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-[#D87F1D]">{bestStreakAllTime}</div>
+                <div className="text-xs text-[#64748B]">Best Streak</div>
+              </div>
+            </div>
+            {studyStreak > 0 && (
+              <div className="mt-3 rounded-lg bg-[#F0FDF4] px-3 py-2 text-xs text-[#16A34A]">
+                You're on track! Keep up the great work.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Continue where you left off — only shown while something is
           actually in progress (continueItem is null otherwise), so this
-          heading never appears for a student who hasn't started anything
+          heading never appears for a learner who hasn't started anything
           yet. HelpCertify Electric Blue theme: soft blue gradient instead of
           the app's general brand-blue tint, matching the Recommended for
           You cards' own header gradient. */}
@@ -234,6 +475,37 @@ export function StudentHomePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  value,
+  valueColor,
+  label,
+  sub,
+  subColor,
+}: {
+  icon: string;
+  value: string;
+  valueColor: string;
+  label: string;
+  sub: string;
+  subColor?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
+      <div className="mb-1 text-xl" aria-hidden="true">
+        {icon}
+      </div>
+      <div className="text-lg font-bold" style={{ color: valueColor }}>
+        {value}
+      </div>
+      <div className="text-xs text-[#64748B]">{label}</div>
+      <div className="mt-1 text-[11px]" style={{ color: subColor ?? '#94A3B8' }}>
+        {sub}
+      </div>
     </div>
   );
 }

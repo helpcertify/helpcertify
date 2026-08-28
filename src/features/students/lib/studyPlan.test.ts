@@ -12,6 +12,9 @@ import {
   percentMilestonesCrossed,
   checkExamDateFeasibility,
   buildDailyAnsweredMap,
+  buildDailyCorrectMap,
+  sumTrailingDays,
+  countActiveDaysTrailing,
   computeStudyStreak,
   daysSinceLastActivity,
 } from './studyPlan';
@@ -211,6 +214,59 @@ describe('buildDailyAnsweredMap', () => {
     ]);
     expect(map['2026-08-31']).toBe(35);
     expect(map['2026-09-01']).toBe(10);
+  });
+});
+
+describe('buildDailyCorrectMap', () => {
+  it('sums multiple sessions on the same calendar day, independently of answeredCount', () => {
+    const map = buildDailyCorrectMap([
+      { startedAt: new Date(2026, 7, 31, 8, 0), correctCount: 12 },
+      { startedAt: new Date(2026, 7, 31, 20, 0), correctCount: 9 },
+      { startedAt: new Date(2026, 8, 1, 9, 0), correctCount: 7 },
+    ]);
+    expect(map['2026-08-31']).toBe(21);
+    expect(map['2026-09-01']).toBe(7);
+  });
+});
+
+describe('sumTrailingDays', () => {
+  // Today is Sat 2026-09-05. A 7-day trailing window (offset 0) covers
+  // 2026-08-30 through 2026-09-05 inclusive (today minus 0..6 days).
+  const today = new Date(2026, 8, 5);
+  const map = buildDailyAnsweredMap([
+    { startedAt: new Date(2026, 7, 30), answeredCount: 100 }, // Sun, 6 days before today — within this week's window
+    { startedAt: new Date(2026, 8, 1), answeredCount: 10 }, // Tue, 4 days ago — this week
+    { startedAt: new Date(2026, 8, 3), answeredCount: 20 }, // Thu, 2 days ago — this week
+    { startedAt: new Date(2026, 8, 5), answeredCount: 5 }, // today
+  ]);
+
+  it('sums just today with a 1-day window', () => {
+    expect(sumTrailingDays(map, today, 1)).toBe(5);
+  });
+
+  it('sums the trailing 7-day window including today', () => {
+    expect(sumTrailingDays(map, today, 7)).toBe(135);
+  });
+
+  it('sums a window shifted back by offsetDays (the prior week)', () => {
+    // The 7 days before the current week: 2026-08-23 through 2026-08-29 — none of the recorded activity falls in it.
+    expect(sumTrailingDays(map, today, 7, 7)).toBe(0);
+  });
+});
+
+describe('countActiveDaysTrailing', () => {
+  it('counts distinct days with any recorded activity in the trailing window', () => {
+    const today = new Date(2026, 8, 5);
+    const map = buildDailyAnsweredMap([
+      { startedAt: new Date(2026, 8, 1), answeredCount: 10 },
+      { startedAt: new Date(2026, 8, 3), answeredCount: 20 },
+      { startedAt: new Date(2026, 8, 5), answeredCount: 5 },
+    ]);
+    expect(countActiveDaysTrailing(map, today, 7)).toBe(3);
+  });
+
+  it('returns 0 for a window with no recorded activity at all', () => {
+    expect(countActiveDaysTrailing({}, new Date(2026, 8, 5), 7)).toBe(0);
   });
 });
 
