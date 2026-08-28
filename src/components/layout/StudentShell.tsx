@@ -10,7 +10,7 @@ import { cartApi } from '@/features/students/api/cartApi';
 import { CartIcon, HeartIcon, BellIcon, SearchIcon } from '@/components/common/icons';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
-import { toDate } from '@/utils/formatDate';
+import { toDate, formatShortDate } from '@/utils/formatDate';
 import { calendarDaysBetween } from '@/features/students/lib/studyPlan';
 import type { StudyPlanDoc } from '@/types/models';
 
@@ -73,9 +73,13 @@ export function StudentShell() {
   // date (Option A). A pace-mode plan's "suggested" exam date is a rolling
   // estimate, not a date the learner committed to, so it isn't a fitting
   // permanent reminder here (it's already shown on that plan's own card on
-  // the Home dashboard). One card per committed exam date, nearest first —
-  // a learner studying for more than one certification at once should see
-  // all of them, not just whichever is soonest.
+  // the Home dashboard). One card per exam GOAL, nearest first — a learner
+  // preparing for more than one certification should see all of them, but
+  // several practice tests covering the *same* certification (e.g. "CISA
+  // Practice Test 1/2/3") must collapse into a single card, keyed on the
+  // exam's own name + provider rather than on each test's id. A test's
+  // `examName` (falling back to its `title` when unset) is the exam name;
+  // `category` is already the existing certification-body/provider field.
   const { data: examCountdowns } = useQuery({
     queryKey: ['student', 'examCountdowns', uid],
     queryFn: async () => {
@@ -83,16 +87,36 @@ export function StudentShell() {
       const plans = snap.docs
         .map((d) => d.data() as StudyPlanDoc)
         .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
-        .map((p) => ({ testId: p.testId, daysToExam: calendarDaysBetween(new Date(), toDate(p.targetExamDate)) }))
-        .filter((p) => p.daysToExam >= 0)
-        .sort((a, b) => a.daysToExam - b.daysToExam);
-      return Promise.all(
+        .map((p) => ({ testId: p.testId, examDate: toDate(p.targetExamDate) }))
+        .filter((p) => calendarDaysBetween(new Date(), p.examDate) >= 0);
+
+      const withTestInfo = await Promise.all(
         plans.map(async (p) => {
           const testSnap = await getDoc(doc(db, 'practiceTests', p.testId));
-          const testTitle = testSnap.data()?.title as string | undefined;
-          return { testId: p.testId, daysToExam: p.daysToExam, testTitle: testTitle ?? 'Untitled Practice Test' };
+          const data = testSnap.data();
+          const title = (data?.title as string | undefined) ?? 'Untitled Practice Test';
+          const examName = (data?.examName as string | undefined)?.trim() || title;
+          const provider = (data?.category as string | undefined) ?? 'Other';
+          return { ...p, examName, provider };
         })
       );
+
+      const byGoal = new Map<string, (typeof withTestInfo)[number]>();
+      for (const entry of withTestInfo) {
+        const key = `${entry.examName}::${entry.provider}`;
+        const existing = byGoal.get(key);
+        if (!existing || entry.examDate < existing.examDate) byGoal.set(key, entry);
+      }
+
+      return [...byGoal.values()]
+        .map((entry) => ({
+          testId: entry.testId,
+          examName: entry.examName,
+          provider: entry.provider,
+          examDate: entry.examDate,
+          daysToExam: calendarDaysBetween(new Date(), entry.examDate),
+        }))
+        .sort((a, b) => a.daysToExam - b.daysToExam);
     },
     enabled: !!uid,
     staleTime: 5 * 60_000,
@@ -214,9 +238,16 @@ export function StudentShell() {
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
           {navLinks(() => setMobileNavOpen(false))}
-          {examCountdowns?.map((c) => (
-            <ExamCountdownCard key={c.testId} {...c} className="mt-2" />
-          ))}
+          {examCountdowns && examCountdowns.length > 0 && (
+            <div className="mt-2">
+              <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Your Exams</div>
+              <div className="flex flex-col gap-2">
+                {examCountdowns.map((c) => (
+                  <ExamCountdownCard key={c.testId} {...c} />
+                ))}
+              </div>
+            </div>
+          )}
           <button
             type="button"
             onClick={handleSignOut}
@@ -236,9 +267,16 @@ export function StudentShell() {
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
           <div className="mt-auto shrink-0">
-            {examCountdowns?.map((c) => (
-              <ExamCountdownCard key={c.testId} {...c} className="mb-3" />
-            ))}
+            {examCountdowns && examCountdowns.length > 0 && (
+              <div className="mb-3">
+                <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Your Exams</div>
+                <div className="flex flex-col gap-2">
+                  {examCountdowns.map((c) => (
+                    <ExamCountdownCard key={c.testId} {...c} />
+                  ))}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleSignOut}
@@ -259,35 +297,41 @@ export function StudentShell() {
   );
 }
 
-// The permanent exam-date reminder, pinned above Sign Out on every page —
-// on request, so a learner who committed to an exam date never has to go
-// looking for it. Amber (not blue/emerald) so it reads as a countdown
-// rather than a status/success indicator.
+// One card per exam GOAL (not per practice test — see the dedup logic
+// above), pinned above Sign Out on every page so a learner who committed
+// to an exam date never has to go looking for it. The "Your Exams" section
+// label above the stack already says what these are, so each card itself
+// leads with the thing that actually differs between cards: the
+// certification name.
 function ExamCountdownCard({
+  examName,
+  provider,
+  examDate,
   daysToExam,
-  testTitle,
   className = '',
 }: {
+  examName: string;
+  provider: string;
+  examDate: Date;
   daysToExam: number;
-  testTitle: string;
   testId?: string;
   className?: string;
 }) {
-  // Both the exam name and the countdown share one flat dark amber
-  // (#D87F1D) — a plain solid color rather than the earlier bright-to-dark
-  // gradient, which read as a stray design flourish rather than a
-  // deliberate urgency cue. Amber is still kept separate from the Electric
-  // Blue brand palette used everywhere else — see the HelpCertify theme's
-  // own "amber → rating / exam countdown / achievement" rule.
+  // Certification name is visually strongest (the one fact that
+  // distinguishes cards from each other); provider is small/muted since
+  // it's supporting context, not the headline. The countdown keeps the
+  // flat dark amber (#D87F1D) requested for emphasis; the exam date itself
+  // is small secondary text, same treatment as provider.
   return (
     <div className={`rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 ${className}`}>
-      <div className="text-[11px] uppercase tracking-wide text-[#64748B]">Your Exam</div>
-      <div className="mb-1 truncate text-sm font-semibold text-[#D87F1D]" title={testTitle}>
-        {testTitle}
+      <div className="truncate text-base font-bold text-[#0F172A]" title={examName}>
+        {examName}
       </div>
+      <div className="mb-2 truncate text-xs text-[#64748B]">{provider}</div>
       <div className="text-lg font-bold text-[#D87F1D]">
         {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
       </div>
+      <div className="text-xs text-[#64748B]">{formatShortDate(examDate)}</div>
     </div>
   );
 }

@@ -80,6 +80,9 @@ export interface PracticeTestSummary {
   category: string;
   skillLevel: SkillLevel;
   description: string;
+  // The certification/exam this test prepares for (e.g. "CISA") — distinct
+  // from `title`. See PracticeTestDoc.examName in src/types/models.ts.
+  examName?: string;
   previewQuestionCount: number;
   // Personal Study Planner (Phase 1) config — see CreatePracticeTestPayload's
   // comment on the same three fields.
@@ -115,6 +118,9 @@ export interface CreateQuizPayload {
 
 export interface CreatePracticeTestPayload {
   title: string;
+  // The certification/exam this test prepares for (e.g. "CISA") — distinct
+  // from `title`. See PracticeTestDoc.examName in src/types/models.ts.
+  examName?: string;
   sourceFormat: QuestionSourceFormat;
   fileUrl: string;
   availableFrom: string;

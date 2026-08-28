@@ -718,7 +718,14 @@ function PlanSummaryCard({
   plan,
   onEdit,
 }: {
-  test: { totalQuestions: number; revisionBufferDays?: number; defaultMinutesPerQuestion?: number };
+  test: {
+    title: string;
+    examName?: string;
+    category?: string;
+    totalQuestions: number;
+    revisionBufferDays?: number;
+    defaultMinutesPerQuestion?: number;
+  };
   answered: number;
   plan: NonNullable<Awaited<ReturnType<typeof getStudyPlan>>>;
   onEdit: () => void;
@@ -727,16 +734,23 @@ function PlanSummaryCard({
   const totalQuestions = test.totalQuestions ?? 0;
   const minutesPerQuestion = test.defaultMinutesPerQuestion ?? 1.8;
   const percentComplete = totalQuestions > 0 ? Math.round((answered / totalQuestions) * 100) : 0;
+  const examName = test.examName?.trim() || test.title;
+  const provider = test.category ?? 'Other';
 
   let dailyTarget: number;
-  let countdownLabel: string;
-  let countdownNote: string | null = null;
-  let countdownValue: string;
+  // "EXAM DATE" when the learner chose this date themselves (Option A);
+  // "SUGGESTED EXAM DATE" when HelpCertify calculated it from their pace
+  // (Option B) — an ambiguous unlabeled date reads as a commitment either
+  // way, so the two need visibly different wording, not just different math.
+  let dateLabel: string;
+  let dateValue: string;
+  let daysNote: string;
 
   if (plan.planningMode === 'examDate' && plan.targetExamDate) {
+    const targetExamDate = toDate(plan.targetExamDate);
     const examPlan = computeExamDatePlan({
       today,
-      targetExamDate: toDate(plan.targetExamDate),
+      targetExamDate,
       totalQuestions,
       uniqueAnsweredCount: answered,
       studyDays: plan.studyDays,
@@ -744,8 +758,9 @@ function PlanSummaryCard({
       minutesPerQuestion,
     });
     dailyTarget = examPlan.dailyTarget;
-    countdownLabel = examPlan.daysToExam >= 0 ? `${examPlan.daysToExam} Days` : 'Passed';
-    countdownValue = 'to your exam';
+    dateLabel = 'Exam Date';
+    dateValue = formatShortDate(targetExamDate);
+    daysNote = examPlan.daysToExam >= 0 ? `${examPlan.daysToExam} Day${examPlan.daysToExam === 1 ? '' : 's'} Left` : 'Passed';
   } else {
     dailyTarget = plan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(plan.paceMinutesPerDay ?? 0, minutesPerQuestion);
     const pacePlan = computePacePlan({
@@ -758,10 +773,9 @@ function PlanSummaryCard({
       paceQuestionsPerDay: dailyTarget,
     });
     const daysToSuggestedExam = calendarDaysBetween(today, pacePlan.suggestedExamDate);
-    countdownLabel = `Est. ${formatShortDate(pacePlan.suggestedExamDate)}`;
-    countdownNote =
-      daysToSuggestedExam >= 0 ? `(${daysToSuggestedExam} day${daysToSuggestedExam === 1 ? '' : 's'} left)` : '(passed)';
-    countdownValue = 'suggested exam';
+    dateLabel = 'Suggested Exam Date';
+    dateValue = formatShortDate(pacePlan.suggestedExamDate);
+    daysNote = daysToSuggestedExam >= 0 ? `${daysToSuggestedExam} Day${daysToSuggestedExam === 1 ? '' : 's'} Left` : 'Passed';
   }
 
   return (
@@ -773,16 +787,27 @@ function PlanSummaryCard({
         </button>
       </div>
 
-      {/* Exam countdown on its own full-width line — a date string is long
+      {/* Which certification this plan actually belongs to — an ambiguous
+          date with no exam name attached reads as belonging to whichever
+          test page happens to be open, not as a durable fact about the
+          learner's own goal. */}
+      <div className="mb-4">
+        <div className="truncate text-lg font-bold text-[#0F172A]" title={examName}>
+          {examName}
+        </div>
+        <div className="text-xs text-[#64748B]">{provider}</div>
+      </div>
+
+      {/* Exam date on its own full-width line — a date string is long
           enough that sharing a 3-column grid with the two shorter stats
           below forced it to wrap mid-word. Completion progress and today's
           target keep their side-by-side row underneath. */}
-      <div className="mb-4">
-        <div className="text-[20px] font-bold leading-snug tracking-tight text-[#0F172A]">
-          📅 {countdownLabel}
-          {countdownNote && <span className="ml-1 text-xs font-normal text-[#64748B]">{countdownNote}</span>}
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">{dateLabel}</div>
+          <div className="text-[20px] font-bold leading-snug tracking-tight text-[#0F172A]">📅 {dateValue}</div>
         </div>
-        <div className="text-xs text-[#64748B]">{countdownValue}</div>
+        <div className="whitespace-nowrap text-sm font-bold text-[#D87F1D]">{daysNote}</div>
       </div>
       <div className="mb-4 grid grid-cols-2 gap-4">
         <div>

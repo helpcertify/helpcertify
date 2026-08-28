@@ -192,6 +192,16 @@ export interface PracticeTestDoc {
   revisionBufferDays?: number;
   defaultMinutesPerQuestion?: number;
   studyPlannerEnabled?: boolean;
+  // The certification/exam this content prepares for (e.g. "CISA", "CISM",
+  // "AZ-104") — distinct from `title`, which is a freeform, admin-written
+  // product name ("CISA 2025 Full Bank") that can vary between multiple
+  // practice tests covering the same exam. Optional so a test created
+  // before this field existed still works; every reader that shows an
+  // exam/certification name falls back to `title` when it's unset, never
+  // to a placeholder string. `category` (the existing CertificationCategory
+  // enum, e.g. "ISACA") already covers the provider half of this — this
+  // field is the only piece that was actually missing.
+  examName?: string;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

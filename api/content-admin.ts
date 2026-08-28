@@ -647,6 +647,10 @@ const createPracticeTestSchema = z.object({
   category: z.string().trim().min(1).max(100).default('Other'),
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
+  // The certification/exam this content prepares for (e.g. "CISA") — see
+  // PracticeTestDoc.examName in src/types/models.ts. Optional/blank is
+  // fine; every reader falls back to `title`.
+  examName: z.string().trim().max(100).default(''),
   // See createQuizSchema's previewQuestionCount comment — same convention.
   previewQuestionCount: z.number().int().min(0).max(200).default(5),
   // Personal Study Planner (Phase 1) config — read by
@@ -686,6 +690,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     category: d.category,
     skillLevel: d.skillLevel,
     description: d.description,
+    examName: d.examName,
     ratingAvg: 0,
     ratingCount: 0,
     previewQuestionCount: d.previewQuestionCount,
@@ -721,6 +726,7 @@ const updatePracticeTestSchema = z.object({
   category: z.string().trim().min(1).max(100).optional(),
   skillLevel: z.enum(SKILL_LEVELS).optional(),
   description: z.string().trim().max(5000).optional(),
+  examName: z.string().trim().max(100).optional(),
   previewQuestionCount: z.number().int().min(0).max(200).optional(),
   revisionBufferDays: z.number().int().min(0).max(60).optional(),
   defaultMinutesPerQuestion: z.number().min(0.1).max(30).optional(),

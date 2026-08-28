@@ -52,6 +52,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const pushToast = useUiStore((s) => s.pushToast);
 
   const [title, setTitle] = useState(editingTest?.title ?? '');
+  const [examName, setExamName] = useState(editingTest?.examName ?? '');
   const [category, setCategory] = useState(editingTest?.category ?? 'Other');
   const [skillLevel, setSkillLevel] = useState<SkillLevel>(editingTest?.skillLevel ?? 'Foundation');
   const [description, setDescription] = useState(editingTest?.description ?? '');
@@ -116,6 +117,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
 
   const resetForm = () => {
     setTitle('');
+    setExamName('');
     setCategory('Other');
     setSkillLevel('Foundation');
     setDescription('');
@@ -143,6 +145,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       setUploading(false);
       return contentAdminApi.createPracticeTest({
         title,
+        examName,
         category,
         skillLevel,
         description,
@@ -179,6 +182,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       contentAdminApi.updatePracticeTest({
         testId: editingTest!.id,
         title,
+        examName,
         category,
         skillLevel,
         description,
@@ -233,6 +237,22 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. CISM 2025 Full Bank"
+            spellCheck
+            className="input-dark"
+          />
+        </Field>
+
+        <Field label="Exam / Certification Name (shown on the learner's exam countdown, e.g. 'CISA')">
+          {/* Distinct from the title above — this is what groups multiple
+              practice tests together as "the same exam goal" on the
+              student dashboard (see StudentShell.tsx's exam countdown),
+              independent of whatever product name each one was given.
+              Left blank, the title is used instead, so an existing test
+              keeps working exactly as it did before this field existed. */}
+          <input
+            value={examName}
+            onChange={(e) => setExamName(e.target.value)}
+            placeholder="e.g. CISA (leave blank to just use the title above)"
             spellCheck
             className="input-dark"
           />
