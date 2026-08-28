@@ -259,13 +259,17 @@ function ExamCountdownCard({ daysToExam, testTitle, className = '' }: { daysToEx
   // Amber here is a semantic urgency color (a countdown genuinely matters
   // to the learner), kept deliberately separate from the Electric Blue
   // brand palette used everywhere else — see the HelpCertify theme's own
-  // "amber → rating / exam countdown / achievement" rule.
+  // "amber → rating / exam countdown / achievement" rule. The countdown
+  // itself is a bright-to-dark amber gradient (not a flat color) so it
+  // reads as the one urgent number on the card, distinct from the plain
+  // "Your Exam" label and the exam name above it.
   return (
     <div className={`rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 ${className}`}>
-      <div className="mb-0.5 truncate text-[11px] uppercase tracking-wide text-[#64748B]" title={testTitle}>
+      <div className="text-[11px] uppercase tracking-wide text-[#64748B]">Your Exam</div>
+      <div className="mb-1 truncate text-sm font-semibold text-[#0F172A]" title={testTitle}>
         {testTitle}
       </div>
-      <div className="text-lg font-bold text-[#C2410C]">
+      <div className="bg-gradient-to-r from-[#FBBF24] to-[#92400E] bg-clip-text text-lg font-bold text-transparent">
         {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
       </div>
     </div>

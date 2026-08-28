@@ -9,7 +9,7 @@ import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
-import { toDate } from '@/utils/formatDate';
+import { toDate, formatShortDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { CourseIcon } from '@/components/common/CourseIcon';
@@ -205,33 +205,6 @@ export function PracticeTestDetailPage() {
   const needsReviewCount = incorrectSet.size;
   const unseenCount = Math.max(0, test.totalQuestions - answered);
 
-  // Confidence x Accuracy (Section 38, Release 3) — groups questions by
-  // their most recent confidence rating and shows each bucket's accuracy,
-  // surfacing over/under-confidence (e.g. "Confident" but low accuracy is
-  // a real signal worth seeing, distinct from raw correctness). Skipped
-  // entirely if no question has a confidence rating yet — it's optional
-  // per answer (Section 16), so plenty of learners will never see it.
-  const confidenceBuckets: { value: PracticeConfidence; label: string; emoji: string; count: number; accuracy: number }[] = (
-    ['confident', 'unsure', 'guessing'] as PracticeConfidence[]
-  )
-    .map((value) => {
-      const entries = statsEntries.filter((s) => s.lastConfidence === value);
-      const attempts = entries.reduce((sum, s) => sum + s.attempts, 0);
-      const correct = entries.reduce((sum, s) => sum + s.correct, 0);
-      const labels: Record<PracticeConfidence, { label: string; emoji: string }> = {
-        confident: { label: 'Confident', emoji: '💪' },
-        unsure: { label: 'Unsure', emoji: '🙂' },
-        guessing: { label: 'Guessing', emoji: '🤔' },
-      };
-      return {
-        value,
-        ...labels[value],
-        count: entries.length,
-        accuracy: attempts > 0 ? Math.round((correct / attempts) * 100) : 0,
-      };
-    })
-    .filter((b) => b.count > 0);
-
   return (
     // Fills the width StudentShell's sidebar leaves available (up to a
     // 1440px cap) instead of centering a much-narrower fixed column inside
@@ -312,27 +285,6 @@ export function PracticeTestDetailPage() {
               <div className="text-xs text-[#64748B]">Unseen</div>
             </div>
           </div>
-
-          {/* Confidence x Accuracy — only appears once at least one answer
-              carries a confidence rating (it's optional per question). */}
-          {confidenceBuckets.length > 0 && (
-            <div className="mt-5 border-t border-[#E2E8F0] pt-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#64748B]">Confidence vs Accuracy</div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {confidenceBuckets.map((b) => (
-                  <div key={b.value} className="rounded-lg bg-[#F8FAFC] p-3">
-                    <div className="text-sm font-semibold text-[#0F172A]">
-                      {b.emoji} {b.label}
-                    </div>
-                    <div className="text-lg font-bold text-[#155EEF]">{b.accuracy}%</div>
-                    <div className="text-xs text-[#64748B]">
-                      {b.count} question{b.count === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -804,7 +756,7 @@ function PlanSummaryCard({
       minutesPerQuestion,
       paceQuestionsPerDay: dailyTarget,
     });
-    countdownLabel = `~${pacePlan.suggestedExamDate.toLocaleDateString()}`;
+    countdownLabel = `~${formatShortDate(pacePlan.suggestedExamDate)}`;
     countdownValue = 'suggested exam';
   }
 

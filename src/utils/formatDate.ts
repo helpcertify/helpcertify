@@ -25,3 +25,15 @@ export function formatDate(value: unknown): string {
   if (Number.isNaN(date.getTime())) return 'N/A';
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
+
+// "16-Aug-2026" — an unambiguous day-month-year format (no locale-dependent
+// slash ordering like toLocaleDateString()'s "9/8/2026", which reads as
+// either 9 Aug or Sep 8 depending on the viewer's locale) for exam-date-ish
+// displays (Study Plan's exam countdown, suggested exam date).
+export function formatShortDate(value: unknown): string {
+  const date = toDate(value);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  const day = date.getDate();
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  return `${day}-${month}-${date.getFullYear()}`;
+}

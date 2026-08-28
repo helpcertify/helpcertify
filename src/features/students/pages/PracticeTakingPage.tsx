@@ -59,6 +59,7 @@ export function PracticeTakingPage() {
   const [saving, setSaving] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [streak, setStreak] = useState(0);
   const [review, setReview] = useState<{
     questions: BatchReviewQuestion[];
@@ -250,6 +251,25 @@ export function PracticeTakingPage() {
     }
   };
 
+  // Next Question is always available — a question is never a hard gate
+  // on moving forward, whether or not it's been submitted. Submit Answer
+  // (below) is the only place an unanswered question needs a confirmation,
+  // since that's an explicit "I'm choosing to skip this" action rather
+  // than just browsing past it.
+  const goToNextOrFinish = () => {
+    if (isLastQuestion) handleFinishClick();
+    else setCurrentIndex((i) => i + 1);
+  };
+
+  const handleSubmitClick = () => {
+    if (!current) return;
+    if (pendingOption[current.id]) {
+      submitAnswer();
+    } else {
+      setShowSkipConfirm(true);
+    }
+  };
+
   if (review) {
     return (
       <PracticeReviewScreen review={review} onDone={() => navigate('/home/practice-tests')} />
@@ -387,11 +407,15 @@ export function PracticeTakingPage() {
                 })}
               </div>
 
-              {!isSubmittedForCurrent && selectedOptionId && (
+              {/* Always visible while unanswered, whether or not an option
+                  is picked yet — clicking it with nothing selected warns
+                  first rather than silently doing nothing (see
+                  showSkipConfirm below). */}
+              {!isSubmittedForCurrent && (
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={submitAnswer}
+                  onClick={handleSubmitClick}
                   className="mt-4 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
                 >
                   {saving ? 'Checking…' : 'Submit Answer'}
@@ -426,13 +450,14 @@ export function PracticeTakingPage() {
               )}
             </div>
 
-            {/* Bottom navigation — one row: Previous / Mark for Review /
-                Next Question (the only strong primary CTA). Finish Session
-                lives in the sidebar instead of competing with Next. In
-                Learn As You Go, Next only appears once the current
-                question's result is back (Section 20 — time to read the
-                explanation first). On the final question, Next becomes
-                Finish Practice. */}
+            {/* Bottom navigation — one static row, always in the same
+                three positions regardless of session state: Previous /
+                Mark for Review / Next Question (the only strong primary
+                CTA, becoming Finish Practice on the last question). Never
+                hidden or reflowed based on whether the current question has
+                been answered — an unanswered question is never a hard gate
+                on moving forward. Finish Session lives in the sidebar
+                instead of competing with Next. */}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
@@ -451,27 +476,14 @@ export function PracticeTakingPage() {
               >
                 🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
               </button>
-              {isLastQuestion ? (
-                <button
-                  type="button"
-                  disabled={saving || (isImmediate && !isSubmittedForCurrent)}
-                  onClick={handleFinishClick}
-                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
-                >
-                  Finish Practice →
-                </button>
-              ) : (
-                (!isImmediate || isSubmittedForCurrent) && (
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setCurrentIndex((i) => i + 1)}
-                    className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
-                  >
-                    Next Question →
-                  </button>
-                )
-              )}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={goToNextOrFinish}
+                className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+              >
+                {isLastQuestion ? 'Finish Practice →' : 'Next Question →'}
+              </button>
             </div>
           </div>
 
@@ -594,16 +606,6 @@ export function PracticeTakingPage() {
             </button>
           </div>
         </div>
-
-        {isImmediate && (
-          <div className="mt-5 flex items-start gap-2 rounded-xl border border-[#DCE7FF] bg-[#EFF6FF] p-4 text-sm text-[#1E293B]">
-            <span className="shrink-0 text-[#155EEF]">ℹ</span>
-            <p>
-              <span className="font-semibold text-[#0F172A]">Tip:</span> Use the explanation to build your understanding. The
-              more you learn now, the stronger you will be in your exam.
-            </p>
-          </div>
-        )}
       </div>
 
       <ConfirmDialog
@@ -635,6 +637,22 @@ export function PracticeTakingPage() {
           navigate('/home/practice-tests');
         }}
         onCancel={() => setShowEndConfirm(false)}
+      />
+
+      {/* No option selected yet — confirming just moves on (Next Question
+          is always enabled regardless), it doesn't submit anything since
+          there's nothing to grade without a selected option. */}
+      <ConfirmDialog
+        open={showSkipConfirm}
+        title="Submit without answering?"
+        message="You haven't selected an answer for this question. You can move on and it will be counted as unanswered."
+        confirmLabel="Submit Unanswered"
+        cancelLabel="Go Back"
+        onConfirm={() => {
+          setShowSkipConfirm(false);
+          goToNextOrFinish();
+        }}
+        onCancel={() => setShowSkipConfirm(false)}
       />
     </div>
   );
@@ -673,8 +691,9 @@ function PracticeReviewScreen({
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
           <h1 className="mb-5 text-[22px] font-bold text-[#0F172A]">Practice Complete</h1>
-          <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Practice Momentum</div>
-          <div className="mx-auto grid max-w-md grid-cols-2 gap-x-4 gap-y-4 text-left">
+          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Practice Momentum</div>
+
+          <div className="mx-auto mb-4 grid max-w-md grid-cols-2 gap-x-4 gap-y-4 text-left">
             <div>
               <div className="text-lg font-bold text-[#F59E0B]">
                 {review.newPersonalBest ? '🏆' : '🔥'} {review.bestStreak}
@@ -685,6 +704,9 @@ function PracticeReviewScreen({
               <div className="text-lg font-bold text-[#155EEF]">🎯 {accuracy}%</div>
               <div className="text-xs text-[#64748B]">Session Accuracy</div>
             </div>
+          </div>
+
+          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-x-4 gap-y-4 border-t border-[#E2E8F0] pt-4 text-left sm:grid-cols-4">
             <div>
               <div className="text-lg font-bold text-[#0F172A]">
                 📚 {review.summary.answeredCount}/{review.summary.totalQuestions}
@@ -694,6 +716,16 @@ function PracticeReviewScreen({
             <div>
               <div className="text-lg font-bold text-[#16A34A]">✓ {review.summary.correctCount}</div>
               <div className="text-xs text-[#64748B]">Correct</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#DC2626]">✕ {review.summary.incorrectCount}</div>
+              <div className="text-xs text-[#64748B]">Incorrect</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#64748B]">
+                {review.summary.totalQuestions - review.summary.answeredCount}
+              </div>
+              <div className="text-xs text-[#64748B]">Unanswered</div>
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { toDate } from '@/utils/formatDate';
+import { toDate, formatShortDate } from '@/utils/formatDate';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { practiceSessionApi } from '../api/practiceSessionApi';
@@ -140,7 +140,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
     });
     dailyTarget = examPlan.dailyTarget;
     examColumnLabel = '📅 Exam Date';
-    examColumnValue = targetExamDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    examColumnValue = formatShortDate(targetExamDate);
     examColumnSub = examPlan.daysToExam >= 0 ? `${examPlan.daysToExam} Day${examPlan.daysToExam === 1 ? '' : 's'} to Go` : 'Exam date has passed';
   } else {
     dailyTarget = plan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(plan.paceMinutesPerDay ?? 0, minutesPerQuestion);
@@ -154,7 +154,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
       paceQuestionsPerDay: dailyTarget,
     });
     examColumnLabel = '🏁 Suggested Exam';
-    examColumnValue = pacePlan.suggestedExamDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    examColumnValue = formatShortDate(pacePlan.suggestedExamDate);
     examColumnSub = 'at your current pace';
   }
 

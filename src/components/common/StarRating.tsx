@@ -33,14 +33,16 @@ export function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
   return (
     <div className="relative inline-flex" style={{ width: px * 5, height: px }}>
-      {/* Background row must render outline (unfilled) stars explicitly —
-          StarIcon defaults filled to true, so leaving this unset made every
-          "empty" star render as a solid star in a faint color instead of a
-          proper outline, everywhere a read-only rating is shown (product
-          cards, detail-page headers, review lists). */}
-      <div className="absolute inset-0 flex text-[#CBD5E1]">
+      {/* Background row uses the same filled star shape as the gold overlay
+          (not the stroked outline variant) — StarIcon's outline path draws
+          a centered stroke around the same points, which renders visibly
+          larger than the solid fill at these icon sizes, so the two layers
+          never lined up and a gray sliver of the background star always
+          peeked out from behind the gold one. Identical shapes, only the
+          color differs, guarantees the overlay clips exactly on top. */}
+      <div className="absolute inset-0 flex text-[#E2E8F0]">
         {[1, 2, 3, 4, 5].map((n) => (
-          <StarIcon key={n} filled={false} style={{ width: px, height: px }} />
+          <StarIcon key={n} filled style={{ width: px, height: px }} />
         ))}
       </div>
       <div className="absolute inset-0 flex overflow-hidden text-[#F59E0B]" style={{ width: `${pct}%` }}>
