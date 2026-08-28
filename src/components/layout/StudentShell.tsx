@@ -256,20 +256,19 @@ export function StudentShell() {
 // looking for it. Amber (not blue/emerald) so it reads as a countdown
 // rather than a status/success indicator.
 function ExamCountdownCard({ daysToExam, testTitle, className = '' }: { daysToExam: number; testTitle: string; className?: string }) {
-  // Amber here is a semantic urgency color (a countdown genuinely matters
-  // to the learner), kept deliberately separate from the Electric Blue
-  // brand palette used everywhere else — see the HelpCertify theme's own
-  // "amber → rating / exam countdown / achievement" rule. The countdown
-  // itself is a bright-to-dark amber gradient (not a flat color) so it
-  // reads as the one urgent number on the card, distinct from the plain
-  // "Your Exam" label and the exam name above it.
+  // Both the exam name and the countdown share one flat dark amber
+  // (#92400E) — a plain solid color rather than the earlier bright-to-dark
+  // gradient, which read as a stray design flourish rather than a
+  // deliberate urgency cue. Amber is still kept separate from the Electric
+  // Blue brand palette used everywhere else — see the HelpCertify theme's
+  // own "amber → rating / exam countdown / achievement" rule.
   return (
     <div className={`rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 ${className}`}>
       <div className="text-[11px] uppercase tracking-wide text-[#64748B]">Your Exam</div>
-      <div className="mb-1 truncate text-sm font-semibold text-[#0F172A]" title={testTitle}>
+      <div className="mb-1 truncate text-sm font-semibold text-[#92400E]" title={testTitle}>
         {testTitle}
       </div>
-      <div className="bg-gradient-to-r from-[#FBBF24] to-[#92400E] bg-clip-text text-lg font-bold text-transparent">
+      <div className="text-lg font-bold text-[#92400E]">
         {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
       </div>
     </div>

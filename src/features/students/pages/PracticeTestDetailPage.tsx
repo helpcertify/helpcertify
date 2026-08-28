@@ -18,7 +18,7 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
-import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes } from '../lib/studyPlan';
+import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes, calendarDaysBetween } from '../lib/studyPlan';
 import type { PracticeConfidence } from '@/types/models';
 
 function formatDate(ts: unknown): string {
@@ -756,7 +756,9 @@ function PlanSummaryCard({
       minutesPerQuestion,
       paceQuestionsPerDay: dailyTarget,
     });
-    countdownLabel = `Est. ${formatShortDate(pacePlan.suggestedExamDate)}`;
+    const daysToSuggestedExam = calendarDaysBetween(today, pacePlan.suggestedExamDate);
+    const daysLabel = daysToSuggestedExam >= 0 ? `${daysToSuggestedExam} day${daysToSuggestedExam === 1 ? '' : 's'} left` : 'passed';
+    countdownLabel = `Est. ${formatShortDate(pacePlan.suggestedExamDate)} (${daysLabel})`;
     countdownValue = 'suggested exam';
   }
 
@@ -774,7 +776,7 @@ function PlanSummaryCard({
           below forced it to wrap mid-word. Completion progress and today's
           target keep their side-by-side row underneath. */}
       <div className="mb-4">
-        <div className="whitespace-nowrap text-[22px] font-bold tracking-tight text-[#0F172A]">📅 {countdownLabel}</div>
+        <div className="text-[20px] font-bold leading-snug tracking-tight text-[#0F172A]">📅 {countdownLabel}</div>
         <div className="text-xs text-[#64748B]">{countdownValue}</div>
       </div>
       <div className="mb-4 grid grid-cols-2 gap-4">
