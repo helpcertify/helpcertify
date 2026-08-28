@@ -14,4 +14,8 @@ export interface SafeUser {
   // OAuth-verified). See ProtectedRoute for the one place this gates
   // anything.
   emailVerified: boolean;
+  // Refer & Earn — null until api/auth.ts's ensureReferralCode backfills it
+  // (called lazily on first My Profile visit for an account that predates
+  // this feature).
+  referralCode: string | null;
 }

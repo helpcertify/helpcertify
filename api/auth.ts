@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { createHash, randomInt } from 'node:crypto';
+import { createHash, randomInt, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 // Replaces functions/src/_migrated-v1-reference/register.ts + provision-profile.ts.
@@ -48,6 +48,9 @@ const registerSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(128),
+  // Refer & Earn — a code carried from a "?ref=" link, never a form field
+  // the learner types themselves. See linkReferral below.
+  referralCode: z.string().trim().min(1).max(20).optional(),
 });
 
 interface FirebaseAuthError {
@@ -109,10 +112,50 @@ async function issueEmailOtp(uid: string, email: string, name: string): Promise<
   await sendEmail(email, 'Your Helpcertify verification code', otpEmailHtml(name, code));
 }
 
+// Refer & Earn — 6 uppercase base32-ish characters (Crockford's alphabet,
+// no 0/O/1/I ambiguity), generated from crypto randomness. Collisions are
+// astronomically unlikely at this length (same "don't bother checking"
+// precedent as content-admin.ts's generateCode for quiz access codes), so
+// this doesn't loop/retry on a lookup.
+const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateReferralCode(): string {
+  const bytes = randomBytes(6);
+  let code = '';
+  for (const b of bytes) code += REFERRAL_CODE_ALPHABET[b % REFERRAL_CODE_ALPHABET.length];
+  return code;
+}
+
+// Shared by register() and provisionProfile() — resolves an optional
+// referral code (from a "?ref=" link) to its owner and, if found, writes a
+// pending referrals/{newUid} doc. Never throws on a bad/expired/unknown
+// code — an invalid referral link should never block someone from signing
+// up, it should just silently not attribute a referral. Returns the
+// referrer's uid (to also stamp `referredBy` on the new user doc) or
+// undefined.
+async function linkReferral(newUid: string, newUserName: string, referralCode: string | undefined): Promise<string | undefined> {
+  if (!referralCode) return undefined;
+  const referrerSnap = await db.collection('users').where('referralCode', '==', referralCode.trim().toUpperCase()).limit(1).get();
+  if (referrerSnap.empty) return undefined;
+  const referrerUid = referrerSnap.docs[0].id;
+  if (referrerUid === newUid) return undefined; // can't happen in practice (a brand-new account has no code yet), but never trust it
+
+  await db.collection('referrals').doc(newUid).set({
+    referrerUid,
+    refereeUid: newUid,
+    refereeName: newUserName,
+    status: 'pending',
+    couponCode: null,
+    rewardAmountMinor: null,
+    createdAt: FieldValue.serverTimestamp(),
+    rewardedAt: null,
+  });
+  return referrerUid;
+}
+
 async function register(body: unknown) {
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { name, email, password } = parsed.data;
+  const { name, email, password, referralCode } = parsed.data;
 
   let uid: string;
   try {
@@ -128,6 +171,10 @@ async function register(body: unknown) {
   const settingsSnap = await db.collection('appSettings').doc('general').get();
   const emailOtpEnabled = settingsSnap.data()?.emailOtpEnabled === true;
 
+  // Refer & Earn — resolved before the user doc is written so referredBy
+  // can be set in the same call rather than a second write.
+  const referredBy = await linkReferral(uid, name, referralCode);
+
   // Role lives only on the Firestore doc below, not an ID-token custom claim
   // — see api/admin.ts's requireAdmin for why (it's what lets an admin be
   // created straight from the Firebase Console, no Admin SDK code needed).
@@ -141,6 +188,7 @@ async function register(body: unknown) {
     // Grandfathered true whenever email OTP isn't turned on — only actually
     // gates anything (see ProtectedRoute) when it's explicitly false.
     emailVerified: !emailOtpEnabled,
+    referredBy,
     createdAt: now,
     updatedAt: now,
   });
@@ -226,7 +274,13 @@ async function requireIdToken(req: VercelRequest): Promise<string> {
 // claim unless something explicitly does it after. authApi.signInWithGoogle()
 // calls this every time (new or returning user); idempotent — only writes on
 // an account's actual first sign-in.
-async function provisionProfile(req: VercelRequest) {
+const provisionProfileSchema = z.object({
+  // Refer & Earn — see registerSchema's own referralCode comment; same
+  // "?ref=" link, carried through Google sign-in too.
+  referralCode: z.string().trim().min(1).max(20).optional(),
+});
+
+async function provisionProfile(req: VercelRequest, body: unknown) {
   const token = await requireIdToken(req);
   let uid: string;
   try {
@@ -239,11 +293,19 @@ async function provisionProfile(req: VercelRequest) {
   const existing = await userRef.get();
   if (existing.exists) return { provisioned: false };
 
+  const parsed = provisionProfileSchema.safeParse(body ?? {});
+  const referralCode = parsed.success ? parsed.data.referralCode : undefined;
+
   const userRecord = await adminAuth.getUser(uid);
+  const name = userRecord.displayName ?? userRecord.email?.split('@')[0] ?? 'New user';
+
+  // Refer & Earn — resolved before the user doc is written so referredBy
+  // can be set in the same call rather than a second write.
+  const referredBy = await linkReferral(uid, name, referralCode);
 
   const now = FieldValue.serverTimestamp();
   await userRef.set({
-    name: userRecord.displayName ?? userRecord.email?.split('@')[0] ?? 'New user',
+    name,
     email: userRecord.email ?? '',
     role: 'student',
     avatarUrl: userRecord.photoURL ?? null,
@@ -251,6 +313,7 @@ async function provisionProfile(req: VercelRequest) {
     // Google already verifies the address via OAuth — never OTP-gated,
     // regardless of the emailOtpEnabled setting.
     emailVerified: true,
+    referredBy,
     createdAt: now,
     updatedAt: now,
   });
@@ -282,6 +345,31 @@ async function updateProfile(req: VercelRequest, body: unknown) {
   return { success: true };
 }
 
+// Refer & Earn — backfills a referral code for an account that predates
+// this feature (every account created after it gets one lazily here too,
+// the first time they open My Profile, rather than needing every existing
+// signup path to be touched). Idempotent: returns the existing code
+// untouched if one's already set.
+async function ensureReferralCode(req: VercelRequest) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const snap = await userRef.get();
+  if (!snap.exists) throw Err.unauthenticated('Account not found');
+  const existingCode = snap.data()?.referralCode as string | undefined;
+  if (existingCode) return { referralCode: existingCode };
+
+  const referralCode = generateReferralCode();
+  await userRef.update({ referralCode, updatedAt: FieldValue.serverTimestamp() });
+  return { referralCode };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -296,7 +384,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         res.status(200).json(await register(data));
         return;
       case 'provisionProfile':
-        res.status(200).json(await provisionProfile(req));
+        res.status(200).json(await provisionProfile(req, data));
         return;
       case 'updateProfile':
         res.status(200).json(await updateProfile(req, data));
@@ -306,6 +394,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'resendEmailOtp':
         res.status(200).json(await resendEmailOtp(req));
+        return;
+      case 'ensureReferralCode':
+        res.status(200).json(await ensureReferralCode(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

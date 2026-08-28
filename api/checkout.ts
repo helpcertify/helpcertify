@@ -3,7 +3,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual, randomBytes } from 'crypto';
 
 // Razorpay checkout: create an Order server-side (recomputing every price
 // from the live quiz/practiceTest docs — the client never gets to state an
@@ -70,13 +70,17 @@ function getRazorpayCreds() {
   return { keyId, keySecret };
 }
 
-async function validateCoupon(code: string) {
+async function validateCoupon(code: string, uid: string) {
   const snap = await db.collection('coupons').doc(code.toUpperCase()).get();
   if (!snap.exists) return null;
   const c = snap.data()!;
   if (!c.active) return null;
   if (c.expiresAt && (c.expiresAt as Timestamp).toMillis() < Date.now()) return null;
   if (c.maxUses !== null && c.maxUses !== undefined && c.usedCount >= c.maxUses) return null;
+  // Refer & Earn reward coupons are minted for one specific learner — see
+  // CouponDoc.restrictedToUserId. Absent on every admin-created coupon, so
+  // this never affects the normal any-signed-in-learner codes.
+  if (c.restrictedToUserId && c.restrictedToUserId !== uid) return null;
   return c;
 }
 
@@ -139,7 +143,7 @@ async function createOrder(uid: string, body: unknown) {
   let discount = 0;
   let appliedCoupon: string | null = null;
   if (couponCode) {
-    const coupon = await validateCoupon(couponCode);
+    const coupon = await validateCoupon(couponCode, uid);
     if (coupon) {
       discount = computeDiscount(coupon, subtotal);
       appliedCoupon = couponCode;
@@ -194,6 +198,43 @@ async function createOrder(uid: string, body: unknown) {
   return { orderId: orderRef.id, razorpayOrderId: rzpOrder.id, amount: total, currency, keyId };
 }
 
+// Refer & Earn — the reward is a flat ₹500-off coupon, restricted to the
+// referrer's own account (see CouponDoc.restrictedToUserId), minted only
+// once the referee actually completes their first paid order (never on
+// signup alone — see ReferralDoc). Duplicated in api/razorpay-webhook.ts's
+// own finalizeOrder, same no-shared-code convention as everything else here.
+const REFERRAL_REWARD_MINOR = 50000; // ₹500, in paise
+const REFERRAL_COUPON_EXPIRY_DAYS = 90;
+
+async function grantReferralRewardIfEligible(refereeUid: string, batch: FirebaseFirestore.WriteBatch): Promise<void> {
+  const priorPaidOrders = await db.collection('orders').where('userId', '==', refereeUid).where('status', '==', 'paid').limit(1).get();
+  if (!priorPaidOrders.empty) return; // not their first purchase
+
+  const referralRef = db.collection('referrals').doc(refereeUid);
+  const referralSnap = await referralRef.get();
+  if (!referralSnap.exists || referralSnap.data()!.status !== 'pending') return;
+  const referral = referralSnap.data()!;
+
+  const couponCode = `REF${randomBytes(4).toString('hex').toUpperCase()}`;
+  batch.set(db.collection('coupons').doc(couponCode), {
+    discountType: 'flat',
+    discountValue: REFERRAL_REWARD_MINOR,
+    active: true,
+    expiresAt: Timestamp.fromMillis(Date.now() + REFERRAL_COUPON_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    maxUses: 1,
+    usedCount: 0,
+    restrictedToUserId: referral.referrerUid,
+    createdBy: 'system_referral',
+    createdAt: Timestamp.now(),
+  });
+  batch.update(referralRef, {
+    status: 'rewarded',
+    couponCode,
+    rewardAmountMinor: REFERRAL_REWARD_MINOR,
+    rewardedAt: Timestamp.now(),
+  });
+}
+
 // Shared by both the client-verify path (here) and the webhook — kept as a
 // small duplicated function rather than an import, per this project's
 // no-shared-code-across-api/*.ts convention. Idempotent: safe to call twice
@@ -206,9 +247,14 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   const order = snap.data()!;
   if (order.status === 'paid') return 'already_paid';
 
+  // Read before marking paid — grantReferralRewardIfEligible's "is this
+  // their first purchase" check needs to see the world as it was before
+  // this order counted as paid.
+  const batch = db.batch();
+  await grantReferralRewardIfEligible(order.userId, batch);
+
   await ref.update({ status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
-  const batch = db.batch();
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
     batch.set(db.collection('purchases').doc(`${order.userId}_${item.itemType}_${item.itemId}`), {
       userId: order.userId,

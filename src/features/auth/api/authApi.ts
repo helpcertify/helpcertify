@@ -33,9 +33,9 @@ export const authApi = {
   // api/auth.ts's provisionProfile action, which is idempotent (only writes
   // on an account's actual first sign-in), so there's no "register vs.
   // login" distinction to make for Google.
-  async signInWithGoogle() {
+  async signInWithGoogle(referralCode?: string) {
     await signInWithPopup(auth, googleProvider);
-    await callAction('auth', 'provisionProfile');
+    await callAction('auth', 'provisionProfile', { referralCode });
   },
 
   async logout() {
@@ -60,4 +60,9 @@ export const authApi = {
 
   verifyEmailOtp: (code: string) => callAction<{ success: true }>('auth', 'verifyEmailOtp', { code }),
   resendEmailOtp: () => callAction<{ success: true }>('auth', 'resendEmailOtp'),
+
+  // Refer & Earn — lazily backfills a referral code for an account that
+  // predates this feature (a no-op, returning the existing code, once one's
+  // already set). Called once from My Profile.
+  ensureReferralCode: () => callAction<{ referralCode: string }>('auth', 'ensureReferralCode'),
 };

@@ -19,6 +19,7 @@ async function loadProfile(firebaseUser: FirebaseUser): Promise<SafeUser> {
     // Missing = registered before this field existed (or OTP was off) —
     // treated as verified rather than retroactively locking anyone out.
     emailVerified: profileData?.emailVerified !== false,
+    referralCode: profileData?.referralCode ?? null,
   };
 }
 

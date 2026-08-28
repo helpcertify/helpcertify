@@ -135,6 +135,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- referrals/{refereeUid} ---
+    // Refer & Earn. Doc id is the referred account's own uid. Written only
+    // by api/auth.ts (pending, at signup) and api/checkout.ts/
+    // api/razorpay-webhook.ts (rewarded, on the referee's first paid
+    // order) — all Admin SDK, bypassing these rules. A learner can read
+    // their own referral history either as the referrer (My Profile's
+    // Refer & Earn list) or, in principle, as the referee.
+    match /referrals/{refereeUid} {
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.referrerUid == request.auth.uid || resource.data.refereeUid == request.auth.uid));
+      allow write: if false;
+    }
+
     // --- adminLogs/{logId} ---
     match /adminLogs/{logId} {
       allow read, write: if false; // read via api/admin.ts's listAdminLogs action only

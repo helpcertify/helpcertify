@@ -3,6 +3,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { ProfileActivitySections } from '../components/ProfileActivitySections';
+import { ReferAndEarnSection } from '../components/ReferAndEarnSection';
 
 // Was a modal (ProfileModal) triggered from the sidebar's "My Profile"
 // button; moved to a real page/route on request, same content, just laid
@@ -134,6 +135,8 @@ export function ProfilePage() {
           )
         )}
       </div>
+
+      <ReferAndEarnSection />
 
       {/* Your Learning Journey + My Exams — moved here from the Home
           dashboard on request, so Home stays focused on "what to do right

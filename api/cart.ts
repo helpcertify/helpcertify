@@ -59,13 +59,17 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
 type ItemType = 'quiz' | 'practiceTest';
 const collectionFor = (itemType: ItemType) => (itemType === 'quiz' ? 'quizzes' : 'practiceTests');
 
-async function validateCoupon(code: string) {
+async function validateCoupon(code: string, uid: string) {
   const snap = await db.collection('coupons').doc(code.toUpperCase()).get();
   if (!snap.exists) return null;
   const c = snap.data()!;
   if (!c.active) return null;
   if (c.expiresAt && (c.expiresAt as Timestamp).toMillis() < Date.now()) return null;
   if (c.maxUses !== null && c.maxUses !== undefined && c.usedCount >= c.maxUses) return null;
+  // Refer & Earn reward coupons are minted for one specific learner — see
+  // CouponDoc.restrictedToUserId. Absent on every admin-created coupon, so
+  // this never affects the normal any-signed-in-learner codes.
+  if (c.restrictedToUserId && c.restrictedToUserId !== uid) return null;
   return c;
 }
 
@@ -122,7 +126,7 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
   }
 
   if (storedCoupon) {
-    const coupon = await validateCoupon(storedCoupon);
+    const coupon = await validateCoupon(storedCoupon, uid);
     if (!coupon) {
       storedCoupon = null;
       dirty = true; // coupon expired/deactivated since being applied — drop it silently
@@ -153,7 +157,7 @@ async function summarize(uid: string) {
   const subtotal = items.reduce((sum, i) => sum + i.price, 0);
   let discount = 0;
   if (couponCode) {
-    const coupon = await validateCoupon(couponCode);
+    const coupon = await validateCoupon(couponCode, uid);
     if (coupon) discount = computeDiscount(coupon, subtotal);
   }
   return { items, couponCode, currency, subtotal, discount, total: subtotal - discount };
@@ -235,7 +239,7 @@ async function applyCoupon(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const code = parsed.data.code.toUpperCase();
 
-  const coupon = await validateCoupon(code);
+  const coupon = await validateCoupon(code, uid);
   if (!coupon) throw Err.invalidArgument('This coupon code is invalid or has expired');
 
   const ref = db.collection('carts').doc(uid);

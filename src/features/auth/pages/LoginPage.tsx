@@ -43,7 +43,9 @@ export function LoginPage() {
   });
 
   const googleMutation = useMutation({
-    mutationFn: authApi.signInWithGoogle,
+    // No referral code to carry here — that's only ever captured from the
+    // register page's "?ref=" link (see RegisterPage.tsx).
+    mutationFn: () => authApi.signInWithGoogle(),
     onError: (err) => pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error'),
   });
 

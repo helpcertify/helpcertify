@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { authApi } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -23,6 +23,10 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
+  // Refer & Earn — a referral link points here as "?ref=CODE"; carried
+  // through to both signup paths below, never shown as a form field.
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get('ref')?.trim() || undefined;
 
   useEffect(() => {
     if (profile) navigate(profile.role === 'admin' ? '/admin' : '/home', { replace: true });
@@ -35,12 +39,12 @@ export function RegisterPage() {
   } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
 
   const mutation = useMutation({
-    mutationFn: authApi.register,
+    mutationFn: (values: RegisterForm) => authApi.register({ ...values, referralCode }),
     onError: (err) => pushToast(friendlyAuthError(err, 'Registration failed'), 'error'),
   });
 
   const googleMutation = useMutation({
-    mutationFn: authApi.signInWithGoogle,
+    mutationFn: () => authApi.signInWithGoogle(referralCode),
     onError: (err) => pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error'),
   });
 

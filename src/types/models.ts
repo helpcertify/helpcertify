@@ -67,8 +67,39 @@ export interface UserDoc {
   // is it for this learner" (Study Planner greetings/streak boundaries),
   // never anything security-sensitive.
   timezone?: string;
+  // Refer & Earn — this learner's own invite code (lazily generated and
+  // backfilled the first time they visit My Profile, via api/auth.ts's
+  // ensureReferralCode; missing on every account until then). `referredBy`
+  // is the referrer's uid, set once at signup if a valid code was used —
+  // never changed after that. Neither field is ever read by any
+  // entitlement/paywall check; see ReferralDoc for the actual reward
+  // tracking.
+  referralCode?: string;
+  referredBy?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/** referrals/{refereeUid} — one doc per referred signup (doc id is the new
+ * account's own uid, so a given signup can only ever be referred once).
+ * Created pending at signup by api/auth.ts (register/provisionProfile) when
+ * a valid referral code was used; flipped to 'rewarded' by
+ * api/checkout.ts's/api/razorpay-webhook.ts's finalizeOrder the moment the
+ * referee's first order is paid — never on signup alone, so an account that
+ * never buys anything never costs the referrer's reward. */
+export interface ReferralDoc {
+  referrerUid: string;
+  refereeUid: string;
+  refereeName: string;
+  status: 'pending' | 'rewarded';
+  // Only set once status flips to 'rewarded' — the coupon this reward
+  // actually became (coupons/{couponCode}, see CouponDoc.restrictedToUserId)
+  // and the amount it was worth at the time, so a later change to the
+  // reward amount never rewrites what was already promised.
+  couponCode: string | null;
+  rewardAmountMinor: number | null;
+  createdAt: Timestamp;
+  rewardedAt: Timestamp | null;
 }
 
 export type QuestionSourceFormat = 'standard' | 'cisa_qa';
@@ -254,6 +285,11 @@ export interface CouponDoc {
   expiresAt: Timestamp | null;
   maxUses: number | null;
   usedCount: number;
+  // Set only on a Refer & Earn reward coupon (see ReferralDoc) — restricts
+  // redemption to this one uid instead of the code being usable by whoever
+  // has it. Absent on every admin-created coupon (those stay usable by any
+  // signed-in learner, same as before this field existed).
+  restrictedToUserId?: string;
   createdBy: string;
   createdAt: Timestamp;
 }

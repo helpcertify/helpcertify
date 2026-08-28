@@ -84,12 +84,6 @@ export function StudentShell() {
   // than a fabricated unread badge.
   const handleNotificationsClick = () => pushToast("You're all caught up. No new notifications yet.", 'info');
 
-  // There's no referral program/tracking anywhere in this data model either
-  // — the card is a static visual placeholder (shown as a static teaser on
-  // request), so clicking it is an honest "not live yet" toast rather than
-  // a dead link or a fabricated referral flow.
-  const handleReferClick = () => pushToast('Referrals are launching soon. Check back here!', 'info');
-
   // text-ink (not text-ink-muted) for the inactive state — real user
   // feedback that nav tab labels needed to read as solidly dark, not a
   // secondary/muted gray, to stay clearly visible.
@@ -200,7 +194,7 @@ export function StudentShell() {
               </div>
             </div>
           )}
-          <ReferAndEarnCard onClick={handleReferClick} className="mt-2" />
+          <ReferAndEarnCard className="mt-2" />
           <button
             type="button"
             onClick={handleSignOut}
@@ -230,7 +224,7 @@ export function StudentShell() {
                 </div>
               </div>
             )}
-            <ReferAndEarnCard onClick={handleReferClick} className="mb-3" />
+            <ReferAndEarnCard className="mb-3" />
             <button
               type="button"
               onClick={handleSignOut}
@@ -251,16 +245,13 @@ export function StudentShell() {
   );
 }
 
-// Static visual placeholder — there's no referral program/tracking/payout
-// anywhere in this data model, so this never claims to actually credit
-// anyone; it's a teaser for a feature that doesn't exist yet, on request.
-function ReferAndEarnCard({ onClick, className = '' }: { onClick: () => void; className?: string }) {
+// Links to My Profile's own "Refer & Earn" section — that's where the
+// actual referral link, copy button, and referral history live (see
+// ReferAndEarnSection.tsx); this sidebar card is just a permanent
+// reminder/entry point, same role the exam countdown cards play above it.
+function ReferAndEarnCard({ className = '' }: { className?: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-left ${className}`}
-    >
+    <Link to="/home/profile" className={`block w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-left ${className}`}>
       <div className="flex items-center gap-2.5">
         <span className="text-xl" aria-hidden="true">
           🎁
@@ -274,7 +265,7 @@ function ReferAndEarnCard({ onClick, className = '' }: { onClick: () => void; cl
         <span className="text-base font-bold text-[#155EEF]">₹500</span>
         <span className="text-sm text-[#155EEF]">→</span>
       </div>
-    </button>
+    </Link>
   );
 }
 

@@ -9,4 +9,9 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  // Refer & Earn — a code captured from a "?ref=" query param on the
+  // register page (RegisterPage.tsx), not a form field the learner types.
+  // A bad/expired code never blocks signup; api/auth.ts just skips linking
+  // the referral silently.
+  referralCode?: string;
 }
