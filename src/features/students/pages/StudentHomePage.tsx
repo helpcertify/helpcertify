@@ -182,6 +182,14 @@ export function StudentHomePage() {
   const weeklyAccuracy = thisWeekAnswered > 0 ? Math.round((thisWeekCorrect / thisWeekAnswered) * 100) : null;
   const lastWeekAccuracy = lastWeekAnswered > 0 ? Math.round((lastWeekCorrect / lastWeekAnswered) * 100) : null;
   const accuracyDelta = weeklyAccuracy !== null && lastWeekAccuracy !== null ? weeklyAccuracy - lastWeekAccuracy : null;
+  // Week-over-week change in volume, not accuracy — null (no comparison
+  // shown) rather than a misleading "+100%" when last week had no activity
+  // to compare against at all.
+  const weeklyQuestionsDelta = lastWeekAnswered > 0 ? Math.round(((thisWeekAnswered - lastWeekAnswered) / lastWeekAnswered) * 100) : null;
+  // A weekly goal derived from the same daily target already driving
+  // Today's Mission above, not a separately invented number.
+  const weeklyGoal = dailyTarget * 7;
+  const weeklyGoalPercent = weeklyGoal > 0 ? Math.min(100, Math.round((thisWeekAnswered / weeklyGoal) * 100)) : 0;
   const studyStreak = primaryPlan ? computeStudyStreak({ today, studyDays: primaryPlan.studyDays, dailyTarget, dailyAnsweredMap }) : 0;
   const nearestExam = examCountdowns?.[0] ?? null;
 
@@ -382,14 +390,24 @@ export function StudentHomePage() {
             <StatCard icon="🎯" value={String(dailyTarget)} valueColor="#7C3AED" label="Today's Target" sub="Daily goal" />
           </div>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">This Week's Progress</div>
-              <Link to="/home/profile" className="text-xs font-medium text-[#155EEF] hover:underline">
-                View Details →
-              </Link>
+          <Link
+            to="/home/profile"
+            className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-colors hover:border-[#B9CEFF] dark:bg-surface-raised"
+          >
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#EFF6FF] text-xl" aria-hidden="true">
+              📊
             </div>
-          </div>
+            <div className="text-[26px] font-bold leading-tight text-[#155EEF]">{thisWeekAnswered}</div>
+            <div className="text-sm font-semibold text-[#0F172A]">Questions This Week</div>
+            {weeklyQuestionsDelta !== null && (
+              <div className={`mt-1 text-xs font-semibold ${weeklyQuestionsDelta >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
+                {weeklyQuestionsDelta >= 0 ? '↑' : '↓'} {Math.abs(weeklyQuestionsDelta)}% vs last week
+              </div>
+            )}
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
+              <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${weeklyGoalPercent}%` }} />
+            </div>
+          </Link>
         </div>
       )}
 
