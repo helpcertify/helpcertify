@@ -600,7 +600,7 @@ export function PracticeTakingPage() {
             <button
               type="button"
               onClick={handleFinishClick}
-              className="rounded-lg border border-[#16A34A] bg-[#F0FDF4] py-2.5 text-sm font-semibold text-[#16A34A] hover:bg-[#DCFCE7] dark:bg-transparent"
+              className="rounded-lg border border-[#155EEF] bg-[#EFF6FF] py-2.5 text-sm font-semibold text-[#155EEF] hover:bg-[#E0EAFF] dark:bg-transparent"
             >
               🏁 Finish Session
             </button>
