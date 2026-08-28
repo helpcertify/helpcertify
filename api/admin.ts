@@ -154,10 +154,23 @@ async function listAdminLogs() {
   return { logs: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
 }
 
-// --- App settings (Email/Mobile OTP toggles) ---------------------------
-// A single appSettings/general doc rather than one doc per flag — this is
-// the only setting the app has right now, and a single doc keeps
-// getAppSettings/updateAppSettings a plain get/set instead of a query.
+// --- App settings (Email/Mobile OTP toggles, Refer & Earn rewards) -----
+// A single appSettings/general doc rather than one doc per setting — a
+// single doc keeps getAppSettings/updateAppSettings a plain get/set
+// instead of a query.
+
+// Refer & Earn — defaults match what was previously hardcoded in
+// api/auth.ts's linkReferral (referee) and api/checkout.ts's/
+// api/razorpay-webhook.ts's grantReferralRewardIfEligible (referrer),
+// applied whenever appSettings/general doesn't have these fields yet (every
+// doc that predates this admin control) so behavior doesn't silently
+// change for anyone until an admin actually saves new values.
+const REFERRAL_DEFAULTS = {
+  referrerRewardType: 'flat' as const,
+  referrerRewardValue: 50000, // ₹500, in paise
+  refereeRewardType: 'flat' as const,
+  refereeRewardValue: 20000, // ₹200, in paise
+};
 
 async function getAppSettings() {
   const snap = await db.collection('appSettings').doc('general').get();
@@ -168,8 +181,24 @@ async function getAppSettings() {
     // no SMS provider wired up yet (see updateAppSettings), so this can
     // never actually be true no matter what a stale doc might say.
     mobileOtpEnabled: false,
+    referrerRewardType: data?.referrerRewardType ?? REFERRAL_DEFAULTS.referrerRewardType,
+    referrerRewardValue: data?.referrerRewardValue ?? REFERRAL_DEFAULTS.referrerRewardValue,
+    refereeRewardType: data?.refereeRewardType ?? REFERRAL_DEFAULTS.refereeRewardType,
+    refereeRewardValue: data?.refereeRewardValue ?? REFERRAL_DEFAULTS.refereeRewardValue,
   };
 }
+
+// discountValue: flat is paise (same convention as CouponDoc/createCoupon);
+// percent is capped at 95 — same reasoning as api/coupons.ts's own cap (a
+// 100% coupon would zero out the order Razorpay needs a positive amount for).
+const rewardSchema = z
+  .object({
+    type: z.enum(['flat', 'percent']),
+    value: z.number().int().min(1),
+  })
+  .refine((r) => r.type !== 'percent' || r.value <= 95, {
+    message: 'Percent rewards are capped at 95%',
+  });
 
 const updateAppSettingsSchema = z.object({
   emailOtpEnabled: z.boolean(),
@@ -178,14 +207,25 @@ const updateAppSettingsSchema = z.object({
   // (rather than omitted) so the Settings page's checkbox has somewhere
   // real to send its value once a provider is added.
   mobileOtpEnabled: z.boolean(),
+  referrerReward: rewardSchema,
+  refereeReward: rewardSchema,
 });
 
 async function updateAppSettings(uid: string, body: unknown) {
   const parsed = updateAppSettingsSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
 
   await db.collection('appSettings').doc('general').set(
-    { emailOtpEnabled: parsed.data.emailOtpEnabled, mobileOtpEnabled: false, updatedAt: FieldValue.serverTimestamp() },
+    {
+      emailOtpEnabled: d.emailOtpEnabled,
+      mobileOtpEnabled: false,
+      referrerRewardType: d.referrerReward.type,
+      referrerRewardValue: d.referrerReward.value,
+      refereeRewardType: d.refereeReward.type,
+      refereeRewardValue: d.refereeReward.value,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
     { merge: true }
   );
 
@@ -194,7 +234,7 @@ async function updateAppSettings(uid: string, body: unknown) {
     action: 'updateAppSettings',
     targetType: 'appSettings',
     targetId: 'general',
-    description: `Set email OTP verification to ${parsed.data.emailOtpEnabled ? 'on' : 'off'}`,
+    description: `Set email OTP verification to ${d.emailOtpEnabled ? 'on' : 'off'}; referrer reward ${d.referrerReward.type === 'flat' ? `₹${d.referrerReward.value / 100}` : `${d.referrerReward.value}%`}, referee reward ${d.refereeReward.type === 'flat' ? `₹${d.refereeReward.value / 100}` : `${d.refereeReward.value}%`}`,
   });
 
   return { success: true };

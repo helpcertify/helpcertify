@@ -80,16 +80,24 @@ export interface UserDoc {
   updatedAt: Timestamp;
 }
 
+// Same convention as CouponDoc: 'flat' is paise, 'percent' is 1-95.
+export type ReferralRewardType = 'flat' | 'percent';
+
 /** referrals/{refereeUid} — one doc per referred signup (doc id is the new
  * account's own uid, so a given signup can only ever be referred once).
  * Created at signup by api/auth.ts (register/provisionProfile) when a valid
  * referral code was used, with the referee's own welcome coupon already
  * attached (granted immediately, to encourage that very first purchase).
- * `status`/`couponCode`/`rewardAmountMinor` track the *referrer's* separate
- * reward instead — that one stays 'pending' until api/checkout.ts's/
- * api/razorpay-webhook.ts's finalizeOrder sees the referee's first order
- * actually get paid, never on signup alone, so an account that never buys
- * anything never costs the referrer's reward. */
+ * `status`/`couponCode`/`rewardType`/`rewardValue` track the *referrer's*
+ * separate reward instead — that one stays 'pending' until
+ * api/checkout.ts's/api/razorpay-webhook.ts's finalizeOrder sees the
+ * referee's first order actually get paid, never on signup alone, so an
+ * account that never buys anything never costs the referrer's reward.
+ * Both rewards' type/value are read from appSettings/general at the moment
+ * each is granted (see api/admin.ts's getAppSettings/updateAppSettings, the
+ * admin-editable Refer & Earn control) and frozen onto this doc, so a later
+ * change to the configured reward never rewrites what was already
+ * promised to an existing referral. */
 export interface ReferralDoc {
   referrerUid: string;
   refereeUid: string;
@@ -97,16 +105,16 @@ export interface ReferralDoc {
   status: 'pending' | 'rewarded';
   // Only set once status flips to 'rewarded' — the coupon the referrer's
   // reward actually became (coupons/{couponCode}, see
-  // CouponDoc.restrictedToUserId) and the amount it was worth at the time,
-  // so a later change to the reward amount never rewrites what was already
-  // promised.
+  // CouponDoc.restrictedToUserId).
   couponCode: string | null;
-  rewardAmountMinor: number | null;
+  rewardType: ReferralRewardType | null;
+  rewardValue: number | null;
   // The referee's own welcome coupon — set at creation time (immediately at
-  // signup), not gated on any purchase. Always present together, or both
+  // signup), not gated on any purchase. Always present together, or all
   // null on a referral doc predating this field.
   refereeCouponCode: string | null;
-  refereeRewardAmountMinor: number | null;
+  refereeRewardType: ReferralRewardType | null;
+  refereeRewardValue: number | null;
   createdAt: Timestamp;
   rewardedAt: Timestamp | null;
 }

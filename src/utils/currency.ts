@@ -26,3 +26,12 @@ export function majorToMinor(major: number): number {
 export function minorToMajor(minor: number): number {
   return minor / 100;
 }
+
+// Refer & Earn's rewards (and admin-created coupons generally) can be a
+// flat amount or a percentage, admin-configurable — one place to format
+// either, rather than duplicating the flat-vs-percent branch everywhere a
+// reward is shown (RegisterPage's welcome toast, ReferAndEarnSection's
+// banner and referral list).
+export function formatReward(type: 'flat' | 'percent', value: number, currency: SupportedCurrency = 'INR'): string {
+  return type === 'percent' ? `${value}%` : formatMoney(value, currency);
+}

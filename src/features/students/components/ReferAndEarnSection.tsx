@@ -6,7 +6,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
-import { formatMoney } from '@/utils/currency';
+import { formatReward } from '@/utils/currency';
 import type { ReferralDoc } from '@/types/models';
 
 // Refer & Earn — the referral code is lazily backfilled the first time this
@@ -59,7 +59,7 @@ export function ReferAndEarnSection() {
       const snap = await getDoc(doc(db, 'referrals', firebaseUser!.uid));
       const data = snap.data() as ReferralDoc | undefined;
       if (!data?.refereeCouponCode) return null;
-      return { code: data.refereeCouponCode, amountMinor: data.refereeRewardAmountMinor ?? 0 };
+      return { code: data.refereeCouponCode, type: data.refereeRewardType ?? 'flat', value: data.refereeRewardValue ?? 0 };
     },
     enabled: !!firebaseUser?.uid,
   });
@@ -88,7 +88,7 @@ export function ReferAndEarnSection() {
       {myWelcomeCoupon && (
         <div className="mb-5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] p-3">
           <div className="text-sm font-bold text-[#16A34A]">
-            🎉 You have a {formatMoney(myWelcomeCoupon.amountMinor, 'INR')} welcome coupon
+            🎉 You have a {formatReward(myWelcomeCoupon.type, myWelcomeCoupon.value)} off welcome coupon
           </div>
           <div className="text-xs text-[#64748B]">
             Enter code <span className="font-mono font-semibold text-[#0F172A]">{myWelcomeCoupon.code}</span> at checkout.
@@ -130,7 +130,7 @@ export function ReferAndEarnSection() {
               {r.status === 'rewarded' ? (
                 <div className="text-right">
                   <div className="text-sm font-bold text-[#16A34A]">
-                    {formatMoney(r.rewardAmountMinor ?? 0, 'INR')} coupon earned
+                    {formatReward(r.rewardType ?? 'flat', r.rewardValue ?? 0)} off coupon earned
                   </div>
                   <div className="text-xs text-[#64748B]">Code: {r.couponCode}</div>
                 </div>

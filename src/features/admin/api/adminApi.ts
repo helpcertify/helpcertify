@@ -8,11 +8,20 @@ export interface DashboardStats {
   adminAccounts: number;
 }
 
+// Refer & Earn reward type/value share CouponDoc's own convention: flat is
+// paise, percent is 1-95 (see api/admin.ts's getAppSettings/
+// updateAppSettings for where these are actually read/applied).
+export type RewardType = 'flat' | 'percent';
+
 export interface AppSettings {
   emailOtpEnabled: boolean;
   // Always false until an SMS provider is wired up server-side — the
   // checkbox for it stays disabled in AdminSettingsPage regardless.
   mobileOtpEnabled: boolean;
+  referrerRewardType: RewardType;
+  referrerRewardValue: number;
+  refereeRewardType: RewardType;
+  refereeRewardValue: number;
 }
 
 export interface AdminUserRow {
@@ -45,8 +54,17 @@ export const adminApi = {
     ),
 
   getAppSettings: () => callAction<AppSettings>('admin', 'getAppSettings'),
+  // Reshapes the flat AppSettings the page works with into the
+  // {referrerReward: {type, value}, refereeReward: {type, value}} the
+  // backend's updateAppSettingsSchema actually expects — keeps the
+  // frontend's shape symmetric with getAppSettings's own flat response.
   updateAppSettings: (payload: AppSettings) =>
-    callAction<{ success: true }>('admin', 'updateAppSettings', { ...payload }),
+    callAction<{ success: true }>('admin', 'updateAppSettings', {
+      emailOtpEnabled: payload.emailOtpEnabled,
+      mobileOtpEnabled: payload.mobileOtpEnabled,
+      referrerReward: { type: payload.referrerRewardType, value: payload.referrerRewardValue },
+      refereeReward: { type: payload.refereeRewardType, value: payload.refereeRewardValue },
+    }),
 
   listUsersAdmin: () => callAction<{ users: AdminUserRow[] }>('admin', 'listUsersAdmin'),
   getUserDetailAdmin: (uid: string) =>

@@ -16,10 +16,13 @@ const googleProvider = new GoogleAuthProvider();
 
 // Refer & Earn — present only when this signup used a valid referral code;
 // the coupon is already redeemable (see api/auth.ts's linkReferral), not a
-// promise of something granted later.
+// promise of something granted later. type/value match CouponDoc's own
+// discountType/discountValue convention (flat is paise, percent is 1-95) —
+// admin-configurable, see api/admin.ts's getAppSettings/updateAppSettings.
 export interface WelcomeCoupon {
   code: string;
-  amountMinor: number;
+  type: 'flat' | 'percent';
+  value: number;
 }
 
 export const authApi = {

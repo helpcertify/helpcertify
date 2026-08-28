@@ -10,7 +10,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { GoogleButton } from '@/components/common/GoogleButton';
 import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
-import { formatMoney } from '@/utils/currency';
+import { formatReward } from '@/utils/currency';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
@@ -47,7 +47,7 @@ export function RegisterPage() {
   const announceWelcomeCoupon = (welcomeCoupon: WelcomeCoupon | null) => {
     if (!welcomeCoupon) return;
     pushToast(
-      `Welcome bonus! You've got a ${formatMoney(welcomeCoupon.amountMinor, 'INR')} coupon (code ${welcomeCoupon.code}) for your first purchase.`,
+      `Welcome bonus! You've got a ${formatReward(welcomeCoupon.type, welcomeCoupon.value)} off coupon (code ${welcomeCoupon.code}) for your first purchase.`,
       'success'
     );
   };

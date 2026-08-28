@@ -128,16 +128,17 @@ function generateReferralCode(): string {
 // Refer & Earn — the new user's own welcome coupon, granted immediately at
 // signup (not gated on a purchase like the referrer's reward is) since it
 // exists to encourage that very first purchase, not reward one that
-// already happened. Deliberately smaller than the referrer's ₹500 (see
-// REFERRAL_REWARD_MINOR in api/checkout.ts/api/razorpay-webhook.ts) and a
-// shorter expiry, matching a "use it soon" welcome offer rather than a
-// standing reward.
-const REFEREE_WELCOME_REWARD_MINOR = 20000; // ₹200, in paise
+// already happened. Type/value are admin-configurable (see
+// api/admin.ts's getAppSettings/updateAppSettings) rather than hardcoded;
+// these are only the fallback for a doc that predates that control. A
+// shorter expiry than the referrer's reward, matching a "use it soon"
+// welcome offer rather than a standing one.
+const REFEREE_REWARD_DEFAULTS = { type: 'flat' as const, value: 20000 }; // ₹200, in paise
 const REFEREE_COUPON_EXPIRY_DAYS = 30;
 
 interface ReferralLinkResult {
   referrerUid: string;
-  refereeCoupon: { code: string; amountMinor: number };
+  refereeCoupon: { code: string; type: 'flat' | 'percent'; value: number };
 }
 
 // Shared by register() and provisionProfile() — resolves an optional
@@ -158,10 +159,15 @@ async function linkReferral(
   const referrerUid = referrerSnap.docs[0].id;
   if (referrerUid === newUid) return undefined; // can't happen in practice (a brand-new account has no code yet), but never trust it
 
+  const settingsSnap = await db.collection('appSettings').doc('general').get();
+  const settings = settingsSnap.data();
+  const rewardType: 'flat' | 'percent' = settings?.refereeRewardType ?? REFEREE_REWARD_DEFAULTS.type;
+  const rewardValue: number = settings?.refereeRewardValue ?? REFEREE_REWARD_DEFAULTS.value;
+
   const refereeCouponCode = `WELCOME${randomBytes(4).toString('hex').toUpperCase()}`;
   await db.collection('coupons').doc(refereeCouponCode).set({
-    discountType: 'flat',
-    discountValue: REFEREE_WELCOME_REWARD_MINOR,
+    discountType: rewardType,
+    discountValue: rewardValue,
     active: true,
     expiresAt: Timestamp.fromMillis(Date.now() + REFEREE_COUPON_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
     maxUses: 1,
@@ -177,13 +183,15 @@ async function linkReferral(
     refereeName: newUserName,
     status: 'pending',
     couponCode: null,
-    rewardAmountMinor: null,
+    rewardType: null,
+    rewardValue: null,
     refereeCouponCode,
-    refereeRewardAmountMinor: REFEREE_WELCOME_REWARD_MINOR,
+    refereeRewardType: rewardType,
+    refereeRewardValue: rewardValue,
     createdAt: FieldValue.serverTimestamp(),
     rewardedAt: null,
   });
-  return { referrerUid, refereeCoupon: { code: refereeCouponCode, amountMinor: REFEREE_WELCOME_REWARD_MINOR } };
+  return { referrerUid, refereeCoupon: { code: refereeCouponCode, type: rewardType, value: rewardValue } };
 }
 
 async function register(body: unknown) {

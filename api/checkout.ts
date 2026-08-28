@@ -198,12 +198,15 @@ async function createOrder(uid: string, body: unknown) {
   return { orderId: orderRef.id, razorpayOrderId: rzpOrder.id, amount: total, currency, keyId };
 }
 
-// Refer & Earn — the reward is a flat ₹500-off coupon, restricted to the
-// referrer's own account (see CouponDoc.restrictedToUserId), minted only
-// once the referee actually completes their first paid order (never on
-// signup alone — see ReferralDoc). Duplicated in api/razorpay-webhook.ts's
-// own finalizeOrder, same no-shared-code convention as everything else here.
-const REFERRAL_REWARD_MINOR = 50000; // ₹500, in paise
+// Refer & Earn — restricted to the referrer's own account (see
+// CouponDoc.restrictedToUserId), minted only once the referee actually
+// completes their first paid order (never on signup alone — see
+// ReferralDoc). Type/value are admin-configurable (see api/admin.ts's
+// getAppSettings/updateAppSettings); the defaults below are only the
+// fallback for a doc that predates that control. Duplicated in
+// api/razorpay-webhook.ts's own finalizeOrder, same no-shared-code
+// convention as everything else here.
+const REFERRAL_REWARD_DEFAULTS = { type: 'flat' as const, value: 50000 }; // ₹500, in paise
 const REFERRAL_COUPON_EXPIRY_DAYS = 90;
 
 async function grantReferralRewardIfEligible(refereeUid: string, batch: FirebaseFirestore.WriteBatch): Promise<void> {
@@ -215,10 +218,15 @@ async function grantReferralRewardIfEligible(refereeUid: string, batch: Firebase
   if (!referralSnap.exists || referralSnap.data()!.status !== 'pending') return;
   const referral = referralSnap.data()!;
 
+  const settingsSnap = await db.collection('appSettings').doc('general').get();
+  const settings = settingsSnap.data();
+  const rewardType: 'flat' | 'percent' = settings?.referrerRewardType ?? REFERRAL_REWARD_DEFAULTS.type;
+  const rewardValue: number = settings?.referrerRewardValue ?? REFERRAL_REWARD_DEFAULTS.value;
+
   const couponCode = `REF${randomBytes(4).toString('hex').toUpperCase()}`;
   batch.set(db.collection('coupons').doc(couponCode), {
-    discountType: 'flat',
-    discountValue: REFERRAL_REWARD_MINOR,
+    discountType: rewardType,
+    discountValue: rewardValue,
     active: true,
     expiresAt: Timestamp.fromMillis(Date.now() + REFERRAL_COUPON_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
     maxUses: 1,
@@ -230,7 +238,8 @@ async function grantReferralRewardIfEligible(refereeUid: string, batch: Firebase
   batch.update(referralRef, {
     status: 'rewarded',
     couponCode,
-    rewardAmountMinor: REFERRAL_REWARD_MINOR,
+    rewardType,
+    rewardValue,
     rewardedAt: Timestamp.now(),
   });
 }
