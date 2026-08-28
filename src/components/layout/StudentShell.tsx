@@ -94,15 +94,28 @@ export function StudentShell() {
         plans.map(async (p) => {
           const testSnap = await getDoc(doc(db, 'practiceTests', p.testId));
           const data = testSnap.data();
-          const title = (data?.title as string | undefined) ?? 'Untitled Practice Test';
-          const examName = (data?.examName as string | undefined)?.trim() || title;
-          const provider = (data?.category as string | undefined) ?? 'Other';
+          // A study plan whose practice test doc no longer exists (deleted
+          // by an admin after the learner set a goal on it) isn't a real
+          // exam goal any more — there's nothing to show a title/provider
+          // for, and no test to actually resume. Rendering it as
+          // "Untitled Practice Test / Other" reads as a live, valid exam,
+          // which is actively misleading, so it's dropped instead. The
+          // underlying study plan itself is left untouched (never deleted
+          // here) in case the test comes back.
+          if (!data) {
+            console.warn(`Study plan for testId "${p.testId}" points at a practice test that no longer exists — hiding its exam card.`);
+            return null;
+          }
+          const title = (data.title as string | undefined) ?? 'Untitled Practice Test';
+          const examName = (data.examName as string | undefined)?.trim() || title;
+          const provider = (data.category as string | undefined) ?? 'Other';
           return { ...p, examName, provider };
         })
       );
 
-      const byGoal = new Map<string, (typeof withTestInfo)[number]>();
+      const byGoal = new Map<string, NonNullable<(typeof withTestInfo)[number]>>();
       for (const entry of withTestInfo) {
+        if (!entry) continue;
         const key = `${entry.examName}::${entry.provider}`;
         const existing = byGoal.get(key);
         if (!existing || entry.examDate < existing.examDate) byGoal.set(key, entry);
