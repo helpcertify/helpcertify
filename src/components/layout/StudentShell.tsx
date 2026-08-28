@@ -68,14 +68,16 @@ export function StudentShell() {
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
   const cartCount = cart?.items.length ?? 0;
 
-  // The exam countdown pinned above Sign Out, visible on every page — only
-  // considers plans where the learner actually chose a target exam date
-  // (Option A). A pace-mode plan's "suggested" exam date is a rolling
+  // The exam countdown(s) pinned above Sign Out, visible on every page —
+  // only considers plans where the learner actually chose a target exam
+  // date (Option A). A pace-mode plan's "suggested" exam date is a rolling
   // estimate, not a date the learner committed to, so it isn't a fitting
   // permanent reminder here (it's already shown on that plan's own card on
-  // the Home dashboard). Picks whichever committed exam date is soonest.
-  const { data: examCountdown } = useQuery({
-    queryKey: ['student', 'examCountdown', uid],
+  // the Home dashboard). One card per committed exam date, nearest first —
+  // a learner studying for more than one certification at once should see
+  // all of them, not just whichever is soonest.
+  const { data: examCountdowns } = useQuery({
+    queryKey: ['student', 'examCountdowns', uid],
     queryFn: async () => {
       const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
       const plans = snap.docs
@@ -84,11 +86,13 @@ export function StudentShell() {
         .map((p) => ({ testId: p.testId, daysToExam: calendarDaysBetween(new Date(), toDate(p.targetExamDate)) }))
         .filter((p) => p.daysToExam >= 0)
         .sort((a, b) => a.daysToExam - b.daysToExam);
-      const nearest = plans[0];
-      if (!nearest) return null;
-      const testSnap = await getDoc(doc(db, 'practiceTests', nearest.testId));
-      const testTitle = testSnap.data()?.title as string | undefined;
-      return { daysToExam: nearest.daysToExam, testTitle: testTitle ?? 'your exam' };
+      return Promise.all(
+        plans.map(async (p) => {
+          const testSnap = await getDoc(doc(db, 'practiceTests', p.testId));
+          const testTitle = testSnap.data()?.title as string | undefined;
+          return { testId: p.testId, daysToExam: p.daysToExam, testTitle: testTitle ?? 'Untitled Practice Test' };
+        })
+      );
     },
     enabled: !!uid,
     staleTime: 5 * 60_000,
@@ -210,7 +214,9 @@ export function StudentShell() {
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
           {navLinks(() => setMobileNavOpen(false))}
-          {examCountdown && <ExamCountdownCard {...examCountdown} className="mt-2" />}
+          {examCountdowns?.map((c) => (
+            <ExamCountdownCard key={c.testId} {...c} className="mt-2" />
+          ))}
           <button
             type="button"
             onClick={handleSignOut}
@@ -230,7 +236,9 @@ export function StudentShell() {
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
           <div className="mt-auto shrink-0">
-            {examCountdown && <ExamCountdownCard {...examCountdown} className="mb-3" />}
+            {examCountdowns?.map((c) => (
+              <ExamCountdownCard key={c.testId} {...c} className="mb-3" />
+            ))}
             <button
               type="button"
               onClick={handleSignOut}
@@ -255,9 +263,18 @@ export function StudentShell() {
 // on request, so a learner who committed to an exam date never has to go
 // looking for it. Amber (not blue/emerald) so it reads as a countdown
 // rather than a status/success indicator.
-function ExamCountdownCard({ daysToExam, testTitle, className = '' }: { daysToExam: number; testTitle: string; className?: string }) {
+function ExamCountdownCard({
+  daysToExam,
+  testTitle,
+  className = '',
+}: {
+  daysToExam: number;
+  testTitle: string;
+  testId?: string;
+  className?: string;
+}) {
   // Both the exam name and the countdown share one flat dark amber
-  // (#92400E) — a plain solid color rather than the earlier bright-to-dark
+  // (#D87F1D) — a plain solid color rather than the earlier bright-to-dark
   // gradient, which read as a stray design flourish rather than a
   // deliberate urgency cue. Amber is still kept separate from the Electric
   // Blue brand palette used everywhere else — see the HelpCertify theme's
@@ -265,10 +282,10 @@ function ExamCountdownCard({ daysToExam, testTitle, className = '' }: { daysToEx
   return (
     <div className={`rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 ${className}`}>
       <div className="text-[11px] uppercase tracking-wide text-[#64748B]">Your Exam</div>
-      <div className="mb-1 truncate text-sm font-semibold text-[#92400E]" title={testTitle}>
+      <div className="mb-1 truncate text-sm font-semibold text-[#D87F1D]" title={testTitle}>
         {testTitle}
       </div>
-      <div className="text-lg font-bold text-[#92400E]">
+      <div className="text-lg font-bold text-[#D87F1D]">
         {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
       </div>
     </div>
