@@ -18,22 +18,22 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-surface-border bg-surface-raised"
+        className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Colored hero, matching the app's own brand gradient rather than a
-            plain white/gray success dialog — the checkmark itself stays
-            semantic green (a "this worked" signal), kept separate from the
-            blue brand accent behind it. */}
-        <div className="bg-gradient-to-br from-[#155EEF] to-[#0f2f8f] px-8 pb-7 pt-8 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/15 text-3xl text-emerald-300">✓</div>
-          <h2 className="mb-1 text-xl font-bold text-white">Payment Successful!</h2>
-          <p className="text-sm text-white/80">
+        {/* Same plain white-card convention as ConfirmDialog/BuyNowModal
+            elsewhere in the app — no colored gradient hero. The checkmark
+            stays semantic green (a "this worked" signal) inside a small
+            circle instead of a full-width banner. */}
+        <div className="p-6 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#F0FDF4] text-3xl text-[#16A34A]">✓</div>
+          <h2 className="mb-1 text-xl font-bold text-ink">Payment Successful!</h2>
+          <p className="text-sm text-ink-muted">
             {items.length === 1 ? "It's" : "They're"} unlocked on your account now, with no time limit.
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="border-t border-surface-border p-6">
           <div className="mb-5 space-y-2 text-left">
             {items.map((i) => (
               <div key={`${i.itemType}_${i.itemId}`} className="overflow-hidden rounded-lg border border-surface-border bg-surface">

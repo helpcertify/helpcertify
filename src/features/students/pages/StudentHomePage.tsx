@@ -16,7 +16,6 @@ import {
   buildDailyAnsweredMap,
   buildDailyCorrectMap,
   sumTrailingDays,
-  countActiveDaysTrailing,
 } from '../lib/studyPlan';
 import type { StudyPlanDoc } from '@/types/models';
 
@@ -127,7 +126,6 @@ export function StudentHomePage() {
 
   const primaryProgress = primaryTest ? (practiceProgressDocs ?? []).find((p) => p.testId === primaryTest.id) : undefined;
   const uniqueAnsweredCount = primaryProgress?.answeredQuestionIds.length ?? 0;
-  const bestStreakAllTime = primaryProgress?.bestStreak ?? 0;
 
   // Non-reattempt sessions for just the primary test — same convention as
   // StudyPlanSection's own streak query (a reattempt re-answers already-
@@ -184,7 +182,6 @@ export function StudentHomePage() {
   const weeklyAccuracy = thisWeekAnswered > 0 ? Math.round((thisWeekCorrect / thisWeekAnswered) * 100) : null;
   const lastWeekAccuracy = lastWeekAnswered > 0 ? Math.round((lastWeekCorrect / lastWeekAnswered) * 100) : null;
   const accuracyDelta = weeklyAccuracy !== null && lastWeekAccuracy !== null ? weeklyAccuracy - lastWeekAccuracy : null;
-  const studyDaysThisWeek = countActiveDaysTrailing(dailyAnsweredMap, today, 7);
   const studyStreak = primaryPlan ? computeStudyStreak({ today, studyDays: primaryPlan.studyDays, dailyTarget, dailyAnsweredMap }) : 0;
   const nearestExam = examCountdowns?.[0] ?? null;
 
@@ -386,35 +383,12 @@ export function StudentHomePage() {
           </div>
 
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">This Week's Progress</div>
               <Link to="/home/profile" className="text-xs font-medium text-[#155EEF] hover:underline">
                 View Details →
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-lg font-bold text-[#0F172A]">{thisWeekAnswered}</div>
-                <div className="text-xs text-[#64748B]">Questions</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-[#16A34A]">{weeklyAccuracy !== null ? `${weeklyAccuracy}%` : '—'}</div>
-                <div className="text-xs text-[#64748B]">Accuracy</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-[#155EEF]">{studyDaysThisWeek}</div>
-                <div className="text-xs text-[#64748B]">Study Days</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-[#D87F1D]">{bestStreakAllTime}</div>
-                <div className="text-xs text-[#64748B]">Best Streak</div>
-              </div>
-            </div>
-            {studyStreak > 0 && (
-              <div className="mt-3 rounded-lg bg-[#F0FDF4] px-3 py-2 text-xs text-[#16A34A]">
-                You're on track! Keep up the great work.
-              </div>
-            )}
           </div>
         </div>
       )}
