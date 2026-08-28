@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { formatMoney } from '@/utils/currency';
+import { formatMoney, formatReward } from '@/utils/currency';
+import { useMyAvailableCoupons } from '@/features/students/hooks/useMyAvailableCoupons';
 
 interface Props {
   title: string;
@@ -21,6 +22,7 @@ interface Props {
 // invalid code is rejected with a clear error before Razorpay ever opens.
 export function BuyNowModal({ title, price, originalPrice, currency, paying, onClose, onConfirm }: Props) {
   const [couponInput, setCouponInput] = useState('');
+  const { data: myCoupons } = useMyAvailableCoupons();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -35,6 +37,25 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, onC
           )}
           <span className="text-xl font-bold text-ink">{formatMoney(price, currency)}</span>
         </div>
+
+        {/* Coupons already earned by this account (mainly Refer & Earn
+            rewards) — one click fills the code in below, instead of the
+            learner needing to go find and retype a code they already
+            have. */}
+        {myCoupons && myCoupons.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {myCoupons.map((c) => (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => setCouponInput(c.code)}
+                className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF]"
+              >
+                🎁 {c.code} ({formatReward(c.type, c.value)} off)
+              </button>
+            ))}
+          </div>
+        )}
 
         <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
           Have a coupon code?

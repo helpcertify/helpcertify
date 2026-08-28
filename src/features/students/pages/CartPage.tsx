@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
+import { useMyAvailableCoupons } from '../hooks/useMyAvailableCoupons';
 import { useUiStore } from '@/store/useUiStore';
-import { formatMoney } from '@/utils/currency';
+import { formatMoney, formatReward } from '@/utils/currency';
 
 export function CartPage() {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -14,6 +15,7 @@ export function CartPage() {
   const [couponInput, setCouponInput] = useState('');
 
   const { data: cart, isLoading } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
+  const { data: myCoupons } = useMyAvailableCoupons();
 
   const removeMutation = useMutation({
     mutationFn: (item: { itemType: 'quiz' | 'practiceTest'; itemId: string }) => cartApi.removeItem(item.itemType, item.itemId),
@@ -22,7 +24,7 @@ export function CartPage() {
   });
 
   const applyCouponMutation = useMutation({
-    mutationFn: () => cartApi.applyCoupon(couponInput.trim()),
+    mutationFn: (code: string) => cartApi.applyCoupon(code),
     onSuccess: (data) => {
       queryClient.setQueryData(['student', 'cart'], data);
       setCouponInput('');
@@ -103,21 +105,42 @@ export function CartPage() {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <input
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    placeholder="Enter coupon code"
-                    className="input-dark flex-1"
-                  />
-                  <button
-                    type="button"
-                    disabled={!couponInput.trim() || applyCouponMutation.isPending}
-                    onClick={() => applyCouponMutation.mutate()}
-                    className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-50"
-                  >
-                    Apply
-                  </button>
+                <div>
+                  {/* Coupons already earned by this account (mainly Refer &
+                      Earn rewards) — one click applies them directly,
+                      instead of the learner needing to go find and retype
+                      a code they already have. */}
+                  {myCoupons && myCoupons.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {myCoupons.map((c) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          disabled={applyCouponMutation.isPending}
+                          onClick={() => applyCouponMutation.mutate(c.code)}
+                          className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF] disabled:opacity-50"
+                        >
+                          🎁 {c.code} ({formatReward(c.type, c.value)} off)
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      placeholder="Enter coupon code"
+                      className="input-dark flex-1"
+                    />
+                    <button
+                      type="button"
+                      disabled={!couponInput.trim() || applyCouponMutation.isPending}
+                      onClick={() => applyCouponMutation.mutate(couponInput.trim())}
+                      className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-50"
+                    >
+                      Apply
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
