@@ -611,7 +611,7 @@ export function PracticeTakingPage() {
       <ConfirmDialog
         open={showFinishConfirm}
         title="Finish this session now?"
-        message={`You still have ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} unanswered in this session. Once you finish, you won't be able to come back and answer them here. You can always start a new session for the rest. Finish anyway?`}
+        message={`${unansweredCount} question${unansweredCount === 1 ? '' : 's'} still unanswered. You won't be able to come back to them once you finish.`}
         confirmLabel="Finish anyway"
         cancelLabel="Keep working"
         onConfirm={() => {
