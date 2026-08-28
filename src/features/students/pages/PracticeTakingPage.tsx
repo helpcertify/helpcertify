@@ -684,7 +684,15 @@ function PracticeReviewScreen({
     if (filter === 'incorrect') return q.selectedOptionId !== null && !q.isCorrect;
     return true;
   });
-  const selected = review.questions.find((q) => q.questionId === selectedId) ?? null;
+  // Switching filters can drop the previously-selected question out of the
+  // visible set (e.g. it was correct but the user just tapped "Incorrect")
+  // — jump to the first question the new filter actually shows instead of
+  // silently leaving question 1 (or an invisible one) selected.
+  useEffect(() => {
+    setSelectedId(filtered[0]?.questionId ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+  const selected = filtered.find((q) => q.questionId === selectedId) ?? null;
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
@@ -775,7 +783,11 @@ function PracticeReviewScreen({
             </div>
           </div>
 
-          {selected && (
+          {!selected ? (
+            <div className="flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white p-6 text-sm text-[#64748B] shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+              No {filter === 'all' ? '' : `${filter} `}answers in this section
+            </div>
+          ) : (
             <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
               <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#64748B]">
                 Question {review.questions.findIndex((x) => x.questionId === selected.questionId) + 1}

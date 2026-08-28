@@ -289,11 +289,11 @@ export function PracticeTestDetailPage() {
       )}
 
       {/* Two-column row: Practice Setup + Study Plan when owned, Course
-          Access + Free Preview when not. Study Plan gets slightly more
-          width — it's carrying progress, exam countdown, and today's
-          target, more content than Practice Setup's duration picker. */}
+          Access + Free Preview when not. Practice Setup gets more width —
+          it's carrying the duration picker and both feedback-mode cards,
+          more content than Study Plan's compact 3-stat summary. */}
       {owned ? (
-        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
           <PracticeSetupCard
             test={test}
             done={done}
