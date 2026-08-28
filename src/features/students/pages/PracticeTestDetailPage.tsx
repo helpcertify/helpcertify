@@ -756,7 +756,7 @@ function PlanSummaryCard({
       minutesPerQuestion,
       paceQuestionsPerDay: dailyTarget,
     });
-    countdownLabel = `~${formatShortDate(pacePlan.suggestedExamDate)}`;
+    countdownLabel = `Est. ${formatShortDate(pacePlan.suggestedExamDate)}`;
     countdownValue = 'suggested exam';
   }
 
