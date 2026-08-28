@@ -186,10 +186,6 @@ export function StudentHomePage() {
   // shown) rather than a misleading "+100%" when last week had no activity
   // to compare against at all.
   const weeklyQuestionsDelta = lastWeekAnswered > 0 ? Math.round(((thisWeekAnswered - lastWeekAnswered) / lastWeekAnswered) * 100) : null;
-  // A weekly goal derived from the same daily target already driving
-  // Today's Mission above, not a separately invented number.
-  const weeklyGoal = dailyTarget * 7;
-  const weeklyGoalPercent = weeklyGoal > 0 ? Math.min(100, Math.round((thisWeekAnswered / weeklyGoal) * 100)) : 0;
   const studyStreak = primaryPlan ? computeStudyStreak({ today, studyDays: primaryPlan.studyDays, dailyTarget, dailyAnsweredMap }) : 0;
   const nearestExam = examCountdowns?.[0] ?? null;
 
@@ -357,7 +353,7 @@ export function StudentHomePage() {
           above, so all these numbers describe the one focus test, not a
           cross-test aggregate. */}
       {hasMissionData && (
-        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatCard
               icon="📚"
@@ -392,21 +388,18 @@ export function StudentHomePage() {
 
           <Link
             to="/home/profile"
-            className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-colors hover:border-[#B9CEFF] dark:bg-surface-raised"
+            className="flex h-full flex-col rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-colors hover:border-[#B9CEFF] dark:bg-surface-raised"
           >
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#EFF6FF] text-xl" aria-hidden="true">
-              📊
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">This Week's Progress</div>
+              <span className="text-xs font-medium text-[#155EEF]">View Details →</span>
             </div>
-            <div className="text-[26px] font-bold leading-tight text-[#155EEF]">{thisWeekAnswered}</div>
-            <div className="text-sm font-semibold text-[#0F172A]">Questions This Week</div>
             {weeklyQuestionsDelta !== null && (
-              <div className={`mt-1 text-xs font-semibold ${weeklyQuestionsDelta >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
-                {weeklyQuestionsDelta >= 0 ? '↑' : '↓'} {Math.abs(weeklyQuestionsDelta)}% vs last week
+              <div className={`mt-3 text-lg font-bold ${weeklyQuestionsDelta >= 0 ? 'text-[#16A34A]' : 'text-[#EA580C]'}`}>
+                {weeklyQuestionsDelta >= 0 ? '↑' : '↓'} {Math.abs(weeklyQuestionsDelta)}%{' '}
+                <span className="text-xs font-medium text-[#64748B]">vs last week</span>
               </div>
             )}
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
-              <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${weeklyGoalPercent}%` }} />
-            </div>
           </Link>
         </div>
       )}
