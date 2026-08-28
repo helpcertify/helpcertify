@@ -9,7 +9,7 @@ import { CartIcon, HeartIcon, BellIcon, SearchIcon } from '@/components/common/i
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatShortDate } from '@/utils/formatDate';
-import { useExamCountdowns } from '@/features/students/hooks/useExamCountdowns';
+import { useExamCountdowns, featuredExamCountdown } from '@/features/students/hooks/useExamCountdowns';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -64,9 +64,12 @@ export function StudentShell() {
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
   const cartCount = cart?.items.length ?? 0;
 
-  // The exam countdown(s) pinned above Sign Out, visible on every page — see
-  // useExamCountdowns for the plan-selection/dedup logic.
+  // The exam countdown pinned above Sign Out, visible on every page. The
+  // "Your Exams" section shows a single card: the exam goal the learner most
+  // recently created or changed (not the soonest, and not one per goal) —
+  // see featuredExamCountdown.
   const { data: examCountdowns } = useExamCountdowns();
+  const featuredExam = featuredExamCountdown(examCountdowns);
 
   const handleSignOut = async () => {
     await authApi.logout();
@@ -184,14 +187,10 @@ export function StudentShell() {
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
           {navLinks(() => setMobileNavOpen(false))}
-          {examCountdowns && examCountdowns.length > 0 && (
+          {featuredExam && (
             <div className="mt-2">
               <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Your Exams</div>
-              <div className="flex flex-col gap-2">
-                {examCountdowns.map((c) => (
-                  <ExamCountdownCard key={c.testId} {...c} />
-                ))}
-              </div>
+              <ExamCountdownCard {...featuredExam} />
             </div>
           )}
           <ReferAndEarnCard className="mt-2" />
@@ -214,14 +213,10 @@ export function StudentShell() {
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
           <div className="mt-auto shrink-0">
-            {examCountdowns && examCountdowns.length > 0 && (
+            {featuredExam && (
               <div className="mb-3">
                 <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Your Exams</div>
-                <div className="flex flex-col gap-2">
-                  {examCountdowns.map((c) => (
-                    <ExamCountdownCard key={c.testId} {...c} />
-                  ))}
-                </div>
+                <ExamCountdownCard {...featuredExam} />
               </div>
             )}
             <ReferAndEarnCard className="mb-3" />
@@ -269,12 +264,11 @@ function ReferAndEarnCard({ className = '' }: { className?: string }) {
   );
 }
 
-// One card per exam GOAL (not per practice test — see the dedup logic
-// above), pinned above Sign Out on every page so a learner who committed
-// to an exam date never has to go looking for it. The "Your Exams" section
-// label above the stack already says what these are, so each card itself
-// leads with the thing that actually differs between cards: the
-// certification name.
+// The single "Your Exams" card, pinned above Sign Out on every page so a
+// learner who committed to an exam date never has to go looking for it. It
+// shows the exam goal the learner most recently created or changed (see
+// featuredExamCountdown); the card leads with the certification name, since
+// that's the fact the learner is orienting by.
 function ExamCountdownCard({
   examName,
   provider,
@@ -289,8 +283,7 @@ function ExamCountdownCard({
   testId?: string;
   className?: string;
 }) {
-  // Certification name is visually strongest (the one fact that
-  // distinguishes cards from each other); provider is small/muted since
+  // Certification name is visually strongest; provider is small/muted since
   // it's supporting context, not the headline. The countdown keeps the
   // flat dark amber (#D87F1D) requested for emphasis; the exam date itself
   // is small secondary text, same treatment as provider.

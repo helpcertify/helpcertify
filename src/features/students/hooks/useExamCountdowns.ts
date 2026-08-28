@@ -12,11 +12,38 @@ export interface ExamCountdown {
   provider: string;
   examDate: Date;
   daysToExam: number;
+  /**
+   * When the learner most recently created or changed this exam goal
+   * (the study plan's `updatedAt`). The sidebar's "Your Exams" section
+   * uses this to feature the single most recently set-up exam — see
+   * `featuredExamCountdown`.
+   */
+  updatedAt: Date;
 }
 
-// Shared by StudentShell's sidebar (every card) and StudentHomePage's
-// header badge (just the nearest one) — only considers plans where the
-// learner actually chose a target exam date (Option A). A pace-mode
+// getTime() is NaN for a study plan doc missing its timestamp (predates the
+// field) — treat those as oldest so a plan that *does* have one always wins.
+const ms = (d: Date): number => {
+  const t = d.getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/**
+ * The one exam goal the "Your Exams" sidebar section shows: the goal the
+ * learner most recently created or changed, not the soonest. Returns
+ * undefined when there are no upcoming committed exam dates.
+ */
+export function featuredExamCountdown(
+  list: ExamCountdown[] | undefined,
+): ExamCountdown | undefined {
+  if (!list || list.length === 0) return undefined;
+  return list.reduce((best, c) => (ms(c.updatedAt) > ms(best.updatedAt) ? c : best));
+}
+
+// Shared by StudentShell's sidebar (which features just the most recently
+// set-up goal — see featuredExamCountdown) and StudentHomePage's header
+// badge (just the nearest one) — only considers plans where the learner
+// actually chose a target exam date (Option A). A pace-mode
 // plan's "suggested" exam date is a rolling estimate, not a date the
 // learner committed to, so it isn't a fitting countdown here (it's already
 // shown on that plan's own card on the Home dashboard). One entry per exam
@@ -36,7 +63,11 @@ export function useExamCountdowns() {
       const plans = snap.docs
         .map((d) => d.data() as StudyPlanDoc)
         .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
-        .map((p) => ({ testId: p.testId, examDate: toDate(p.targetExamDate) }))
+        .map((p) => ({
+          testId: p.testId,
+          examDate: toDate(p.targetExamDate),
+          updatedAt: toDate(p.updatedAt),
+        }))
         .filter((p) => calendarDaysBetween(new Date(), p.examDate) >= 0);
 
       const withTestInfo = await Promise.all(
@@ -67,7 +98,18 @@ export function useExamCountdowns() {
         if (!entry) continue;
         const key = `${entry.examName}::${entry.provider}`;
         const existing = byGoal.get(key);
-        if (!existing || entry.examDate < existing.examDate) byGoal.set(key, entry);
+        if (!existing) {
+          byGoal.set(key, entry);
+          continue;
+        }
+        // Keep the soonest date for the goal, but carry the most recent
+        // updatedAt across all of its practice tests so `featuredExamCountdown`
+        // still favours a goal the learner just touched on any of its tests.
+        const soonest = entry.examDate < existing.examDate ? entry : existing;
+        byGoal.set(key, {
+          ...soonest,
+          updatedAt: ms(entry.updatedAt) > ms(existing.updatedAt) ? entry.updatedAt : existing.updatedAt,
+        });
       }
 
       return [...byGoal.values()]
@@ -77,6 +119,7 @@ export function useExamCountdowns() {
           provider: entry.provider,
           examDate: entry.examDate,
           daysToExam: calendarDaysBetween(new Date(), entry.examDate),
+          updatedAt: entry.updatedAt,
         }))
         .sort((a, b) => a.daysToExam - b.daysToExam);
     },

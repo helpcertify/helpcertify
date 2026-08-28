@@ -134,8 +134,10 @@ export function StudyGoalPanel({
       // cards both read their own separate studyPlans query, and both live
       // outside this panel in the component tree, so without invalidating
       // them explicitly here they'd keep showing whatever was true before
-      // this save.
-      queryClient.invalidateQueries({ queryKey: ['student', 'examCountdown'] });
+      // this save. (The key here has to match useExamCountdowns' actual
+      // queryKey exactly — 'examCountdowns', plural, with the uid — or the
+      // just-added exam won't show in the sidebar until the next refetch.)
+      queryClient.invalidateQueries({ queryKey: ['student', 'examCountdowns', uid] });
       queryClient.invalidateQueries({ queryKey: ['student', 'studyPlans', uid] });
       onSaved();
     },
