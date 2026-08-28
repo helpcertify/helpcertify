@@ -125,16 +125,15 @@ function generateReferralCode(): string {
   return code;
 }
 
-// The referee's own welcome coupon's code — "HELPW" (Helpcertify, Welcome)
-// plus 4 characters from the same clean alphabet as generateReferralCode
-// above, e.g. "HELPWX7K2" (9 characters total, short enough to type by
-// hand and read as belonging to this app, unlike the previous
-// "WELCOME"+8-hex-char scheme).
+// The referee's own welcome coupon's code — "CERTI" (Helpcertify) plus 4
+// characters from the same clean alphabet as generateReferralCode above,
+// e.g. "CERTIX7K2" (9 characters total, short enough to type by hand and
+// read as belonging to this app).
 function generateWelcomeCouponCode(): string {
   const bytes = randomBytes(4);
   let suffix = '';
   for (const b of bytes) suffix += REFERRAL_CODE_ALPHABET[b % REFERRAL_CODE_ALPHABET.length];
-  return `HELPW${suffix}`;
+  return `CERTI${suffix}`;
 }
 
 // Refer & Earn — the new user's own welcome coupon, granted immediately at
