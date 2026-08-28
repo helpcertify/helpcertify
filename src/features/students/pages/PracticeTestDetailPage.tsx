@@ -397,11 +397,12 @@ export function PracticeTestDetailPage() {
           currency={test.currency ?? 'INR'}
           paying={paying}
           onClose={() => setShowBuyNow(false)}
-          onConfirm={(couponCode) => {
+          onConfirm={(couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'practiceTest', itemId: test.id },
               items: [{ itemType: 'practiceTest', itemId: test.id, title: test.title }],
               couponCode,
+              useCredit,
             });
             setShowBuyNow(false);
           }}

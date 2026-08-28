@@ -83,4 +83,16 @@ export const authApi = {
   // predates this feature (a no-op, returning the existing code, once one's
   // already set). Called once from My Profile.
   ensureReferralCode: () => callAction<{ referralCode: string }>('auth', 'ensureReferralCode'),
+
+  // Refer & Earn — for an account that registered without a code (item 4/5
+  // of the spec: the code can still be applied any time before this
+  // account's first purchase, not only at registration). Rejected with a
+  // clear reason if this account has already purchased something, already
+  // has a referral linked, or the code is invalid/self/fraud-flagged.
+  applyReferralCode: (referralCode: string) =>
+    callAction<{ success: true; welcomeCoupon: WelcomeCoupon | null } | { success: false; reason: string }>(
+      'auth',
+      'applyReferralCode',
+      { referralCode }
+    ),
 };

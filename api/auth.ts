@@ -136,6 +136,29 @@ function generateWelcomeCouponCode(): string {
   return `CERTI${suffix}`;
 }
 
+// Standard Vercel idiom for the client's IP — same defensive
+// array-or-string handling already used for the authorization header
+// below. Used only for the Refer & Earn same-signup-IP fraud check (see
+// isSameSignupIp); never anything security-sensitive on its own.
+function getClientIp(req: VercelRequest): string | null {
+  const header = req.headers['x-forwarded-for'];
+  const raw = Array.isArray(header) ? header[0] : header;
+  if (!raw) return null;
+  return raw.split(',')[0]?.trim() || null;
+}
+
+// Mirrors src/features/students/lib/referralRules.ts's isSelfReferral /
+// isSameSignupIp — that module is the tested, canonical version; these
+// are duplicated inline since api/*.ts files can't import across each
+// other or from src/ (see this file's header comment).
+function isSelfReferral(referrerUid: string, newUid: string): boolean {
+  return referrerUid === newUid;
+}
+function isSameSignupIp(referrerSignupIp: string | null | undefined, newSignupIp: string | null | undefined): boolean {
+  if (!referrerSignupIp || !newSignupIp) return false;
+  return referrerSignupIp === newSignupIp;
+}
+
 // Refer & Earn — the new user's own welcome coupon, granted immediately at
 // signup (not gated on a purchase like the referrer's reward is) since it
 // exists to encourage that very first purchase, not reward one that
@@ -143,8 +166,9 @@ function generateWelcomeCouponCode(): string {
 // api/admin.ts's getAppSettings/updateAppSettings) rather than hardcoded;
 // these are only the fallback for a doc that predates that control. A
 // shorter expiry than the referrer's reward, matching a "use it soon"
-// welcome offer rather than a standing one.
-const REFEREE_REWARD_DEFAULTS = { type: 'flat' as const, value: 20000 }; // ₹200, in paise
+// welcome offer rather than a standing one. Default is 10% off (not a
+// flat amount) per the current spec.
+const REFEREE_REWARD_DEFAULTS = { type: 'percent' as const, value: 10 };
 const REFEREE_COUPON_EXPIRY_DAYS = 30;
 
 interface ReferralLinkResult {
@@ -152,23 +176,63 @@ interface ReferralLinkResult {
   refereeCoupon: { code: string; type: 'flat' | 'percent'; value: number };
 }
 
-// Shared by register() and provisionProfile() — resolves an optional
-// referral code (from a "?ref=" link) to its owner and, if found, writes
-// the referrals/{newUid} doc (referrer's reward starts 'pending'; the new
-// user's own welcome coupon is minted right here, already redeemable).
-// Never throws on a bad/expired/unknown code — an invalid referral link
-// should never block someone from signing up, it should just silently not
-// attribute a referral. Returns undefined when there's nothing to link.
+// A referral doc that was rejected for a fraud reason (self-referral,
+// same signup IP) is still written — status 'rejected' with a reason —
+// so it's visible in the admin audit view (item 15), unlike a merely
+// unknown/mistyped code, which stays silent (that's a typo, not fraud;
+// see linkReferral below).
+async function writeRejectedReferral(
+  refereeUid: string,
+  refereeName: string,
+  referrerUid: string,
+  rejectionReason: string
+): Promise<void> {
+  await db.collection('referrals').doc(refereeUid).set({
+    referrerUid,
+    refereeUid,
+    refereeName,
+    status: 'rejected',
+    rejectionReason,
+    qualifyingOrderId: null,
+    creditEntryId: null,
+    refereeCouponCode: null,
+    refereeRewardType: null,
+    refereeRewardValue: null,
+    createdAt: FieldValue.serverTimestamp(),
+    rewardedAt: null,
+  });
+}
+
+// Shared by register(), provisionProfile(), and applyReferralCode() —
+// resolves a referral code (from a "?ref=" link, or entered later on My
+// Profile) to its owner and, if eligible, writes the referrals/{newUid}
+// doc (status 'registered'; the new user's own welcome coupon is minted
+// right here, already redeemable). Never throws on a bad/unknown code —
+// that's a typo, not fraud, so it should never block signing up or
+// applying a code; it just silently returns undefined. Self-referral and
+// same-signup-IP *are* recorded as a 'rejected' referral doc (item 12) —
+// still doesn't throw, since account creation itself is never blocked
+// over this, only the referral link.
 async function linkReferral(
   newUid: string,
   newUserName: string,
-  referralCode: string | undefined
+  referralCode: string | undefined,
+  newSignupIp: string | null
 ): Promise<ReferralLinkResult | undefined> {
   if (!referralCode) return undefined;
   const referrerSnap = await db.collection('users').where('referralCode', '==', referralCode.trim().toUpperCase()).limit(1).get();
   if (referrerSnap.empty) return undefined;
   const referrerUid = referrerSnap.docs[0].id;
-  if (referrerUid === newUid) return undefined; // can't happen in practice (a brand-new account has no code yet), but never trust it
+  const referrerData = referrerSnap.docs[0].data();
+
+  if (isSelfReferral(referrerUid, newUid)) {
+    await writeRejectedReferral(newUid, newUserName, referrerUid, 'Self-referral');
+    return undefined;
+  }
+  if (isSameSignupIp(referrerData.signupIp as string | undefined, newSignupIp)) {
+    await writeRejectedReferral(newUid, newUserName, referrerUid, 'Same signup IP as referrer');
+    return undefined;
+  }
 
   const settingsSnap = await db.collection('appSettings').doc('general').get();
   const settings = settingsSnap.data();
@@ -192,10 +256,10 @@ async function linkReferral(
     referrerUid,
     refereeUid: newUid,
     refereeName: newUserName,
-    status: 'pending',
-    couponCode: null,
-    rewardType: null,
-    rewardValue: null,
+    status: 'registered',
+    rejectionReason: null,
+    qualifyingOrderId: null,
+    creditEntryId: null,
     refereeCouponCode,
     refereeRewardType: rewardType,
     refereeRewardValue: rewardValue,
@@ -205,7 +269,7 @@ async function linkReferral(
   return { referrerUid, refereeCoupon: { code: refereeCouponCode, type: rewardType, value: rewardValue } };
 }
 
-async function register(body: unknown) {
+async function register(req: VercelRequest, body: unknown) {
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { name, email, password, referralCode } = parsed.data;
@@ -223,10 +287,11 @@ async function register(body: unknown) {
 
   const settingsSnap = await db.collection('appSettings').doc('general').get();
   const emailOtpEnabled = settingsSnap.data()?.emailOtpEnabled === true;
+  const signupIp = getClientIp(req);
 
   // Refer & Earn — resolved before the user doc is written so referredBy
   // can be set in the same call rather than a second write.
-  const referralResult = await linkReferral(uid, name, referralCode);
+  const referralResult = await linkReferral(uid, name, referralCode, signupIp);
 
   // Role lives only on the Firestore doc below, not an ID-token custom claim
   // — see api/admin.ts's requireAdmin for why (it's what lets an admin be
@@ -242,6 +307,7 @@ async function register(body: unknown) {
     // gates anything (see ProtectedRoute) when it's explicitly false.
     emailVerified: !emailOtpEnabled,
     referredBy: referralResult?.referrerUid,
+    signupIp,
     createdAt: now,
     updatedAt: now,
   });
@@ -351,10 +417,11 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
 
   const userRecord = await adminAuth.getUser(uid);
   const name = userRecord.displayName ?? userRecord.email?.split('@')[0] ?? 'New user';
+  const signupIp = getClientIp(req);
 
   // Refer & Earn — resolved before the user doc is written so referredBy
   // can be set in the same call rather than a second write.
-  const referralResult = await linkReferral(uid, name, referralCode);
+  const referralResult = await linkReferral(uid, name, referralCode, signupIp);
 
   const now = FieldValue.serverTimestamp();
   await userRef.set({
@@ -367,6 +434,7 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
     // regardless of the emailOtpEnabled setting.
     emailVerified: true,
     referredBy: referralResult?.referrerUid,
+    signupIp,
     createdAt: now,
     updatedAt: now,
   });
@@ -423,6 +491,56 @@ async function ensureReferralCode(req: VercelRequest) {
   return { referralCode };
 }
 
+const applyReferralCodeSchema = z.object({ referralCode: z.string().trim().min(1).max(20) });
+
+// Refer & Earn — item 4/5 of the spec: a code doesn't have to be entered
+// only at registration, it can be applied any time up until this
+// account's first purchase. Reuses linkReferral's exact eligibility/fraud
+// logic; the only thing added here is the "haven't purchased anything
+// yet" gate and "don't already have a referral linked" gate, both of
+// which register()/provisionProfile() get for free (a referral can only
+// ever be created once per uid, and a purchase can't happen before an
+// account exists).
+async function applyReferralCode(req: VercelRequest, body: unknown) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+
+  const parsed = applyReferralCodeSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const existingReferral = await db.collection('referrals').doc(uid).get();
+  if (existingReferral.exists) {
+    return { success: false as const, reason: 'A referral code has already been applied to this account.' };
+  }
+
+  const purchasesSnap = await db.collection('purchases').where('userId', '==', uid).limit(1).get();
+  if (!purchasesSnap.empty) {
+    return { success: false as const, reason: "This account has already made a purchase, so it's no longer eligible for a referral code." };
+  }
+
+  const userSnap = await db.collection('users').doc(uid).get();
+  const user = userSnap.data();
+  if (!user) throw Err.unauthenticated('Account not found');
+
+  const signupIp = (user.signupIp as string | undefined) ?? null;
+  const referralResult = await linkReferral(uid, user.name as string, parsed.data.referralCode, signupIp);
+  if (!referralResult) {
+    // Covers both an unknown code and a fraud rejection (self-referral /
+    // same signup IP) — linkReferral already recorded the latter as a
+    // 'rejected' referral doc for the audit trail; either way, nothing
+    // here for this account to redeem.
+    return { success: false as const, reason: 'That referral code could not be applied.' };
+  }
+
+  await db.collection('users').doc(uid).update({ referredBy: referralResult.referrerUid, updatedAt: FieldValue.serverTimestamp() });
+  return { success: true as const, welcomeCoupon: referralResult.refereeCoupon };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -434,7 +552,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     switch (action) {
       case 'register':
-        res.status(200).json(await register(data));
+        res.status(200).json(await register(req, data));
         return;
       case 'provisionProfile':
         res.status(200).json(await provisionProfile(req, data));
@@ -450,6 +568,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'ensureReferralCode':
         res.status(200).json(await ensureReferralCode(req));
+        return;
+      case 'applyReferralCode':
+        res.status(200).json(await applyReferralCode(req, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

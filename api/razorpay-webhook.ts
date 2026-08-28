@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { createHmac, timingSafeEqual, randomBytes } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 // Independent, server-to-server confirmation that a payment actually
 // completed — the second (and more reliable) half of api/checkout.ts's
@@ -42,60 +42,90 @@ db.settings({ ignoreUndefinedProperties: true });
 
 type ItemType = 'quiz' | 'practiceTest';
 
-// Refer & Earn — restricted to the referrer's own account (see
-// CouponDoc.restrictedToUserId), minted only once the referee actually
-// completes their first paid order (never on signup alone — see
-// ReferralDoc). Type/value are admin-configurable (see api/admin.ts's
+// Refer & Earn — the referrer's reward is real HelpCertify credit (not a
+// coupon): non-withdrawable, always a flat money amount (a percentage
+// doesn't make sense for a standing balance not tied to one specific
+// purchase at grant time — that's the referee's coupon instead), spendable
+// across future purchases up to a percentage cap (see
+// api/checkout.ts's applyMyCredit), only becomes spendable after a
+// validation/holding period, and can be clawed back on refund (see
+// api/admin.ts's refundOrder). Granted only once the referee's first
+// *eligible* order is actually paid (never on signup alone — see
+// ReferralDoc). Amount/validation-period/expiry/eligible-items/monthly-
+// limit are all admin-configurable (see api/admin.ts's
 // getAppSettings/updateAppSettings); the defaults below are only the
 // fallback for a doc that predates that control. Duplicated in
 // api/checkout.ts's own finalizeOrder, same no-shared-code convention as
 // everything else here.
-const REFERRAL_REWARD_DEFAULTS = { type: 'flat' as const, value: 50000 }; // ₹500, in paise
-const REFERRAL_COUPON_EXPIRY_DAYS = 90;
+const REFERRAL_CREDIT_AMOUNT_DEFAULT_MINOR = 25000; // ₹250, in paise
+const REFERRAL_VALIDATION_DAYS_DEFAULT = 7;
+const REFERRAL_CREDIT_EXPIRY_DAYS_DEFAULT = 90;
+const REFERRAL_MONTHLY_LIMIT_DEFAULT = 10;
 
-// "CERTI" (Helpcertify) plus 4 characters from a clean, unambiguous
-// alphabet (no 0/O/1/I) — e.g. "CERTIQ2XM" (9 characters total), short
-// enough to type by hand and readable as belonging to this app.
-const COUPON_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-function generateReferralRewardCouponCode(): string {
-  const bytes = randomBytes(4);
-  let suffix = '';
-  for (const b of bytes) suffix += COUPON_CODE_ALPHABET[b % COUPON_CODE_ALPHABET.length];
-  return `CERTI${suffix}`;
-}
-
-async function grantReferralRewardIfEligible(refereeUid: string, batch: FirebaseFirestore.WriteBatch): Promise<void> {
+async function processReferralOnPurchase(
+  refereeUid: string,
+  orderId: string,
+  orderItems: { itemType: ItemType; itemId: string }[],
+  batch: FirebaseFirestore.WriteBatch
+): Promise<void> {
   const priorPaidOrders = await db.collection('orders').where('userId', '==', refereeUid).where('status', '==', 'paid').limit(1).get();
   if (!priorPaidOrders.empty) return; // not their first purchase
 
   const referralRef = db.collection('referrals').doc(refereeUid);
   const referralSnap = await referralRef.get();
-  if (!referralSnap.exists || referralSnap.data()!.status !== 'pending') return;
+  if (!referralSnap.exists || referralSnap.data()!.status !== 'registered') return;
   const referral = referralSnap.data()!;
 
   const settingsSnap = await db.collection('appSettings').doc('general').get();
   const settings = settingsSnap.data();
-  const rewardType: 'flat' | 'percent' = settings?.referrerRewardType ?? REFERRAL_REWARD_DEFAULTS.type;
-  const rewardValue: number = settings?.referrerRewardValue ?? REFERRAL_REWARD_DEFAULTS.value;
 
-  const couponCode = generateReferralRewardCouponCode();
-  batch.set(db.collection('coupons').doc(couponCode), {
-    discountType: rewardType,
-    discountValue: rewardValue,
-    active: true,
-    expiresAt: Timestamp.fromMillis(Date.now() + REFERRAL_COUPON_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
-    maxUses: 1,
-    usedCount: 0,
-    restrictedToUserId: referral.referrerUid,
-    createdBy: 'system_referral',
-    createdAt: Timestamp.now(),
+  const eligibleItemIds: string[] = settings?.referralEligibleItemIds ?? [];
+  const hasEligibleItem = eligibleItemIds.length === 0 || orderItems.some((i) => eligibleItemIds.includes(i.itemId));
+  if (!hasEligibleItem) return; // none of this order's items qualify - referral stays 'registered' for a later purchase
+
+  // Monthly cap — fetch this referrer's own entries and filter in memory
+  // rather than adding a range (grantedAt) + equality (referrerUid) query,
+  // matching this codebase's existing convention of avoiding a composite-
+  // index requirement for a query this small (see getUserDetailAdmin's
+  // own comment in api/admin.ts for the same reasoning).
+  const monthlyLimit: number = settings?.referralMonthlyLimit ?? REFERRAL_MONTHLY_LIMIT_DEFAULT;
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const existingEntriesSnap = await db.collection('creditLedgerEntries').where('referrerUid', '==', referral.referrerUid).get();
+  const grantsThisMonth = existingEntriesSnap.docs.filter((d) => (d.data().grantedAt as Timestamp).toMillis() >= startOfMonth.getTime()).length;
+  if (grantsThisMonth >= monthlyLimit) {
+    batch.update(referralRef, {
+      status: 'rejected',
+      rejectionReason: "Referrer's monthly referral reward limit reached",
+      qualifyingOrderId: orderId,
+    });
+    return;
+  }
+
+  const amountMinor: number = settings?.referralCreditAmountMinor ?? REFERRAL_CREDIT_AMOUNT_DEFAULT_MINOR;
+  const validationDays: number = settings?.referralValidationPeriodDays ?? REFERRAL_VALIDATION_DAYS_DEFAULT;
+  const expiryDays: number = settings?.referralCreditExpiryDays ?? REFERRAL_CREDIT_EXPIRY_DAYS_DEFAULT;
+
+  const grantedAt = Timestamp.now();
+  // Doc id is deliberately the order id, not auto-generated - a retried
+  // webhook/duplicate confirmation for the same order overwrites this
+  // same doc instead of minting a second entry (item 17's idempotency).
+  batch.set(db.collection('creditLedgerEntries').doc(orderId), {
+    referrerUid: referral.referrerUid,
+    referralId: refereeUid,
+    amountMinor,
+    remainingMinor: amountMinor,
+    status: 'pending_validation',
+    grantedAt,
+    validationEndsAt: Timestamp.fromMillis(grantedAt.toMillis() + validationDays * 24 * 60 * 60 * 1000),
+    expiresAt: Timestamp.fromMillis(grantedAt.toMillis() + expiryDays * 24 * 60 * 60 * 1000),
+    reversedAt: null,
+    reversalReason: null,
   });
   batch.update(referralRef, {
-    status: 'rewarded',
-    couponCode,
-    rewardType,
-    rewardValue,
-    rewardedAt: Timestamp.now(),
+    status: 'pending',
+    qualifyingOrderId: orderId,
+    creditEntryId: orderId,
   });
 }
 
@@ -104,13 +134,16 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   const snap = await ref.get();
   if (!snap.exists) return 'not_found';
   const order = snap.data()!;
-  if (order.status === 'paid') return 'already_paid';
+  // Also skips an already-refunded order — same
+  // shouldSkipAlreadyProcessedOrder guard as referralRules.ts's tested
+  // version (see api/admin.ts's refundOrder for the other side of this).
+  if (order.status === 'paid' || order.status === 'refunded') return 'already_paid';
 
-  // Read before marking paid — grantReferralRewardIfEligible's "is this
-  // their first purchase" check needs to see the world as it was before
-  // this order counted as paid.
+  // Read before marking paid — processReferralOnPurchase's "is this their
+  // first purchase" check needs to see the world as it was before this
+  // order counted as paid.
   const batch = db.batch();
-  await grantReferralRewardIfEligible(order.userId, batch);
+  await processReferralOnPurchase(order.userId, orderId, order.items as { itemType: ItemType; itemId: string }[], batch);
 
   await ref.update({ status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 

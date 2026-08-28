@@ -223,11 +223,12 @@ export function QuizDetailPage() {
           currency={quiz.currency ?? 'INR'}
           paying={paying}
           onClose={() => setShowBuyNow(false)}
-          onConfirm={(couponCode) => {
+          onConfirm={(couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'quiz', itemId: quiz.id },
               items: [{ itemType: 'quiz', itemId: quiz.id, title: quiz.title }],
               couponCode,
+              useCredit,
             });
             setShowBuyNow(false);
           }}

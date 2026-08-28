@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useMyAvailableCoupons } from '../hooks/useMyAvailableCoupons';
+import { useMyCredits } from '../hooks/useMyCredits';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney, formatReward } from '@/utils/currency';
 
@@ -13,9 +14,11 @@ export function CartPage() {
   const { checkout, paying: payingNow, confirmation } = useCheckout();
 
   const [couponInput, setCouponInput] = useState('');
+  const [useCredit, setUseCredit] = useState(false);
 
   const { data: cart, isLoading } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
   const { data: myCoupons } = useMyAvailableCoupons();
+  const { data: credits } = useMyCredits();
 
   const removeMutation = useMutation({
     mutationFn: (item: { itemType: 'quiz' | 'practiceTest'; itemId: string }) => cartApi.removeItem(item.itemType, item.itemId),
@@ -40,7 +43,10 @@ export function CartPage() {
 
   const handleCheckout = () => {
     if (!cart || cart.items.length === 0) return;
-    checkout({ items: cart.items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title })) });
+    checkout({
+      items: cart.items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title })),
+      useCredit,
+    });
   };
 
   if (isLoading) return <div className="p-8 text-ink-faint">Loading cart…</div>;
@@ -144,6 +150,20 @@ export function CartPage() {
                 </div>
               )}
             </div>
+
+            {credits && credits.spendableMinor > 0 && (
+              <label className="mb-4 flex items-start gap-2.5 rounded-lg border border-surface-border p-3 text-sm">
+                <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                <span>
+                  <span className="block font-medium text-ink">
+                    Use my {formatMoney(credits.spendableMinor, 'INR')} HelpCertify credit
+                  </span>
+                  <span className="block text-xs text-ink-faint">
+                    Covers part of this order, up to a percentage cap. The exact amount applied shows on the payment screen.
+                  </span>
+                </span>
+              </label>
+            )}
 
             <div className="space-y-1.5 border-t border-surface-border pt-4 text-sm">
               <div className="flex justify-between text-ink-faint">

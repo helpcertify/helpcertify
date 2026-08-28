@@ -162,6 +162,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- creditLedgerEntries/{orderId} ---
+    // Refer & Earn's non-withdrawable credit ledger (the referrer's own
+    // reward — see CreditLedgerEntryDoc). Written only by api/checkout.ts/
+    // api/razorpay-webhook.ts (grant, spend) and api/admin.ts (refund
+    // reversal) — all Admin SDK, bypassing these rules. A learner can only
+    // ever read their own entries (as the referrer), for their own credit
+    // balance display (see useMyCredits.ts) — never anyone else's.
+    match /creditLedgerEntries/{entryId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.referrerUid == request.auth.uid);
+      allow write: if false;
+    }
+
     // --- adminLogs/{logId} ---
     match /adminLogs/{logId} {
       allow read, write: if false; // read via api/admin.ts's listAdminLogs action only

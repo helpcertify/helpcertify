@@ -43,10 +43,11 @@ export interface CreateOrderResult {
 }
 
 export const checkoutApi = {
-  createOrder: (buyNowItem?: { itemType: PurchasableItemType; itemId: string }, couponCode?: string) =>
+  createOrder: (buyNowItem?: { itemType: PurchasableItemType; itemId: string }, couponCode?: string, useCredit?: boolean) =>
     callAction<CreateOrderResult>('checkout', 'createOrder', {
       ...(buyNowItem ? { buyNowItem } : {}),
       ...(couponCode ? { couponCode } : {}),
+      ...(useCredit ? { useCredit } : {}),
     }),
   verifyPayment: (payload: {
     orderId: string;

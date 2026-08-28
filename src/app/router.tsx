@@ -32,6 +32,7 @@ import { HelpPage } from '@/features/students/pages/HelpPage';
 import { CouponsPage } from '@/features/admin/pages/CouponsPage';
 import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
+import { AdminReferralAuditPage } from '@/features/admin/pages/AdminReferralAuditPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
 // course/exam/certificate routes on 2026-08-22 — see
@@ -79,6 +80,7 @@ export function AppRouter() {
           <Route path="/admin/performance" element={<PerformancePage />} />
           <Route path="/admin/coupons" element={<CouponsPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/referrals" element={<AdminReferralAuditPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

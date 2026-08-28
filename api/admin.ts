@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 // New file for the v2 (Quiz + Practice Test) platform — different actions
@@ -159,17 +159,24 @@ async function listAdminLogs() {
 // single doc keeps getAppSettings/updateAppSettings a plain get/set
 // instead of a query.
 
-// Refer & Earn — defaults match what was previously hardcoded in
-// api/auth.ts's linkReferral (referee) and api/checkout.ts's/
-// api/razorpay-webhook.ts's grantReferralRewardIfEligible (referrer),
-// applied whenever appSettings/general doesn't have these fields yet (every
-// doc that predates this admin control) so behavior doesn't silently
-// change for anyone until an admin actually saves new values.
+// Refer & Earn — defaults match what's hardcoded in api/auth.ts's
+// linkReferral (referee coupon) and api/checkout.ts's/
+// api/razorpay-webhook.ts's processReferralOnPurchase (referrer credit),
+// applied whenever appSettings/general doesn't have these fields yet
+// (every doc that predates this admin control) so behavior doesn't
+// silently change for anyone until an admin actually saves new values.
+// The referrer's reward is always a flat credit amount now (not a
+// coupon, so no percent option — see CreditLedgerEntryDoc); the referee's
+// stays a coupon (flat or percent, default 10% per the current spec).
 const REFERRAL_DEFAULTS = {
-  referrerRewardType: 'flat' as const,
-  referrerRewardValue: 50000, // ₹500, in paise
-  refereeRewardType: 'flat' as const,
-  refereeRewardValue: 20000, // ₹200, in paise
+  referralCreditAmountMinor: 25000, // ₹250, in paise
+  referralValidationPeriodDays: 7,
+  referralCreditExpiryDays: 90,
+  referralMonthlyLimit: 10,
+  referralCreditMaxPercent: 25,
+  referralEligibleItemIds: [] as string[], // empty = every paid item is eligible
+  refereeRewardType: 'percent' as const,
+  refereeRewardValue: 10,
 };
 
 async function getAppSettings() {
@@ -181,8 +188,12 @@ async function getAppSettings() {
     // no SMS provider wired up yet (see updateAppSettings), so this can
     // never actually be true no matter what a stale doc might say.
     mobileOtpEnabled: false,
-    referrerRewardType: data?.referrerRewardType ?? REFERRAL_DEFAULTS.referrerRewardType,
-    referrerRewardValue: data?.referrerRewardValue ?? REFERRAL_DEFAULTS.referrerRewardValue,
+    referralCreditAmountMinor: data?.referralCreditAmountMinor ?? REFERRAL_DEFAULTS.referralCreditAmountMinor,
+    referralValidationPeriodDays: data?.referralValidationPeriodDays ?? REFERRAL_DEFAULTS.referralValidationPeriodDays,
+    referralCreditExpiryDays: data?.referralCreditExpiryDays ?? REFERRAL_DEFAULTS.referralCreditExpiryDays,
+    referralMonthlyLimit: data?.referralMonthlyLimit ?? REFERRAL_DEFAULTS.referralMonthlyLimit,
+    referralCreditMaxPercent: data?.referralCreditMaxPercent ?? REFERRAL_DEFAULTS.referralCreditMaxPercent,
+    referralEligibleItemIds: data?.referralEligibleItemIds ?? REFERRAL_DEFAULTS.referralEligibleItemIds,
     refereeRewardType: data?.refereeRewardType ?? REFERRAL_DEFAULTS.refereeRewardType,
     refereeRewardValue: data?.refereeRewardValue ?? REFERRAL_DEFAULTS.refereeRewardValue,
   };
@@ -191,7 +202,7 @@ async function getAppSettings() {
 // discountValue: flat is paise (same convention as CouponDoc/createCoupon);
 // percent is capped at 95 — same reasoning as api/coupons.ts's own cap (a
 // 100% coupon would zero out the order Razorpay needs a positive amount for).
-const rewardSchema = z
+const refereeRewardSchema = z
   .object({
     type: z.enum(['flat', 'percent']),
     value: z.number().int().min(1),
@@ -207,8 +218,13 @@ const updateAppSettingsSchema = z.object({
   // (rather than omitted) so the Settings page's checkbox has somewhere
   // real to send its value once a provider is added.
   mobileOtpEnabled: z.boolean(),
-  referrerReward: rewardSchema,
-  refereeReward: rewardSchema,
+  referralCreditAmountMinor: z.number().int().min(1),
+  referralValidationPeriodDays: z.number().int().min(0).max(365),
+  referralCreditExpiryDays: z.number().int().min(1).max(3650),
+  referralMonthlyLimit: z.number().int().min(1).max(10000),
+  referralCreditMaxPercent: z.number().int().min(1).max(100),
+  referralEligibleItemIds: z.array(z.string()).default([]),
+  refereeReward: refereeRewardSchema,
 });
 
 async function updateAppSettings(uid: string, body: unknown) {
@@ -220,8 +236,12 @@ async function updateAppSettings(uid: string, body: unknown) {
     {
       emailOtpEnabled: d.emailOtpEnabled,
       mobileOtpEnabled: false,
-      referrerRewardType: d.referrerReward.type,
-      referrerRewardValue: d.referrerReward.value,
+      referralCreditAmountMinor: d.referralCreditAmountMinor,
+      referralValidationPeriodDays: d.referralValidationPeriodDays,
+      referralCreditExpiryDays: d.referralCreditExpiryDays,
+      referralMonthlyLimit: d.referralMonthlyLimit,
+      referralCreditMaxPercent: d.referralCreditMaxPercent,
+      referralEligibleItemIds: d.referralEligibleItemIds,
       refereeRewardType: d.refereeReward.type,
       refereeRewardValue: d.refereeReward.value,
       updatedAt: FieldValue.serverTimestamp(),
@@ -234,7 +254,7 @@ async function updateAppSettings(uid: string, body: unknown) {
     action: 'updateAppSettings',
     targetType: 'appSettings',
     targetId: 'general',
-    description: `Set email OTP verification to ${d.emailOtpEnabled ? 'on' : 'off'}; referrer reward ${d.referrerReward.type === 'flat' ? `₹${d.referrerReward.value / 100}` : `${d.referrerReward.value}%`}, referee reward ${d.refereeReward.type === 'flat' ? `₹${d.refereeReward.value / 100}` : `${d.refereeReward.value}%`}`,
+    description: `Set email OTP verification to ${d.emailOtpEnabled ? 'on' : 'off'}; referrer credit ₹${d.referralCreditAmountMinor / 100} (${d.referralValidationPeriodDays}d validation, ${d.referralCreditExpiryDays}d expiry, max ${d.referralMonthlyLimit}/month, up to ${d.referralCreditMaxPercent}% of a purchase); referee reward ${d.refereeReward.type === 'flat' ? `₹${d.refereeReward.value / 100}` : `${d.refereeReward.value}%`}`,
   });
 
   return { success: true };
@@ -304,6 +324,119 @@ async function getUserDetailAdmin(body: unknown) {
   };
 }
 
+function getRazorpayCreds() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) throw new Error('Razorpay env vars are not configured');
+  return { keyId, keySecret };
+}
+
+const refundOrderSchema = z.object({ orderId: z.string().min(1), reason: z.string().trim().min(1).max(500) });
+
+// Item 11 — refunds an order via Razorpay's own refund API, then reverses
+// any referral benefit tied to it: mirrors
+// src/features/students/lib/referralRules.ts's nextStatusOnRefund (that
+// module is the tested, canonical version; duplicated inline here since
+// api/*.ts files can't import across each other or from src/). An
+// already-spent portion of a clawed-back credit entry (spent on a
+// *different* purchase before this refund happened) is not itself clawed
+// back — a deliberate simplification, not an oversight.
+async function refundOrder(uid: string, body: unknown) {
+  const parsed = refundOrderSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { orderId, reason } = parsed.data;
+
+  const orderRef = db.collection('orders').doc(orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) throw Err.invalidArgument('Order not found');
+  const order = orderSnap.data()!;
+  if (order.status !== 'paid') throw Err.conflict(`Only a paid order can be refunded (this one is "${order.status}")`);
+
+  const { keyId, keySecret } = getRazorpayCreds();
+  const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${order.razorpayPaymentId}/refund`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
+    },
+    body: JSON.stringify({}),
+  });
+  if (!rzpRes.ok) {
+    const errBody = await rzpRes.text();
+    console.error('Razorpay refund failed:', rzpRes.status, errBody);
+    throw new Error('Could not process the refund with Razorpay. Please try again.');
+  }
+
+  const batch = db.batch();
+  batch.update(orderRef, { status: 'refunded', refundedAt: Timestamp.now(), refundReason: reason });
+
+  // Reverse a referral benefit tied to this order, if this was the
+  // referee's own qualifying purchase (a referrer's credit was granted,
+  // or about to be) — nextStatusOnRefund only reverses 'pending'/
+  // 'rewarded', leaving every other status (already rejected/reversed/
+  // expired, or one that never reached a reward at all) untouched.
+  const referralsSnap = await db.collection('referrals').where('qualifyingOrderId', '==', orderId).limit(1).get();
+  if (!referralsSnap.empty) {
+    const referralDoc = referralsSnap.docs[0];
+    const referral = referralDoc.data();
+    if (referral.status === 'pending' || referral.status === 'rewarded') {
+      batch.update(referralDoc.ref, { status: 'reversed', rejectionReason: `Order ${orderId} was refunded` });
+      if (referral.creditEntryId) {
+        batch.update(db.collection('creditLedgerEntries').doc(referral.creditEntryId), {
+          status: 'reversed',
+          remainingMinor: 0,
+          reversedAt: Timestamp.now(),
+          reversalReason: `Order ${orderId} was refunded`,
+        });
+      }
+    }
+  }
+
+  await batch.commit();
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'refundOrder',
+    targetType: 'order',
+    targetId: orderId,
+    description: `Refunded order ${orderId} (${reason})`,
+  });
+
+  return { success: true };
+}
+
+// Item 15 — the Referral Audit admin page. referrer/referee names+emails
+// are fine to expose here (admin-only); contrast with item 16, which
+// keeps the *learner-facing* referral list free of the other party's PII
+// (see ReferAndEarnSection.tsx).
+async function listReferralsAdmin() {
+  const [referralsSnap, usersSnap] = await Promise.all([
+    db.collection('referrals').orderBy('createdAt', 'desc').limit(200).get(),
+    db.collection('users').get(),
+  ]);
+  const userById = new Map(usersSnap.docs.map((d) => [d.id, d.data()]));
+
+  return {
+    referrals: referralsSnap.docs.map((d) => {
+      const r = d.data();
+      const referrer = userById.get(r.referrerUid as string);
+      return {
+        id: d.id,
+        referrerName: (referrer?.name as string | undefined) ?? 'Unknown',
+        referrerEmail: (referrer?.email as string | undefined) ?? '',
+        refereeName: r.refereeName as string,
+        refereeUid: r.refereeUid as string,
+        status: r.status as string,
+        rejectionReason: (r.rejectionReason as string | null) ?? null,
+        qualifyingOrderId: (r.qualifyingOrderId as string | null) ?? null,
+        creditEntryId: (r.creditEntryId as string | null) ?? null,
+        createdAt: r.createdAt,
+        rewardedAt: r.rewardedAt ?? null,
+      };
+    }),
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -338,6 +471,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getUserDetailAdmin':
         res.status(200).json(await getUserDetailAdmin(data));
+        return;
+      case 'refundOrder':
+        res.status(200).json(await refundOrder(uid, data));
+        return;
+      case 'listReferralsAdmin':
+        res.status(200).json(await listReferralsAdmin());
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

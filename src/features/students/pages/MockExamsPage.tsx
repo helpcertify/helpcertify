@@ -160,11 +160,12 @@ export function MockExamsPage() {
           currency={buyNowQuiz.currency ?? 'INR'}
           paying={paying}
           onClose={() => setBuyNowQuiz(null)}
-          onConfirm={(couponCode) => {
+          onConfirm={(couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'quiz', itemId: buyNowQuiz.id },
               items: [{ itemType: 'quiz', itemId: buyNowQuiz.id, title: buyNowQuiz.title }],
               couponCode,
+              useCredit,
             });
             setBuyNowQuiz(null);
           }}

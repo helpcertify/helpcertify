@@ -115,11 +115,12 @@ export function WishlistPage() {
           currency={buyNowItem.currency}
           paying={paying}
           onClose={() => setBuyNowItem(null)}
-          onConfirm={(couponCode) => {
+          onConfirm={(couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: buyNowItem.itemType, itemId: buyNowItem.itemId },
               items: [{ itemType: buyNowItem.itemType, itemId: buyNowItem.itemId, title: buyNowItem.title }],
               couponCode,
+              useCredit,
             });
             setBuyNowItem(null);
           }}

@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/admin/performance', label: 'Learner Analytics' },
   { to: '/admin/coupons', label: 'Promo Codes' },
   { to: '/admin/users', label: 'Users' },
+  { to: '/admin/referrals', label: 'Referral Audit' },
   { to: '/admin/settings', label: 'Settings' },
 ];
 

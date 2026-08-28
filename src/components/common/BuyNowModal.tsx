@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatMoney, formatReward } from '@/utils/currency';
 import { useMyAvailableCoupons } from '@/features/students/hooks/useMyAvailableCoupons';
+import { useMyCredits } from '@/features/students/hooks/useMyCredits';
 
 interface Props {
   title: string;
@@ -9,7 +10,7 @@ interface Props {
   currency: 'INR' | 'USD';
   paying: boolean;
   onClose: () => void;
-  onConfirm: (couponCode?: string) => void;
+  onConfirm: (couponCode?: string, useCredit?: boolean) => void;
 }
 
 // A lightweight confirm-and-pay step for Buy Now, with an optional coupon
@@ -22,7 +23,9 @@ interface Props {
 // invalid code is rejected with a clear error before Razorpay ever opens.
 export function BuyNowModal({ title, price, originalPrice, currency, paying, onClose, onConfirm }: Props) {
   const [couponInput, setCouponInput] = useState('');
+  const [useCredit, setUseCredit] = useState(false);
   const { data: myCoupons } = useMyAvailableCoupons();
+  const { data: credits } = useMyCredits();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -66,12 +69,22 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, onC
           placeholder="Optional"
           className="input-dark mb-1"
         />
-        <p className="mb-5 text-xs text-ink-faint">The discounted total (if any) shows on the next, payment screen.</p>
+        <p className="mb-3 text-xs text-ink-faint">The discounted total (if any) shows on the next, payment screen.</p>
+
+        {credits && credits.spendableMinor > 0 && (
+          <label className="mb-5 flex items-start gap-2.5 rounded-lg border border-surface-border p-3 text-sm">
+            <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} className="mt-0.5 h-4 w-4" />
+            <span>
+              <span className="block font-medium text-ink">Use my {formatMoney(credits.spendableMinor, 'INR')} HelpCertify credit</span>
+              <span className="block text-xs text-ink-faint">Covers part of this order, up to a percentage cap.</span>
+            </span>
+          </label>
+        )}
 
         <button
           type="button"
           disabled={paying}
-          onClick={() => onConfirm(couponInput.trim() || undefined)}
+          onClick={() => onConfirm(couponInput.trim() || undefined, useCredit)}
           className="w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {paying ? 'Opening payment…' : 'Continue to Payment'}

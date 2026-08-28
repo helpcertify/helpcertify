@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -6,22 +6,41 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { WelcomeCouponBanner } from './WelcomeCouponBanner';
+import { useMyCredits } from '../hooks/useMyCredits';
 import { toDate } from '@/utils/formatDate';
-import { formatReward } from '@/utils/currency';
-import type { ReferralDoc } from '@/types/models';
+import { formatMoney } from '@/utils/currency';
+import type { ReferralDoc, ReferralStatus } from '@/types/models';
+
+// One label + color per lifecycle stage (see ReferralDoc's own comment for
+// what each status means). 'invited' has no real trigger in this app
+// today (no page-view tracking) — kept here for completeness, in case a
+// referral doc is ever manually seeded into it.
+const STATUS_META: Record<ReferralStatus, { label: string; className: string }> = {
+  invited: { label: 'Invited', className: 'bg-surface-raised text-ink-faint' },
+  registered: { label: 'Signed up', className: 'bg-[#EFF6FF] text-[#155EEF]' },
+  purchased: { label: 'Purchased', className: 'bg-[#EFF6FF] text-[#155EEF]' },
+  pending: { label: 'Pending validation', className: 'bg-[#FEF3C7] text-[#92400E]' },
+  rewarded: { label: 'Rewarded', className: 'bg-[#F0FDF4] text-[#16A34A]' },
+  rejected: { label: 'Not eligible', className: 'bg-[#FEF2F2] text-[#DC2626]' },
+  reversed: { label: 'Reversed', className: 'bg-[#FEF2F2] text-[#DC2626]' },
+  expired: { label: 'Expired', className: 'bg-surface-raised text-ink-faint' },
+};
 
 // Refer & Earn — the referral code is lazily backfilled the first time this
 // section mounts (ensureReferralCode is a no-op once one's already set, so
-// this is safe to call on every visit). The reward itself is granted
-// server-side only once a referred signup completes their first paid
-// order (see api/checkout.ts's/api/razorpay-webhook.ts's
-// grantReferralRewardIfEligible) — this section only ever displays what
-// already happened, it never grants anything itself.
+// this is safe to call on every visit). Every reward is granted server-
+// side only (see api/checkout.ts's/api/razorpay-webhook.ts's
+// processReferralOnPurchase) — this section only ever displays what
+// already happened, it never grants anything itself. The referral list
+// below deliberately never shows the referred person's name (item 16 —
+// no PII in the learner-facing dashboard); the admin audit view is the
+// only place that's shown (see AdminReferralAuditPage.tsx).
 export function ReferAndEarnSection() {
   const profile = useAuthStore((s) => s.profile);
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const setSession = useAuthStore((s) => s.setSession);
   const pushToast = useUiStore((s) => s.pushToast);
+  const [applyCodeInput, setApplyCodeInput] = useState('');
 
   const ensureCodeMutation = useMutation({
     mutationFn: authApi.ensureReferralCode,
@@ -49,9 +68,31 @@ export function ReferAndEarnSection() {
     enabled: !!firebaseUser?.uid,
   });
 
+  const { data: credits } = useMyCredits();
+  const creditByReferralId = new Map((credits?.entries ?? []).map((e) => [e.referralId, e]));
+
+  // Item 4/5 — a code can still be applied here if this account registered
+  // without one, as long as it hasn't purchased anything yet (enforced
+  // server-side; this button just surfaces the flow).
+  const applyCodeMutation = useMutation({
+    mutationFn: () => authApi.applyReferralCode(applyCodeInput.trim()),
+    onSuccess: (result) => {
+      if (result.success) {
+        pushToast('Referral code applied!', 'success');
+        setApplyCodeInput('');
+      } else {
+        pushToast(result.reason, 'error');
+      }
+    },
+    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not apply that code', 'error'),
+  });
+
   if (!profile) return null;
 
   const referralLink = profile.referralCode ? `${window.location.origin}/register?ref=${profile.referralCode}` : null;
+  // Whether *this* account was itself referred — the "apply a code" input
+  // only makes sense before that's ever happened.
+  const wasReferred = referrals !== undefined && referrals.some((r) => r.refereeUid === firebaseUser?.uid);
 
   const handleCopy = async () => {
     if (!referralLink) return;
@@ -67,10 +108,18 @@ export function ReferAndEarnSection() {
     <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
       <h2 className="mb-1 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">🎁 Refer & Earn</h2>
       <p className="mb-4 text-sm text-[#64748B]">
-        Share your link with friends. When someone signs up and makes their first purchase, you get a reward coupon.
+        Share your link with friends. When someone signs up and makes their first eligible purchase, you get
+        HelpCertify credit.
       </p>
 
       <WelcomeCouponBanner className="mb-5" />
+
+      {credits && credits.spendableMinor > 0 && (
+        <div className="mb-5 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
+          <div className="text-sm font-bold text-[#155EEF]">💳 {formatMoney(credits.spendableMinor, 'INR')} HelpCertify credit available</div>
+          <div className="text-xs text-[#64748B]">Non-withdrawable, use it at checkout, up to a percentage of your order.</div>
+        </div>
+      )}
 
       <div className="mb-5 flex flex-col gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 sm:flex-row sm:items-center">
         <input
@@ -89,32 +138,59 @@ export function ReferAndEarnSection() {
         </button>
       </div>
 
+      {!wasReferred && (
+        <div className="mb-5">
+          <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B]">Have a referral code?</div>
+          <div className="flex gap-2">
+            <input
+              value={applyCodeInput}
+              onChange={(e) => setApplyCodeInput(e.target.value)}
+              placeholder="Enter a friend's code"
+              className="input-dark flex-1"
+            />
+            <button
+              type="button"
+              disabled={!applyCodeInput.trim() || applyCodeMutation.isPending}
+              onClick={() => applyCodeMutation.mutate()}
+              className="rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#334155] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-[#64748B]">Only works before your first purchase.</p>
+        </div>
+      )}
+
       <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Your Referrals</div>
       {!referrals || referrals.length === 0 ? (
         <p className="mt-2 text-sm text-[#64748B]">No referrals yet. Share your link to start earning.</p>
       ) : (
         <div className="mt-2 space-y-2">
-          {referrals.map((r) => (
-            <div
-              key={r.refereeUid}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2.5"
-            >
-              <div>
-                <div className="text-sm font-semibold text-[#0F172A]">{r.refereeName}</div>
-                <div className="text-xs text-[#64748B]">{toDate(r.createdAt).toLocaleDateString()}</div>
-              </div>
-              {r.status === 'rewarded' ? (
-                <div className="text-right">
-                  <div className="text-sm font-bold text-[#16A34A]">
-                    {formatReward(r.rewardType ?? 'flat', r.rewardValue ?? 0)} off coupon earned
-                  </div>
-                  <div className="text-xs text-[#64748B]">Code: {r.couponCode}</div>
+          {referrals.map((r, i) => {
+            const meta = STATUS_META[r.status] ?? STATUS_META.registered;
+            const creditEntry = r.creditEntryId ? creditByReferralId.get(r.refereeUid) : undefined;
+            return (
+              <div
+                key={r.refereeUid}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2.5"
+              >
+                <div>
+                  {/* Referral #N, not the referred person's name — item 16 */}
+                  <div className="text-sm font-semibold text-[#0F172A]">Referral #{referrals.length - i}</div>
+                  <div className="text-xs text-[#64748B]">{toDate(r.createdAt).toLocaleDateString()}</div>
                 </div>
-              ) : (
-                <span className="rounded-full bg-[#FEF3C7] px-2.5 py-1 text-xs font-semibold text-[#92400E]">Pending first purchase</span>
-              )}
-            </div>
-          ))}
+                <div className="text-right">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.className}`}>{meta.label}</span>
+                  {creditEntry && (r.status === 'pending' || r.status === 'rewarded') && (
+                    <div className="mt-1 text-xs text-[#64748B]">
+                      {formatMoney(creditEntry.amountMinor, 'INR')} credit{r.status === 'pending' ? ' (pending validation)' : ''}
+                    </div>
+                  )}
+                  {r.status === 'rejected' && r.rejectionReason && <div className="mt-1 text-xs text-[#64748B]">{r.rejectionReason}</div>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

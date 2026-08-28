@@ -76,47 +76,115 @@ export interface UserDoc {
   // tracking.
   referralCode?: string;
   referredBy?: string;
+  // Refer & Earn fraud signal — captured once, at register()/
+  // provisionProfile() time, never updated after. Compared against a
+  // referrer's own signupIp (see referralRules.ts's isSameSignupIp) to
+  // catch the same person signing up twice to farm their own referral
+  // reward. Never blocks account creation itself — only whether a
+  // referral code gets linked.
+  signupIp?: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+// The full referral lifecycle (see referralRules.ts's nextStatusOnRefund
+// for the one transition rule that operates on this). 'invited' is a
+// reserved value nothing in this app currently transitions a doc into —
+// detecting "code was shared/viewed but not yet used" would need page-
+// view tracking this app doesn't have, so the real lifecycle starts at
+// 'registered'. 'purchased' is the brief moment between the referee's
+// qualifying order being marked paid and the pending/rejected decision
+// being written in the same batch — in practice always resolves to one of
+// those two before any reader sees 'purchased' stored, but kept as its
+// own value to make the audit trail's intent explicit. 'rejected' covers
+// self-referral, same-signup-IP, an unknown/expired code, an existing
+// user who'd already purchased before applying a code, or the referrer's
+// monthly reward limit being reached — always paired with
+// rejectionReason.
+export type ReferralStatus = 'invited' | 'registered' | 'purchased' | 'pending' | 'rewarded' | 'rejected' | 'reversed' | 'expired';
 
 // Same convention as CouponDoc: 'flat' is paise, 'percent' is 1-95.
 export type ReferralRewardType = 'flat' | 'percent';
 
 /** referrals/{refereeUid} — one doc per referred signup (doc id is the new
- * account's own uid, so a given signup can only ever be referred once).
- * Created at signup by api/auth.ts (register/provisionProfile) when a valid
+ * account's own uid, so a given signup can only ever be referred once —
+ * see referralRules.ts's canLinkReferral). Created at signup by
+ * api/auth.ts (register/provisionProfile/applyReferralCode) when a valid
  * referral code was used, with the referee's own welcome coupon already
- * attached (granted immediately, to encourage that very first purchase).
- * `status`/`couponCode`/`rewardType`/`rewardValue` track the *referrer's*
- * separate reward instead — that one stays 'pending' until
- * api/checkout.ts's/api/razorpay-webhook.ts's finalizeOrder sees the
- * referee's first order actually get paid, never on signup alone, so an
+ * attached (granted immediately, to encourage that very first purchase —
+ * default 10% off, see REFEREE_REWARD_DEFAULTS). `status` tracks the
+ * *referrer's* separate reward instead — a real HelpCertify credit ledger
+ * entry (creditLedgerEntries/{qualifyingOrderId}, see
+ * CreditLedgerEntryDoc), not a coupon, since it's non-withdrawable, has a
+ * validation/holding period, and can be partially spent across several
+ * future purchases. Granted only once the referee's first *eligible*
+ * order is actually paid (see api/checkout.ts's/
+ * api/razorpay-webhook.ts's finalizeOrder), never on signup alone, so an
  * account that never buys anything never costs the referrer's reward.
- * Both rewards' type/value are read from appSettings/general at the moment
- * each is granted (see api/admin.ts's getAppSettings/updateAppSettings, the
- * admin-editable Refer & Earn control) and frozen onto this doc, so a later
- * change to the configured reward never rewrites what was already
- * promised to an existing referral. */
+ * Reward type/value/validation-period/expiry are all read from
+ * appSettings/general at the moment each is granted (see api/admin.ts's
+ * getAppSettings/updateAppSettings, the admin-editable Refer & Earn
+ * control) and frozen onto the credit entry, so a later change to the
+ * configured reward never rewrites what was already promised to an
+ * existing referral. */
 export interface ReferralDoc {
   referrerUid: string;
   refereeUid: string;
   refereeName: string;
-  status: 'pending' | 'rewarded';
-  // Only set once status flips to 'rewarded' — the coupon the referrer's
-  // reward actually became (coupons/{couponCode}, see
-  // CouponDoc.restrictedToUserId).
-  couponCode: string | null;
-  rewardType: ReferralRewardType | null;
-  rewardValue: number | null;
-  // The referee's own welcome coupon — set at creation time (immediately at
-  // signup), not gated on any purchase. Always present together, or all
-  // null on a referral doc predating this field.
+  status: ReferralStatus;
+  // Set only when status is 'rejected' — human-readable, e.g. "Self-
+  // referral", "Same signup IP as referrer", "Referrer's monthly referral
+  // limit reached", "Account already made a purchase before applying a
+  // code".
+  rejectionReason: string | null;
+  // The order that made this referral's referrer reward eligible (first
+  // paid order containing at least one eligible item) — for audit
+  // traceability and as the credit ledger entry's own doc id.
+  qualifyingOrderId: string | null;
+  // The referrer's own credit ledger entry once one exists (status
+  // 'pending' or later) — see CreditLedgerEntryDoc. Null while status is
+  // still 'invited'/'registered'/'rejected'.
+  creditEntryId: string | null;
+  // The referee's own welcome coupon — set at creation time (immediately
+  // at signup), not gated on any purchase. Always present together, or
+  // all null on a referral doc predating this field (or one that was
+  // rejected before a coupon was ever minted).
   refereeCouponCode: string | null;
   refereeRewardType: ReferralRewardType | null;
   refereeRewardValue: number | null;
   createdAt: Timestamp;
   rewardedAt: Timestamp | null;
+}
+
+/** creditLedgerEntries/{qualifyingOrderId} — the referrer's own Refer &
+ * Earn credit, one doc per grant. Doc id is deliberately the *order* id
+ * that triggered it (not an auto-generated id) — a retried webhook or
+ * duplicate client confirmation for the same order overwrites this same
+ * doc instead of minting a second entry, which is the idempotency
+ * guarantee for this feature (see referralRules.ts's
+ * shouldSkipAlreadyProcessedOrder, and finalizeOrder's own earlier
+ * already-paid guard, which this sits behind anyway).
+ *
+ * `status`'s two passive transitions ('pending_validation' -> 'active',
+ * and either -> 'expired') are computed lazily from the timestamps below
+ * wherever an entry is read (see referralRules.ts's computeCreditStatus)
+ * — there's no scheduled job in this app to flip them proactively. Code
+ * that *reads* an entry for display may write the recomputed status back
+ * so it self-heals over time, but code that *spends* an entry always
+ * recomputes from the timestamps at spend time rather than trusting a
+ * possibly-stale stored value. 'depleted' (spent to zero) and 'reversed'
+ * (refund clawback) are the two transitions something explicitly writes. */
+export interface CreditLedgerEntryDoc {
+  referrerUid: string;
+  referralId: string; // referrals/{refereeUid}
+  amountMinor: number; // originally granted, in paise
+  remainingMinor: number; // not yet spent
+  status: 'pending_validation' | 'active' | 'depleted' | 'expired' | 'reversed';
+  grantedAt: Timestamp;
+  validationEndsAt: Timestamp;
+  expiresAt: Timestamp;
+  reversedAt: Timestamp | null;
+  reversalReason: string | null;
 }
 
 export type QuestionSourceFormat = 'standard' | 'cisa_qa';
@@ -324,13 +392,23 @@ export interface OrderDoc {
   userId: string;
   items: OrderItemEntry[];
   couponCode: string | null;
+  // How much of this account's own Refer & Earn credit balance was
+  // applied (see api/checkout.ts's createOrder), and which
+  // creditLedgerEntries docs it was drawn from — recorded for audit
+  // traceability, same reasoning as couponCode. Empty/0 on an order that
+  // didn't use any credit, or one that predates this field.
+  creditAppliedMinor: number;
+  creditEntryIdsUsed: string[];
   subtotal: number;
   discount: number;
   total: number;
   currency: 'INR' | 'USD';
   razorpayOrderId: string;
   razorpayPaymentId: string | null;
-  status: 'created' | 'paid' | 'failed';
+  status: 'created' | 'paid' | 'failed' | 'refunded';
+  // Set only once status is 'refunded' — see api/admin.ts's refundOrder.
+  refundedAt: Timestamp | null;
+  refundReason: string | null;
   // Buy Now creates an order straight from one item, bypassing the cart —
   // finalizeOrder only clears the cart on payment for a fromCart order,
   // otherwise a Buy Now purchase would wipe out unrelated items someone
