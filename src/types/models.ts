@@ -82,22 +82,31 @@ export interface UserDoc {
 
 /** referrals/{refereeUid} — one doc per referred signup (doc id is the new
  * account's own uid, so a given signup can only ever be referred once).
- * Created pending at signup by api/auth.ts (register/provisionProfile) when
- * a valid referral code was used; flipped to 'rewarded' by
- * api/checkout.ts's/api/razorpay-webhook.ts's finalizeOrder the moment the
- * referee's first order is paid — never on signup alone, so an account that
- * never buys anything never costs the referrer's reward. */
+ * Created at signup by api/auth.ts (register/provisionProfile) when a valid
+ * referral code was used, with the referee's own welcome coupon already
+ * attached (granted immediately, to encourage that very first purchase).
+ * `status`/`couponCode`/`rewardAmountMinor` track the *referrer's* separate
+ * reward instead — that one stays 'pending' until api/checkout.ts's/
+ * api/razorpay-webhook.ts's finalizeOrder sees the referee's first order
+ * actually get paid, never on signup alone, so an account that never buys
+ * anything never costs the referrer's reward. */
 export interface ReferralDoc {
   referrerUid: string;
   refereeUid: string;
   refereeName: string;
   status: 'pending' | 'rewarded';
-  // Only set once status flips to 'rewarded' — the coupon this reward
-  // actually became (coupons/{couponCode}, see CouponDoc.restrictedToUserId)
-  // and the amount it was worth at the time, so a later change to the
-  // reward amount never rewrites what was already promised.
+  // Only set once status flips to 'rewarded' — the coupon the referrer's
+  // reward actually became (coupons/{couponCode}, see
+  // CouponDoc.restrictedToUserId) and the amount it was worth at the time,
+  // so a later change to the reward amount never rewrites what was already
+  // promised.
   couponCode: string | null;
   rewardAmountMinor: number | null;
+  // The referee's own welcome coupon — set at creation time (immediately at
+  // signup), not gated on any purchase. Always present together, or both
+  // null on a referral doc predating this field.
+  refereeCouponCode: string | null;
+  refereeRewardAmountMinor: number | null;
   createdAt: Timestamp;
   rewardedAt: Timestamp | null;
 }

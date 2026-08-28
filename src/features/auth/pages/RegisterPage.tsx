@@ -4,12 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { authApi } from '../api/authApi';
+import { authApi, type WelcomeCoupon } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { GoogleButton } from '@/components/common/GoogleButton';
 import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
+import { formatMoney } from '@/utils/currency';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
@@ -38,13 +39,28 @@ export function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
 
+  // Shown once, right after a signup that used a valid referral link — the
+  // coupon is already redeemable at that point, not a promise of something
+  // granted later (see api/auth.ts's linkReferral). Also persisted on My
+  // Profile's Refer & Earn section in case this toast gets missed (e.g. an
+  // OTP-verification step interrupts before it's read).
+  const announceWelcomeCoupon = (welcomeCoupon: WelcomeCoupon | null) => {
+    if (!welcomeCoupon) return;
+    pushToast(
+      `Welcome bonus! You've got a ${formatMoney(welcomeCoupon.amountMinor, 'INR')} coupon (code ${welcomeCoupon.code}) for your first purchase.`,
+      'success'
+    );
+  };
+
   const mutation = useMutation({
     mutationFn: (values: RegisterForm) => authApi.register({ ...values, referralCode }),
+    onSuccess: (result) => announceWelcomeCoupon(result.welcomeCoupon),
     onError: (err) => pushToast(friendlyAuthError(err, 'Registration failed'), 'error'),
   });
 
   const googleMutation = useMutation({
     mutationFn: () => authApi.signInWithGoogle(referralCode),
+    onSuccess: (result) => announceWelcomeCoupon(result.welcomeCoupon),
     onError: (err) => pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error'),
   });
 

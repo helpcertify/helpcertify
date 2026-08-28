@@ -29,7 +29,7 @@ describe('LoginPage', () => {
   });
 
   it('triggers Google sign-in when the Google button is clicked', async () => {
-    vi.mocked(authApi.signInWithGoogle).mockResolvedValue(undefined);
+    vi.mocked(authApi.signInWithGoogle).mockResolvedValue({ provisioned: false, welcomeCoupon: null });
 
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);

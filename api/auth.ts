@@ -125,19 +125,51 @@ function generateReferralCode(): string {
   return code;
 }
 
+// Refer & Earn — the new user's own welcome coupon, granted immediately at
+// signup (not gated on a purchase like the referrer's reward is) since it
+// exists to encourage that very first purchase, not reward one that
+// already happened. Deliberately smaller than the referrer's ₹500 (see
+// REFERRAL_REWARD_MINOR in api/checkout.ts/api/razorpay-webhook.ts) and a
+// shorter expiry, matching a "use it soon" welcome offer rather than a
+// standing reward.
+const REFEREE_WELCOME_REWARD_MINOR = 20000; // ₹200, in paise
+const REFEREE_COUPON_EXPIRY_DAYS = 30;
+
+interface ReferralLinkResult {
+  referrerUid: string;
+  refereeCoupon: { code: string; amountMinor: number };
+}
+
 // Shared by register() and provisionProfile() — resolves an optional
-// referral code (from a "?ref=" link) to its owner and, if found, writes a
-// pending referrals/{newUid} doc. Never throws on a bad/expired/unknown
-// code — an invalid referral link should never block someone from signing
-// up, it should just silently not attribute a referral. Returns the
-// referrer's uid (to also stamp `referredBy` on the new user doc) or
-// undefined.
-async function linkReferral(newUid: string, newUserName: string, referralCode: string | undefined): Promise<string | undefined> {
+// referral code (from a "?ref=" link) to its owner and, if found, writes
+// the referrals/{newUid} doc (referrer's reward starts 'pending'; the new
+// user's own welcome coupon is minted right here, already redeemable).
+// Never throws on a bad/expired/unknown code — an invalid referral link
+// should never block someone from signing up, it should just silently not
+// attribute a referral. Returns undefined when there's nothing to link.
+async function linkReferral(
+  newUid: string,
+  newUserName: string,
+  referralCode: string | undefined
+): Promise<ReferralLinkResult | undefined> {
   if (!referralCode) return undefined;
   const referrerSnap = await db.collection('users').where('referralCode', '==', referralCode.trim().toUpperCase()).limit(1).get();
   if (referrerSnap.empty) return undefined;
   const referrerUid = referrerSnap.docs[0].id;
   if (referrerUid === newUid) return undefined; // can't happen in practice (a brand-new account has no code yet), but never trust it
+
+  const refereeCouponCode = `WELCOME${randomBytes(4).toString('hex').toUpperCase()}`;
+  await db.collection('coupons').doc(refereeCouponCode).set({
+    discountType: 'flat',
+    discountValue: REFEREE_WELCOME_REWARD_MINOR,
+    active: true,
+    expiresAt: Timestamp.fromMillis(Date.now() + REFEREE_COUPON_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    maxUses: 1,
+    usedCount: 0,
+    restrictedToUserId: newUid,
+    createdBy: 'system_referral',
+    createdAt: Timestamp.now(),
+  });
 
   await db.collection('referrals').doc(newUid).set({
     referrerUid,
@@ -146,10 +178,12 @@ async function linkReferral(newUid: string, newUserName: string, referralCode: s
     status: 'pending',
     couponCode: null,
     rewardAmountMinor: null,
+    refereeCouponCode,
+    refereeRewardAmountMinor: REFEREE_WELCOME_REWARD_MINOR,
     createdAt: FieldValue.serverTimestamp(),
     rewardedAt: null,
   });
-  return referrerUid;
+  return { referrerUid, refereeCoupon: { code: refereeCouponCode, amountMinor: REFEREE_WELCOME_REWARD_MINOR } };
 }
 
 async function register(body: unknown) {
@@ -173,7 +207,7 @@ async function register(body: unknown) {
 
   // Refer & Earn — resolved before the user doc is written so referredBy
   // can be set in the same call rather than a second write.
-  const referredBy = await linkReferral(uid, name, referralCode);
+  const referralResult = await linkReferral(uid, name, referralCode);
 
   // Role lives only on the Firestore doc below, not an ID-token custom claim
   // — see api/admin.ts's requireAdmin for why (it's what lets an admin be
@@ -188,7 +222,7 @@ async function register(body: unknown) {
     // Grandfathered true whenever email OTP isn't turned on — only actually
     // gates anything (see ProtectedRoute) when it's explicitly false.
     emailVerified: !emailOtpEnabled,
-    referredBy,
+    referredBy: referralResult?.referrerUid,
     createdAt: now,
     updatedAt: now,
   });
@@ -197,7 +231,7 @@ async function register(body: unknown) {
     await issueEmailOtp(uid, email, name);
   }
 
-  return { uid, otpRequired: emailOtpEnabled };
+  return { uid, otpRequired: emailOtpEnabled, welcomeCoupon: referralResult?.refereeCoupon ?? null };
 }
 
 const verifyEmailOtpSchema = z.object({ code: z.string().trim().length(6) });
@@ -301,7 +335,7 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
 
   // Refer & Earn — resolved before the user doc is written so referredBy
   // can be set in the same call rather than a second write.
-  const referredBy = await linkReferral(uid, name, referralCode);
+  const referralResult = await linkReferral(uid, name, referralCode);
 
   const now = FieldValue.serverTimestamp();
   await userRef.set({
@@ -313,12 +347,12 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
     // Google already verifies the address via OAuth — never OTP-gated,
     // regardless of the emailOtpEnabled setting.
     emailVerified: true,
-    referredBy,
+    referredBy: referralResult?.referrerUid,
     createdAt: now,
     updatedAt: now,
   });
 
-  return { provisioned: true };
+  return { provisioned: true, welcomeCoupon: referralResult?.refereeCoupon ?? null };
 }
 
 // Generic (headline/bio/website), not institution-specific — matches

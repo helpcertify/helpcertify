@@ -14,13 +14,26 @@ import type { LoginPayload, RegisterPayload } from '../types';
 
 const googleProvider = new GoogleAuthProvider();
 
+// Refer & Earn — present only when this signup used a valid referral code;
+// the coupon is already redeemable (see api/auth.ts's linkReferral), not a
+// promise of something granted later.
+export interface WelcomeCoupon {
+  code: string;
+  amountMinor: number;
+}
+
 export const authApi = {
   // Role is always 'student' here — set server-side by api/auth.ts, never
   // client-supplied. Admin accounts are created by an existing admin via
   // api/admin.ts's createAdminAccount, never self-registered.
   async register(payload: RegisterPayload) {
-    await callAction('auth', 'register', { ...payload });
+    const result = await callAction<{ uid: string; otpRequired: boolean; welcomeCoupon: WelcomeCoupon | null }>(
+      'auth',
+      'register',
+      { ...payload }
+    );
     await signInWithEmailAndPassword(auth, payload.email, payload.password);
+    return result;
   },
 
   async login({ email, password }: LoginPayload) {
@@ -35,7 +48,9 @@ export const authApi = {
   // login" distinction to make for Google.
   async signInWithGoogle(referralCode?: string) {
     await signInWithPopup(auth, googleProvider);
-    await callAction('auth', 'provisionProfile', { referralCode });
+    return callAction<{ provisioned: boolean; welcomeCoupon: WelcomeCoupon | null }>('auth', 'provisionProfile', {
+      referralCode,
+    });
   },
 
   async logout() {
