@@ -216,11 +216,13 @@ export function PracticeTestDetailPage() {
       </Link>
 
       {/* Header — full width, badges/title/rating/stats on the left, a
-          decorative certification mark on the right. Description text is
-          capped at ~750px even though the row itself spans the page, so
-          long paragraphs stay readable. */}
+          decorative certification mark on the right. The left column is
+          flex-1 (not just min-w-0) so it actually fills the row's width
+          instead of shrinking to its own content and leaving a dead gap
+          before the icon — description text wraps at the full available
+          width instead of an arbitrary fixed cap. */}
       <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#64748B]">
             <span>{test.category ?? 'Other'}</span>
             <span>·</span>
@@ -248,7 +250,7 @@ export function PracticeTestDetailPage() {
           </div>
 
           {test.description && (
-            <p className="mt-4 max-w-[750px] whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{test.description}</p>
+            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{test.description}</p>
           )}
         </div>
 
