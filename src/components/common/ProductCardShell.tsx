@@ -5,11 +5,12 @@ import { WishlistButton } from './WishlistButton';
 import { CourseIcon } from './CourseIcon';
 import { ClickHereLink, CategoryBadge } from './CardBits';
 import { formatMoney } from '@/utils/currency';
-import type { PurchasableItemType } from '@/types/models';
 
 interface ProductCardShellProps {
   id: string;
-  itemType: PurchasableItemType;
+  // Never 'package' — a certification/package card uses CertificationCard
+  // instead (see its own file for why ProductCardShell isn't a fit there).
+  itemType: 'quiz' | 'practiceTest';
   title: string;
   category: string;
   skillLevel: string;

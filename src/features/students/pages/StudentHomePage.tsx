@@ -6,7 +6,9 @@ import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentC
 import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useExamCountdowns } from '../hooks/useExamCountdowns';
-import { CourseCarousel, type CarouselItem } from '@/components/common/CourseCarousel';
+import { useCertificationCatalog } from '../api/certificationCatalogApi';
+import { hasActivePackage } from '../lib/certificationCatalog';
+import { CertificationCard, CertificationCardSkeleton } from '@/components/common/CertificationCard';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
 import { toDate } from '@/utils/formatDate';
 import {
@@ -48,6 +50,7 @@ export function StudentHomePage() {
   const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: examCountdowns } = useExamCountdowns();
+  const { data: catalog, isLoading: catalogLoading, error: catalogError, refetch: refetchCatalog } = useCertificationCatalog();
 
   const { data: myAttempts } = useQuery({
     queryKey: ['student', 'myQuizAttemptsFull', uid],
@@ -190,45 +193,12 @@ export function StudentHomePage() {
   const studyStreak = primaryPlan ? computeStudyStreak({ today, studyDays: primaryPlan.studyDays, dailyTarget, dailyAnsweredMap }) : 0;
   const nearestExam = examCountdowns?.[0] ?? null;
 
-  // Recommended for you — ranked by rating (falls back to catalog order
-  // when nothing has a rating yet), capped to 10 on request. Pulls from both
-  // quizzes (Mock Exams) and practice tests: an earlier version only looked
-  // at quizzes, which silently hid this whole section for a learner whose
-  // platform mostly has published practice tests rather than quizzes (the
-  // section renders nothing at all once its item list is empty, see
-  // CourseCarousel). Not personalized in any real sense (no click/purchase
-  // history feeds this), same honest "best of the catalog" signal used
-  // everywhere else ratings show up.
-  const recommended: CarouselItem[] = [
-    ...(quizzes ?? []).map((q) => ({
-      itemType: 'quiz' as const,
-      id: q.id,
-      title: q.title,
-      category: q.category ?? 'Other',
-      skillLevel: q.skillLevel ?? 'Foundation',
-      price: q.price ?? 0,
-      originalPrice: q.originalPrice ?? null,
-      currency: q.currency ?? 'INR',
-      ratingAvg: q.ratingAvg ?? 0,
-      ratingCount: q.ratingCount ?? 0,
-      totalQuestions: q.totalQuestions ?? 0,
-    })),
-    ...(practiceBuckets?.available ?? []).map((t) => ({
-      itemType: 'practiceTest' as const,
-      id: t.id,
-      title: t.title,
-      category: t.category ?? 'Other',
-      skillLevel: t.skillLevel ?? 'Foundation',
-      price: t.price ?? 0,
-      originalPrice: t.originalPrice ?? null,
-      currency: t.currency ?? 'INR',
-      ratingAvg: t.ratingAvg ?? 0,
-      ratingCount: t.ratingCount ?? 0,
-      totalQuestions: t.totalQuestions ?? 0,
-    })),
-  ]
-    .sort((a, b) => (b.ratingAvg ?? 0) * (b.ratingCount ?? 0) - (a.ratingAvg ?? 0) * (a.ratingCount ?? 0))
-    .slice(0, 10);
+  // Real per-quiz attempt count (see QuizDoc.maxAttempts) — replaces what
+  // used to be a hardcoded "Attempts remaining: 1" below.
+  const attemptCountByQuizId = new Map<string, number>();
+  for (const a of myAttempts ?? []) {
+    attemptCountByQuizId.set(a.quizId, (attemptCountByQuizId.get(a.quizId) ?? 0) + 1);
+  }
 
   // Continue where you left off — the single most-recently-touched
   // in-progress item across both quizzes and practice tests.
@@ -437,9 +407,59 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* Recommended for you — moved directly below "Continue where you
-          left off" on request. */}
-      <CourseCarousel title="Recommended for you" items={recommended} />
+      {/* Choose Your Exam Preparation — replaces the old "Recommended for
+          you" flat item carousel. One card per certification, packages
+          (Mock Exams/Practice Questions/Complete) grouped underneath it
+          instead of showing up as separate, unrelated product cards. See
+          api/cart.ts's getLearnerCatalog for how pricing/owned/in-cart
+          state is resolved server-side. */}
+      <div className="mb-8">
+        <h2 className="mb-1 text-lg font-bold text-ink">Choose Your Exam Preparation</h2>
+        <p className="mb-4 text-sm text-ink-faint">All prices are visible. Select the plan you want and purchase directly.</p>
+
+        {catalogLoading && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <CertificationCardSkeleton />
+            <CertificationCardSkeleton />
+          </div>
+        )}
+        {!catalogLoading && catalogError && (
+          <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
+            We couldn't load the available certification packages.{' '}
+            <button type="button" onClick={() => refetchCatalog()} className="font-semibold text-[#155EEF] hover:underline">
+              Retry
+            </button>
+          </div>
+        )}
+        {!catalogLoading && !catalogError && catalog && catalog.certifications.length === 0 && (
+          <p className="text-sm text-ink-faint">No certification packages are available right now.</p>
+        )}
+        {!catalogLoading && !catalogError && catalog && catalog.certifications.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {catalog.certifications.map((cert) => (
+              <CertificationCard key={cert.id} certification={cert} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* My Active Certifications — the same catalog data, filtered to
+          certifications where the learner already owns a package, so
+          "continue learning" and "browse/buy" stay in visually distinct
+          sections rather than mixed into one list. */}
+      {!catalogLoading &&
+        !catalogError &&
+        catalog &&
+        catalog.certifications.filter(hasActivePackage).length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-4 text-lg font-bold text-ink">My Active Certifications</h2>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {catalog.certifications.filter(hasActivePackage).map((cert) => (
+                <CertificationCard key={cert.id} certification={cert} />
+              ))}
+            </div>
+          </div>
+        )}
 
       {/* Upcoming or incomplete Mock Exams */}
       {upcomingMockExams.length > 0 && (
@@ -452,7 +472,7 @@ export function StudentHomePage() {
                 <div className="mb-3 space-y-0.5 text-xs text-ink-faint">
                   <div>{q.totalQuestions} questions · {q.durationMinutes} min</div>
                   <div>Passing score: {q.passMarkPercent ?? 60}%</div>
-                  <div>Attempts remaining: 1</div>
+                  <div>Attempts remaining: {Math.max(0, (q.maxAttempts ?? 1) - (attemptCountByQuizId.get(q.id) ?? 0))}</div>
                 </div>
                 <Link
                   to={`/quizzes/${q.id}/take`}

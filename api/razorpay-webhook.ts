@@ -40,7 +40,7 @@ function getAdminApp() {
 const db = getFirestore(getAdminApp());
 db.settings({ ignoreUndefinedProperties: true });
 
-type ItemType = 'quiz' | 'practiceTest';
+type ItemType = 'quiz' | 'practiceTest' | 'package';
 
 // Refer & Earn — the referrer's reward is real HelpCertify credit (not a
 // coupon): non-withdrawable, always a flat money amount (a percentage
@@ -148,6 +148,38 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   await ref.update({ status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
+    if (item.itemType === 'package') {
+      // A package doesn't get its own purchase doc — it fans out to one
+      // purchase doc per included item, same as api/checkout.ts's own
+      // finalizeOrder (duplicated here, same no-shared-code convention).
+      // See PackageDoc's own comment in src/types/models.ts.
+      const pkgSnap = await db.collection('packages').doc(item.itemId).get();
+      const pkgData = pkgSnap.data();
+      if (!pkgData) continue; // package deleted between order creation and payment — nothing to grant
+      const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
+      const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
+      for (const quizId of includedQuizIds) {
+        batch.set(db.collection('purchases').doc(`${order.userId}_quiz_${quizId}`), {
+          userId: order.userId,
+          itemType: 'quiz',
+          itemId: quizId,
+          orderId,
+          purchasedAt: Timestamp.now(),
+          sourcePackageId: item.itemId,
+        });
+      }
+      for (const testId of includedPracticeTestIds) {
+        batch.set(db.collection('purchases').doc(`${order.userId}_practiceTest_${testId}`), {
+          userId: order.userId,
+          itemType: 'practiceTest',
+          itemId: testId,
+          orderId,
+          purchasedAt: Timestamp.now(),
+          sourcePackageId: item.itemId,
+        });
+      }
+      continue;
+    }
     batch.set(db.collection('purchases').doc(`${order.userId}_${item.itemType}_${item.itemId}`), {
       userId: order.userId,
       itemType: item.itemType,

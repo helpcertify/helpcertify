@@ -50,6 +50,7 @@ export function useCheckout() {
             setJustPurchased(opts.items);
             queryClient.invalidateQueries({ queryKey: ['student', 'cart'] });
             queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] });
+            queryClient.invalidateQueries({ queryKey: ['student', 'certificationCatalog'] });
           } catch {
             pushToast(
               'Payment went through but we could not confirm it here. Refresh in a moment, or contact support if access does not unlock.',

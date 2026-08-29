@@ -60,8 +60,25 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
   return { uid: decoded.uid };
 }
 
-type ItemType = 'quiz' | 'practiceTest';
-const collectionFor = (itemType: ItemType) => (itemType === 'quiz' ? 'quizzes' : 'practiceTests');
+type ItemType = 'quiz' | 'practiceTest' | 'package';
+const collectionFor = (itemType: ItemType) =>
+  itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
+
+// A package is never its own entitlement record — "already own this
+// package" means every included quiz/practiceTest already has its own
+// purchase doc. Duplicated from api/cart.ts, same no-shared-code
+// convention as everything else here.
+async function isPackageFullyOwned(uid: string, pkg: FirebaseFirestore.DocumentData): Promise<boolean> {
+  const includedQuizIds: string[] = pkg.includedQuizIds ?? [];
+  const includedPracticeTestIds: string[] = pkg.includedPracticeTestIds ?? [];
+  if (includedQuizIds.length === 0 && includedPracticeTestIds.length === 0) return false;
+  const refs = [
+    ...includedQuizIds.map((id) => db.collection('purchases').doc(`${uid}_quiz_${id}`)),
+    ...includedPracticeTestIds.map((id) => db.collection('purchases').doc(`${uid}_practiceTest_${id}`)),
+  ];
+  const snaps = await db.getAll(...refs);
+  return snaps.every((s) => s.exists);
+}
 
 function getRazorpayCreds() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -215,10 +232,18 @@ async function createOrder(uid: string, body: unknown) {
   for (const entry of cartItems) {
     const snap = await db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get();
     if (!snap.exists) continue; // deleted since being added — silently dropped, same as api/cart.ts
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get();
-    if (purchaseSnap.exists) continue; // already owned — don't charge twice
     const data = snap.data()!;
-    orderItems.push({ itemType: entry.itemType, itemId: entry.itemId, title: data.title, unitPrice: data.price ?? 0 });
+    if (entry.itemType === 'package') {
+      // A package never has its own purchase doc (see PackageDoc's own
+      // comment) — "already owned" means every included item is already
+      // owned, matching api/cart.ts's isPackageFullyOwned.
+      if (await isPackageFullyOwned(uid, data)) continue;
+      orderItems.push({ itemType: 'package', itemId: entry.itemId, title: data.name, unitPrice: data.price ?? 0 });
+    } else {
+      const purchaseSnap = await db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get();
+      if (purchaseSnap.exists) continue; // already owned — don't charge twice
+      orderItems.push({ itemType: entry.itemType, itemId: entry.itemId, title: data.title, unitPrice: data.price ?? 0 });
+    }
     currency = data.currency ?? 'INR'; // api/cart.ts's addItem guarantees every item in a cart shares one currency
   }
   if (orderItems.length === 0) throw Err.failedPrecondition('Nothing left to check out: everything in your cart was already purchased');
@@ -406,6 +431,40 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   await ref.update({ status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
+    if (item.itemType === 'package') {
+      // A package doesn't get its own purchase doc — it fans out to one
+      // purchase doc per included item, the exact same shape an individual
+      // purchase would create, so every existing entitlement gate
+      // (api/quiz-session.ts, api/practice-session.ts) and every student
+      // page's owned-item check keeps working unmodified. See PackageDoc's
+      // own comment in src/types/models.ts.
+      const pkgSnap = await db.collection('packages').doc(item.itemId).get();
+      const pkgData = pkgSnap.data();
+      if (!pkgData) continue; // package deleted between order creation and payment — nothing to grant
+      const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
+      const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
+      for (const quizId of includedQuizIds) {
+        batch.set(db.collection('purchases').doc(`${order.userId}_quiz_${quizId}`), {
+          userId: order.userId,
+          itemType: 'quiz',
+          itemId: quizId,
+          orderId,
+          purchasedAt: Timestamp.now(),
+          sourcePackageId: item.itemId,
+        });
+      }
+      for (const testId of includedPracticeTestIds) {
+        batch.set(db.collection('purchases').doc(`${order.userId}_practiceTest_${testId}`), {
+          userId: order.userId,
+          itemType: 'practiceTest',
+          itemId: testId,
+          orderId,
+          purchasedAt: Timestamp.now(),
+          sourcePackageId: item.itemId,
+        });
+      }
+      continue;
+    }
     batch.set(db.collection('purchases').doc(`${order.userId}_${item.itemType}_${item.itemId}`), {
       userId: order.userId,
       itemType: item.itemType,

@@ -2,10 +2,11 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { wishlistApi } from '@/features/students/api/wishlistApi';
 import { useUiStore } from '@/store/useUiStore';
 import { HeartIcon } from './icons';
-import type { PurchasableItemType } from '@/types/models';
 
 interface WishlistButtonProps {
-  itemType: PurchasableItemType;
+  // Never 'package' — a certification/package card has no wishlist heart
+  // this phase (see CertificationCard.tsx).
+  itemType: 'quiz' | 'practiceTest';
   itemId: string;
   className?: string;
   // 'overlay' (default): white icon + dark scrim, for sitting on top of a

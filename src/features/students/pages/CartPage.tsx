@@ -7,6 +7,7 @@ import { useMyAvailableCoupons } from '../hooks/useMyAvailableCoupons';
 import { useMyCredits } from '../hooks/useMyCredits';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney, formatReward } from '@/utils/currency';
+import type { PurchasableItemType } from '@/types/models';
 
 export function CartPage() {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -21,7 +22,7 @@ export function CartPage() {
   const { data: credits } = useMyCredits();
 
   const removeMutation = useMutation({
-    mutationFn: (item: { itemType: 'quiz' | 'practiceTest'; itemId: string }) => cartApi.removeItem(item.itemType, item.itemId),
+    mutationFn: (item: { itemType: PurchasableItemType; itemId: string }) => cartApi.removeItem(item.itemType, item.itemId),
     onSuccess: (data) => queryClient.setQueryData(['student', 'cart'], data),
     onError: () => pushToast('Could not remove that item', 'error'),
   });
@@ -78,7 +79,8 @@ export function CartPage() {
                 <div>
                   <div className="font-medium text-ink">{item.title}</div>
                   <div className="text-xs uppercase tracking-wide text-ink-faint">
-                    {item.itemType === 'quiz' ? 'Exam Quiz' : 'Practice Test'} · {item.totalQuestions} questions
+                    {item.itemType === 'quiz' ? 'Exam Quiz' : item.itemType === 'practiceTest' ? 'Practice Test' : 'Package'}
+                    {item.itemType !== 'package' && ` · ${item.totalQuestions} questions`}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

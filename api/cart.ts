@@ -56,8 +56,25 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
   return { uid: decoded.uid };
 }
 
-type ItemType = 'quiz' | 'practiceTest';
-const collectionFor = (itemType: ItemType) => (itemType === 'quiz' ? 'quizzes' : 'practiceTests');
+type ItemType = 'quiz' | 'practiceTest' | 'package';
+const collectionFor = (itemType: ItemType) =>
+  itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
+
+// A package is never its own entitlement record (see PackageDoc's own
+// comment in src/types/models.ts) — "already own this package" means every
+// included quiz/practiceTest already has its own purchase doc, whether that
+// happened by buying the bundle or by buying each item individually.
+async function isPackageFullyOwned(uid: string, pkg: FirebaseFirestore.DocumentData): Promise<boolean> {
+  const includedQuizIds: string[] = pkg.includedQuizIds ?? [];
+  const includedPracticeTestIds: string[] = pkg.includedPracticeTestIds ?? [];
+  if (includedQuizIds.length === 0 && includedPracticeTestIds.length === 0) return false;
+  const refs = [
+    ...includedQuizIds.map((id) => db.collection('purchases').doc(`${uid}_quiz_${id}`)),
+    ...includedPracticeTestIds.map((id) => db.collection('purchases').doc(`${uid}_practiceTest_${id}`)),
+  ];
+  const snaps = await db.getAll(...refs);
+  return snaps.every((s) => s.exists);
+}
 
 async function validateCoupon(code: string, uid: string) {
   const snap = await db.collection('coupons').doc(code.toUpperCase()).get();
@@ -105,6 +122,28 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
   const items: HydratedItem[] = [];
   let dirty = false;
   for (const entry of stored) {
+    if (entry.itemType === 'package') {
+      const pkgSnap = await db.collection('packages').doc(entry.itemId).get();
+      if (!pkgSnap.exists || !pkgSnap.data()!.isPublished) {
+        dirty = true; // deleted/unpublished since being added
+        continue;
+      }
+      const pkgData = pkgSnap.data()!;
+      if (await isPackageFullyOwned(uid, pkgData)) {
+        dirty = true; // every included item already owned since being added
+        continue;
+      }
+      items.push({
+        itemType: 'package',
+        itemId: entry.itemId,
+        title: pkgData.name,
+        price: pkgData.price ?? 0,
+        originalPrice: pkgData.originalPrice ?? null,
+        currency: pkgData.currency ?? 'INR',
+        totalQuestions: 0,
+      });
+      continue;
+    }
     const [itemSnap, purchaseSnap] = await Promise.all([
       db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get(),
       db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get(),
@@ -167,7 +206,7 @@ async function getCart(uid: string) {
   return summarize(uid);
 }
 
-const addItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) });
+const addItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest', 'package']), itemId: z.string().min(1) });
 
 async function addItem(uid: string, body: unknown) {
   const parsed = addItemSchema.safeParse(body);
@@ -181,8 +220,13 @@ async function addItem(uid: string, body: unknown) {
   const itemCurrency: Currency = itemData.currency ?? 'INR';
   if (price <= 0) throw Err.invalidArgument('This item is free, no need to add it to your cart');
 
-  const purchaseSnap = await db.collection('purchases').doc(`${uid}_${itemType}_${itemId}`).get();
-  if (purchaseSnap.exists) throw Err.conflict('You already own this item');
+  // A package never has its own purchase doc — "already own" means every
+  // included item is already owned (see isPackageFullyOwned).
+  const alreadyOwned =
+    itemType === 'package'
+      ? await isPackageFullyOwned(uid, itemData)
+      : (await db.collection('purchases').doc(`${uid}_${itemType}_${itemId}`).get()).exists;
+  if (alreadyOwned) throw Err.conflict('You already own this item');
 
   const ref = db.collection('carts').doc(uid);
   const snap = await ref.get();
@@ -269,6 +313,86 @@ async function removeCoupon(uid: string) {
   const snap = await ref.get();
   if (snap.exists) await ref.update({ couponCode: null, updatedAt: Timestamp.now() });
   return summarize(uid);
+}
+
+// ---------------------------------------------------------------------------
+// Learner certification catalog — the "Choose Your Exam Preparation" home
+// page section groups packages under their certification, with per-learner
+// owned/in-cart state resolved server-side (never trusted from the client).
+// Folded into this file for the same 12-function-cap reasoning as the
+// wishlist actions below, and because resolving state needs exactly the
+// purchases/carts reads this file already has helpers for.
+// ---------------------------------------------------------------------------
+
+type PackageState = 'AVAILABLE' | 'IN_CART' | 'ACTIVE' | 'COMING_SOON' | 'UNAVAILABLE';
+
+async function getLearnerCatalog(uid: string) {
+  const [certSnap, pkgSnap, purchasesSnap, cartSnap] = await Promise.all([
+    db.collection('certifications').where('isPublished', '==', true).get(),
+    db.collection('packages').where('isPublished', '==', true).get(),
+    db.collection('purchases').where('userId', '==', uid).get(),
+    db.collection('carts').doc(uid).get(),
+  ]);
+
+  const ownedSet = new Set(purchasesSnap.docs.map((d) => `${d.data().itemType}_${d.data().itemId}`));
+  const cartItems = (cartSnap.exists ? (cartSnap.data()!.items as { itemType: ItemType; itemId: string }[]) : []);
+  const cartPackageIds = new Set(cartItems.filter((i) => i.itemType === 'package').map((i) => i.itemId));
+
+  // One batched read for every quiz/practiceTest referenced by any package,
+  // instead of a read per package per included item.
+  const allQuizIds = new Set<string>();
+  const allTestIds = new Set<string>();
+  for (const doc of pkgSnap.docs) {
+    for (const id of (doc.data().includedQuizIds ?? []) as string[]) allQuizIds.add(id);
+    for (const id of (doc.data().includedPracticeTestIds ?? []) as string[]) allTestIds.add(id);
+  }
+  const [quizDocs, testDocs] = await Promise.all([
+    db.getAll(...[...allQuizIds].map((id) => db.collection('quizzes').doc(id))),
+    db.getAll(...[...allTestIds].map((id) => db.collection('practiceTests').doc(id))),
+  ]);
+  const quizById = new Map(quizDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!]));
+  const testById = new Map(testDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!]));
+
+  const packagesByCert = new Map<string, Record<string, unknown>[]>();
+  for (const doc of pkgSnap.docs) {
+    const pkg = doc.data();
+    const includedQuizIds: string[] = pkg.includedQuizIds ?? [];
+    const includedPracticeTestIds: string[] = pkg.includedPracticeTestIds ?? [];
+    const hasAnyIncluded = includedQuizIds.length + includedPracticeTestIds.length > 0;
+    const allOwned =
+      hasAnyIncluded &&
+      includedQuizIds.every((id) => ownedSet.has(`quiz_${id}`)) &&
+      includedPracticeTestIds.every((id) => ownedSet.has(`practiceTest_${id}`));
+    const state: PackageState = allOwned ? 'ACTIVE' : cartPackageIds.has(doc.id) ? 'IN_CART' : 'AVAILABLE';
+    const aggregateTotalQuestions =
+      includedQuizIds.reduce((sum, id) => sum + (quizById.get(id)?.totalQuestions ?? 0), 0) +
+      includedPracticeTestIds.reduce((sum, id) => sum + (testById.get(id)?.totalQuestions ?? 0), 0);
+    const includedItems = [
+      ...includedQuizIds.map((id) => ({ itemType: 'quiz' as const, itemId: id, title: quizById.get(id)?.title ?? 'Mock Exam' })),
+      ...includedPracticeTestIds.map((id) => ({
+        itemType: 'practiceTest' as const,
+        itemId: id,
+        title: testById.get(id)?.title ?? 'Practice Test',
+      })),
+    ];
+    const list = packagesByCert.get(pkg.certificationId as string) ?? [];
+    list.push({ id: doc.id, ...pkg, state, aggregateTotalQuestions, includedItems });
+    packagesByCert.set(pkg.certificationId as string, list);
+  }
+
+  const certifications = certSnap.docs
+    .map((d) => {
+      const packages = (packagesByCert.get(d.id) ?? []).sort(
+        (a, b) => ((a.displayOrder as number) ?? 0) - ((b.displayOrder as number) ?? 0)
+      );
+      return { id: d.id, ...d.data(), packages };
+    })
+    .sort(
+      (a, b) =>
+        ((a as { displayOrder?: number }).displayOrder ?? 0) - ((b as { displayOrder?: number }).displayOrder ?? 0)
+    );
+
+  return { certifications };
 }
 
 // ---------------------------------------------------------------------------
@@ -359,8 +483,14 @@ async function getWishlist(uid: string) {
   return hydrateWishlist(uid);
 }
 
+// Wishlist deliberately never supports 'package' (out of scope this
+// phase — see PackageDoc's own comment) — its own narrower schema instead
+// of reusing addItemSchema, since hydrateWishlist reads `title` off the
+// item doc and a PackageDoc has no such field (it's `name`).
+const wishlistItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) });
+
 async function addWishlistItem(uid: string, body: unknown) {
-  const parsed = addItemSchema.safeParse(body);
+  const parsed = wishlistItemSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { itemType, itemId } = parsed.data;
 
@@ -386,7 +516,7 @@ async function addWishlistItem(uid: string, body: unknown) {
 }
 
 async function removeWishlistItem(uid: string, body: unknown) {
-  const parsed = addItemSchema.safeParse(body);
+  const parsed = wishlistItemSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { itemType, itemId } = parsed.data;
 
@@ -432,6 +562,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyPurchases':
         res.status(200).json(await listMyPurchases(uid));
+        return;
+      case 'getLearnerCatalog':
+        res.status(200).json(await getLearnerCatalog(uid));
         return;
       case 'getWishlist':
         res.status(200).json(await getWishlist(uid));

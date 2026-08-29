@@ -88,20 +88,28 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
     throw Err.failedPrecondition('This quiz has not opened yet');
   }
 
-  const existing = await db.collection('quizAttempts').where('userId', '==', uid).where('quizId', '==', quizId).limit(1).get();
-  if (!existing.empty) {
-    const attempt = existing.docs[0].data();
-    if (attempt.status === 'in_progress' && (attempt.expiresAt as Timestamp).toMillis() > now.toMillis()) {
-      return { attemptId: existing.docs[0].id, attempt, resumed: true };
+  // Real attempt-count gate (see QuizDoc.maxAttempts) — replaces what used
+  // to be an "any prior attempt blocks a new one" check. Fetches every
+  // attempt for this (uid, quizId) rather than just the most recent one, so
+  // the count below is accurate.
+  const existing = await db.collection('quizAttempts').where('userId', '==', uid).where('quizId', '==', quizId).get();
+  const inProgress = existing.docs.find((d) => d.data().status === 'in_progress');
+  if (inProgress) {
+    const attempt = inProgress.data();
+    if ((attempt.expiresAt as Timestamp).toMillis() > now.toMillis()) {
+      return { attemptId: inProgress.id, attempt, resumed: true };
     }
-    if (attempt.status === 'in_progress') {
-      // Expired but never finalized (e.g. the tab was closed) — auto-submit
-      // it now so the student sees why they can't restart, rather than a
-      // silently stuck attempt.
-      await finalizeAttempt(existing.docs[0].id, 'auto_submitted');
-      throw Err.failedPrecondition('Your previous attempt timed out and was submitted automatically');
-    }
-    throw Err.failedPrecondition('You have already attempted this quiz');
+    // Expired but never finalized (e.g. the tab was closed) — auto-submit
+    // it now so the student sees why they can't restart, rather than a
+    // silently stuck attempt.
+    await finalizeAttempt(inProgress.id, 'auto_submitted');
+    throw Err.failedPrecondition('Your previous attempt timed out and was submitted automatically');
+  }
+  const maxAttempts: number = quiz.maxAttempts ?? 1;
+  if (existing.size >= maxAttempts) {
+    throw Err.failedPrecondition(
+      maxAttempts === 1 ? 'You have already attempted this quiz' : `You have used all ${maxAttempts} attempts for this quiz`
+    );
   }
 
   const totalMinutes =

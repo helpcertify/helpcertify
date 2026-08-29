@@ -6,10 +6,10 @@ import { useCheckout } from '@/features/students/hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
 import { ProductCardShell } from './ProductCardShell';
-import type { PurchasableItemType } from '@/types/models';
-
 export interface CarouselItem {
-  itemType: PurchasableItemType;
+  // Never 'package' — a carousel item is always one flat quiz/practiceTest;
+  // packages render via CertificationCard instead.
+  itemType: 'quiz' | 'practiceTest';
   id: string;
   title: string;
   category: string;

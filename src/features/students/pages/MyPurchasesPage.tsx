@@ -6,10 +6,13 @@ import { cartApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { toDate } from '@/utils/formatDate';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
-import type { PurchasableItemType } from '@/types/models';
 
 interface PurchasedItem {
-  itemType: PurchasableItemType;
+  // A purchase doc is never itemType 'package' — buying a package fans out
+  // to one purchase doc per included quiz/practiceTest instead (see
+  // PackageDoc's own comment in src/types/models.ts), so this page only
+  // ever deals with the two flat item types.
+  itemType: 'quiz' | 'practiceTest';
   id: string;
   title: string;
   category: string;
@@ -37,7 +40,12 @@ export function MyPurchasesPage() {
   const { data: items, isLoading } = useQuery({
     queryKey: ['student', 'purchasedItems', purchases?.purchases],
     queryFn: async (): Promise<PurchasedItem[]> => {
-      const list = purchases?.purchases ?? [];
+      // Defensive filter, not just a type narrowing — a purchase doc should
+      // never be itemType 'package', but this guards against ever silently
+      // mis-rendering one as a practice test if that ever changed.
+      const list = (purchases?.purchases ?? []).filter(
+        (p): p is typeof p & { itemType: 'quiz' | 'practiceTest' } => p.itemType === 'quiz' || p.itemType === 'practiceTest'
+      );
       const results = await Promise.all(
         list.map(async (p) => {
           const collectionName = p.itemType === 'quiz' ? 'quizzes' : 'practiceTests';

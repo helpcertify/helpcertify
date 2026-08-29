@@ -268,6 +268,12 @@ export interface QuizDoc {
   // this field (api/quiz-session.ts's previewCheckAnswer falls back the
   // same way).
   previewQuestionCount: number;
+  // How many separate attempts a student may start for this quiz — real
+  // field replacing what used to be a hardcoded "1 attempt" assumption on
+  // the student home page and an "any prior attempt blocks a new one" gate
+  // in api/quiz-session.ts. Defaults to 1 on docs that predate this field,
+  // which preserves the exact old behavior.
+  maxAttempts: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -323,7 +329,76 @@ export interface PracticeTestDoc {
   updatedAt: Timestamp;
 }
 
-export type PurchasableItemType = 'quiz' | 'practiceTest';
+// Small, fixed, admin-picked icon set for a certification card — not a
+// free-text URL, so there's no image-upload plumbing to add this phase
+// (blob-upload.ts already holds one of the 12 api/*.ts slots and isn't
+// being extended for this) and no risk of a broken/missing image if an
+// admin mistypes a URL. Each key renders to an emoji/SVG already shipped
+// in the bundle (see CertificationCard.tsx).
+export const CERTIFICATION_ICON_KEYS = ['shield', 'cloud', 'network', 'chart', 'generic'] as const;
+export type CertificationIconKey = (typeof CERTIFICATION_ICON_KEYS)[number];
+
+/** certifications/{certificationId} — the grouping entity a learner
+ * actually shops for ("CISM Preparation"), one level above the individual
+ * quizzes/practiceTests that make up its packages. Admin-managed (curl-only
+ * this phase, no admin UI yet — see api/content-admin.ts). */
+export interface CertificationDoc {
+  name: string;
+  // Reuses the existing vendor enum rather than a new "provider" field —
+  // every QuizDoc/PracticeTestDoc already tags `category` the same way.
+  provider: CertificationCategory;
+  description: string;
+  iconKey: CertificationIconKey;
+  isPublished: boolean;
+  // Admin-controlled ordering on the learner home page; ties broken by
+  // createdAt.
+  displayOrder: number;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** packages/{packageId} — a purchasable bundle under one certification
+ * ("Mock Exams", "Practice Questions", "Complete"). Deliberately just a
+ * *reference* to existing quizzes/practiceTests, not a new entitlement
+ * type of its own: buying a package fans out to the exact same
+ * `purchases/{uid}_{itemType}_{itemId}` docs an individual purchase would
+ * create (see api/checkout.ts's finalizeOrder), so every existing
+ * paywall gate (api/quiz-session.ts, api/practice-session.ts) and every
+ * student page's owned-item check keeps working completely unmodified —
+ * a package purchase is indistinguishable from buying each included item
+ * one at a time. No `purchases/{uid}_package_{packageId}` doc is ever
+ * written; a package is a checkout-time bundle, not its own access grant. */
+export interface PackageDoc {
+  certificationId: string;
+  name: string;
+  // null = no badge shown. Admin freeform text ("Best Value", "Most
+  // Popular") rather than a fixed enum, matching how flexible marketing
+  // copy usually needs to be.
+  badgeText: string | null;
+  // At most one package per certification should have this true — enforced
+  // in api/content-admin.ts's createPackage/updatePackage (unsets any
+  // sibling's flag in the same write), not at the Firestore layer.
+  isRecommended: boolean;
+  description: string;
+  includedQuizIds: string[];
+  includedPracticeTestIds: string[];
+  // See QuizDoc's price/originalPrice/currency comment — same convention:
+  // paise/cents, price is charged, originalPrice is a static "regular
+  // price" shown struck through with no time window (a scheduled offer is
+  // explicitly out of scope this phase).
+  price: number;
+  originalPrice: number | null;
+  currency: 'INR' | 'USD';
+  isPublished: boolean;
+  // Ordering within a certification's package-selector row.
+  displayOrder: number;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type PurchasableItemType = 'quiz' | 'practiceTest' | 'package';
 
 /** carts/{uid} — one cart per student. Items never store a price; the
  * price is always re-read live from the quiz/practiceTest doc so an admin
@@ -429,6 +504,12 @@ export interface PurchaseDoc {
   itemId: string;
   orderId: string;
   purchasedAt: Timestamp;
+  // Set only when this purchase doc was written as part of a Package's
+  // fan-out (see PackageDoc) rather than a direct individual purchase —
+  // purely for audit/display ("unlocked via the CISA Complete package"),
+  // never read by any entitlement gate. Absent on every purchase made
+  // before packages existed, and on every direct (non-package) purchase.
+  sourcePackageId?: string;
 }
 
 /** reviews/{uid}_{itemType}_{itemId} — one student's rating/review of one

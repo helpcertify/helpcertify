@@ -1,8 +1,8 @@
 import { callAction } from '@/lib/vercelApi';
-import type { PurchasableItemType } from '@/types/models';
 
 export interface WishlistItemView {
-  itemType: PurchasableItemType;
+  // Never 'package' — see api/cart.ts's wishlistItemSchema for why.
+  itemType: 'quiz' | 'practiceTest';
   itemId: string;
   title: string;
   category: string;
@@ -27,8 +27,8 @@ export interface WishlistItemView {
 // switch statement.
 export const wishlistApi = {
   getWishlist: () => callAction<{ items: WishlistItemView[] }>('cart', 'getWishlist'),
-  addItem: (itemType: PurchasableItemType, itemId: string) =>
+  addItem: (itemType: 'quiz' | 'practiceTest', itemId: string) =>
     callAction<{ items: WishlistItemView[] }>('cart', 'addWishlistItem', { itemType, itemId }),
-  removeItem: (itemType: PurchasableItemType, itemId: string) =>
+  removeItem: (itemType: 'quiz' | 'practiceTest', itemId: string) =>
     callAction<{ items: WishlistItemView[] }>('cart', 'removeWishlistItem', { itemType, itemId }),
 };

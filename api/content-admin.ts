@@ -52,6 +52,7 @@ const Err = {
   permissionDenied: (m = 'You do not have permission to perform this action') => new HttpError(403, m),
   notFound: (m = 'Resource not found') => new HttpError(404, m),
   invalidArgument: (m: string, details?: unknown) => new HttpError(422, m, details),
+  failedPrecondition: (m: string) => new HttpError(409, m),
 };
 
 async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
@@ -429,6 +430,9 @@ const createQuizSchema = z.object({
   // being asked to purchase — admin's choice per quiz, not a fixed
   // platform-wide number. 0 disables the free preview entirely.
   previewQuestionCount: z.number().int().min(0).max(200).default(5),
+  // How many separate attempts a student may start for this quiz.
+  // Defaults to 1, preserving the old single-attempt behavior.
+  maxAttempts: z.number().int().min(1).max(50).default(1),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -467,6 +471,7 @@ async function createQuiz(uid: string, body: unknown) {
     ratingCount: 0,
     passMarkPercent: d.passMarkPercent,
     previewQuestionCount: d.previewQuestionCount,
+    maxAttempts: d.maxAttempts,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -502,6 +507,7 @@ const updateQuizSchema = z.object({
   description: z.string().trim().max(5000).optional(),
   passMarkPercent: z.number().int().min(1).max(100).optional(),
   previewQuestionCount: z.number().int().min(0).max(200).optional(),
+  maxAttempts: z.number().int().min(1).max(50).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -810,6 +816,296 @@ async function updatePracticeTestQuestion(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { testId, ...d } = parsed.data;
   return updateQuestionCommon(uid, 'practiceTests', testId, d);
+}
+
+// ---------------------------------------------------------------------------
+// Certification / Package actions (curl-only this phase — no admin UI yet;
+// grouping entity for the learner home page's "Certification -> Packages"
+// redesign. See src/types/models.ts's CertificationDoc/PackageDoc for the
+// full design rationale — a Package is purely a bundle reference to
+// existing quizzes/practiceTests, never its own entitlement type.
+// ---------------------------------------------------------------------------
+
+// Duplicated from src/types/models.ts's CERTIFICATION_ICON_KEYS — same
+// no-shared-code reasoning as SKILL_LEVELS above.
+const CERTIFICATION_ICON_KEYS = ['shield', 'cloud', 'network', 'chart', 'generic'] as const;
+
+const createCertificationSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  provider: z.string().trim().min(1).max(100).default('Other'),
+  description: z.string().trim().max(2000).default(''),
+  iconKey: z.enum(CERTIFICATION_ICON_KEYS).default('generic'),
+  displayOrder: z.number().int().min(0).default(0),
+});
+
+async function createCertification(uid: string, body: unknown) {
+  const parsed = createCertificationSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('certifications').doc();
+  await ref.set({
+    name: d.name,
+    provider: d.provider,
+    description: d.description,
+    iconKey: d.iconKey,
+    isPublished: true,
+    displayOrder: d.displayOrder,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'createCertification',
+    targetType: 'certification',
+    targetId: ref.id,
+    description: `Created certification "${d.name}"`,
+  });
+  return { certificationId: ref.id };
+}
+
+const updateCertificationSchema = z.object({
+  certificationId: z.string().min(1),
+  name: z.string().trim().min(2).max(200).optional(),
+  provider: z.string().trim().min(1).max(100).optional(),
+  description: z.string().trim().max(2000).optional(),
+  iconKey: z.enum(CERTIFICATION_ICON_KEYS).optional(),
+  isPublished: z.boolean().optional(),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
+async function updateCertification(uid: string, body: unknown) {
+  const parsed = updateCertificationSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId, ...rest } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+
+  await ref.update({ ...rest, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updateCertification',
+    targetType: 'certification',
+    targetId: certificationId,
+    description: `Updated certification "${snap.data()?.name}"`,
+  });
+  return { success: true };
+}
+
+const certificationIdSchema = z.object({ certificationId: z.string().min(1) });
+
+async function deleteCertification(uid: string, body: unknown) {
+  const parsed = certificationIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+
+  // Refuse a cascading delete on a curl-only surface with no confirmation
+  // UI — an admin must delete/reassign the dependent packages first.
+  const dependentPackages = await db.collection('packages').where('certificationId', '==', certificationId).get();
+  if (!dependentPackages.empty) {
+    const names = dependentPackages.docs.map((d) => d.data().name).join(', ');
+    throw Err.failedPrecondition(`Delete the dependent package(s) first: ${names}`);
+  }
+
+  await ref.delete();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'deleteCertification',
+    targetType: 'certification',
+    targetId: certificationId,
+    description: `Deleted certification "${snap.data()?.name}"`,
+  });
+  return { success: true };
+}
+
+async function listCertificationsAdmin() {
+  const snap = await db.collection('certifications').orderBy('displayOrder').get();
+  return { certifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+const createPackageSchema = z.object({
+  certificationId: z.string().min(1),
+  name: z.string().trim().min(2).max(200),
+  badgeText: z.string().trim().max(60).nullable().optional(),
+  isRecommended: z.boolean().default(false),
+  description: z.string().trim().max(2000).default(''),
+  includedQuizIds: z.array(z.string().min(1)).default([]),
+  includedPracticeTestIds: z.array(z.string().min(1)).default([]),
+  price: z.number().int().min(1),
+  originalPrice: z.number().int().min(0).nullable().optional(),
+  currency: z.enum(['INR', 'USD']).default('INR'),
+  displayOrder: z.number().int().min(0).default(0),
+});
+
+// Shared by createPackage/updatePackage: confirms the certification and
+// every included item actually exist, and — if this package is being set
+// as the recommended one — unsets any sibling's isRecommended flag in the
+// same batch (at most one recommended package per certification is an
+// application-level invariant, not a Firestore constraint).
+async function validatePackageRefsAndClearSiblingRecommended(
+  certificationId: string,
+  includedQuizIds: string[],
+  includedPracticeTestIds: string[],
+  makeRecommended: boolean,
+  excludePackageId: string | null,
+  batch: FirebaseFirestore.WriteBatch
+) {
+  const certSnap = await db.collection('certifications').doc(certificationId).get();
+  if (!certSnap.exists) throw Err.invalidArgument('certificationId does not reference an existing certification');
+
+  if (includedQuizIds.length === 0 && includedPracticeTestIds.length === 0) {
+    throw Err.invalidArgument('A package must include at least one quiz or practice test');
+  }
+  const [quizSnaps, testSnaps] = await Promise.all([
+    db.getAll(...includedQuizIds.map((id) => db.collection('quizzes').doc(id))),
+    db.getAll(...includedPracticeTestIds.map((id) => db.collection('practiceTests').doc(id))),
+  ]);
+  const missingQuiz = quizSnaps.find((s) => !s.exists);
+  if (missingQuiz) throw Err.invalidArgument(`includedQuizIds references a quiz that does not exist: ${missingQuiz.id}`);
+  const missingTest = testSnaps.find((s) => !s.exists);
+  if (missingTest) throw Err.invalidArgument(`includedPracticeTestIds references a practice test that does not exist: ${missingTest.id}`);
+
+  if (makeRecommended) {
+    const siblings = await db.collection('packages').where('certificationId', '==', certificationId).where('isRecommended', '==', true).get();
+    for (const sibling of siblings.docs) {
+      if (sibling.id !== excludePackageId) batch.update(sibling.ref, { isRecommended: false });
+    }
+  }
+}
+
+async function createPackage(uid: string, body: unknown) {
+  const parsed = createPackageSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const batch = db.batch();
+  await validatePackageRefsAndClearSiblingRecommended(d.certificationId, d.includedQuizIds, d.includedPracticeTestIds, d.isRecommended, null, batch);
+
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('packages').doc();
+  batch.set(ref, {
+    certificationId: d.certificationId,
+    name: d.name,
+    badgeText: d.badgeText ?? null,
+    isRecommended: d.isRecommended,
+    description: d.description,
+    includedQuizIds: d.includedQuizIds,
+    includedPracticeTestIds: d.includedPracticeTestIds,
+    price: d.price,
+    originalPrice: d.originalPrice ?? null,
+    currency: d.currency,
+    isPublished: true,
+    displayOrder: d.displayOrder,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await batch.commit();
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'createPackage',
+    targetType: 'package',
+    targetId: ref.id,
+    description: `Created package "${d.name}" under certification ${d.certificationId}`,
+  });
+  return { packageId: ref.id };
+}
+
+const updatePackageSchema = z.object({
+  packageId: z.string().min(1),
+  name: z.string().trim().min(2).max(200).optional(),
+  badgeText: z.string().trim().max(60).nullable().optional(),
+  isRecommended: z.boolean().optional(),
+  description: z.string().trim().max(2000).optional(),
+  includedQuizIds: z.array(z.string().min(1)).optional(),
+  includedPracticeTestIds: z.array(z.string().min(1)).optional(),
+  price: z.number().int().min(1).optional(),
+  originalPrice: z.number().int().min(0).nullable().optional(),
+  currency: z.enum(['INR', 'USD']).optional(),
+  isPublished: z.boolean().optional(),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
+async function updatePackage(uid: string, body: unknown) {
+  const parsed = updatePackageSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { packageId, ...rest } = parsed.data;
+
+  const ref = db.collection('packages').doc(packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const existing = snap.data()!;
+
+  const batch = db.batch();
+  const nextIncludedQuizIds = rest.includedQuizIds ?? existing.includedQuizIds;
+  const nextIncludedPracticeTestIds = rest.includedPracticeTestIds ?? existing.includedPracticeTestIds;
+  const nextIsRecommended = rest.isRecommended ?? existing.isRecommended;
+  await validatePackageRefsAndClearSiblingRecommended(
+    existing.certificationId,
+    nextIncludedQuizIds,
+    nextIncludedPracticeTestIds,
+    nextIsRecommended,
+    packageId,
+    batch
+  );
+
+  batch.update(ref, { ...rest, updatedAt: FieldValue.serverTimestamp() });
+  await batch.commit();
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updatePackage',
+    targetType: 'package',
+    targetId: packageId,
+    description: `Updated package "${existing.name}"`,
+  });
+  return { success: true };
+}
+
+const packageIdSchema = z.object({ packageId: z.string().min(1) });
+
+async function deletePackage(uid: string, body: unknown) {
+  const parsed = packageIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+
+  await ref.delete();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'deletePackage',
+    targetType: 'package',
+    targetId: parsed.data.packageId,
+    description: `Deleted package "${snap.data()?.name}"`,
+  });
+  return { success: true };
+}
+
+const listPackagesAdminSchema = z.object({ certificationId: z.string().min(1).optional() });
+
+async function listPackagesAdmin(body: unknown) {
+  const parsed = listPackagesAdminSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  // Filtered-by-certification case is an equality-only query (no orderBy
+  // chained onto it — that combination needs a composite index this repo
+  // doesn't provision); sorted in memory instead, same convention as
+  // api/checkout.ts's monthly-referral-cap count.
+  const snap = parsed.data.certificationId
+    ? await db.collection('packages').where('certificationId', '==', parsed.data.certificationId).get()
+    : await db.collection('packages').orderBy('displayOrder').get();
+  const packages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  if (parsed.data.certificationId) packages.sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 0) - ((b as { displayOrder?: number }).displayOrder ?? 0));
+  return { packages };
 }
 
 // ---------------------------------------------------------------------------
