@@ -90,12 +90,18 @@ export function LoginPage() {
             {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
-              Password
-            </label>
+            <div className="mb-1 flex items-center justify-between">
+              <label htmlFor="password" className="block text-sm font-medium text-ink-muted">
+                Password
+              </label>
+              <Link to="/forgot-password" className="text-xs text-brand-ink underline">
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
               {...register('password')}
             />

@@ -13,6 +13,8 @@ export function friendlyAuthError(err: unknown, fallback: string): string {
         return 'An account with this email already exists. Try logging in instead.';
       case 'auth/invalid-email':
         return 'That email address looks invalid.';
+      case 'auth/missing-email':
+        return 'Enter your email address first.';
       case 'auth/weak-password':
         return 'Choose a stronger password (at least 8 characters).';
       case 'auth/wrong-password':
