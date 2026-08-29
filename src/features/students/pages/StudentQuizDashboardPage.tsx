@@ -1,16 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { resultsApi } from '@/features/admin/api/resultsApi';
+import { resultsApi, certificatesApi } from '@/features/admin/api/resultsApi';
+import { CertificateReadyPanel } from '@/components/common/CertificateReadyPanel';
 
 // Reuses the same "Learner Results" table shape as the admin Performance
 // page, scoped to just the signed-in learner's own attempt (their rank
 // within the full leaderboard, but only their own row is returned/shown).
+// Doubles as this quiz's results page — the certificate panel below issues
+// (or idempotently re-fetches) a completion certificate the moment this
+// page loads for a passed, submitted attempt; a not-yet-eligible attempt
+// (still in progress, or below the pass mark) just never shows the panel,
+// no error surfaced for that entirely expected case.
 export function StudentQuizDashboardPage() {
   const { quizId } = useParams<{ quizId: string }>();
   const { data, isLoading } = useQuery({
     queryKey: ['student', 'myResult', quizId],
     queryFn: () => resultsApi.getMyResultForQuiz(quizId!),
     enabled: !!quizId,
+  });
+
+  const { data: certData } = useQuery({
+    queryKey: ['student', 'certificate', 'quiz', quizId, data?.attempt.id],
+    queryFn: () => certificatesApi.issueOrGetCertificate('quiz', quizId!, data!.attempt.id),
+    enabled: !!quizId && !!data?.attempt.id,
+    retry: false,
   });
 
   return (
@@ -20,6 +33,7 @@ export function StudentQuizDashboardPage() {
       </Link>
       <h1 className="mb-1 text-2xl font-bold text-ink">Learner Dashboard</h1>
       {isLoading && <p className="text-ink-faint">Loading…</p>}
+      {certData && <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />}
       {data && (
         <>
           <p className="mb-4 text-sm text-ink-faint">{data.attempt.quizTitle}</p>

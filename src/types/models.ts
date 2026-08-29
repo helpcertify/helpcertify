@@ -258,9 +258,10 @@ export interface QuizDoc {
   ratingAvg: number;
   ratingCount: number;
   // Minimum percent of correctCount/totalQuestions needed for a submitted
-  // attempt to count as "passed" — the only thing certificate eligibility
-  // (src/utils/certificate.ts) checks for a quiz. Defaults to 60 on docs
-  // that predate this field.
+  // attempt to count as "passed" — what api/results.ts's
+  // issueOrGetCertificate checks before issuing a quiz completion
+  // certificate (see CertificateDoc). Defaults to 60 on docs that predate
+  // this field.
   passMarkPercent: number;
   // How many of the first (by `order`) questions a non-buyer can try for
   // free before being asked to purchase — admin-configurable per quiz at
@@ -862,4 +863,64 @@ export interface AdminLogDoc {
   previousValue?: unknown;
   newValue?: unknown;
   reason?: string;
+}
+
+export type CertificateSourceType = 'quiz' | 'practiceTest';
+export type CertificateStatus = 'issued' | 'revoked' | 'superseded' | 'invalid';
+
+/** certificates/{certificateId} — a learner's completion certificate for
+ * one finished, eligible quiz attempt or practice-test completion. Doc id
+ * is a Firestore auto-id (not a predictable/sequential value — see item
+ * "Prevent predictable database IDs" in the spec this was built against),
+ * used directly as the public Certificate ID shown on the PDF, in the
+ * download filename, and in the /verify/:certificateId URL/QR code.
+ *
+ * Every field the PDF renders is snapshotted here at issuance time from
+ * server-trusted sources only (the users/{uid} doc for the name, the
+ * graded quizAttempts/practiceProgress doc for the score/completion data)
+ * — never re-derived from, or trusted from, a client request at download
+ * time. api/results.ts's issueOrGetCertificate is the only writer.
+ *
+ * Idempotency: `sourceAttemptKey` is a deterministic string
+ * (`{learnerUid}_{sourceType}_{sourceId}_{attemptId}`) checked via an
+ * equality-filter query before every issuance — a repeat request for the
+ * same completed attempt returns the existing doc instead of minting a
+ * second certificate, while a genuinely new attempt (a fresh quizAttempts
+ * doc, since QuizDoc.maxAttempts allows more than one) gets its own. */
+export interface CertificateDoc {
+  learnerUid: string;
+  learnerName: string;
+  sourceType: CertificateSourceType;
+  sourceId: string;
+  sourceTitle: string;
+  // Best-effort "which certification track this prepares for" label
+  // (PracticeTestDoc.examName, falling back to category) — display only.
+  certificationName: string;
+  attemptId: string;
+  attemptNumber: number;
+  questionsCompleted: number;
+  totalQuestions: number;
+  // null for a practice-test certificate — practice has no pass/fail score,
+  // only a completion state (see PracticeTestDoc's own "no pass/fail
+  // concept" comment elsewhere in this file).
+  scoreCorrect: number | null;
+  completionPercent: number;
+  passMarkPercent: number | null;
+  completedAt: Timestamp;
+  durationSeconds: number | null;
+  status: CertificateStatus;
+  revokedAt: Timestamp | null;
+  revokedReason: string | null;
+  sourceAttemptKey: string;
+  createdAt: Timestamp;
+}
+
+/** certificateAccessLogs/{logId} — one doc per view/download/verify, kept
+ * separate from adminLogs since this is a learner (and, for verify,
+ * possibly anonymous) action, not an admin one. */
+export interface CertificateAccessLogDoc {
+  certificateId: string;
+  learnerUid: string | null; // null for an anonymous public verification
+  action: 'view' | 'download' | 'verify';
+  createdAt: Timestamp;
 }

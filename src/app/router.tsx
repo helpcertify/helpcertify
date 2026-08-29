@@ -22,6 +22,8 @@ import { QuizDetailPage } from '@/features/students/pages/QuizDetailPage';
 import { PracticeTestDetailPage } from '@/features/students/pages/PracticeTestDetailPage';
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
+import { MyCertificatesPage } from '@/features/students/pages/MyCertificatesPage';
+import { VerifyCertificatePage } from '@/features/students/pages/VerifyCertificatePage';
 import { CartPage } from '@/features/students/pages/CartPage';
 import { MyPurchasesPage } from '@/features/students/pages/MyPurchasesPage';
 import { WishlistPage } from '@/features/students/pages/WishlistPage';
@@ -48,6 +50,10 @@ export function AppRouter() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/privacy" element={<LegalPlaceholderPage title="Privacy Policy" />} />
       <Route path="/terms" element={<LegalPlaceholderPage title="Terms of Service" />} />
+      {/* Public certificate verification — no login required, matching how
+          a real credential-verification page works for a third party
+          checking a certificate a learner shared with them. */}
+      <Route path="/verify/:certificateId" element={<VerifyCertificatePage />} />
 
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route element={<StudentShell />}>
@@ -55,6 +61,7 @@ export function AppRouter() {
           <Route path="/home/mock-exams" element={<MockExamsPage />} />
           <Route path="/home/past-quizzes" element={<PastQuizzesPage />} />
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
+          <Route path="/home/certificates" element={<MyCertificatesPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
           <Route path="/home/quizzes/:quizId" element={<QuizDetailPage />} />
           {/* Goal-setup lives inline on the detail page itself (opened via

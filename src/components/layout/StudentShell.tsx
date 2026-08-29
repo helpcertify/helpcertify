@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { to: '/home/practice-tests', label: 'Practice Exams' },
   { to: '/home/mock-exams', label: 'Mock Exams' },
   { to: '/home/past-quizzes', label: 'My Attempts' },
+  { to: '/home/certificates', label: 'My Certificates' },
   { to: '/home/purchases', label: 'Billing & Orders' },
   { to: '/home/wishlist', label: 'Saved Items' },
 ];

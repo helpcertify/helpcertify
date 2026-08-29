@@ -9,6 +9,8 @@ import { practiceSessionApi, type BatchReviewQuestion, type PracticeSessionState
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { CertificateReadyPanel } from '@/components/common/CertificateReadyPanel';
+import { certificatesApi } from '@/features/admin/api/resultsApi';
 import { VercelApiError } from '@/lib/vercelApi';
 import { toDate } from '@/utils/formatDate';
 import { computeExamDatePlan, questionsPerDayFromMinutes, buildDailyAnsweredMap, dateKey } from '../lib/studyPlan';
@@ -272,7 +274,12 @@ export function PracticeTakingPage() {
 
   if (review) {
     return (
-      <PracticeReviewScreen review={review} onDone={() => navigate('/home/practice-tests')} />
+      <PracticeReviewScreen
+        review={review}
+        testId={testId!}
+        testTotalQuestions={test?.totalQuestions ?? review.summary.totalQuestions}
+        onDone={() => navigate('/home/practice-tests')}
+      />
     );
   }
 
@@ -665,6 +672,8 @@ type ReviewFilter = 'all' | 'correct' | 'incorrect';
 // ever revealed (see getBatchReview's own in_progress guard server-side).
 function PracticeReviewScreen({
   review,
+  testId,
+  testTotalQuestions,
   onDone,
 }: {
   review: {
@@ -673,10 +682,36 @@ function PracticeReviewScreen({
     newPersonalBest: boolean;
     bestStreak: number;
   };
+  testId: string;
+  // The whole test bank's question count — distinct from
+  // review.summary.totalQuestions, which is only this one batch's size.
+  // Certificate eligibility is whole-test coverage, not one batch.
+  testTotalQuestions: number;
   onDone: () => void;
 }) {
   const [filter, setFilter] = useState<ReviewFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(review.questions[0]?.questionId ?? null);
+  const uid = useAuthStore((s) => s.firebaseUser?.uid);
+
+  // Certificate eligibility is the *whole test's* coverage (every
+  // currently-published question answered at least once across every past
+  // session), not just this one batch's summary — re-read fresh here since
+  // this batch's submit may be exactly what pushed the test to 100%.
+  const { data: overallAnsweredCount } = useQuery({
+    queryKey: ['student', 'practiceOverallAnswered', uid, testId],
+    queryFn: async () => {
+      const snap = await getDoc(doc(db, 'practiceProgress', `${uid}_${testId}`));
+      return snap.exists() ? ((snap.data().answeredQuestionIds as string[] | undefined)?.length ?? 0) : 0;
+    },
+    enabled: !!uid && !!testId,
+  });
+  const isFullyComplete = !!overallAnsweredCount && overallAnsweredCount >= testTotalQuestions;
+  const { data: certData } = useQuery({
+    queryKey: ['student', 'certificate', 'practiceTest', testId],
+    queryFn: () => certificatesApi.issueOrGetCertificate('practiceTest', testId),
+    enabled: isFullyComplete,
+    retry: false,
+  });
 
   const accuracy = review.summary.answeredCount > 0 ? Math.round((review.summary.correctCount / review.summary.answeredCount) * 100) : 0;
   const filtered = review.questions.filter((q) => {
@@ -697,6 +732,7 @@ function PracticeReviewScreen({
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-5xl">
+        {certData && <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />}
         <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
           <h1 className="mb-5 text-[22px] font-bold text-[#0F172A]">Practice Complete</h1>
           <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Practice Momentum</div>

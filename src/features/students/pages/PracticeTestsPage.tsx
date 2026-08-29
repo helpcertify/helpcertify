@@ -5,6 +5,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
+import { certificatesApi } from '@/features/admin/api/resultsApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -21,24 +22,31 @@ function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
 }
 
-// jsPDF (certificate.ts) is a meaningful chunk of code that only a fraction
-// of visitors ever trigger — dynamically imported here rather than a static
-// top-level import, same pattern as PerformancePage.tsx's exportToExcel, so
-// it lands in its own lazy-loaded chunk instead of bloating the one bundle
-// this app ships (there's no route-level code splitting here at all).
-async function downloadCertificate(...args: Parameters<typeof import('@/utils/certificate').downloadCertificate>) {
-  const mod = await import('@/utils/certificate');
-  return mod.downloadCertificate(...args);
-}
-
 export function PracticeTestsPage() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
-  const profile = useAuthStore((s) => s.profile);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [buyNowTest, setBuyNowTest] = useState<(PracticeTestDoc & { id: string }) | null>(null);
   const [filters, setFilters] = useState(DEFAULT_EXAM_FILTERS);
+  const [downloadingCertId, setDownloadingCertId] = useState<string | null>(null);
+
+  // Real, server-issued certificate — never the old client-only jsPDF
+  // generator (fabricated a "certificate id" from a truncated test id, no
+  // persistence, no ownership check, no verification). Idempotent: issuing
+  // again for the same fully-completed test just returns the same
+  // certificate.
+  const handleDownloadCertificate = async (testId: string) => {
+    setDownloadingCertId(testId);
+    try {
+      const { certificate } = await certificatesApi.issueOrGetCertificate('practiceTest', testId);
+      await certificatesApi.downloadCertificatePdf(certificate.id);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Could not download the certificate', 'error');
+    } finally {
+      setDownloadingCertId(null);
+    }
+  };
 
   const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: progressDocs } = useQuery({
@@ -130,17 +138,8 @@ export function PracticeTestsPage() {
               paying={paying}
               onAddToCart={() => addToCartMutation.mutate(test.id)}
               onBuyNow={() => setBuyNowTest(test)}
-              onDownloadCertificate={() =>
-                downloadCertificate({
-                  studentName: profile?.name ?? 'Learner',
-                  itemTitle: test.title,
-                  itemType: 'practiceTest',
-                  category: test.category ?? 'Other',
-                  scoreLabel: '',
-                  dateLabel: new Date().toLocaleDateString(),
-                  certificateCode: test.id.slice(0, 8).toUpperCase(),
-                })
-              }
+              onDownloadCertificate={() => handleDownloadCertificate(test.id)}
+              downloadingCertificate={downloadingCertId === test.id}
             />
           ))}
         </div>
@@ -213,6 +212,7 @@ interface PracticeTestCardProps {
   onAddToCart: () => void;
   onBuyNow: () => void;
   onDownloadCertificate: () => void;
+  downloadingCertificate: boolean;
 }
 
 function PracticeTestCard({
@@ -225,6 +225,7 @@ function PracticeTestCard({
   onAddToCart,
   onBuyNow,
   onDownloadCertificate,
+  downloadingCertificate,
 }: PracticeTestCardProps) {
   const done = answered >= test.totalQuestions;
   const price = test.price ?? 0;
@@ -233,10 +234,11 @@ function PracticeTestCard({
   const primaryOwnedAction = done ? (
     <button
       type="button"
+      disabled={downloadingCertificate}
       onClick={onDownloadCertificate}
-      className="w-full rounded-lg border border-[#155EEF] py-1.5 text-sm font-semibold text-[#155EEF] hover:bg-[#F8FAFF]"
+      className="w-full rounded-lg border border-[#155EEF] py-1.5 text-sm font-semibold text-[#155EEF] hover:bg-[#F8FAFF] disabled:opacity-50"
     >
-      🎓 Download Certificate
+      {downloadingCertificate ? 'Preparing…' : '🎓 Download Certificate'}
     </button>
   ) : test.studyPlannerEnabled !== false ? (
     <Link

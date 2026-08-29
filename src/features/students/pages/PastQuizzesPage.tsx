@@ -1,23 +1,17 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { resultsApi } from '@/features/admin/api/resultsApi';
+import { resultsApi, certificatesApi } from '@/features/admin/api/resultsApi';
 import { getQuizById } from '../api/studentContentApi';
+import { useUiStore } from '@/store/useUiStore';
 
 const SUBMITTED_STATUSES = ['submitted', 'auto_submitted'];
 
-// jsPDF (certificate.ts) only fires for visitors who actually download a
-// certificate — dynamically imported so it lands in its own lazy chunk
-// instead of the one bundle this app ships, same pattern as
-// PerformancePage.tsx's exportToExcel and PracticeTestsPage.tsx's own copy
-// of this same wrapper.
-async function downloadCertificate(...args: Parameters<typeof import('@/utils/certificate').downloadCertificate>) {
-  const mod = await import('@/utils/certificate');
-  return mod.downloadCertificate(...args);
-}
-
 export function PastQuizzesPage() {
+  const pushToast = useUiStore((s) => s.pushToast);
   const { data } = useQuery({ queryKey: ['student', 'pastQuizzes'], queryFn: resultsApi.listResultsForStudent });
   const attempts = data?.attempts ?? [];
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Certificate eligibility needs each quiz's own passMarkPercent (not
   // stored on the attempt itself) — fetched once per unique quizId here
@@ -32,6 +26,22 @@ export function PastQuizzesPage() {
     },
     enabled: quizIds.length > 0,
   });
+
+  // Real, server-issued certificate — never the old client-only jsPDF
+  // generator (fabricated a "certificate id" from a truncated attempt id,
+  // no persistence, no ownership check, no verification). Idempotent:
+  // issuing again for the same attempt just returns the same certificate.
+  const handleDownloadCertificate = async (attemptId: string, quizId: string) => {
+    setDownloadingId(attemptId);
+    try {
+      const { certificate } = await certificatesApi.issueOrGetCertificate('quiz', quizId, attemptId);
+      await certificatesApi.downloadCertificatePdf(certificate.id);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Could not download the certificate', 'error');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div>
@@ -68,20 +78,11 @@ export function PastQuizzesPage() {
                     {passed && (
                       <button
                         type="button"
-                        onClick={() =>
-                          downloadCertificate({
-                            studentName: a.userName,
-                            itemTitle: a.quizTitle,
-                            itemType: 'quiz',
-                            category: quiz?.category ?? 'Other',
-                            scoreLabel: `${Math.round(scorePercent)}% (${a.correctCount}/${a.totalQuestions} correct)`,
-                            dateLabel: new Date().toLocaleDateString(),
-                            certificateCode: a.id.slice(0, 8).toUpperCase(),
-                          })
-                        }
-                        className="rounded-lg border border-brand-400 px-4 py-2 text-sm font-medium text-brand-ink hover:bg-brand-500/10"
+                        disabled={downloadingId === a.id}
+                        onClick={() => handleDownloadCertificate(a.id, a.quizId)}
+                        className="rounded-lg border border-brand-400 px-4 py-2 text-sm font-medium text-brand-ink hover:bg-brand-500/10 disabled:opacity-50"
                       >
-                        🎓 Certificate
+                        {downloadingId === a.id ? 'Preparing…' : '🎓 Certificate'}
                       </button>
                     )}
                     <Link
