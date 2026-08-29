@@ -2,6 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Land every visitor on the apex host before the app boots. The API
+         lives on the apex origin; a document left on www.helpcertify.com
+         makes every /api/* fetch a cross-origin request that the www->apex
+         redirect turns into a preflight-across-origins failure ("Failed to
+         fetch"). vercel.json also skips /api in that redirect as a backstop. -->
+    <script>
+      if (location.hostname === 'www.helpcertify.com') {
+        location.replace('https://helpcertify.com' + location.pathname + location.search + location.hash);
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#05070a" />
     <meta

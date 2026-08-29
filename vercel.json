@@ -2,9 +2,10 @@
   "rewrites": [{ "source": "/(.*)", "destination": "/app.html" }],
   "redirects": [
     {
-      "source": "/:path*",
+      "//": "www -> apex, but NOT /api/* — a cross-origin redirect on an API preflight fails ('Failed to fetch'). index.html also bounces www->apex client-side before the app boots.",
+      "source": "/((?!api/).*)",
       "has": [{ "type": "host", "value": "www.helpcertify.com" }],
-      "destination": "https://helpcertify.com/:path*",
+      "destination": "https://helpcertify.com/$1",
       "permanent": true
     }
   ],
