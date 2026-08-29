@@ -338,17 +338,101 @@ export interface PracticeTestDoc {
 export const CERTIFICATION_ICON_KEYS = ['shield', 'cloud', 'network', 'chart', 'generic'] as const;
 export type CertificationIconKey = (typeof CERTIFICATION_ICON_KEYS)[number];
 
+// Admin-facing lifecycle for a certification/package — richer than the
+// plain `isPublished` boolean the learner-side read (api/cart.ts's
+// getLearnerCatalog) already relies on. `isPublished` is kept as a derived
+// field (`status === 'published'`) so the existing, unmodified learner
+// query keeps working verbatim; `status` is the admin portal's own source
+// of truth for Draft/Scheduled/Published/Unpublished/Archived.
+export type CertificationStatus = 'draft' | 'scheduled' | 'published' | 'unpublished' | 'archived';
+export type PackageStatus = 'draft' | 'published' | 'unpublished' | 'archived';
+
+/** Embedded on CertificationDoc.contentVersions — a certification can have
+ * more than one exam-outline version over time (e.g. ISACA retiring the old
+ * CISM outline for a new one on a announced date); each version points at
+ * one existing quiz or practice test as its question bank, so mock
+ * blueprints can be scoped to "this version's bank" and never silently mix
+ * questions across an outline change. */
+export interface ContentVersionDoc {
+  id: string;
+  versionName: string;
+  versionCode: string;
+  effectiveFrom: Timestamp;
+  effectiveTo: Timestamp | null;
+  associatedBankType: 'quiz' | 'practiceTest';
+  associatedBankId: string;
+  status: 'draft' | 'active' | 'retired';
+  notes: string;
+}
+
+export interface DomainAllocation {
+  domain: string;
+  percent: number;
+  questionCount: number;
+}
+
+/** Embedded on CertificationDoc.mockBlueprints — one per content version,
+ * the admin-configured recipe a future mock-generation service would draw
+ * from (this phase only configures and persists it; api/quiz-session.ts's
+ * actual generation logic is untouched — see this doc's own header
+ * comment in api/content-admin.ts). */
+export interface MockBlueprintDoc {
+  id: string;
+  contentVersionId: string;
+  totalQuestions: number;
+  durationMinutes: number;
+  domains: DomainAllocation[];
+  // null = difficulty distribution not enforced for this blueprint.
+  difficultyDistribution: { easy: number; medium: number; hard: number } | null;
+  repeatPolicy: 'minimize_repeats' | 'allow_repeats';
+  shuffleOptions: boolean;
+  explanationRelease: 'after_submission' | 'immediate' | 'never';
+  allowPauseResume: boolean;
+  autoSubmit: boolean;
+  // null = no readiness-threshold messaging configured.
+  readinessThresholdPercent: number | null;
+  status: 'draft' | 'active';
+}
+
 /** certifications/{certificationId} — the grouping entity a learner
  * actually shops for ("CISM Preparation"), one level above the individual
- * quizzes/practiceTests that make up its packages. Admin-managed (curl-only
- * this phase, no admin UI yet — see api/content-admin.ts). */
+ * quizzes/practiceTests that make up its packages. Admin-managed via the
+ * Products & Pricing admin portal (src/features/admin/pages/
+ * CertificationEditorPage.tsx) and api/content-admin.ts. */
 export interface CertificationDoc {
+  // Short, code-like name ("CISM") distinct from the marketing display
+  // name ("CISM Preparation") — mirrors PracticeTestDoc.examName's own
+  // short-name/title distinction.
+  shortName: string;
   name: string;
   // Reuses the existing vendor enum rather than a new "provider" field —
   // every QuizDoc/PracticeTestDoc already tags `category` the same way.
   provider: CertificationCategory;
+  // URL-safe, unique across all certifications — validated in
+  // api/content-admin.ts's createCertification/updateCertification.
+  slug: string;
+  // A plain string, not the CertificationCategory union — same convention
+  // as QuizDoc/PracticeTestDoc's own `category` field (an admin can type a
+  // vendor/track label beyond the fixed CERTIFICATION_CATEGORIES list).
+  category: string;
+  shortDescription: string;
   description: string;
   iconKey: CertificationIconKey;
+  effectiveFrom: Timestamp | null;
+  effectiveTo: Timestamp | null;
+  // Fallback access-validity (days) for a package that doesn't set its own.
+  defaultValidityDays: number;
+  featured: boolean;
+  status: CertificationStatus;
+  // Shown on the learner-facing detail/checkout surfaces once wired up —
+  // stored now, not rendered anywhere yet (see CertificationDetailModal.tsx
+  // for the existing, unrelated generic disclaimer it shows today).
+  independentPrepDisclaimer: string;
+  contentVersions: ContentVersionDoc[];
+  mockBlueprints: MockBlueprintDoc[];
+  // Derived from `status` at write time — never the field the admin portal
+  // reasons about directly, kept only so api/cart.ts's existing learner
+  // query (`where('isPublished', '==', true)`) keeps working unmodified.
   isPublished: boolean;
   // Admin-controlled ordering on the learner home page; ties broken by
   // createdAt.
@@ -371,7 +455,13 @@ export interface CertificationDoc {
  * written; a package is a checkout-time bundle, not its own access grant. */
 export interface PackageDoc {
   certificationId: string;
+  // Freeform, not a fixed enum — "Support future package types without
+  // changing the main certification model" (a few conventional values are
+  // offered in the admin form: mock/practice/complete/custom).
+  packageType: string;
   name: string;
+  shortDescription: string;
+  includedFeatures: string[];
   // null = no badge shown. Admin freeform text ("Best Value", "Most
   // Popular") rather than a fixed enum, matching how flexible marketing
   // copy usually needs to be.
@@ -383,14 +473,58 @@ export interface PackageDoc {
   description: string;
   includedQuizIds: string[];
   includedPracticeTestIds: string[];
-  // See QuizDoc's price/originalPrice/currency comment — same convention:
-  // paise/cents, price is charged, originalPrice is a static "regular
-  // price" shown struck through with no time window (a scheduled offer is
-  // explicitly out of scope this phase).
+
+  // --- Access configuration ---
+  practiceAccessEnabled: boolean;
+  accessibleQuestionCount: number;
+  explanationAccessEnabled: boolean;
+  mockAccessEnabled: boolean;
+  fullMockAttempts: number;
+  miniMockAttempts: number;
+  questionsPerMock: number;
+  mockDurationMinutes: number;
+  studyPlanAccessEnabled: boolean;
+  analyticsAccessEnabled: boolean;
+  trialAvailable: boolean;
+  accessValidityDays: number;
+  renewalAvailable: boolean;
+  upgradeAvailable: boolean;
+  promoEligible: boolean;
+  referralEligible: boolean;
+  refundEligible: boolean;
+
+  // --- Pricing ---
+  currency: 'INR' | 'USD';
+  // The struck-through "was" price — same value api/checkout.ts already
+  // reads as `originalPrice` for display, kept as the bridge field so a
+  // future learner-integration change doesn't have to touch checkout at
+  // all. `regularPrice` is the new admin-facing name for the same figure.
+  regularPrice: number;
+  // What's actually charged absent an active offer — mirrors what
+  // api/checkout.ts already reads as `price`.
+  sellingPrice: number;
+  // Time-boxed lower price; null/no window = no offer configured. NOT YET
+  // read by api/checkout.ts/api/cart.ts — this phase only stores it (see
+  // this file's own header comment on learner-integration being a
+  // separate, later phase). Admin preview computes the effective price
+  // from these fields via src/features/admin/lib/offerStatus.ts.
+  offerPrice: number | null;
+  offerStart: Timestamp | null;
+  offerEnd: Timestamp | null;
+  offerCancelledAt: Timestamp | null;
+  renewalPrice: number | null;
+  taxTreatment: 'inclusive' | 'exclusive' | 'exempt';
+  isFree: boolean;
+
+  status: PackageStatus;
+  // Derived from `status` at write time — see CertificationDoc.isPublished
+  // for why this bridge field exists.
+  isPublished: boolean;
+  // Same value as `sellingPrice`/`regularPrice` above — kept so
+  // api/checkout.ts's existing `price`/`originalPrice` reads keep working
+  // unmodified once/if learner integration is wired up.
   price: number;
   originalPrice: number | null;
-  currency: 'INR' | 'USD';
-  isPublished: boolean;
   // Ordering within a certification's package-selector row.
   displayOrder: number;
   createdBy: string;
@@ -722,4 +856,10 @@ export interface AdminLogDoc {
   description: string;
   severity: 'info' | 'warning' | 'critical';
   createdAt: Timestamp;
+  // Products & Pricing audit trail (item 19) reuses this same collection
+  // rather than a parallel one — these three are optional so every
+  // pre-existing log entry (which never set them) still matches this type.
+  previousValue?: unknown;
+  newValue?: unknown;
+  reason?: string;
 }

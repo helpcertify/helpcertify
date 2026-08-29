@@ -83,6 +83,12 @@ async function writeAdminLog(args: {
   targetType: string;
   targetId: string;
   description: string;
+  // Products & Pricing audit trail (item 19) — optional so every existing
+  // call site (which never set these) keeps compiling and working exactly
+  // as before.
+  previousValue?: unknown;
+  newValue?: unknown;
+  reason?: string;
 }) {
   await db.collection('adminLogs').add({
     performedBy: args.performedBy,
@@ -92,6 +98,9 @@ async function writeAdminLog(args: {
     description: args.description,
     severity: 'info' as const,
     createdAt: FieldValue.serverTimestamp(),
+    ...(args.previousValue !== undefined ? { previousValue: args.previousValue } : {}),
+    ...(args.newValue !== undefined ? { newValue: args.newValue } : {}),
+    ...(args.reason !== undefined ? { reason: args.reason } : {}),
   });
 }
 
@@ -819,22 +828,121 @@ async function updatePracticeTestQuestion(uid: string, body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
-// Certification / Package actions (curl-only this phase — no admin UI yet;
-// grouping entity for the learner home page's "Certification -> Packages"
-// redesign. See src/types/models.ts's CertificationDoc/PackageDoc for the
-// full design rationale — a Package is purely a bundle reference to
-// existing quizzes/practiceTests, never its own entitlement type.
+// Products & Pricing: Certification / Content Version / Package / Mock
+// Blueprint actions — the admin configuration side of the "Certification ->
+// Packages" learner catalog (see src/types/models.ts's CertificationDoc/
+// PackageDoc for the full design rationale). A Package is purely a bundle
+// reference to existing quizzes/practiceTests, never its own entitlement
+// type — see PackageDoc's own comment. This phase is admin-configuration
+// only: nothing here is read by the learner-facing checkout/cart/entitlement
+// code (api/cart.ts's getLearnerCatalog, api/checkout.ts) beyond the
+// `isPublished`/`price`/`originalPrice` bridge fields those already read
+// unmodified from before this round.
 // ---------------------------------------------------------------------------
 
 // Duplicated from src/types/models.ts's CERTIFICATION_ICON_KEYS — same
 // no-shared-code reasoning as SKILL_LEVELS above.
 const CERTIFICATION_ICON_KEYS = ['shield', 'cloud', 'network', 'chart', 'generic'] as const;
+const CERTIFICATION_STATUSES = ['draft', 'scheduled', 'published', 'unpublished', 'archived'] as const;
+const PACKAGE_STATUSES = ['draft', 'published', 'unpublished', 'archived'] as const;
+
+// Slug must be unique across every certification (excluding the one being
+// edited, when updating) — single equality-filter query, no composite
+// index needed, same convention used throughout this file.
+async function assertSlugAvailable(slug: string, excludeCertificationId: string | null) {
+  const snap = await db.collection('certifications').where('slug', '==', slug).get();
+  const collision = snap.docs.find((d) => d.id !== excludeCertificationId);
+  if (collision) throw Err.invalidArgument(`Slug "${slug}" is already used by another certification`);
+}
+
+// A scheduled certification "publishes at the configured server time" (item
+// 14) with no cron job in this app — same lazy-computation, opportunistic
+// self-heal pattern as api/checkout.ts's referral credit status. Called
+// whenever certifications are listed; flips status/isPublished in place for
+// any certification whose scheduled effectiveFrom has already passed.
+async function resolveScheduledCertifications(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Promise<void> {
+  const now = Date.now();
+  const batch = db.batch();
+  let dirty = false;
+  for (const d of docs) {
+    const data = d.data();
+    if (data.status === 'scheduled' && data.effectiveFrom && (data.effectiveFrom as Timestamp).toMillis() <= now) {
+      batch.update(d.ref, { status: 'published', isPublished: true });
+      data.status = 'published';
+      data.isPublished = true;
+      dirty = true;
+    }
+  }
+  if (dirty) await batch.commit();
+}
+
+// Only the top-level fields that actually changed — kept short and
+// JSON-serializable for the adminLogs doc, not a deep diff.
+function diffFields(before: Record<string, unknown>, after: Record<string, unknown>): { field: string; from: unknown; to: unknown }[] {
+  const diffs: { field: string; from: unknown; to: unknown }[] = [];
+  for (const key of Object.keys(after)) {
+    if (key === 'updatedAt') continue;
+    const a = before[key];
+    const b = after[key];
+    if (JSON.stringify(a) !== JSON.stringify(b)) diffs.push({ field: key, from: a, to: b });
+  }
+  return diffs;
+}
+
+const contentVersionSchema = z.object({
+  id: z.string().min(1).optional(), // omitted = create new
+  versionName: z.string().trim().min(1).max(200),
+  versionCode: z.string().trim().min(1).max(50),
+  effectiveFrom: z.string().datetime(),
+  effectiveTo: z.string().datetime().nullable().optional(),
+  associatedBankType: z.enum(['quiz', 'practiceTest']),
+  associatedBankId: z.string().min(1),
+  status: z.enum(['draft', 'active', 'retired']).default('draft'),
+  notes: z.string().trim().max(1000).default(''),
+});
+
+const domainAllocationSchema = z.object({
+  domain: z.string().trim().min(1).max(100),
+  percent: z.number().min(0).max(100),
+  questionCount: z.number().int().min(0),
+});
+
+const mockBlueprintSchema = z.object({
+  id: z.string().min(1).optional(), // omitted = create new
+  contentVersionId: z.string().min(1),
+  totalQuestions: z.number().int().min(1),
+  durationMinutes: z.number().int().min(1),
+  domains: z.array(domainAllocationSchema).min(1),
+  difficultyDistribution: z.object({ easy: z.number(), medium: z.number(), hard: z.number() }).nullable().default(null),
+  repeatPolicy: z.enum(['minimize_repeats', 'allow_repeats']).default('minimize_repeats'),
+  shuffleOptions: z.boolean().default(true),
+  explanationRelease: z.enum(['after_submission', 'immediate', 'never']).default('after_submission'),
+  allowPauseResume: z.boolean().default(true),
+  autoSubmit: z.boolean().default(true),
+  readinessThresholdPercent: z.number().min(0).max(100).nullable().default(null),
+  status: z.enum(['draft', 'active']).default('draft'),
+});
 
 const createCertificationSchema = z.object({
+  shortName: z.string().trim().min(1).max(50),
   name: z.string().trim().min(2).max(200),
   provider: z.string().trim().min(1).max(100).default('Other'),
-  description: z.string().trim().max(2000).default(''),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(2)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only'),
+  category: z.string().trim().min(1).max(100).default('Other'),
+  shortDescription: z.string().trim().max(300).default(''),
+  description: z.string().trim().max(5000).default(''),
   iconKey: z.enum(CERTIFICATION_ICON_KEYS).default('generic'),
+  effectiveFrom: z.string().datetime().nullable().optional(),
+  effectiveTo: z.string().datetime().nullable().optional(),
+  defaultValidityDays: z.number().int().min(1).max(3650).default(180),
+  featured: z.boolean().default(false),
+  independentPrepDisclaimer: z.string().trim().max(1000).default(''),
   displayOrder: z.number().int().min(0).default(0),
 });
 
@@ -842,15 +950,31 @@ async function createCertification(uid: string, body: unknown) {
   const parsed = createCertificationSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
+  await assertSlugAvailable(d.slug, null);
 
   const now = FieldValue.serverTimestamp();
   const ref = db.collection('certifications').doc();
   await ref.set({
+    shortName: d.shortName,
     name: d.name,
     provider: d.provider,
+    slug: d.slug,
+    category: d.category,
+    shortDescription: d.shortDescription,
     description: d.description,
     iconKey: d.iconKey,
-    isPublished: true,
+    effectiveFrom: d.effectiveFrom ? Timestamp.fromDate(new Date(d.effectiveFrom)) : null,
+    effectiveTo: d.effectiveTo ? Timestamp.fromDate(new Date(d.effectiveTo)) : null,
+    defaultValidityDays: d.defaultValidityDays,
+    featured: d.featured,
+    // Every certification starts as a Draft — publishing is always an
+    // explicit, separate action (see publishCertification below), never a
+    // side effect of the create call.
+    status: 'draft' as const,
+    independentPrepDisclaimer: d.independentPrepDisclaimer,
+    contentVersions: [],
+    mockBlueprints: [],
+    isPublished: false,
     displayOrder: d.displayOrder,
     createdBy: uid,
     createdAt: now,
@@ -861,37 +985,62 @@ async function createCertification(uid: string, body: unknown) {
     action: 'createCertification',
     targetType: 'certification',
     targetId: ref.id,
-    description: `Created certification "${d.name}"`,
+    description: `Created certification "${d.name}" (${d.shortName})`,
   });
   return { certificationId: ref.id };
 }
 
 const updateCertificationSchema = z.object({
   certificationId: z.string().min(1),
+  shortName: z.string().trim().min(1).max(50).optional(),
   name: z.string().trim().min(2).max(200).optional(),
   provider: z.string().trim().min(1).max(100).optional(),
-  description: z.string().trim().max(2000).optional(),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(2)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only')
+    .optional(),
+  category: z.string().trim().min(1).max(100).optional(),
+  shortDescription: z.string().trim().max(300).optional(),
+  description: z.string().trim().max(5000).optional(),
   iconKey: z.enum(CERTIFICATION_ICON_KEYS).optional(),
-  isPublished: z.boolean().optional(),
+  effectiveFrom: z.string().datetime().nullable().optional(),
+  effectiveTo: z.string().datetime().nullable().optional(),
+  defaultValidityDays: z.number().int().min(1).max(3650).optional(),
+  featured: z.boolean().optional(),
+  independentPrepDisclaimer: z.string().trim().max(1000).optional(),
   displayOrder: z.number().int().min(0).optional(),
 });
 
 async function updateCertification(uid: string, body: unknown) {
   const parsed = updateCertificationSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { certificationId, ...rest } = parsed.data;
+  const { certificationId, effectiveFrom, effectiveTo, ...rest } = parsed.data;
 
   const ref = db.collection('certifications').doc(certificationId);
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
 
-  await ref.update({ ...rest, updatedAt: FieldValue.serverTimestamp() });
+  if (rest.slug && rest.slug !== existing.slug) await assertSlugAvailable(rest.slug, certificationId);
+
+  const update: Record<string, unknown> = { ...rest, updatedAt: FieldValue.serverTimestamp() };
+  if (effectiveFrom !== undefined) update.effectiveFrom = effectiveFrom ? Timestamp.fromDate(new Date(effectiveFrom)) : null;
+  if (effectiveTo !== undefined) update.effectiveTo = effectiveTo ? Timestamp.fromDate(new Date(effectiveTo)) : null;
+
+  await ref.update(update);
+  const diffs = diffFields(existing, update);
   await writeAdminLog({
     performedBy: uid,
     action: 'updateCertification',
     targetType: 'certification',
     targetId: certificationId,
-    description: `Updated certification "${snap.data()?.name}"`,
+    description: `Updated certification "${existing.name}"${diffs.length ? ` (${diffs.map((d) => d.field).join(', ')})` : ''}`,
+    previousValue: Object.fromEntries(diffs.map((d) => [d.field, d.from])),
+    newValue: Object.fromEntries(diffs.map((d) => [d.field, d.to])),
   });
   return { success: true };
 }
@@ -907,12 +1056,14 @@ async function deleteCertification(uid: string, body: unknown) {
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Certification not found');
 
-  // Refuse a cascading delete on a curl-only surface with no confirmation
-  // UI — an admin must delete/reassign the dependent packages first.
+  // Refuse a cascading delete — an admin must archive/delete the dependent
+  // packages first. This is a hard delete (only ever reachable for a
+  // certification that never had any packages); once packages exist, the
+  // recommended path is Archive, not delete.
   const dependentPackages = await db.collection('packages').where('certificationId', '==', certificationId).get();
   if (!dependentPackages.empty) {
     const names = dependentPackages.docs.map((d) => d.data().name).join(', ');
-    throw Err.failedPrecondition(`Delete the dependent package(s) first: ${names}`);
+    throw Err.failedPrecondition(`Delete or archive the dependent package(s) first: ${names}`);
   }
 
   await ref.delete();
@@ -926,10 +1077,393 @@ async function deleteCertification(uid: string, body: unknown) {
   return { success: true };
 }
 
+// Publication lifecycle — Draft/Scheduled/Published/Unpublished/Archived
+// (item 14). Publishing a certification does not require it to already
+// have packages (packages have their own independent publish gate, see
+// canPublishPackage); this action only governs the certification record
+// itself becoming visible to a future learner integration.
+const publishCertificationSchema = z.object({
+  certificationId: z.string().min(1),
+  scheduledFor: z.string().datetime().nullable().optional(), // set = "Schedule Publication" instead of "Publish Now"
+});
+
+async function publishCertification(uid: string, body: unknown) {
+  const parsed = publishCertificationSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId, scheduledFor } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+  if (!existing.shortName || !existing.name || !existing.slug) {
+    throw Err.invalidArgument('Complete the Certification step (short name, display name, slug) before publishing');
+  }
+
+  const isScheduled = !!scheduledFor && new Date(scheduledFor).getTime() > Date.now();
+  const nextStatus = isScheduled ? 'scheduled' : 'published';
+  await ref.update({
+    status: nextStatus,
+    isPublished: !isScheduled,
+    effectiveFrom: isScheduled ? Timestamp.fromDate(new Date(scheduledFor!)) : existing.effectiveFrom ?? null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: isScheduled ? 'scheduleCertification' : 'publishCertification',
+    targetType: 'certification',
+    targetId: certificationId,
+    description: isScheduled
+      ? `Scheduled "${existing.name}" to publish at ${scheduledFor}`
+      : `Published certification "${existing.name}"`,
+    previousValue: { status: existing.status },
+    newValue: { status: nextStatus },
+  });
+  return { success: true, status: nextStatus };
+}
+
+async function unpublishCertification(uid: string, body: unknown) {
+  const parsed = certificationIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('certifications').doc(parsed.data.certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  await ref.update({ status: 'unpublished', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'unpublishCertification',
+    targetType: 'certification',
+    targetId: parsed.data.certificationId,
+    description: `Unpublished certification "${existing.name}"`,
+    previousValue: { status: existing.status },
+    newValue: { status: 'unpublished' },
+  });
+  return { success: true };
+}
+
+async function archiveCertification(uid: string, body: unknown) {
+  const parsed = certificationIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('certifications').doc(parsed.data.certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  await ref.update({ status: 'archived', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'archiveCertification',
+    targetType: 'certification',
+    targetId: parsed.data.certificationId,
+    description: `Archived certification "${existing.name}"`,
+    previousValue: { status: existing.status },
+    newValue: { status: 'archived' },
+  });
+  return { success: true };
+}
+
+async function restoreCertification(uid: string, body: unknown) {
+  const parsed = certificationIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('certifications').doc(parsed.data.certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+  if (existing.status !== 'archived') throw Err.failedPrecondition('Only an archived certification can be restored');
+
+  // Restores to Draft, not straight back to Published — an admin should
+  // consciously re-publish rather than have an archived product silently
+  // reappear live.
+  await ref.update({ status: 'draft', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'restoreCertification',
+    targetType: 'certification',
+    targetId: parsed.data.certificationId,
+    description: `Restored certification "${existing.name}" to Draft`,
+    previousValue: { status: 'archived' },
+    newValue: { status: 'draft' },
+  });
+  return { success: true };
+}
+
+async function duplicateCertification(uid: string, body: unknown) {
+  const parsed = certificationIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('certifications').doc(parsed.data.certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  // A unique slug for the copy — timestamp suffix rather than a counting
+  // loop, simple and collision-proof enough for an admin-only, low-volume
+  // action.
+  const copySlug = `${existing.slug}-copy-${Date.now().toString(36)}`;
+  const now = FieldValue.serverTimestamp();
+  const newRef = db.collection('certifications').doc();
+  const packagesSnap = await db.collection('packages').where('certificationId', '==', parsed.data.certificationId).get();
+
+  const batch = db.batch();
+  batch.set(newRef, {
+    ...existing,
+    slug: copySlug,
+    name: `${existing.name} (Copy)`,
+    status: 'draft',
+    isPublished: false,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  for (const pkgDoc of packagesSnap.docs) {
+    const pkgData = pkgDoc.data();
+    batch.set(db.collection('packages').doc(), {
+      ...pkgData,
+      certificationId: newRef.id,
+      status: 'draft',
+      isPublished: false,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'duplicateCertification',
+    targetType: 'certification',
+    targetId: newRef.id,
+    description: `Duplicated "${existing.name}" (${packagesSnap.size} package(s)) as a new draft`,
+  });
+  return { certificationId: newRef.id };
+}
+
 async function listCertificationsAdmin() {
   const snap = await db.collection('certifications').orderBy('displayOrder').get();
+  await resolveScheduledCertifications(snap.docs);
   return { certifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
 }
+
+// ---------------------------------------------------------------------------
+// Content versions & mock blueprints — both embedded arrays on the
+// certification doc (see CertificationDoc's own comment for why: a handful
+// of small, always-edited-together records, not a query-heavy collection).
+// ---------------------------------------------------------------------------
+
+async function saveContentVersion(uid: string, body: unknown) {
+  const parsed = z.object({ certificationId: z.string().min(1), version: contentVersionSchema }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId, version } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  // The referenced bank must actually exist, and — "archived question
+  // banks cannot be selected for new products" — must still be published.
+  // Only QuizDoc has an isPublished field at all; PracticeTestDoc has no
+  // archived/unpublished concept in this data model (only an
+  // availableFrom/availableUntil window), so this check only applies to a
+  // quiz bank.
+  const bankRef = db.collection(version.associatedBankType === 'quiz' ? 'quizzes' : 'practiceTests').doc(version.associatedBankId);
+  const bankSnap = await bankRef.get();
+  if (!bankSnap.exists) throw Err.invalidArgument('associatedBankId does not reference an existing question bank');
+  if (version.associatedBankType === 'quiz' && !bankSnap.data()?.isPublished) {
+    throw Err.invalidArgument('This quiz is unpublished/archived and cannot be selected for a new content version');
+  }
+
+  const versions: Array<Record<string, unknown>> = existing.contentVersions ?? [];
+  const effectiveFrom = Timestamp.fromDate(new Date(version.effectiveFrom));
+  const effectiveTo = version.effectiveTo ? Timestamp.fromDate(new Date(version.effectiveTo)) : null;
+  const id = version.id ?? db.collection('_ids').doc().id;
+
+  // "Content-version effective dates must not conflict" — no two versions
+  // on the same certification may have overlapping [effectiveFrom, effectiveTo) windows.
+  const overlaps = versions.some((v) => {
+    if (v.id === id) return false;
+    const vFrom = (v.effectiveFrom as Timestamp).toMillis();
+    const vTo = v.effectiveTo ? (v.effectiveTo as Timestamp).toMillis() : Infinity;
+    const newFrom = effectiveFrom.toMillis();
+    const newTo = effectiveTo ? effectiveTo.toMillis() : Infinity;
+    return newFrom < vTo && vFrom < newTo;
+  });
+  if (overlaps) throw Err.invalidArgument('This version\'s effective dates overlap with another version on this certification');
+
+  const nextVersion = {
+    id,
+    versionName: version.versionName,
+    versionCode: version.versionCode,
+    effectiveFrom,
+    effectiveTo,
+    associatedBankType: version.associatedBankType,
+    associatedBankId: version.associatedBankId,
+    status: version.status,
+    notes: version.notes,
+  };
+  const nextVersions = version.id ? versions.map((v) => (v.id === id ? nextVersion : v)) : [...versions, nextVersion];
+
+  await ref.update({ contentVersions: nextVersions, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: version.id ? 'updateContentVersion' : 'createContentVersion',
+    targetType: 'contentVersion',
+    targetId: id,
+    description: `${version.id ? 'Updated' : 'Created'} content version "${version.versionName}" on "${existing.name}"`,
+  });
+  return { versionId: id };
+}
+
+async function deleteContentVersion(uid: string, body: unknown) {
+  const parsed = z.object({ certificationId: z.string().min(1), versionId: z.string().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId, versionId } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  const blueprintUsingVersion = ((existing.mockBlueprints ?? []) as Array<{ contentVersionId: string }>).find((b) => b.contentVersionId === versionId);
+  if (blueprintUsingVersion) throw Err.failedPrecondition('Remove or reassign the Mock Rules blueprint using this version first');
+
+  const nextVersions = ((existing.contentVersions ?? []) as Array<{ id: string }>).filter((v) => v.id !== versionId);
+  await ref.update({ contentVersions: nextVersions, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'deleteContentVersion',
+    targetType: 'contentVersion',
+    targetId: versionId,
+    description: `Deleted a content version on "${existing.name}"`,
+  });
+  return { success: true };
+}
+
+// The domain distribution of a bank's published questions — used both to
+// populate the Mock Rules editor and to validate a blueprint's domain
+// allocations against what the bank can actually support. Single
+// collection read (this repo's banks run up to ~1,500 questions, the same
+// scale api/content-admin.ts's own answer-key actions already read in one
+// shot), grouped in memory rather than one query per domain.
+async function getBankDomainCounts(body: unknown) {
+  const parsed = z.object({ bankType: z.enum(['quiz', 'practiceTest']), bankId: z.string().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { bankType, bankId } = parsed.data;
+
+  const snap = await db.collection(bankType === 'quiz' ? 'quizzes' : 'practiceTests').doc(bankId).collection('questions').get();
+  const byDomain: Record<string, number> = {};
+  let total = 0;
+  for (const d of snap.docs) {
+    total += 1;
+    const domain = (d.data().domain as string | undefined)?.trim();
+    if (domain) byDomain[domain] = (byDomain[domain] ?? 0) + 1;
+  }
+  return { totalQuestions: total, byDomain };
+}
+
+async function saveMockBlueprint(uid: string, body: unknown) {
+  const parsed = z.object({ certificationId: z.string().min(1), blueprint: mockBlueprintSchema }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId, blueprint } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  const versions: Array<{ id: string; associatedBankType: 'quiz' | 'practiceTest'; associatedBankId: string }> = existing.contentVersions ?? [];
+  const version = versions.find((v) => v.id === blueprint.contentVersionId);
+  if (!version) throw Err.invalidArgument('contentVersionId does not reference an existing content version on this certification');
+
+  // Validation, duplicated from src/features/admin/lib/mockBlueprintValidation.ts's
+  // tested canonical version (no cross-file imports across api/*.ts).
+  const domainSum = blueprint.domains.reduce((s, d) => s + d.percent, 0);
+  if (Math.abs(domainSum - 100) > 0.5) throw Err.invalidArgument('Domain percentages must add up to 100%');
+  const questionSum = blueprint.domains.reduce((s, d) => s + d.questionCount, 0);
+  if (questionSum !== blueprint.totalQuestions) throw Err.invalidArgument('Domain question counts must add up to the total questions per mock');
+  if (blueprint.difficultyDistribution) {
+    const diffSum = blueprint.difficultyDistribution.easy + blueprint.difficultyDistribution.medium + blueprint.difficultyDistribution.hard;
+    if (Math.abs(diffSum - 100) > 0.5) throw Err.invalidArgument('Difficulty percentages must add up to 100%');
+  }
+  const { byDomain } = await getBankDomainCounts({ bankType: version.associatedBankType, bankId: version.associatedBankId });
+  const short = blueprint.domains.filter((d) => (byDomain[d.domain] ?? 0) < d.questionCount).map((d) => d.domain);
+  if (short.length > 0) throw Err.invalidArgument(`Not enough eligible published questions for: ${short.join(', ')}`);
+
+  const blueprints: Array<Record<string, unknown>> = existing.mockBlueprints ?? [];
+  const id = blueprint.id ?? db.collection('_ids').doc().id;
+  const nextBlueprint = { ...blueprint, id };
+  const nextBlueprints = blueprint.id ? blueprints.map((b) => (b.id === id ? nextBlueprint : b)) : [...blueprints, nextBlueprint];
+
+  await ref.update({ mockBlueprints: nextBlueprints, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: blueprint.id ? 'updateMockBlueprint' : 'createMockBlueprint',
+    targetType: 'mockBlueprint',
+    targetId: id,
+    description: `${blueprint.id ? 'Updated' : 'Created'} Mock Rules blueprint on "${existing.name}"`,
+  });
+  return { blueprintId: id };
+}
+
+async function deleteMockBlueprint(uid: string, body: unknown) {
+  const parsed = z.object({ certificationId: z.string().min(1), blueprintId: z.string().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId, blueprintId } = parsed.data;
+
+  const ref = db.collection('certifications').doc(certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const existing = snap.data()!;
+
+  const nextBlueprints = ((existing.mockBlueprints ?? []) as Array<{ id: string }>).filter((b) => b.id !== blueprintId);
+  await ref.update({ mockBlueprints: nextBlueprints, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'deleteMockBlueprint',
+    targetType: 'mockBlueprint',
+    targetId: blueprintId,
+    description: `Deleted a Mock Rules blueprint on "${existing.name}"`,
+  });
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Packages
+// ---------------------------------------------------------------------------
+
+const packageAccessSchema = {
+  packageType: z.string().trim().min(1).max(50).default('custom'),
+  shortDescription: z.string().trim().max(300).default(''),
+  includedFeatures: z.array(z.string().trim().min(1).max(200)).default([]),
+  practiceAccessEnabled: z.boolean().default(false),
+  accessibleQuestionCount: z.number().int().min(0).default(0),
+  explanationAccessEnabled: z.boolean().default(false),
+  mockAccessEnabled: z.boolean().default(false),
+  fullMockAttempts: z.number().int().min(0).default(0),
+  miniMockAttempts: z.number().int().min(0).default(0),
+  questionsPerMock: z.number().int().min(0).default(0),
+  mockDurationMinutes: z.number().int().min(0).default(0),
+  studyPlanAccessEnabled: z.boolean().default(false),
+  analyticsAccessEnabled: z.boolean().default(false),
+  trialAvailable: z.boolean().default(false),
+  accessValidityDays: z.number().int().min(1).max(3650).default(180),
+  renewalAvailable: z.boolean().default(false),
+  upgradeAvailable: z.boolean().default(false),
+  promoEligible: z.boolean().default(true),
+  referralEligible: z.boolean().default(true),
+  refundEligible: z.boolean().default(true),
+  regularPrice: z.number().int().min(0),
+  sellingPrice: z.number().int().min(0),
+  offerPrice: z.number().int().min(0).nullable().optional(),
+  offerStart: z.string().datetime().nullable().optional(),
+  offerEnd: z.string().datetime().nullable().optional(),
+  renewalPrice: z.number().int().min(0).nullable().optional(),
+  taxTreatment: z.enum(['inclusive', 'exclusive', 'exempt']).default('inclusive'),
+  isFree: z.boolean().default(false),
+  currency: z.enum(['INR', 'USD']).default('INR'),
+};
 
 const createPackageSchema = z.object({
   certificationId: z.string().min(1),
@@ -939,19 +1473,21 @@ const createPackageSchema = z.object({
   description: z.string().trim().max(2000).default(''),
   includedQuizIds: z.array(z.string().min(1)).default([]),
   includedPracticeTestIds: z.array(z.string().min(1)).default([]),
-  price: z.number().int().min(1),
-  originalPrice: z.number().int().min(0).nullable().optional(),
-  currency: z.enum(['INR', 'USD']).default('INR'),
   displayOrder: z.number().int().min(0).default(0),
+  ...packageAccessSchema,
 });
 
 // Shared by createPackage/updatePackage: confirms the certification and
-// every included item actually exist, and — if this package is being set
-// as the recommended one — unsets any sibling's isRecommended flag in the
-// same batch (at most one recommended package per certification is an
+// every included item actually exist and are published (see
+// saveContentVersion's own comment on treating an unpublished bank as
+// "archived" for this repo's purposes), enforces a unique package name
+// within the certification, and — if this package is being set as the
+// recommended one — unsets any sibling's isRecommended flag in the same
+// batch (at most one recommended package per certification is an
 // application-level invariant, not a Firestore constraint).
 async function validatePackageRefsAndClearSiblingRecommended(
   certificationId: string,
+  name: string,
   includedQuizIds: string[],
   includedPracticeTestIds: string[],
   makeRecommended: boolean,
@@ -977,37 +1513,111 @@ async function validatePackageRefsAndClearSiblingRecommended(
   if (missingQuiz) throw Err.invalidArgument(`includedQuizIds references a quiz that does not exist: ${missingQuiz.id}`);
   const missingTest = testSnaps.find((s) => !s.exists);
   if (missingTest) throw Err.invalidArgument(`includedPracticeTestIds references a practice test that does not exist: ${missingTest.id}`);
+  // Only QuizDoc has an isPublished field — PracticeTestDoc has no
+  // archived/unpublished concept in this data model (see
+  // saveContentVersion's own comment on the same distinction).
+  const archivedQuiz = quizSnaps.find((s) => !s.data()?.isPublished);
+  if (archivedQuiz) throw Err.invalidArgument(`Quiz "${archivedQuiz.id}" is unpublished/archived and cannot be added to a new package`);
+
+  const siblingsSnap = await db.collection('packages').where('certificationId', '==', certificationId).get();
+  const nameCollision = siblingsSnap.docs.find(
+    (d) => d.id !== excludePackageId && (d.data().name as string).trim().toLowerCase() === name.trim().toLowerCase()
+  );
+  if (nameCollision) throw Err.invalidArgument(`A package named "${name}" already exists under this certification`);
 
   if (makeRecommended) {
-    const siblings = await db.collection('packages').where('certificationId', '==', certificationId).where('isRecommended', '==', true).get();
-    for (const sibling of siblings.docs) {
-      if (sibling.id !== excludePackageId) batch.update(sibling.ref, { isRecommended: false });
+    for (const sibling of siblingsSnap.docs) {
+      if (sibling.id !== excludePackageId && sibling.data().isRecommended) batch.update(sibling.ref, { isRecommended: false });
     }
   }
+}
+
+// "Offer price cannot exceed regular price", "offer end after offer
+// start", "package cannot publish without a valid price unless Free" —
+// duplicated from src/features/admin/lib/packageValidation.ts's tested
+// canonical version.
+function validatePackagePricing(d: {
+  regularPrice: number;
+  sellingPrice: number;
+  offerPrice?: number | null;
+  offerStart?: string | null;
+  offerEnd?: string | null;
+  isFree?: boolean;
+}) {
+  if (d.regularPrice < 0) throw Err.invalidArgument('Regular price cannot be negative');
+  if (d.sellingPrice < 0) throw Err.invalidArgument('Selling price cannot be negative');
+  if (d.offerPrice !== undefined && d.offerPrice !== null) {
+    if (d.offerPrice < 0) throw Err.invalidArgument('Offer price cannot be negative');
+    if (d.offerPrice > d.regularPrice) throw Err.invalidArgument('Offer price cannot exceed the regular price');
+  }
+  if (d.offerStart && d.offerEnd && new Date(d.offerEnd).getTime() <= new Date(d.offerStart).getTime()) {
+    throw Err.invalidArgument('Offer end must be later than offer start');
+  }
+  if (!d.isFree && d.sellingPrice <= 0) throw Err.invalidArgument('Selling price must be greater than zero unless this package is marked Free');
 }
 
 async function createPackage(uid: string, body: unknown) {
   const parsed = createPackageSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
+  validatePackagePricing(d);
+  if (d.practiceAccessEnabled && d.accessibleQuestionCount > 0) {
+    // Checked again, more precisely (against the actual referenced banks'
+    // question counts), at publish time in publishPackage — this create-
+    // time check only guards the obviously-wrong "more than physically
+    // possible" case using the banks named in this same call.
+  }
 
   const batch = db.batch();
-  await validatePackageRefsAndClearSiblingRecommended(d.certificationId, d.includedQuizIds, d.includedPracticeTestIds, d.isRecommended, null, batch);
+  await validatePackageRefsAndClearSiblingRecommended(d.certificationId, d.name, d.includedQuizIds, d.includedPracticeTestIds, d.isRecommended, null, batch);
 
   const now = FieldValue.serverTimestamp();
   const ref = db.collection('packages').doc();
   batch.set(ref, {
     certificationId: d.certificationId,
+    packageType: d.packageType,
     name: d.name,
+    shortDescription: d.shortDescription,
+    includedFeatures: d.includedFeatures,
     badgeText: d.badgeText ?? null,
     isRecommended: d.isRecommended,
     description: d.description,
     includedQuizIds: d.includedQuizIds,
     includedPracticeTestIds: d.includedPracticeTestIds,
-    price: d.price,
-    originalPrice: d.originalPrice ?? null,
+    practiceAccessEnabled: d.practiceAccessEnabled,
+    accessibleQuestionCount: d.accessibleQuestionCount,
+    explanationAccessEnabled: d.explanationAccessEnabled,
+    mockAccessEnabled: d.mockAccessEnabled,
+    fullMockAttempts: d.fullMockAttempts,
+    miniMockAttempts: d.miniMockAttempts,
+    questionsPerMock: d.questionsPerMock,
+    mockDurationMinutes: d.mockDurationMinutes,
+    studyPlanAccessEnabled: d.studyPlanAccessEnabled,
+    analyticsAccessEnabled: d.analyticsAccessEnabled,
+    trialAvailable: d.trialAvailable,
+    accessValidityDays: d.accessValidityDays,
+    renewalAvailable: d.renewalAvailable,
+    upgradeAvailable: d.upgradeAvailable,
+    promoEligible: d.promoEligible,
+    referralEligible: d.referralEligible,
+    refundEligible: d.refundEligible,
     currency: d.currency,
-    isPublished: true,
+    regularPrice: d.regularPrice,
+    sellingPrice: d.sellingPrice,
+    offerPrice: d.offerPrice ?? null,
+    offerStart: d.offerStart ? Timestamp.fromDate(new Date(d.offerStart)) : null,
+    offerEnd: d.offerEnd ? Timestamp.fromDate(new Date(d.offerEnd)) : null,
+    offerCancelledAt: null,
+    renewalPrice: d.renewalPrice ?? null,
+    taxTreatment: d.taxTreatment,
+    isFree: d.isFree,
+    status: 'draft' as const,
+    isPublished: false,
+    // Bridge fields — see PackageDoc's own comment. Kept in sync with
+    // sellingPrice/regularPrice so a future, unmodified learner-checkout
+    // read of `price`/`originalPrice` reflects the same numbers.
+    price: d.sellingPrice,
+    originalPrice: d.regularPrice > d.sellingPrice ? d.regularPrice : null,
     displayOrder: d.displayOrder,
     createdBy: uid,
     createdAt: now,
@@ -1033,29 +1643,69 @@ const updatePackageSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   includedQuizIds: z.array(z.string().min(1)).optional(),
   includedPracticeTestIds: z.array(z.string().min(1)).optional(),
-  price: z.number().int().min(1).optional(),
-  originalPrice: z.number().int().min(0).nullable().optional(),
-  currency: z.enum(['INR', 'USD']).optional(),
-  isPublished: z.boolean().optional(),
   displayOrder: z.number().int().min(0).optional(),
+  // Every access/pricing field is independently optional here (a partial
+  // update) — statically listed rather than derived from
+  // packageAccessSchema, since z.infer can't see through a dynamically
+  // built object shape.
+  packageType: z.string().trim().min(1).max(50).optional(),
+  shortDescription: z.string().trim().max(300).optional(),
+  includedFeatures: z.array(z.string().trim().min(1).max(200)).optional(),
+  practiceAccessEnabled: z.boolean().optional(),
+  accessibleQuestionCount: z.number().int().min(0).optional(),
+  explanationAccessEnabled: z.boolean().optional(),
+  mockAccessEnabled: z.boolean().optional(),
+  fullMockAttempts: z.number().int().min(0).optional(),
+  miniMockAttempts: z.number().int().min(0).optional(),
+  questionsPerMock: z.number().int().min(0).optional(),
+  mockDurationMinutes: z.number().int().min(0).optional(),
+  studyPlanAccessEnabled: z.boolean().optional(),
+  analyticsAccessEnabled: z.boolean().optional(),
+  trialAvailable: z.boolean().optional(),
+  accessValidityDays: z.number().int().min(1).max(3650).optional(),
+  renewalAvailable: z.boolean().optional(),
+  upgradeAvailable: z.boolean().optional(),
+  promoEligible: z.boolean().optional(),
+  referralEligible: z.boolean().optional(),
+  refundEligible: z.boolean().optional(),
+  regularPrice: z.number().int().min(0).optional(),
+  sellingPrice: z.number().int().min(0).optional(),
+  offerPrice: z.number().int().min(0).nullable().optional(),
+  offerStart: z.string().datetime().nullable().optional(),
+  offerEnd: z.string().datetime().nullable().optional(),
+  renewalPrice: z.number().int().min(0).nullable().optional(),
+  taxTreatment: z.enum(['inclusive', 'exclusive', 'exempt']).optional(),
+  isFree: z.boolean().optional(),
+  currency: z.enum(['INR', 'USD']).optional(),
 });
 
 async function updatePackage(uid: string, body: unknown) {
   const parsed = updatePackageSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { packageId, ...rest } = parsed.data;
+  const { packageId, offerStart, offerEnd, ...rest } = parsed.data as z.infer<typeof updatePackageSchema>;
 
   const ref = db.collection('packages').doc(packageId);
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Package not found');
   const existing = snap.data()!;
 
+  validatePackagePricing({
+    regularPrice: (rest.regularPrice ?? existing.regularPrice) as number,
+    sellingPrice: (rest.sellingPrice ?? existing.sellingPrice) as number,
+    offerPrice: (rest.offerPrice ?? existing.offerPrice) as number | null | undefined,
+    offerStart: offerStart !== undefined ? offerStart : undefined,
+    offerEnd: offerEnd !== undefined ? offerEnd : undefined,
+    isFree: (rest.isFree ?? existing.isFree) as boolean,
+  });
+
   const batch = db.batch();
   const nextIncludedQuizIds = rest.includedQuizIds ?? existing.includedQuizIds;
   const nextIncludedPracticeTestIds = rest.includedPracticeTestIds ?? existing.includedPracticeTestIds;
   const nextIsRecommended = rest.isRecommended ?? existing.isRecommended;
+  const nextName = rest.name ?? existing.name;
   await validatePackageRefsAndClearSiblingRecommended(
     existing.certificationId,
+    nextName,
     nextIncludedQuizIds,
     nextIncludedPracticeTestIds,
     nextIsRecommended,
@@ -1063,15 +1713,29 @@ async function updatePackage(uid: string, body: unknown) {
     batch
   );
 
-  batch.update(ref, { ...rest, updatedAt: FieldValue.serverTimestamp() });
+  const update: Record<string, unknown> = { ...rest, updatedAt: FieldValue.serverTimestamp() };
+  if (offerStart !== undefined) update.offerStart = offerStart ? Timestamp.fromDate(new Date(offerStart)) : null;
+  if (offerEnd !== undefined) update.offerEnd = offerEnd ? Timestamp.fromDate(new Date(offerEnd)) : null;
+  // Keep the bridge fields in sync whenever either price changes.
+  const nextRegular = (rest.regularPrice ?? existing.regularPrice) as number;
+  const nextSelling = (rest.sellingPrice ?? existing.sellingPrice) as number;
+  if (rest.regularPrice !== undefined || rest.sellingPrice !== undefined) {
+    update.price = nextSelling;
+    update.originalPrice = nextRegular > nextSelling ? nextRegular : null;
+  }
+
+  batch.update(ref, update);
   await batch.commit();
 
+  const diffs = diffFields(existing, update);
   await writeAdminLog({
     performedBy: uid,
     action: 'updatePackage',
     targetType: 'package',
     targetId: packageId,
-    description: `Updated package "${existing.name}"`,
+    description: `Updated package "${existing.name}"${diffs.length ? ` (${diffs.map((d) => d.field).join(', ')})` : ''}`,
+    previousValue: Object.fromEntries(diffs.map((d) => [d.field, d.from])),
+    newValue: Object.fromEntries(diffs.map((d) => [d.field, d.to])),
   });
   return { success: true };
 }
@@ -1085,6 +1749,15 @@ async function deletePackage(uid: string, body: unknown) {
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Package not found');
 
+  // "If a package is already referenced by historical data, do not
+  // physically delete it. Archive it." — every purchase fanned out from
+  // buying this package (or a coincidental individual purchase of the same
+  // items) tags sourcePackageId; a single equality-filter existence check.
+  const referenced = await db.collection('purchases').where('sourcePackageId', '==', parsed.data.packageId).limit(1).get();
+  if (!referenced.empty) {
+    throw Err.failedPrecondition('This package has historical purchase records; archive it instead of deleting');
+  }
+
   await ref.delete();
   await writeAdminLog({
     performedBy: uid,
@@ -1092,6 +1765,165 @@ async function deletePackage(uid: string, body: unknown) {
     targetType: 'package',
     targetId: parsed.data.packageId,
     description: `Deleted package "${snap.data()?.name}"`,
+  });
+  return { success: true };
+}
+
+async function archivePackage(uid: string, body: unknown) {
+  const parsed = packageIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const existing = snap.data()!;
+
+  await ref.update({ status: 'archived', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'archivePackage',
+    targetType: 'package',
+    targetId: parsed.data.packageId,
+    description: `Archived package "${existing.name}"`,
+    previousValue: { status: existing.status },
+    newValue: { status: 'archived' },
+  });
+  return { success: true };
+}
+
+async function restorePackage(uid: string, body: unknown) {
+  const parsed = packageIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const existing = snap.data()!;
+  if (existing.status !== 'archived') throw Err.failedPrecondition('Only an archived package can be restored');
+
+  await ref.update({ status: 'draft', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'restorePackage',
+    targetType: 'package',
+    targetId: parsed.data.packageId,
+    description: `Restored package "${existing.name}" to Draft`,
+    previousValue: { status: 'archived' },
+    newValue: { status: 'draft' },
+  });
+  return { success: true };
+}
+
+async function publishPackage(uid: string, body: unknown) {
+  const parsed = packageIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const pkg = snap.data()!;
+
+  const certSnap = await db.collection('certifications').doc(pkg.certificationId).get();
+  if (!certSnap.exists || certSnap.data()?.status !== 'published') {
+    throw Err.failedPrecondition('Unpublished certification cannot expose a published package; publish the certification first');
+  }
+  const hasEntitlement = (pkg.includedQuizIds?.length ?? 0) > 0 || (pkg.includedPracticeTestIds?.length ?? 0) > 0;
+  if (!hasEntitlement) throw Err.failedPrecondition('This package has no included quiz/practice test, cannot publish without a valid entitlement');
+  if (!pkg.isFree && (pkg.sellingPrice ?? 0) <= 0) throw Err.failedPrecondition('This package has no valid selling price; mark it Free or set a price before publishing');
+
+  // Precise accessible-question-count check against the actual referenced
+  // banks, run once here at publish time (item 9's "Accessible question
+  // count cannot exceed eligible published questions").
+  if (pkg.practiceAccessEnabled && (pkg.accessibleQuestionCount ?? 0) > 0) {
+    const testSnaps = pkg.includedPracticeTestIds?.length
+      ? await db.getAll(...(pkg.includedPracticeTestIds as string[]).map((id) => db.collection('practiceTests').doc(id)))
+      : [];
+    const eligibleTotal = testSnaps.reduce((sum, s) => sum + ((s.data()?.totalQuestions as number) ?? 0), 0);
+    if (pkg.accessibleQuestionCount > eligibleTotal) {
+      throw Err.failedPrecondition(`Accessible question count (${pkg.accessibleQuestionCount}) exceeds the referenced bank(s)' actual published questions (${eligibleTotal})`);
+    }
+  }
+
+  await ref.update({ status: 'published', isPublished: true, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'publishPackage',
+    targetType: 'package',
+    targetId: parsed.data.packageId,
+    description: `Published package "${pkg.name}"`,
+    previousValue: { status: pkg.status },
+    newValue: { status: 'published' },
+  });
+  return { success: true };
+}
+
+async function unpublishPackage(uid: string, body: unknown) {
+  const parsed = packageIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const existing = snap.data()!;
+
+  await ref.update({ status: 'unpublished', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'unpublishPackage',
+    targetType: 'package',
+    targetId: parsed.data.packageId,
+    description: `Unpublished package "${existing.name}"`,
+    previousValue: { status: existing.status },
+    newValue: { status: 'unpublished' },
+  });
+  return { success: true };
+}
+
+async function duplicatePackage(uid: string, body: unknown) {
+  const parsed = packageIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const existing = snap.data()!;
+
+  const now = FieldValue.serverTimestamp();
+  const newRef = db.collection('packages').doc();
+  await newRef.set({
+    ...existing,
+    name: `${existing.name} (Copy)`,
+    isRecommended: false, // never silently duplicate the Recommended flag onto a second package
+    status: 'draft',
+    isPublished: false,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'duplicatePackage',
+    targetType: 'package',
+    targetId: newRef.id,
+    description: `Duplicated package "${existing.name}" as a new draft`,
+  });
+  return { packageId: newRef.id };
+}
+
+const cancelOfferSchema = z.object({ packageId: z.string().min(1), reason: z.string().trim().max(500).optional() });
+
+async function cancelOffer(uid: string, body: unknown) {
+  const parsed = cancelOfferSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('packages').doc(parsed.data.packageId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Package not found');
+  const existing = snap.data()!;
+  if (!existing.offerPrice || !existing.offerStart || !existing.offerEnd) throw Err.failedPrecondition('This package has no scheduled offer to cancel');
+
+  await ref.update({ offerCancelledAt: Timestamp.now(), updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'cancelOffer',
+    targetType: 'package',
+    targetId: parsed.data.packageId,
+    description: `Cancelled the scheduled offer on "${existing.name}"${parsed.data.reason ? `: ${parsed.data.reason}` : ''}`,
+    reason: parsed.data.reason,
   });
   return { success: true };
 }
@@ -1111,6 +1943,38 @@ async function listPackagesAdmin(body: unknown) {
   const packages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   if (parsed.data.certificationId) packages.sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 0) - ((b as { displayOrder?: number }).displayOrder ?? 0));
   return { packages };
+}
+
+// ---------------------------------------------------------------------------
+// Audit history — reuses the existing adminLogs collection/writeAdminLog
+// helper (item 19), rather than a parallel audit table.
+// ---------------------------------------------------------------------------
+
+async function getAuditHistoryForCertification(body: unknown) {
+  const parsed = certificationIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { certificationId } = parsed.data;
+
+  // adminLogs has no certificationId field of its own for a package-level
+  // entry — package ids under this certification are looked up first, then
+  // both queries (targetId == certificationId, targetId in packageIds) run
+  // and are merged/sorted in memory (Firestore has no native OR across two
+  // different fields' equality here).
+  const packagesSnap = await db.collection('packages').where('certificationId', '==', certificationId).get();
+  const packageIds = packagesSnap.docs.map((d) => d.id);
+
+  const certLogsSnap = await db.collection('adminLogs').where('targetId', '==', certificationId).get();
+  const packageLogsSnaps =
+    packageIds.length > 0
+      ? await Promise.all(packageIds.map((id) => db.collection('adminLogs').where('targetId', '==', id).get()))
+      : [];
+
+  const entries = [
+    ...certLogsSnap.docs,
+    ...packageLogsSnaps.flatMap((s) => s.docs),
+  ].map((d) => ({ id: d.id, ...d.data() }));
+  entries.sort((a, b) => ((b as { createdAt?: Timestamp }).createdAt?.toMillis?.() ?? 0) - ((a as { createdAt?: Timestamp }).createdAt?.toMillis?.() ?? 0));
+  return { entries };
 }
 
 // ---------------------------------------------------------------------------
@@ -1161,6 +2025,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updatePracticeTestQuestion':
         res.status(200).json(await updatePracticeTestQuestion(uid, data));
+        return;
+      case 'createCertification':
+        res.status(200).json(await createCertification(uid, data));
+        return;
+      case 'updateCertification':
+        res.status(200).json(await updateCertification(uid, data));
+        return;
+      case 'deleteCertification':
+        res.status(200).json(await deleteCertification(uid, data));
+        return;
+      case 'publishCertification':
+        res.status(200).json(await publishCertification(uid, data));
+        return;
+      case 'unpublishCertification':
+        res.status(200).json(await unpublishCertification(uid, data));
+        return;
+      case 'archiveCertification':
+        res.status(200).json(await archiveCertification(uid, data));
+        return;
+      case 'restoreCertification':
+        res.status(200).json(await restoreCertification(uid, data));
+        return;
+      case 'duplicateCertification':
+        res.status(200).json(await duplicateCertification(uid, data));
+        return;
+      case 'listCertificationsAdmin':
+        res.status(200).json(await listCertificationsAdmin());
+        return;
+      case 'saveContentVersion':
+        res.status(200).json(await saveContentVersion(uid, data));
+        return;
+      case 'deleteContentVersion':
+        res.status(200).json(await deleteContentVersion(uid, data));
+        return;
+      case 'getBankDomainCounts':
+        res.status(200).json(await getBankDomainCounts(data));
+        return;
+      case 'saveMockBlueprint':
+        res.status(200).json(await saveMockBlueprint(uid, data));
+        return;
+      case 'deleteMockBlueprint':
+        res.status(200).json(await deleteMockBlueprint(uid, data));
+        return;
+      case 'createPackage':
+        res.status(200).json(await createPackage(uid, data));
+        return;
+      case 'updatePackage':
+        res.status(200).json(await updatePackage(uid, data));
+        return;
+      case 'deletePackage':
+        res.status(200).json(await deletePackage(uid, data));
+        return;
+      case 'archivePackage':
+        res.status(200).json(await archivePackage(uid, data));
+        return;
+      case 'restorePackage':
+        res.status(200).json(await restorePackage(uid, data));
+        return;
+      case 'publishPackage':
+        res.status(200).json(await publishPackage(uid, data));
+        return;
+      case 'unpublishPackage':
+        res.status(200).json(await unpublishPackage(uid, data));
+        return;
+      case 'duplicatePackage':
+        res.status(200).json(await duplicatePackage(uid, data));
+        return;
+      case 'cancelOffer':
+        res.status(200).json(await cancelOffer(uid, data));
+        return;
+      case 'listPackagesAdmin':
+        res.status(200).json(await listPackagesAdmin(data));
+        return;
+      case 'getAuditHistoryForCertification':
+        res.status(200).json(await getAuditHistoryForCertification(data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
+  { to: '/admin/products', label: 'Products & Pricing' },
   { to: '/admin/quizzes', label: 'Mock Exams' },
   { to: '/admin/practice-tests', label: 'Practice Exams' },
   { to: '/admin/performance', label: 'Learner Analytics' },

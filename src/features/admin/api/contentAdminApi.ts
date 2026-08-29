@@ -1,5 +1,14 @@
 import { callAction } from '@/lib/vercelApi';
-import type { QuestionSourceFormat, DurationType, SkillLevel } from '@/types/models';
+import type {
+  QuestionSourceFormat,
+  DurationType,
+  SkillLevel,
+  CertificationIconKey,
+  CertificationStatus,
+  PackageStatus,
+  ContentVersionDoc,
+  MockBlueprintDoc,
+} from '@/types/models';
 
 export interface QuestionOption {
   id: string;
@@ -147,6 +156,147 @@ export interface CreatePracticeTestPayload {
   studyPlannerEnabled?: boolean;
 }
 
+// --- Products & Pricing: Certifications / Packages ------------------------
+
+export interface CertificationAdminRow {
+  id: string;
+  shortName: string;
+  name: string;
+  provider: string;
+  slug: string;
+  category: string;
+  shortDescription: string;
+  description: string;
+  iconKey: CertificationIconKey;
+  effectiveFrom: unknown;
+  effectiveTo: unknown;
+  defaultValidityDays: number;
+  featured: boolean;
+  status: CertificationStatus;
+  independentPrepDisclaimer: string;
+  contentVersions: ContentVersionDoc[];
+  mockBlueprints: MockBlueprintDoc[];
+  isPublished: boolean;
+  displayOrder: number;
+  updatedAt: unknown;
+}
+
+export interface PackageAdminRow {
+  id: string;
+  certificationId: string;
+  packageType: string;
+  name: string;
+  shortDescription: string;
+  includedFeatures: string[];
+  badgeText: string | null;
+  isRecommended: boolean;
+  description: string;
+  includedQuizIds: string[];
+  includedPracticeTestIds: string[];
+  practiceAccessEnabled: boolean;
+  accessibleQuestionCount: number;
+  explanationAccessEnabled: boolean;
+  mockAccessEnabled: boolean;
+  fullMockAttempts: number;
+  miniMockAttempts: number;
+  questionsPerMock: number;
+  mockDurationMinutes: number;
+  studyPlanAccessEnabled: boolean;
+  analyticsAccessEnabled: boolean;
+  trialAvailable: boolean;
+  accessValidityDays: number;
+  renewalAvailable: boolean;
+  upgradeAvailable: boolean;
+  promoEligible: boolean;
+  referralEligible: boolean;
+  refundEligible: boolean;
+  currency: 'INR' | 'USD';
+  regularPrice: number;
+  sellingPrice: number;
+  offerPrice: number | null;
+  offerStart: unknown;
+  offerEnd: unknown;
+  offerCancelledAt: unknown;
+  renewalPrice: number | null;
+  taxTreatment: 'inclusive' | 'exclusive' | 'exempt';
+  isFree: boolean;
+  status: PackageStatus;
+  isPublished: boolean;
+  displayOrder: number;
+  updatedAt: unknown;
+}
+
+export interface CreateCertificationPayload {
+  shortName: string;
+  name: string;
+  provider: string;
+  slug: string;
+  category: string;
+  shortDescription: string;
+  description: string;
+  iconKey: CertificationIconKey;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  defaultValidityDays: number;
+  featured: boolean;
+  independentPrepDisclaimer: string;
+  displayOrder: number;
+}
+
+export interface CreatePackagePayload {
+  certificationId: string;
+  name: string;
+  badgeText?: string | null;
+  isRecommended: boolean;
+  description: string;
+  includedQuizIds: string[];
+  includedPracticeTestIds: string[];
+  displayOrder: number;
+  packageType: string;
+  shortDescription: string;
+  includedFeatures: string[];
+  practiceAccessEnabled: boolean;
+  accessibleQuestionCount: number;
+  explanationAccessEnabled: boolean;
+  mockAccessEnabled: boolean;
+  fullMockAttempts: number;
+  miniMockAttempts: number;
+  questionsPerMock: number;
+  mockDurationMinutes: number;
+  studyPlanAccessEnabled: boolean;
+  analyticsAccessEnabled: boolean;
+  trialAvailable: boolean;
+  accessValidityDays: number;
+  renewalAvailable: boolean;
+  upgradeAvailable: boolean;
+  promoEligible: boolean;
+  referralEligible: boolean;
+  refundEligible: boolean;
+  regularPrice: number;
+  sellingPrice: number;
+  offerPrice?: number | null;
+  offerStart?: string | null;
+  offerEnd?: string | null;
+  renewalPrice?: number | null;
+  taxTreatment: 'inclusive' | 'exclusive' | 'exempt';
+  isFree: boolean;
+  currency: 'INR' | 'USD';
+}
+
+export interface AuditLogEntry {
+  id: string;
+  performedBy: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  description: string;
+  severity: 'info' | 'warning' | 'critical';
+  createdAt: unknown;
+  previousValue?: unknown;
+  newValue?: unknown;
+  reason?: string;
+}
+
 export const contentAdminApi = {
   createQuiz: (payload: CreateQuizPayload) =>
     callAction<{ quizId: string; totalQuestions: number; parseErrors: ParseErrorEntry[]; parseWarnings: string[] }>(
@@ -199,4 +349,52 @@ export const contentAdminApi = {
     correctOptionId: string;
     domain?: string;
   }) => callAction<{ success: true }>('content-admin', 'updatePracticeTestQuestion', { ...payload }),
+
+  // --- Products & Pricing ---
+  createCertification: (payload: CreateCertificationPayload) =>
+    callAction<{ certificationId: string }>('content-admin', 'createCertification', { ...payload }),
+  updateCertification: (payload: { certificationId: string } & Partial<CreateCertificationPayload>) =>
+    callAction<{ success: true }>('content-admin', 'updateCertification', { ...payload }),
+  deleteCertification: (certificationId: string) =>
+    callAction<{ success: true }>('content-admin', 'deleteCertification', { certificationId }),
+  publishCertification: (certificationId: string, scheduledFor?: string | null) =>
+    callAction<{ success: true; status: string }>('content-admin', 'publishCertification', { certificationId, scheduledFor }),
+  unpublishCertification: (certificationId: string) =>
+    callAction<{ success: true }>('content-admin', 'unpublishCertification', { certificationId }),
+  archiveCertification: (certificationId: string) =>
+    callAction<{ success: true }>('content-admin', 'archiveCertification', { certificationId }),
+  restoreCertification: (certificationId: string) =>
+    callAction<{ success: true }>('content-admin', 'restoreCertification', { certificationId }),
+  duplicateCertification: (certificationId: string) =>
+    callAction<{ certificationId: string }>('content-admin', 'duplicateCertification', { certificationId }),
+  listCertificationsAdmin: () => callAction<{ certifications: CertificationAdminRow[] }>('content-admin', 'listCertificationsAdmin'),
+
+  saveContentVersion: (
+    certificationId: string,
+    version: Omit<ContentVersionDoc, 'id' | 'effectiveFrom' | 'effectiveTo'> & { id?: string; effectiveFrom: string; effectiveTo: string | null }
+  ) => callAction<{ versionId: string }>('content-admin', 'saveContentVersion', { certificationId, version }),
+  deleteContentVersion: (certificationId: string, versionId: string) =>
+    callAction<{ success: true }>('content-admin', 'deleteContentVersion', { certificationId, versionId }),
+  getBankDomainCounts: (bankType: 'quiz' | 'practiceTest', bankId: string) =>
+    callAction<{ totalQuestions: number; byDomain: Record<string, number> }>('content-admin', 'getBankDomainCounts', { bankType, bankId }),
+  saveMockBlueprint: (certificationId: string, blueprint: Omit<MockBlueprintDoc, 'id'> & { id?: string }) =>
+    callAction<{ blueprintId: string }>('content-admin', 'saveMockBlueprint', { certificationId, blueprint }),
+  deleteMockBlueprint: (certificationId: string, blueprintId: string) =>
+    callAction<{ success: true }>('content-admin', 'deleteMockBlueprint', { certificationId, blueprintId }),
+
+  createPackage: (payload: CreatePackagePayload) => callAction<{ packageId: string }>('content-admin', 'createPackage', { ...payload }),
+  updatePackage: (payload: { packageId: string } & Partial<CreatePackagePayload>) =>
+    callAction<{ success: true }>('content-admin', 'updatePackage', { ...payload }),
+  deletePackage: (packageId: string) => callAction<{ success: true }>('content-admin', 'deletePackage', { packageId }),
+  archivePackage: (packageId: string) => callAction<{ success: true }>('content-admin', 'archivePackage', { packageId }),
+  restorePackage: (packageId: string) => callAction<{ success: true }>('content-admin', 'restorePackage', { packageId }),
+  publishPackage: (packageId: string) => callAction<{ success: true }>('content-admin', 'publishPackage', { packageId }),
+  unpublishPackage: (packageId: string) => callAction<{ success: true }>('content-admin', 'unpublishPackage', { packageId }),
+  duplicatePackage: (packageId: string) => callAction<{ packageId: string }>('content-admin', 'duplicatePackage', { packageId }),
+  cancelOffer: (packageId: string, reason?: string) => callAction<{ success: true }>('content-admin', 'cancelOffer', { packageId, reason }),
+  listPackagesAdmin: (certificationId?: string) =>
+    callAction<{ packages: PackageAdminRow[] }>('content-admin', 'listPackagesAdmin', certificationId ? { certificationId } : {}),
+
+  getAuditHistoryForCertification: (certificationId: string) =>
+    callAction<{ entries: AuditLogEntry[] }>('content-admin', 'getAuditHistoryForCertification', { certificationId }),
 };

@@ -33,6 +33,8 @@ import { CouponsPage } from '@/features/admin/pages/CouponsPage';
 import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage';
 import { AdminReferralAuditPage } from '@/features/admin/pages/AdminReferralAuditPage';
+import { ProductsPricingPage } from '@/features/admin/pages/ProductsPricingPage';
+import { CertificationEditorPage } from '@/features/admin/pages/CertificationEditorPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
 // course/exam/certificate routes on 2026-08-22 — see
@@ -73,6 +75,9 @@ export function AppRouter() {
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route element={<AdminShell />}>
           <Route path="/admin" element={<AdminHomePage />} />
+          <Route path="/admin/products" element={<ProductsPricingPage />} />
+          <Route path="/admin/products/new" element={<CertificationEditorPage />} />
+          <Route path="/admin/products/:certificationId" element={<CertificationEditorPage />} />
           <Route path="/admin/quizzes" element={<ExamQuizStudioPage />} />
           <Route path="/admin/quizzes/:quizId/view" element={<QuizAnswerKeyPage />} />
           <Route path="/admin/practice-tests" element={<PracticeManagerPage />} />
