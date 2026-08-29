@@ -346,9 +346,12 @@ async function getLearnerCatalog(uid: string) {
     for (const id of (doc.data().includedQuizIds ?? []) as string[]) allQuizIds.add(id);
     for (const id of (doc.data().includedPracticeTestIds ?? []) as string[]) allTestIds.add(id);
   }
+  // db.getAll() throws when called with zero refs (e.g. no packages
+  // published yet, or a certification whose packages have no quizzes
+  // included) — guard each call rather than let an empty catalog 500.
   const [quizDocs, testDocs] = await Promise.all([
-    db.getAll(...[...allQuizIds].map((id) => db.collection('quizzes').doc(id))),
-    db.getAll(...[...allTestIds].map((id) => db.collection('practiceTests').doc(id))),
+    allQuizIds.size > 0 ? db.getAll(...[...allQuizIds].map((id) => db.collection('quizzes').doc(id))) : Promise.resolve([]),
+    allTestIds.size > 0 ? db.getAll(...[...allTestIds].map((id) => db.collection('practiceTests').doc(id))) : Promise.resolve([]),
   ]);
   const quizById = new Map(quizDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!]));
   const testById = new Map(testDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!]));

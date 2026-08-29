@@ -964,9 +964,14 @@ async function validatePackageRefsAndClearSiblingRecommended(
   if (includedQuizIds.length === 0 && includedPracticeTestIds.length === 0) {
     throw Err.invalidArgument('A package must include at least one quiz or practice test');
   }
+  // db.getAll() throws when called with zero refs — a package can legally
+  // include only quizzes or only practice tests, so either list can be
+  // empty on its own even though the combined check above passed.
   const [quizSnaps, testSnaps] = await Promise.all([
-    db.getAll(...includedQuizIds.map((id) => db.collection('quizzes').doc(id))),
-    db.getAll(...includedPracticeTestIds.map((id) => db.collection('practiceTests').doc(id))),
+    includedQuizIds.length > 0 ? db.getAll(...includedQuizIds.map((id) => db.collection('quizzes').doc(id))) : Promise.resolve([]),
+    includedPracticeTestIds.length > 0
+      ? db.getAll(...includedPracticeTestIds.map((id) => db.collection('practiceTests').doc(id)))
+      : Promise.resolve([]),
   ]);
   const missingQuiz = quizSnaps.find((s) => !s.exists);
   if (missingQuiz) throw Err.invalidArgument(`includedQuizIds references a quiz that does not exist: ${missingQuiz.id}`);
