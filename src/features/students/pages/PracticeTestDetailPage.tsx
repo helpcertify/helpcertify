@@ -16,6 +16,7 @@ import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
+import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
 import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes, calendarDaysBetween } from '../lib/studyPlan';
@@ -351,12 +352,15 @@ export function PracticeTestDetailPage() {
             onBuyNow={() => setShowBuyNow(true)}
           />
           {previewCount > 0 ? (
-            <PreviewQuestions
-              itemType="practiceTest"
-              itemId={test.id}
-              previewQuestionCount={previewCount}
-              onBuyNow={() => setShowBuyNow(true)}
-            />
+            <div className="space-y-4">
+              <FreePreviewCallout />
+              <PreviewQuestions
+                itemType="practiceTest"
+                itemId={test.id}
+                previewQuestionCount={previewCount}
+                onBuyNow={() => setShowBuyNow(true)}
+              />
+            </div>
           ) : (
             <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
               <h2 className="mb-2 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Free Preview</h2>
@@ -396,11 +400,13 @@ export function PracticeTestDetailPage() {
           originalPrice={test.originalPrice ?? null}
           currency={test.currency ?? 'INR'}
           paying={paying}
+          summaryItem={{ itemType: 'practiceTest', questionCount: test.totalQuestions, accessPeriodDays: test.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
-          onConfirm={(couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'practiceTest', itemId: test.id },
               items: [{ itemType: 'practiceTest', itemId: test.id, title: test.title }],
+              consent,
               couponCode,
               useCredit,
             });

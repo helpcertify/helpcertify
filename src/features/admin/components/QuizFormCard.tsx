@@ -43,6 +43,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const [description, setDescription] = useState(editingQuiz?.description ?? '');
   const [passMarkPercent, setPassMarkPercent] = useState(editingQuiz?.passMarkPercent?.toString() ?? '60');
   const [previewQuestionCount, setPreviewQuestionCount] = useState(editingQuiz?.previewQuestionCount?.toString() ?? '5');
+  const [accessPeriodDays, setAccessPeriodDays] = useState(editingQuiz?.accessPeriodDays?.toString() ?? '0');
   // Standard Template is the only format the create form offers now — CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createQuiz's schema still expects.
@@ -86,6 +87,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     setDescription('');
     setPassMarkPercent('60');
     setPreviewQuestionCount('5');
+    setAccessPeriodDays('0');
     setFile(null);
     setEnforceSequentialNav(false);
     setShowImmediateResult(false);
@@ -113,6 +115,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         description,
         passMarkPercent: Number(passMarkPercent) || 60,
         previewQuestionCount: Number(previewQuestionCount) || 0,
+        accessPeriodDays: Number(accessPeriodDays) || 0,
         sourceFormat,
         fileUrl,
         durationType,
@@ -150,6 +153,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
         description,
         passMarkPercent: Number(passMarkPercent) || 60,
         previewQuestionCount: Number(previewQuestionCount) || 0,
+        accessPeriodDays: Number(accessPeriodDays) || 0,
         durationType,
         durationMinutes: Number(durationMinutes),
         enforceSequentialNav,
@@ -239,6 +243,18 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
             value={previewQuestionCount}
             onChange={(e) => setPreviewQuestionCount(e.target.value)}
             placeholder="e.g. 5, or 0 to disable the free preview"
+            className="input-dark"
+          />
+        </Field>
+
+        <Field label="Access period (days after purchase, 0 = lifetime / no expiry)">
+          <input
+            type="number"
+            min={0}
+            max={3650}
+            value={accessPeriodDays}
+            onChange={(e) => setAccessPeriodDays(e.target.value)}
+            placeholder="0"
             className="input-dark"
           />
         </Field>

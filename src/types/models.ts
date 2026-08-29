@@ -275,6 +275,13 @@ export interface QuizDoc {
   // in api/quiz-session.ts. Defaults to 1 on docs that predate this field,
   // which preserves the exact old behavior.
   maxAttempts: number;
+  // Access period shown at checkout and snapshotted into the
+  // purchase-consent record (see PurchaseConsentDoc). 0 = no expiry
+  // ("Lifetime access"), which is the current behaviour for individual
+  // quizzes — entitlement gates do not enforce expiry today, this is a
+  // display/audit value. Admin-set on QuizFormCard; defaults to 0 on docs
+  // that predate this field.
+  accessPeriodDays: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -325,6 +332,9 @@ export interface PracticeTestDoc {
   // enum, e.g. "ISACA") already covers the provider half of this — this
   // field is the only piece that was actually missing.
   examName?: string;
+  // See QuizDoc.accessPeriodDays — same convention (0 = Lifetime access,
+  // display/audit only, defaults to 0 on older docs).
+  accessPeriodDays?: number;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -624,7 +634,54 @@ export interface OrderDoc {
   // otherwise a Buy Now purchase would wipe out unrelated items someone
   // still had sitting in their cart.
   fromCart: boolean;
+  // The four mandatory purchase-consent acknowledgements the buyer ticked
+  // at checkout, plus when. Enforced server-side in api/checkout.ts's
+  // createOrder (all four must be true). The authoritative, immutable copy
+  // lives in purchaseConsents/{orderId} (PurchaseConsentDoc); this is a
+  // convenience copy on the order. Absent on orders that predate this.
+  consent?: PurchaseConsentAcknowledgements;
+  // Policy version identifiers shown to the buyer at checkout (see
+  // src/features/marketing/policyVersions.ts). Absent on older orders.
+  policyVersions?: Record<string, string>;
   createdAt: Timestamp;
+  paidAt: Timestamp | null;
+}
+
+export interface PurchaseConsentAcknowledgements {
+  correctProduct: boolean;
+  previewAcknowledged: boolean;
+  policiesAccepted: boolean;
+  technicalPolicyAcknowledged: boolean;
+  /** ISO timestamp captured on the client when the last box was ticked. */
+  acceptedAt: string;
+}
+
+/** purchaseConsents/{orderId} — write-once audit record of exactly what a
+ * customer was shown and agreed to at purchase time. Written by
+ * api/checkout.ts's createOrder (never updated except a one-time
+ * razorpayPaymentId/paidAt patch by finalizeOrder). Deliberately
+ * independent of the mutable orders/{id} doc and of the current product
+ * configuration, so a later price/policy change cannot rewrite history. */
+export interface PurchaseConsentDoc {
+  userId: string;
+  orderId: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string | null;
+  currency: 'INR' | 'USD';
+  subtotal: number;
+  discount: number;
+  total: number;
+  items: {
+    itemType: PurchasableItemType;
+    itemId: string;
+    certificationId: string | null;
+    displayedName: string;
+    displayedPrice: number;
+    accessPeriodLabel: string;
+  }[];
+  consent: PurchaseConsentAcknowledgements;
+  policyVersions: Record<string, string>;
+  consentRecordedAt: Timestamp;
   paidAt: Timestamp | null;
 }
 

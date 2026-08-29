@@ -64,6 +64,9 @@ export interface QuizSummary {
   description: string;
   passMarkPercent: number;
   previewQuestionCount: number;
+  // Access period shown at checkout. 0 = "Lifetime access". Defaults to 0
+  // on quizzes created before this field existed.
+  accessPeriodDays?: number;
 }
 
 export interface PracticeTestSummary {
@@ -98,6 +101,8 @@ export interface PracticeTestSummary {
   revisionBufferDays?: number;
   defaultMinutesPerQuestion?: number;
   studyPlannerEnabled?: boolean;
+  // Access period shown at checkout. 0 = "Lifetime access".
+  accessPeriodDays?: number;
 }
 
 export interface CreateQuizPayload {
@@ -123,6 +128,7 @@ export interface CreateQuizPayload {
   description: string;
   passMarkPercent: number;
   previewQuestionCount: number;
+  accessPeriodDays?: number;
 }
 
 export interface CreatePracticeTestPayload {
@@ -154,6 +160,7 @@ export interface CreatePracticeTestPayload {
   revisionBufferDays?: number;
   defaultMinutesPerQuestion?: number;
   studyPlannerEnabled?: boolean;
+  accessPeriodDays?: number;
 }
 
 // --- Products & Pricing: Certifications / Packages ------------------------

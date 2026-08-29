@@ -253,11 +253,13 @@ export function CertificationCard({ certification }: CertificationCardProps) {
           originalPrice={selected.originalPrice}
           currency={selected.currency}
           paying={paying}
+          summaryItem={{ itemType: 'package', accessPeriodDays: selected.accessValidityDays }}
           onClose={() => setBuyNowOpen(false)}
-          onConfirm={(couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'package', itemId: selected.id },
               items: [{ itemType: 'package', itemId: selected.id, title: packageTitle }],
+              consent,
               couponCode,
               useCredit,
             });

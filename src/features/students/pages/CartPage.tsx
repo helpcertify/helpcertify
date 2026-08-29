@@ -8,6 +8,9 @@ import { useMyCredits } from '../hooks/useMyCredits';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney, formatReward } from '@/utils/currency';
 import type { PurchasableItemType } from '@/types/models';
+import { OrderSummary } from '../components/OrderSummary';
+import { CheckoutConsent } from '../components/CheckoutConsent';
+import { EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '../lib/checkoutConsent';
 
 export function CartPage() {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -16,6 +19,7 @@ export function CartPage() {
 
   const [couponInput, setCouponInput] = useState('');
   const [useCredit, setUseCredit] = useState(false);
+  const [consent, setConsent] = useState<CheckoutConsentState>(EMPTY_CONSENT);
 
   const { data: cart, isLoading } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
   const { data: myCoupons } = useMyAvailableCoupons();
@@ -43,9 +47,10 @@ export function CartPage() {
   });
 
   const handleCheckout = () => {
-    if (!cart || cart.items.length === 0) return;
+    if (!cart || cart.items.length === 0 || !allConsentsGiven(consent)) return;
     checkout({
       items: cart.items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title })),
+      consent,
       useCredit,
     });
   };
@@ -104,6 +109,21 @@ export function CartPage() {
           </div>
 
           <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
+            <div className="mb-4">
+              <OrderSummary
+                items={cart.items.map((i) => ({
+                  key: `${i.itemType}_${i.itemId}`,
+                  title: i.title,
+                  itemType: i.itemType,
+                  questionCount: i.itemType === 'package' ? undefined : i.totalQuestions,
+                  accessPeriodDays: i.accessPeriodDays,
+                  price: i.price,
+                  originalPrice: i.originalPrice,
+                }))}
+                currency={cart.currency}
+              />
+            </div>
+
             <div className="mb-4">
               {cart.couponCode ? (
                 <div className="flex items-center justify-between rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
@@ -184,9 +204,13 @@ export function CartPage() {
               </div>
             </div>
 
+            <div className="mt-4 border-t border-surface-border pt-4">
+              <CheckoutConsent value={consent} onChange={setConsent} />
+            </div>
+
             <button
               type="button"
-              disabled={payingNow}
+              disabled={payingNow || !allConsentsGiven(consent)}
               onClick={handleCheckout}
               className="mt-5 w-full rounded-lg bg-[#155EEF] py-3 font-medium text-white hover:opacity-90 disabled:opacity-60"
             >

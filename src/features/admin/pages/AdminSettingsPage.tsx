@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminApi, type AppSettings, type RewardType } from '../api/adminApi';
+import { adminApi, type AppSettings, type CompanyInfoSettings, type RewardType } from '../api/adminApi';
 import { contentAdminApi } from '../api/contentAdminApi';
 import { useUiStore } from '@/store/useUiStore';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
+import { COMPANY } from '@/features/marketing/companyInfo';
 
 // The admin portal's one settings screen — OTP toggles, plus (below) the
 // Refer & Earn reward/eligibility controls. One combined Save Changes
@@ -93,9 +94,13 @@ export function AdminSettingsPage() {
   return (
     <div>
       <h1 className="mb-1 text-2xl font-bold text-ink">Settings</h1>
-      <p className="mb-6 text-sm text-ink-faint">Registration, account-verification, and Refer &amp; Earn options.</p>
+      <p className="mb-6 text-sm text-ink-faint">
+        Company &amp; contact details, registration, account-verification, and Refer &amp; Earn options.
+      </p>
 
       <div className="max-w-xl space-y-6">
+        <CompanyDetailsCard />
+
         <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">OTP Verification</h2>
 
@@ -261,6 +266,83 @@ export function AdminSettingsPage() {
           {saveMutation.isPending ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Company / contact details shown on the public marketing & legal pages
+// (Terms, Refund, Support, Privacy, Contact) and the checkout consent
+// links. Stored in appSettings/company; a blank field falls back to the
+// compile-time default in src/features/marketing/companyInfo.ts. Its own
+// query + save, independent of the OTP / Refer & Earn settings below.
+const COMPANY_FIELDS: { key: keyof CompanyInfoSettings; label: string; placeholder: string; wide?: boolean }[] = [
+  { key: 'operatorName', label: 'Operating entity name', placeholder: COMPANY.operatorName },
+  { key: 'operatorType', label: 'Entity type / constitution', placeholder: COMPANY.operatorType },
+  { key: 'operatorCountry', label: 'Country', placeholder: COMPANY.operatorCountry },
+  { key: 'registeredAddress', label: 'Registered address', placeholder: COMPANY.registeredAddress, wide: true },
+  { key: 'jurisdiction', label: 'Governing-law venue (courts)', placeholder: COMPANY.jurisdiction },
+  { key: 'contactEmail', label: 'Support / contact email', placeholder: COMPANY.contactEmail },
+  { key: 'contactPhone', label: 'Contact phone (blank = hidden)', placeholder: '+91 …' },
+  { key: 'grievanceEmail', label: 'Refund / billing / grievance email', placeholder: COMPANY.grievanceEmail },
+  { key: 'grievanceOfficer', label: 'Grievance officer name (blank = hidden)', placeholder: 'Name, title' },
+];
+
+const EMPTY_COMPANY: CompanyInfoSettings = {
+  operatorName: '', operatorType: '', operatorCountry: '', registeredAddress: '', jurisdiction: '',
+  contactEmail: '', contactPhone: '', grievanceEmail: '', grievanceOfficer: '',
+};
+
+function CompanyDetailsCard() {
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
+  const { data } = useQuery({ queryKey: ['admin', 'companyInfo'], queryFn: adminApi.getCompanyInfo });
+  const [form, setForm] = useState<CompanyInfoSettings>(EMPTY_COMPANY);
+
+  useEffect(() => {
+    if (data) setForm({ ...EMPTY_COMPANY, ...data });
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => adminApi.updateCompanyInfo(form),
+    onSuccess: () => {
+      queryClient.setQueryData(['admin', 'companyInfo'], form);
+      pushToast('Company details saved. Public pages update immediately; prerendered pages update on the next deploy.', 'success');
+    },
+    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not save company details', 'error'),
+  });
+
+  const dirty = data !== undefined && COMPANY_FIELDS.some((f) => (form[f.key] ?? '') !== (data[f.key] ?? ''));
+
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">Company &amp; Contact Details</h2>
+      <p className="mb-4 text-sm text-ink-faint">
+        Shown on the public Terms, Refund, Support, Privacy and Contact pages and the checkout consent
+        links. Leave a field blank to use the built-in default (shown as the placeholder).
+      </p>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {COMPANY_FIELDS.map((f) => (
+          <div key={f.key} className={f.wide ? 'sm:col-span-2' : undefined}>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">{f.label}</label>
+            <input
+              value={form[f.key]}
+              onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              className="input-dark w-full"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        disabled={!dirty || saveMutation.isPending}
+        onClick={() => saveMutation.mutate()}
+        className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {saveMutation.isPending ? 'Saving…' : 'Save Company Details'}
+      </button>
     </div>
   );
 }

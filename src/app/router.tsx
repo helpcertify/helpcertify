@@ -6,7 +6,13 @@ import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { RegisterPage } from '@/features/auth/pages/RegisterPage';
 import { VerifyEmailPage } from '@/features/auth/pages/VerifyEmailPage';
 import { LandingPage } from '@/features/landing/pages/LandingPage';
-import { LegalPlaceholderPage } from '@/features/landing/pages/LegalPlaceholderPage';
+import { AboutPage } from '@/features/marketing/pages/AboutPage';
+import { ContactPage } from '@/features/marketing/pages/ContactPage';
+import { PrivacyPage } from '@/features/marketing/pages/PrivacyPage';
+import { TermsPage } from '@/features/marketing/pages/TermsPage';
+import { RefundPage } from '@/features/marketing/pages/RefundPage';
+import { SupportPage } from '@/features/marketing/pages/SupportPage';
+import { DisclaimerPage } from '@/features/marketing/pages/DisclaimerPage';
 import { AdminHomePage } from '@/features/admin/pages/AdminHomePage';
 import { ExamQuizStudioPage } from '@/features/admin/pages/ExamQuizStudioPage';
 import { QuizAnswerKeyPage } from '@/features/admin/pages/QuizAnswerKeyPage';
@@ -48,8 +54,13 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
-      <Route path="/privacy" element={<LegalPlaceholderPage title="Privacy Policy" />} />
-      <Route path="/terms" element={<LegalPlaceholderPage title="Terms of Service" />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/refund" element={<RefundPage />} />
+      <Route path="/support" element={<SupportPage />} />
+      <Route path="/disclaimer" element={<DisclaimerPage />} />
       {/* Public certificate verification — no login required, matching how
           a real credential-verification page works for a third party
           checking a certificate a learner shared with them. */}

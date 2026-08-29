@@ -159,11 +159,13 @@ export function MockExamsPage() {
           originalPrice={buyNowQuiz.originalPrice ?? null}
           currency={buyNowQuiz.currency ?? 'INR'}
           paying={paying}
+          summaryItem={{ itemType: 'quiz', questionCount: buyNowQuiz.totalQuestions, accessPeriodDays: buyNowQuiz.accessPeriodDays }}
           onClose={() => setBuyNowQuiz(null)}
-          onConfirm={(couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'quiz', itemId: buyNowQuiz.id },
               items: [{ itemType: 'quiz', itemId: buyNowQuiz.id, title: buyNowQuiz.title }],
+              consent,
               couponCode,
               useCredit,
             });

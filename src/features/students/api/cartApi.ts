@@ -1,5 +1,7 @@
 import { callAction } from '@/lib/vercelApi';
 import type { PurchasableItemType } from '@/types/models';
+import { POLICY_VERSIONS } from '@/features/marketing/policyVersions';
+import type { CheckoutConsentState } from '../lib/checkoutConsent';
 
 export interface CartItemView {
   itemType: PurchasableItemType;
@@ -9,6 +11,9 @@ export interface CartItemView {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   totalQuestions: number;
+  // Access period in days for the checkout order summary. 0 / absent =
+  // lifetime. Packages carry their own accessValidityDays.
+  accessPeriodDays?: number;
 }
 
 export interface CartSummary {
@@ -43,11 +48,21 @@ export interface CreateOrderResult {
 }
 
 export const checkoutApi = {
-  createOrder: (buyNowItem?: { itemType: PurchasableItemType; itemId: string }, couponCode?: string, useCredit?: boolean) =>
+  createOrder: (opts: {
+    consent: CheckoutConsentState;
+    buyNowItem?: { itemType: PurchasableItemType; itemId: string };
+    couponCode?: string;
+    useCredit?: boolean;
+  }) =>
     callAction<CreateOrderResult>('checkout', 'createOrder', {
-      ...(buyNowItem ? { buyNowItem } : {}),
-      ...(couponCode ? { couponCode } : {}),
-      ...(useCredit ? { useCredit } : {}),
+      ...(opts.buyNowItem ? { buyNowItem: opts.buyNowItem } : {}),
+      ...(opts.couponCode ? { couponCode: opts.couponCode } : {}),
+      ...(opts.useCredit ? { useCredit: opts.useCredit } : {}),
+      consent: {
+        ...opts.consent,
+        acceptedAt: new Date().toISOString(),
+        policyVersions: POLICY_VERSIONS,
+      },
     }),
   verifyPayment: (payload: {
     orderId: string;

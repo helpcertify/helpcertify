@@ -14,6 +14,7 @@ import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
 import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
+import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
 // A fixed 10-question free sample regardless of the admin's own
@@ -204,12 +205,15 @@ export function QuizDetailPage() {
         {/* Same fixed 10 questions, same order, for every visitor every
             time — see getQuizPreviewQuestions's orderBy('order'). */}
         {!owned && previewCount > 0 && (
-          <PreviewQuestions
-            itemType="quiz"
-            itemId={quiz.id}
-            previewQuestionCount={previewCount}
-            onBuyNow={() => setShowBuyNow(true)}
-          />
+          <div className="space-y-4">
+            <FreePreviewCallout />
+            <PreviewQuestions
+              itemType="quiz"
+              itemId={quiz.id}
+              previewQuestionCount={previewCount}
+              onBuyNow={() => setShowBuyNow(true)}
+            />
+          </div>
         )}
       </div>
 
@@ -222,11 +226,13 @@ export function QuizDetailPage() {
           originalPrice={quiz.originalPrice ?? null}
           currency={quiz.currency ?? 'INR'}
           paying={paying}
+          summaryItem={{ itemType: 'quiz', questionCount: quiz.totalQuestions, accessPeriodDays: quiz.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
-          onConfirm={(couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'quiz', itemId: quiz.id },
               items: [{ itemType: 'quiz', itemId: quiz.id, title: quiz.title }],
+              consent,
               couponCode,
               useCredit,
             });

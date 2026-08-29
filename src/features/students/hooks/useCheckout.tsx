@@ -7,6 +7,7 @@ import { openRazorpayCheckout } from '@/lib/razorpay';
 import { VercelApiError } from '@/lib/vercelApi';
 import { PurchaseConfirmationModal } from '@/components/common/PurchaseConfirmationModal';
 import type { PurchasableItemType } from '@/types/models';
+import type { CheckoutConsentState } from '../lib/checkoutConsent';
 
 interface CheckoutItem {
   itemType: PurchasableItemType;
@@ -29,13 +30,19 @@ export function useCheckout() {
 
   const checkout = async (opts: {
     items: CheckoutItem[];
+    consent: CheckoutConsentState;
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
     couponCode?: string;
     useCredit?: boolean;
   }) => {
     setPaying(true);
     try {
-      const order = await checkoutApi.createOrder(opts.buyNowItem, opts.couponCode, opts.useCredit);
+      const order = await checkoutApi.createOrder({
+        consent: opts.consent,
+        buyNowItem: opts.buyNowItem,
+        couponCode: opts.couponCode,
+        useCredit: opts.useCredit,
+      });
       await openRazorpayCheckout({
         keyId: order.keyId,
         amount: order.amount,

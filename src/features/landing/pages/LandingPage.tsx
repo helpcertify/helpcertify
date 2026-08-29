@@ -1,7 +1,16 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
-import { AdminAccessModal } from '@/features/auth/components/AdminAccessModal';
+
+// Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
+// neither in the initial bundle nor in the build-time prerender module
+// graph — scripts/prerender.mjs renders this page to static HTML and must
+// not evaluate Firebase. Only loads when the Admin Portal button is used.
+const AdminAccessModal = lazy(() =>
+  import('@/features/auth/components/AdminAccessModal').then((m) => ({
+    default: m.AdminAccessModal,
+  })),
+);
 
 const STATS = [
   { label: 'Certifications', value: '3+' },
@@ -105,7 +114,11 @@ export function LandingPage() {
         </div>
       </footer>
 
-      {showAdminAccess && <AdminAccessModal onClose={() => setShowAdminAccess(false)} />}
+      {showAdminAccess && (
+        <Suspense fallback={null}>
+          <AdminAccessModal onClose={() => setShowAdminAccess(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

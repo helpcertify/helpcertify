@@ -114,11 +114,13 @@ export function WishlistPage() {
           originalPrice={buyNowItem.originalPrice}
           currency={buyNowItem.currency}
           paying={paying}
+          summaryItem={{ itemType: buyNowItem.itemType, questionCount: buyNowItem.totalQuestions }}
           onClose={() => setBuyNowItem(null)}
-          onConfirm={(couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: buyNowItem.itemType, itemId: buyNowItem.itemId },
               items: [{ itemType: buyNowItem.itemType, itemId: buyNowItem.itemId, title: buyNowItem.title }],
+              consent,
               couponCode,
               useCredit,
             });

@@ -198,6 +198,14 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   }
   await batch.commit();
 
+  // One-time patch of the payment id onto the immutable purchase-consent
+  // record (see api/checkout.ts's finalizeOrder — same best-effort patch).
+  await db
+    .collection('purchaseConsents')
+    .doc(orderId)
+    .set({ razorpayPaymentId, paidAt: Timestamp.now() }, { merge: true })
+    .catch((e) => console.error('purchaseConsents paidAt patch failed:', orderId, e));
+
   return 'paid';
 }
 

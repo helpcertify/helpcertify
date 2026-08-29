@@ -1,2 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /home
+Disallow: /quizzes
+Disallow: /practice-tests
+
+Sitemap: https://helpcertify.com/sitemap.xml

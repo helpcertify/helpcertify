@@ -32,6 +32,8 @@ export interface CatalogPackage {
   displayOrder: number;
   state: PackageState;
   aggregateTotalQuestions: number;
+  // Access period in days for this bundle (see PackageDoc.accessValidityDays).
+  accessValidityDays: number;
   includedItems: IncludedCatalogItem[];
 }
 

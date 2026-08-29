@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { formatMoney, formatReward } from '@/utils/currency';
 import { useMyAvailableCoupons } from '@/features/students/hooks/useMyAvailableCoupons';
 import { useMyCredits } from '@/features/students/hooks/useMyCredits';
+import { OrderSummary, type OrderSummaryItem } from '@/features/students/components/OrderSummary';
+import { CheckoutConsent } from '@/features/students/components/CheckoutConsent';
+import { EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '@/features/students/lib/checkoutConsent';
 
 interface Props {
   title: string;
@@ -9,42 +12,56 @@ interface Props {
   originalPrice: number | null;
   currency: 'INR' | 'USD';
   paying: boolean;
+  /** For the order summary: item type, question count, and access period. */
+  summaryItem: Omit<OrderSummaryItem, 'key' | 'title' | 'price' | 'originalPrice'>;
   onClose: () => void;
-  onConfirm: (couponCode?: string, useCredit?: boolean) => void;
+  onConfirm: (consent: CheckoutConsentState, couponCode?: string, useCredit?: boolean) => void;
 }
 
-// A lightweight confirm-and-pay step for Buy Now, with an optional coupon
-// field — previously a coupon could only be applied by going through Add to
-// Cart -> Cart page first, which defeated the point of Buy Now being the
-// fast, direct path. The actual discounted total shows up in Razorpay's own
-// checkout (which always displays the exact amount being charged) rather
-// than a second time here, since createOrder is the single source of truth
-// for pricing and this dialog doesn't duplicate that computation — an
-// invalid code is rejected with a clear error before Razorpay ever opens.
-export function BuyNowModal({ title, price, originalPrice, currency, paying, onClose, onConfirm }: Props) {
+// A confirm-and-pay step for Buy Now: the order summary, the four mandatory
+// consent acknowledgements (Pay stays disabled until all are ticked), plus an
+// optional coupon field. The actual discounted total shows up in Razorpay's
+// own checkout — createOrder is the single source of truth for pricing and
+// for re-checking consent server-side.
+export function BuyNowModal({ title, price, originalPrice, currency, paying, summaryItem, onClose, onConfirm }: Props) {
   const [couponInput, setCouponInput] = useState('');
   const [useCredit, setUseCredit] = useState(false);
+  const [consent, setConsent] = useState<CheckoutConsentState>(EMPTY_CONSENT);
   const { data: myCoupons } = useMyAvailableCoupons();
   const { data: credits } = useMyCredits();
+
+  const canPay = !paying && allConsentsGiven(consent);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-surface-border bg-surface-raised p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-1 text-lg font-bold text-ink">{title}</h2>
-        <div className="mb-5 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2">
           {originalPrice && originalPrice > price && (
             <span className="text-sm text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
           )}
           <span className="text-xl font-bold text-ink">{formatMoney(price, currency)}</span>
         </div>
 
+        <OrderSummary
+          items={[{ key: 'buynow', title, price, originalPrice, ...summaryItem }]}
+          currency={currency}
+        />
+
+        <p className="mt-3 text-xs text-ink-faint">
+          A free preview is available on the product page to evaluate the question, answer and
+          explanation format before you buy.
+        </p>
+
+        <div className="my-4 border-t border-surface-border pt-4">
+          <CheckoutConsent value={consent} onChange={setConsent} />
+        </div>
+
         {/* Coupons already earned by this account (mainly Refer & Earn
-            rewards) — one click fills the code in below, instead of the
-            learner needing to go find and retype a code they already
-            have. */}
+            rewards) — one click fills the code in below. */}
         {myCoupons && myCoupons.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
             {myCoupons.map((c) => (
@@ -83,8 +100,8 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, onC
 
         <button
           type="button"
-          disabled={paying}
-          onClick={() => onConfirm(couponInput.trim() || undefined, useCredit)}
+          disabled={!canPay}
+          onClick={() => onConfirm(consent, couponInput.trim() || undefined, useCredit)}
           className="w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {paying ? 'Opening payment…' : 'Continue to Payment'}

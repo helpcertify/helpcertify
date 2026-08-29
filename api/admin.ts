@@ -260,6 +260,66 @@ async function updateAppSettings(uid: string, body: unknown) {
   return { success: true };
 }
 
+// --- Company / contact details (appSettings/company) ---------------------
+// Admin-editable overrides for the public contact facts shown on the
+// marketing/legal pages and checkout consent links. Stored in its own doc
+// (publicly readable — see firestore.rules) so the marketing SPA can read
+// it without auth. The frontend keeps the compile-time defaults in
+// src/features/marketing/companyInfo.ts and merges a stored value only when
+// it's a non-blank string, so an empty field here just falls back.
+const COMPANY_FIELD_KEYS = [
+  'operatorName',
+  'operatorType',
+  'operatorCountry',
+  'registeredAddress',
+  'jurisdiction',
+  'contactEmail',
+  'contactPhone',
+  'grievanceEmail',
+  'grievanceOfficer',
+] as const;
+
+async function getCompanyInfo() {
+  const snap = await db.collection('appSettings').doc('company').get();
+  const data = snap.data() ?? {};
+  const out: Record<string, string> = {};
+  for (const key of COMPANY_FIELD_KEYS) out[key] = typeof data[key] === 'string' ? data[key] : '';
+  return out;
+}
+
+const updateCompanyInfoSchema = z.object({
+  operatorName: z.string().trim().max(200).optional().default(''),
+  operatorType: z.string().trim().max(200).optional().default(''),
+  operatorCountry: z.string().trim().max(100).optional().default(''),
+  registeredAddress: z.string().trim().max(500).optional().default(''),
+  jurisdiction: z.string().trim().max(200).optional().default(''),
+  contactEmail: z.union([z.string().trim().email(), z.literal('')]).optional().default(''),
+  contactPhone: z.string().trim().max(40).optional().default(''),
+  grievanceEmail: z.union([z.string().trim().email(), z.literal('')]).optional().default(''),
+  grievanceOfficer: z.string().trim().max(200).optional().default(''),
+});
+
+async function updateCompanyInfo(uid: string, body: unknown) {
+  const parsed = updateCompanyInfoSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  await db.collection('appSettings').doc('company').set(
+    { ...d, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updateCompanyInfo',
+    targetType: 'appSettings',
+    targetId: 'company',
+    description: `Updated company / contact details (entity "${d.operatorName || '—'}", contact ${d.contactEmail || '—'}, phone ${d.contactPhone || '—'})`,
+  });
+
+  return { success: true };
+}
+
 // --- Users list (Learner Analytics' "Users" tab) ------------------------
 // One read of every user doc plus one read of every purchase doc, joined
 // in memory by userId — simpler than N per-user count queries, and fine
@@ -465,6 +525,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updateAppSettings':
         res.status(200).json(await updateAppSettings(uid, data));
+        return;
+      case 'getCompanyInfo':
+        res.status(200).json(await getCompanyInfo());
+        return;
+      case 'updateCompanyInfo':
+        res.status(200).json(await updateCompanyInfo(uid, data));
         return;
       case 'listUsersAdmin':
         res.status(200).json(await listUsersAdmin());

@@ -109,6 +109,9 @@ interface HydratedItem {
   originalPrice: number | null;
   currency: Currency;
   totalQuestions: number;
+  // Access period shown in the checkout order summary. 0 = lifetime for a
+  // quiz / practice test; a package uses its accessValidityDays.
+  accessPeriodDays: number;
 }
 
 // Re-reads every item's live price/title and drops anything deleted or
@@ -141,6 +144,7 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
         originalPrice: pkgData.originalPrice ?? null,
         currency: pkgData.currency ?? 'INR',
         totalQuestions: 0,
+        accessPeriodDays: pkgData.accessValidityDays ?? 0,
       });
       continue;
     }
@@ -161,6 +165,7 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
       originalPrice: data.originalPrice ?? null,
       currency: data.currency ?? 'INR',
       totalQuestions: data.totalQuestions ?? 0,
+      accessPeriodDays: data.accessPeriodDays ?? 0,
     });
   }
 

@@ -17,15 +17,63 @@ export function HelpPage() {
         <HelpLink to="/home/settings" title="Settings" description="Appearance and other account preferences." />
         <HelpLink to="/home/profile" title="My Profile" description="Your name, email, and password." />
       </div>
+
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+        Policies &amp; support
+      </h2>
+      <div className="space-y-3">
+        <HelpLink
+          to="/support"
+          external
+          title="Support Policy"
+          description="How we investigate and resolve reported issues, and the resolution timeframe."
+        />
+        <HelpLink
+          to="/refund"
+          external
+          title="Refund & Cancellation Policy"
+          description="When a purchase is eligible for a refund, and how to request one by email."
+        />
+        <HelpLink
+          to="/contact"
+          external
+          title="Report an issue / contact support"
+          description="Email us about a technical, account, billing, or refund question."
+        />
+      </div>
     </div>
   );
 }
 
-function HelpLink({ to, title, description }: { to: string; title: string; description: string }) {
-  return (
-    <Link to={to} className="block rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400">
+function HelpLink({
+  to,
+  title,
+  description,
+  external,
+}: {
+  to: string;
+  title: string;
+  description: string;
+  external?: boolean;
+}) {
+  const className =
+    'block rounded-xl border border-surface-border bg-surface-raised p-4 hover:border-brand-400';
+  const body = (
+    <>
       <div className="font-semibold text-ink">{title}</div>
       <div className="text-sm text-ink-faint">{description}</div>
+    </>
+  );
+  if (external) {
+    return (
+      <a href={to} target="_blank" rel="noopener" className={className}>
+        {body}
+      </a>
+    );
+  }
+  return (
+    <Link to={to} className={className}>
+      {body}
     </Link>
   );
 }

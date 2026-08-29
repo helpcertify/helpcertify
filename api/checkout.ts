@@ -107,7 +107,39 @@ function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: numbe
   return Math.min(raw, Math.max(subtotal - 100, 0));
 }
 
+// Duplicated from src/features/marketing/policyVersions.ts — api/*.ts can't
+// import from src/. This server copy is the authoritative one recorded on
+// the order and the purchase-consent doc.
+const POLICY_VERSIONS = {
+  terms: '2026-08-29',
+  refund: '2026-08-29',
+  privacy: '2026-08-29',
+  support: '2026-08-29',
+} as const;
+
+function accessPeriodLabelFor(days: number | null | undefined): string {
+  if (!days || days <= 0) return 'Lifetime access';
+  if (days % 365 === 0) {
+    const years = days / 365;
+    return `${years} year${years === 1 ? '' : 's'}`;
+  }
+  return `${days} days`;
+}
+
+// The four mandatory purchase-consent acknowledgements. z.literal(true)
+// makes a missing or unticked box a hard validation failure — the Pay
+// button being disabled client-side is a convenience, this is the gate.
+const consentSchema = z.object({
+  correctProduct: z.literal(true),
+  previewAcknowledged: z.literal(true),
+  policiesAccepted: z.literal(true),
+  technicalPolicyAcknowledged: z.literal(true),
+  acceptedAt: z.string().datetime(),
+  policyVersions: z.record(z.string()).optional(),
+});
+
 const createOrderSchema = z.object({
+  consent: consentSchema,
   // Buy Now: a direct, single-item order that bypasses the cart entirely
   // — (see finalizeOrder) doesn't touch whatever else might be sitting in
   // the student's actual cart. couponCode here is a code typed directly
@@ -204,7 +236,7 @@ function computeCreditApplicableInline(subtotalMinor: number, availableMinor: nu
 async function createOrder(uid: string, body: unknown) {
   const parsed = createOrderSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { buyNowItem, useCredit } = parsed.data;
+  const { buyNowItem, useCredit, consent } = parsed.data;
 
   let cartItems: { itemType: ItemType; itemId: string }[];
   let couponCode: string | null;
@@ -227,7 +259,14 @@ async function createOrder(uid: string, body: unknown) {
 
   // Recompute everything from the live docs — never trust the cart (or any
   // client input) as a price source for a real payment.
-  const orderItems: { itemType: ItemType; itemId: string; title: string; unitPrice: number }[] = [];
+  const orderItems: {
+    itemType: ItemType;
+    itemId: string;
+    title: string;
+    unitPrice: number;
+    certificationId: string | null;
+    accessPeriodLabel: string;
+  }[] = [];
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
     const snap = await db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get();
@@ -238,11 +277,27 @@ async function createOrder(uid: string, body: unknown) {
       // comment) — "already owned" means every included item is already
       // owned, matching api/cart.ts's isPackageFullyOwned.
       if (await isPackageFullyOwned(uid, data)) continue;
-      orderItems.push({ itemType: 'package', itemId: entry.itemId, title: data.name, unitPrice: data.price ?? 0 });
+      orderItems.push({
+        itemType: 'package',
+        itemId: entry.itemId,
+        title: data.name,
+        unitPrice: data.price ?? 0,
+        certificationId: data.certificationId ?? null,
+        accessPeriodLabel: accessPeriodLabelFor(data.accessValidityDays),
+      });
     } else {
       const purchaseSnap = await db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get();
       if (purchaseSnap.exists) continue; // already owned — don't charge twice
-      orderItems.push({ itemType: entry.itemType, itemId: entry.itemId, title: data.title, unitPrice: data.price ?? 0 });
+      orderItems.push({
+        itemType: entry.itemType,
+        itemId: entry.itemId,
+        title: data.title,
+        unitPrice: data.price ?? 0,
+        // A direct quiz / practice-test purchase has no stored link to a
+        // certification (only packages carry certificationId) — recorded null.
+        certificationId: null,
+        accessPeriodLabel: accessPeriodLabelFor(data.accessPeriodDays),
+      });
     }
     currency = data.currency ?? 'INR'; // api/cart.ts's addItem guarantees every item in a cart shares one currency
   }
@@ -294,6 +349,14 @@ async function createOrder(uid: string, body: unknown) {
   }
   const rzpOrder = (await rzpRes.json()) as { id: string };
 
+  const consentRecord = {
+    correctProduct: consent.correctProduct,
+    previewAcknowledged: consent.previewAcknowledged,
+    policiesAccepted: consent.policiesAccepted,
+    technicalPolicyAcknowledged: consent.technicalPolicyAcknowledged,
+    acceptedAt: consent.acceptedAt,
+  };
+
   await orderRef.set({
     userId: uid,
     items: orderItems,
@@ -310,9 +373,39 @@ async function createOrder(uid: string, body: unknown) {
     refundedAt: null,
     refundReason: null,
     fromCart,
+    consent: consentRecord,
+    policyVersions: POLICY_VERSIONS,
     createdAt: Timestamp.now(),
     paidAt: null,
   });
+
+  // Immutable purchase-consent record — a separate write-once doc (id =
+  // order id) so a later price/policy/product change can never rewrite what
+  // this customer was shown and agreed to. finalizeOrder patches in the
+  // razorpayPaymentId/paidAt once; nothing else ever touches it.
+  await db.collection('purchaseConsents').doc(orderRef.id).set({
+    userId: uid,
+    orderId: orderRef.id,
+    razorpayOrderId: rzpOrder.id,
+    razorpayPaymentId: null,
+    currency,
+    subtotal,
+    discount,
+    total,
+    items: orderItems.map((i) => ({
+      itemType: i.itemType,
+      itemId: i.itemId,
+      certificationId: i.certificationId,
+      displayedName: i.title,
+      displayedPrice: i.unitPrice,
+      accessPeriodLabel: i.accessPeriodLabel,
+    })),
+    consent: consentRecord,
+    policyVersions: POLICY_VERSIONS,
+    consentRecordedAt: Timestamp.now(),
+    paidAt: null,
+  });
+
   // Only now that the order itself is confirmed created — a failed
   // Razorpay call above must never leave credit half-consumed with no
   // order to show for it.
@@ -483,6 +576,15 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
     batch.set(db.collection('carts').doc(order.userId), { items: [], couponCode: null, updatedAt: Timestamp.now() }, { merge: true });
   }
   await batch.commit();
+
+  // Patch the payment id onto the immutable consent record (one-time; the
+  // record is otherwise never modified). Best-effort — an order that
+  // predates purchaseConsents simply has no doc here.
+  await db
+    .collection('purchaseConsents')
+    .doc(orderId)
+    .set({ razorpayPaymentId, paidAt: Timestamp.now() }, { merge: true })
+    .catch((e) => console.error('purchaseConsents paidAt patch failed:', orderId, e));
 
   return 'paid';
 }

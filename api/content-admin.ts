@@ -442,6 +442,9 @@ const createQuizSchema = z.object({
   // How many separate attempts a student may start for this quiz.
   // Defaults to 1, preserving the old single-attempt behavior.
   maxAttempts: z.number().int().min(1).max(50).default(1),
+  // Access period shown at checkout / in the purchase-consent record.
+  // 0 = no expiry ("Lifetime access"), the existing behaviour.
+  accessPeriodDays: z.number().int().min(0).max(3650).default(0),
 });
 
 async function createQuiz(uid: string, body: unknown) {
@@ -481,6 +484,7 @@ async function createQuiz(uid: string, body: unknown) {
     passMarkPercent: d.passMarkPercent,
     previewQuestionCount: d.previewQuestionCount,
     maxAttempts: d.maxAttempts,
+    accessPeriodDays: d.accessPeriodDays,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -517,6 +521,7 @@ const updateQuizSchema = z.object({
   passMarkPercent: z.number().int().min(1).max(100).optional(),
   previewQuestionCount: z.number().int().min(0).max(200).optional(),
   maxAttempts: z.number().int().min(1).max(50).optional(),
+  accessPeriodDays: z.number().int().min(0).max(3650).optional(),
 });
 
 async function updateQuiz(uid: string, body: unknown) {
@@ -676,6 +681,8 @@ const createPracticeTestSchema = z.object({
   revisionBufferDays: z.number().int().min(0).max(60).default(3),
   defaultMinutesPerQuestion: z.number().min(0.1).max(30).default(1.8),
   studyPlannerEnabled: z.boolean().default(true),
+  // See createQuizSchema's accessPeriodDays — 0 = Lifetime access.
+  accessPeriodDays: z.number().int().min(0).max(3650).default(0),
 });
 
 async function createPracticeTest(uid: string, body: unknown) {
@@ -712,6 +719,7 @@ async function createPracticeTest(uid: string, body: unknown) {
     revisionBufferDays: d.revisionBufferDays,
     defaultMinutesPerQuestion: d.defaultMinutesPerQuestion,
     studyPlannerEnabled: d.studyPlannerEnabled,
+    accessPeriodDays: d.accessPeriodDays,
     createdBy: uid,
     createdAt: now,
     updatedAt: now,
@@ -746,6 +754,7 @@ const updatePracticeTestSchema = z.object({
   revisionBufferDays: z.number().int().min(0).max(60).optional(),
   defaultMinutesPerQuestion: z.number().min(0.1).max(30).optional(),
   studyPlannerEnabled: z.boolean().optional(),
+  accessPeriodDays: z.number().int().min(0).max(3650).optional(),
 });
 
 async function updatePracticeTest(uid: string, body: unknown) {

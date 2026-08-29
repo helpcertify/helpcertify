@@ -176,11 +176,13 @@ export function PracticeTestsPage() {
           originalPrice={buyNowTest.originalPrice ?? null}
           currency={buyNowTest.currency ?? 'INR'}
           paying={paying}
+          summaryItem={{ itemType: 'practiceTest', questionCount: buyNowTest.totalQuestions, accessPeriodDays: buyNowTest.accessPeriodDays }}
           onClose={() => setBuyNowTest(null)}
-          onConfirm={(couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit) => {
             checkout({
               buyNowItem: { itemType: 'practiceTest', itemId: buyNowTest.id },
               items: [{ itemType: 'practiceTest', itemId: buyNowTest.id, title: buyNowTest.title }],
+              consent,
               couponCode,
               useCredit,
             });

@@ -63,8 +63,26 @@ export interface AdminOrderRow {
   createdAt: Timestamp;
 }
 
+// Admin-editable public contact / legal facts (appSettings/company). Every
+// value is a plain string; a blank one means "fall back to the compile-time
+// default in src/features/marketing/companyInfo.ts".
+export interface CompanyInfoSettings {
+  operatorName: string;
+  operatorType: string;
+  operatorCountry: string;
+  registeredAddress: string;
+  jurisdiction: string;
+  contactEmail: string;
+  contactPhone: string;
+  grievanceEmail: string;
+  grievanceOfficer: string;
+}
+
 export const adminApi = {
   getDashboardStats: () => callAction<DashboardStats>('admin', 'getDashboardStats'),
+  getCompanyInfo: () => callAction<CompanyInfoSettings>('admin', 'getCompanyInfo'),
+  updateCompanyInfo: (payload: CompanyInfoSettings) =>
+    callAction<{ success: true }>('admin', 'updateCompanyInfo', { ...payload }),
   createAdminAccount: (payload: { name: string; email: string; password: string }) =>
     callAction<{ uid: string }>('admin', 'createAdminAccount', payload),
   listAdminAccounts: () =>

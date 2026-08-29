@@ -73,6 +73,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     editingTest?.defaultInitialBatchSize?.toString() ?? '50'
   );
   const [previewQuestionCount, setPreviewQuestionCount] = useState(editingTest?.previewQuestionCount?.toString() ?? '5');
+  const [accessPeriodDays, setAccessPeriodDays] = useState(editingTest?.accessPeriodDays?.toString() ?? '0');
   // Personal Study Planner (Phase 1) config — defaults match
   // createPracticeTestSchema's own defaults in api/content-admin.ts, so a
   // freshly-created test behaves identically whether or not the admin
@@ -127,6 +128,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     setDurationPerSessionMinutes('60');
     setDefaultInitialBatchSize('50');
     setPreviewQuestionCount('5');
+    setAccessPeriodDays('0');
     setStudyPlannerEnabled(true);
     setRevisionBufferDays('3');
     setDefaultMinutesPerQuestion('1.8');
@@ -156,6 +158,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         durationPerSessionMinutes: studentChoosesDuration ? null : Number(durationPerSessionMinutes),
         defaultInitialBatchSize: Number(defaultInitialBatchSize),
         previewQuestionCount: Number(previewQuestionCount) || 0,
+        accessPeriodDays: Number(accessPeriodDays) || 0,
         price: price ? majorToMinor(Number(price)) : 0,
         originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
         currency,
@@ -191,6 +194,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         durationPerSessionMinutes: studentChoosesDuration ? null : Number(durationPerSessionMinutes),
         defaultInitialBatchSize: Number(defaultInitialBatchSize),
         previewQuestionCount: Number(previewQuestionCount) || 0,
+        accessPeriodDays: Number(accessPeriodDays) || 0,
         price: price ? majorToMinor(Number(price)) : 0,
         originalPrice: originalPrice ? majorToMinor(Number(originalPrice)) : null,
         currency,
@@ -356,6 +360,18 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
             value={previewQuestionCount}
             onChange={(e) => setPreviewQuestionCount(e.target.value)}
             placeholder="e.g. 5, or 0 to disable the free preview"
+            className="input-dark"
+          />
+        </Field>
+
+        <Field label="Access period (days after purchase, 0 = lifetime / no expiry)">
+          <input
+            type="number"
+            min={0}
+            max={3650}
+            value={accessPeriodDays}
+            onChange={(e) => setAccessPeriodDays(e.target.value)}
+            placeholder="0"
             className="input-dark"
           />
         </Field>

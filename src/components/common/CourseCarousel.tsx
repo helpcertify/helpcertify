@@ -20,6 +20,7 @@ export interface CarouselItem {
   ratingAvg: number;
   ratingCount: number;
   totalQuestions: number;
+  accessPeriodDays?: number;
 }
 
 interface CourseCarouselProps {
@@ -117,11 +118,13 @@ export function CourseCarousel({ title, items }: CourseCarouselProps) {
           originalPrice={buyNowItem.originalPrice}
           currency={buyNowItem.currency}
           paying={paying}
+          summaryItem={{ itemType: buyNowItem.itemType, questionCount: buyNowItem.totalQuestions, accessPeriodDays: buyNowItem.accessPeriodDays }}
           onClose={() => setBuyNowItem(null)}
-          onConfirm={(couponCode) => {
+          onConfirm={(consent, couponCode) => {
             checkout({
               buyNowItem: { itemType: buyNowItem.itemType, itemId: buyNowItem.id },
               items: [{ itemType: buyNowItem.itemType, itemId: buyNowItem.id, title: buyNowItem.title }],
+              consent,
               couponCode,
             });
             setBuyNowItem(null);

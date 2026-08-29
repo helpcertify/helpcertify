@@ -174,9 +174,34 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- purchaseConsents/{orderId} ---
+    // Write-once audit record of what a customer was shown and agreed to at
+    // checkout (see PurchaseConsentDoc). Written only by api/checkout.ts and
+    // patched once by api/razorpay-webhook.ts — both Admin SDK, bypassing
+    // these rules. A learner can read back their own record; nobody writes
+    // from the client.
+    match /purchaseConsents/{orderId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
     // --- adminLogs/{logId} ---
     match /adminLogs/{logId} {
       allow read, write: if false; // read via api/admin.ts's listAdminLogs action only
+    }
+
+    // --- appSettings/company --- admin-editable public contact / legal
+    // facts (entity, address, jurisdiction, support + grievance email,
+    // phone) shown on the marketing/legal pages and the checkout consent
+    // links. Publicly readable on purpose — an anonymous visitor viewing
+    // /terms or /contact needs it, and nothing on it is sensitive. Written
+    // only by api/admin.ts's updateCompanyInfo (Admin SDK, admin-gated).
+    // This specific match is unioned with the /appSettings/{id} rule below,
+    // so read is allowed here while every other appSettings doc stays
+    // server-only.
+    match /appSettings/company {
+      allow read: if true;
+      allow write: if false;
     }
 
     // --- appSettings/{id} --- e.g. appSettings/general: emailOtpEnabled,
