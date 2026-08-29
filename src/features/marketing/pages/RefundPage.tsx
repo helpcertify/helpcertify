@@ -1,13 +1,30 @@
 import { MarketingPage, P, Section, UL } from '../MarketingPage';
 import { useCompany } from '../companyInfoStore';
+import { GrievanceBlock } from '../GrievanceBlock';
+import { PolicyMeta } from '../PolicyMeta';
 
 export function RefundPage() {
   const COMPANY = useCompany();
   return (
     <MarketingPage
       title="Refund & Cancellation Policy"
-      intro={`When a purchase on ${COMPANY.brand} can be refunded, and how technical issues are handled.`}
+      intro={
+        <>
+          When a purchase on {COMPANY.brand} can be refunded, and how technical issues are
+          handled.
+          <PolicyMeta />
+        </>
+      }
     >
+      <Section heading="Your consumer rights come first">
+        <P>
+          This policy does not take away any right you have under the Consumer Protection Act,
+          2019. If a product is not as described, is defective, or the service you paid for is
+          not delivered, you are entitled to a remedy &mdash; regardless of the exclusions
+          listed further below.
+        </P>
+      </Section>
+
       <Section heading="General rule">
         <P>
           {COMPANY.brand} sells digital exam-preparation content &mdash; practice questions,
@@ -27,9 +44,16 @@ export function RefundPage() {
       <Section heading="Circumstances that may be eligible for a refund">
         <UL>
           <li>
-            <strong>A. Duplicate payment</strong> &ndash; if you are accidentally charged more
-            than once for the same purchase, the duplicate payment is refunded after
+            <strong>A. Duplicate or failed payment</strong> &ndash; if you are accidentally
+            charged more than once for the same purchase, or money is debited but no order is
+            created and no access is granted, the extra or failed charge is refunded after
             verification.
+          </li>
+          <li>
+            <strong>A1. Payment succeeded but access was not granted</strong> &ndash; if your
+            payment goes through but the purchased access does not unlock, we will restore it
+            immediately; if we cannot, the payment is refunded in full &mdash; the service was
+            not delivered.
           </li>
           <li>
             <strong>B. Service cannot be provided</strong> &ndash; if payment has been received
@@ -148,24 +172,35 @@ export function RefundPage() {
         </P>
       </Section>
 
-      <Section heading="Processing time">
+      <Section heading="Timelines">
         <P>
-          We aim to acknowledge refund requests within 3 business days. Approved refunds are
-          returned by {COMPANY.paymentProcessor} to your original payment method and typically
-          take a further 5&ndash;10 business days to appear, depending on your bank. Access
-          related to a refunded purchase is removed when the refund is issued.
+          We acknowledge every refund or purchase-related request within 48 hours. We decide
+          on the request within 7 business days of receiving the order reference and any
+          information we need to investigate. If a refund is approved, we initiate it to your
+          original payment method through {COMPANY.paymentProcessor} within 3&ndash;5 business
+          days of approval; your bank or card issuer may take a further 5&ndash;10 business
+          days to credit it. Access related to a refunded purchase is removed when the refund
+          is issued.
         </P>
       </Section>
 
-      <Section heading="Contact">
+      <Section heading="Chargebacks">
         <P>
-          Refund and billing questions:{' '}
-          <a href={`mailto:${COMPANY.grievanceEmail}`} className="text-brand-ink underline">
-            {COMPANY.grievanceEmail}
-          </a>
-          .
+          If you raise a chargeback or dispute with your bank for a transaction we would have
+          refunded anyway, please also contact us so we can resolve it directly and avoid the
+          payment being processed twice.
         </P>
       </Section>
+
+      <Section heading="If you are not satisfied">
+        <P>
+          If you disagree with our decision, you can escalate it through the grievance
+          redressal process below, and, if it is still not resolved, to the consumer
+          authorities named there.
+        </P>
+      </Section>
+
+      <GrievanceBlock />
     </MarketingPage>
   );
 }

@@ -30,6 +30,16 @@ export function DisclaimerPage() {
         </P>
       </Section>
 
+      <Section heading="Original content">
+        <P>
+          All questions, answers, explanations, study plans, and other learning material on
+          {' '}{COMPANY.brand} are original works created by {COMPANY.operatorName}. They are
+          not copied or reproduced from any official examination, question bank, textbook, or
+          third-party course. Certification names and exam names are used only to describe
+          what our material helps you prepare for.
+        </P>
+      </Section>
+
       <Section heading="No guarantee of results">
         <P>
           Preparing with {COMPANY.brand} does not guarantee that you will pass any exam or

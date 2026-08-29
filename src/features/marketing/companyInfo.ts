@@ -42,8 +42,14 @@ export interface CompanyInfo {
   contactPhone: string;
   /** Inbox where refund / billing / grievance requests are received. */
   grievanceEmail: string;
-  /** Named grievance officer for consumer-law compliance (blank = not shown). */
+  /** Named grievance officer for consumer-law / DPDP compliance (blank = not shown). */
   grievanceOfficer: string;
+  /** Designation shown next to the grievance officer's name. */
+  grievanceOfficerTitle: string;
+  /** GSTIN if registered; blank = "not currently registered for GST". */
+  gstin: string;
+  /** Udyam (MSME) registration number; blank = not shown. */
+  udyamNumber: string;
 
   /** Outbound transactional sender (from api/auth.ts) — informational only. */
   noReplyEmail: string;
@@ -51,6 +57,8 @@ export interface CompanyInfo {
   paymentProcessor: string;
   /** Last review date for the legal pages. Keep in sync with policyVersions.ts. */
   legalLastUpdated: string;
+  /** Human-readable version label shown on each legal page. */
+  policyVersion: string;
 }
 
 export const COMPANY: CompanyInfo = {
@@ -76,10 +84,14 @@ export const COMPANY: CompanyInfo = {
   // from the admin Settings page later without any code change.
   grievanceEmail: 'contact@helpcertify.com',
   grievanceOfficer: 'Rajkumar',
+  grievanceOfficerTitle: 'Grievance Officer & Data Protection Contact',
+  gstin: '',
+  udyamNumber: '',
 
   noReplyEmail: 'no-reply@verify.helpcertify.com',
   paymentProcessor: 'Razorpay',
   legalLastUpdated: '2026-08-29',
+  policyVersion: '1.0',
 };
 
 // The subset an admin may change at runtime from Settings -> Company &
@@ -95,6 +107,9 @@ export const EDITABLE_COMPANY_FIELDS = [
   'contactPhone',
   'grievanceEmail',
   'grievanceOfficer',
+  'grievanceOfficerTitle',
+  'gstin',
+  'udyamNumber',
 ] as const satisfies readonly (keyof CompanyInfo)[];
 
 export type EditableCompanyField = (typeof EDITABLE_COMPANY_FIELDS)[number];

@@ -76,6 +76,9 @@ export interface CompanyInfoSettings {
   contactPhone: string;
   grievanceEmail: string;
   grievanceOfficer: string;
+  grievanceOfficerTitle: string;
+  gstin: string;
+  udyamNumber: string;
 }
 
 export const adminApi = {

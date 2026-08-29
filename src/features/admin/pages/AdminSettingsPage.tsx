@@ -284,12 +284,16 @@ const COMPANY_FIELDS: { key: keyof CompanyInfoSettings; label: string; placehold
   { key: 'contactEmail', label: 'Support / contact email', placeholder: COMPANY.contactEmail },
   { key: 'contactPhone', label: 'Contact phone (blank = hidden)', placeholder: '+91 …' },
   { key: 'grievanceEmail', label: 'Refund / billing / grievance email', placeholder: COMPANY.grievanceEmail },
-  { key: 'grievanceOfficer', label: 'Grievance officer name (blank = hidden)', placeholder: 'Name, title' },
+  { key: 'grievanceOfficer', label: 'Grievance officer name (blank = hidden)', placeholder: 'Full name' },
+  { key: 'grievanceOfficerTitle', label: 'Grievance officer designation', placeholder: COMPANY.grievanceOfficerTitle },
+  { key: 'gstin', label: 'GSTIN (blank = "not registered for GST")', placeholder: '22AAAAA0000A1Z5' },
+  { key: 'udyamNumber', label: 'Udyam / MSME registration no. (blank = hidden)', placeholder: 'UDYAM-XX-00-0000000' },
 ];
 
 const EMPTY_COMPANY: CompanyInfoSettings = {
   operatorName: '', operatorType: '', operatorCountry: '', registeredAddress: '', jurisdiction: '',
   contactEmail: '', contactPhone: '', grievanceEmail: '', grievanceOfficer: '',
+  grievanceOfficerTitle: '', gstin: '', udyamNumber: '',
 };
 
 function CompanyDetailsCard() {

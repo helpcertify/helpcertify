@@ -16,6 +16,11 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
   email: z.string().email('Enter a valid email'),
   password: z.string().min(8, 'At least 8 characters'),
+  // DPDP Act: HelpCertify is an 18+ service — the learner must affirm this
+  // before an account is created (see Privacy Policy "Children").
+  ageConfirmed: z.literal(true, {
+    errorMap: () => ({ message: 'You must be 18 or older to use HelpCertify' }),
+  }),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -36,8 +41,12 @@ export function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
+  // Gate the Google sign-up path on the same 18+ / policy confirmation as
+  // the email form (the form itself is gated by the zod resolver).
+  const ageConfirmed = watch('ageConfirmed') === true;
 
   // Shown once, right after a signup that used a valid referral link — the
   // coupon is already redeemable at that point, not a promise of something
@@ -53,7 +62,10 @@ export function RegisterPage() {
   };
 
   const mutation = useMutation({
-    mutationFn: (values: RegisterForm) => authApi.register({ ...values, referralCode }),
+    // ageConfirmed is validated client-side only — it never needs to reach
+    // the API, so only the three real fields are sent.
+    mutationFn: (values: RegisterForm) =>
+      authApi.register({ name: values.name, email: values.email, password: values.password, referralCode }),
     onSuccess: (result) => announceWelcomeCoupon(result.welcomeCoupon),
     onError: (err) => pushToast(friendlyAuthError(err, 'Registration failed'), 'error'),
   });
@@ -74,9 +86,14 @@ export function RegisterPage() {
 
         <GoogleButton
           label={googleMutation.isPending ? 'Signing in…' : 'Continue with Google'}
-          disabled={googleMutation.isPending}
+          disabled={googleMutation.isPending || !ageConfirmed}
           onClick={() => googleMutation.mutate()}
         />
+        {!ageConfirmed && (
+          <p className="mt-2 text-center text-xs text-ink-faint">
+            Confirm the 18+ and policy agreement below to continue.
+          </p>
+        )}
 
         <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-ink-faint">
           <div className="h-px flex-1 bg-surface-border" />
@@ -122,6 +139,23 @@ export function RegisterPage() {
               {...register('password')}
             />
             {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}
+          </div>
+          <div>
+            <label className="flex items-start gap-2 text-sm text-ink-muted">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" {...register('ageConfirmed')} />
+              <span>
+                I confirm I am 18 years or older and agree to the{' '}
+                <a href="/terms" target="_blank" rel="noopener" className="text-brand-ink underline">
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a href="/privacy" target="_blank" rel="noopener" className="text-brand-ink underline">
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
+            {errors.ageConfirmed && <p className="mt-1 text-sm text-red-400">{errors.ageConfirmed.message}</p>}
           </div>
           <button
             type="submit"

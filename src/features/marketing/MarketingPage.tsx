@@ -67,7 +67,13 @@ export function MarketingPage({
             {COMPANY.registeredAddress}.
           </p>
           <p className="mt-1 text-xs text-ink-faint">
-            Policies last updated {COMPANY.legalLastUpdated}.
+            Grievance redressal:{' '}
+            <a href={`mailto:${COMPANY.grievanceEmail}`} className="hover:text-ink-muted underline">
+              {COMPANY.grievanceEmail}
+            </a>
+            {COMPANY.grievanceOfficer ? ` (${COMPANY.grievanceOfficer})` : ''} &middot;{' '}
+            <Link to="/contact" className="hover:text-ink-muted underline">How to raise a complaint</Link>
+            . Policies last updated {COMPANY.legalLastUpdated}.
           </p>
         </div>
       </footer>

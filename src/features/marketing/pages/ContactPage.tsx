@@ -1,5 +1,6 @@
 import { MarketingPage, P, Section, UL } from '../MarketingPage';
 import { useCompany } from '../companyInfoStore';
+import { GrievanceBlock } from '../GrievanceBlock';
 
 export function ContactPage() {
   const COMPANY = useCompany();
@@ -34,23 +35,18 @@ export function ContactPage() {
       </Section>
 
       <Section heading="Operating entity">
-        <P>
-          {COMPANY.brand} is a product and service of {COMPANY.operatorName},{' '}
-          {COMPANY.operatorType} in {COMPANY.operatorCountry}.
-        </P>
-        <P>
-          Registered office: {COMPANY.registeredAddress}. Tax-registration details are
-          available on request to the email address above.
-        </P>
-        {COMPANY.grievanceOfficer ? (
-          <P>
-            Grievance officer: {COMPANY.grievanceOfficer} &mdash;{' '}
-            <a href={`mailto:${COMPANY.grievanceEmail}`} className="text-brand-ink underline">
-              {COMPANY.grievanceEmail}
-            </a>
-            .
-          </P>
-        ) : null}
+        <UL>
+          <li>Legal name: {COMPANY.operatorName} ({COMPANY.operatorType} in {COMPANY.operatorCountry})</li>
+          <li>Registered office: {COMPANY.registeredAddress}</li>
+          <li>Website: {COMPANY.origin}</li>
+          <li>
+            GST:{' '}
+            {COMPANY.gstin
+              ? `${COMPANY.gstin}`
+              : `not currently registered for GST (turnover below the registration threshold)`}
+          </li>
+          {COMPANY.udyamNumber && <li>Udyam (MSME) Registration: {COMPANY.udyamNumber}</li>}
+        </UL>
       </Section>
 
       <Section heading="Billing and payments">
@@ -94,15 +90,18 @@ export function ContactPage() {
 
       <Section heading="Privacy requests">
         <P>
-          To access, correct, or delete your personal data, email{' '}
-          <a href={`mailto:${COMPANY.contactEmail}`} className="text-brand-ink underline">
-            {COMPANY.contactEmail}
+          To access a summary of your data, correct or delete it, withdraw consent, or lodge a
+          nomination, email{' '}
+          <a href={`mailto:${COMPANY.grievanceEmail}`} className="text-brand-ink underline">
+            {COMPANY.grievanceEmail}
           </a>{' '}
           from your account address. See the{' '}
           <a href="/privacy" className="text-brand-ink underline">Privacy Policy</a> for
-          details.
+          details of your rights.
         </P>
       </Section>
+
+      <GrievanceBlock />
     </MarketingPage>
   );
 }

@@ -277,6 +277,9 @@ const COMPANY_FIELD_KEYS = [
   'contactPhone',
   'grievanceEmail',
   'grievanceOfficer',
+  'grievanceOfficerTitle',
+  'gstin',
+  'udyamNumber',
 ] as const;
 
 async function getCompanyInfo() {
@@ -297,6 +300,9 @@ const updateCompanyInfoSchema = z.object({
   contactPhone: z.string().trim().max(40).optional().default(''),
   grievanceEmail: z.union([z.string().trim().email(), z.literal('')]).optional().default(''),
   grievanceOfficer: z.string().trim().max(200).optional().default(''),
+  grievanceOfficerTitle: z.string().trim().max(200).optional().default(''),
+  gstin: z.string().trim().max(20).optional().default(''),
+  udyamNumber: z.string().trim().max(30).optional().default(''),
 });
 
 async function updateCompanyInfo(uid: string, body: unknown) {
