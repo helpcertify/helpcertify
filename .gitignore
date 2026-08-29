@@ -16,3 +16,6 @@ dist
 # anyone who skips the build step before inspecting it.
 vite.config.js
 vite.config.d.ts
+
+# Brand source art — not bundled; regenerate assets with scripts/gen-logo.mjs
+src/assets/logo-source.png

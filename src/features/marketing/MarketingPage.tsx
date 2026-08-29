@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import logoMark from '@/assets/logo-mark.png';
+import logoLockup from '@/assets/logo-lockup.png';
 import { useCompany } from './companyInfoStore';
 
 // Shared chrome for every public marketing / legal page. Deliberately
@@ -34,9 +34,8 @@ export function MarketingPage({
     <div className="min-h-screen bg-surface text-ink">
       <header className="border-b border-surface-border">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-5">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={logoMark} alt="" className="h-7 w-7 object-contain" />
-            <span className="text-base font-semibold text-ink">{COMPANY.brand}</span>
+          <Link to="/" aria-label={`${COMPANY.brand} home`} className="flex items-center">
+            <img src={logoLockup} alt={COMPANY.brand} className="h-8 w-auto object-contain" width={175} height={80} />
           </Link>
           <Link
             to="/"

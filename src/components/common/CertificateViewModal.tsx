@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Certificate } from '@/features/admin/api/resultsApi';
 import { toDate } from '@/utils/formatDate';
+import logoLockup from '@/assets/logo-lockup.png';
 
 interface Props {
   certificate: Certificate;
@@ -32,6 +33,7 @@ export function CertificateViewModal({ certificate, onClose, onDownload, onPrint
         className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-raised p-6"
         onClick={(e) => e.stopPropagation()}
       >
+        <img src={logoLockup} alt="HelpCertify" className="mb-4 h-9 w-auto object-contain" width={197} height={90} />
         {certificate.status !== 'issued' && (
           <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm font-semibold text-red-500">
             {STATUS_LABEL[certificate.status]}
