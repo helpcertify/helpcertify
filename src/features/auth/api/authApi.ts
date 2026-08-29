@@ -4,6 +4,8 @@ import {
   GoogleAuthProvider,
   signOut,
   sendPasswordResetEmail,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
@@ -61,7 +63,25 @@ export const authApi = {
   },
 
   async forgotPassword(email: string) {
-    await sendPasswordResetEmail(auth, email);
+    // `url` is where the recipient lands: our own /reset-password page when
+    // the Firebase project's action URL points there (fully branded flow),
+    // or the "Continue" target after Firebase's own hosted reset page
+    // otherwise. Either way /reset-password handles both an oobCode present
+    // (do the reset) and absent (send them to log in). helpcertify.com is
+    // already an authorised Auth domain, so this URL is accepted.
+    await sendPasswordResetEmail(auth, email, {
+      url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: false,
+    });
+  },
+
+  // Branded /reset-password page: check the oobCode from the email link is
+  // valid (returns the account email), then set the new password.
+  async verifyPasswordResetCode(oobCode: string) {
+    return verifyPasswordResetCode(auth, oobCode);
+  },
+  async confirmPasswordReset(oobCode: string, newPassword: string) {
+    await confirmPasswordReset(auth, oobCode, newPassword);
   },
 
   // Handled entirely client-side by the Auth SDK — no backend endpoint needed.

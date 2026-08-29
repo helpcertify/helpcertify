@@ -5,6 +5,7 @@ import { StudentShell } from '@/components/layout/StudentShell';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { RegisterPage } from '@/features/auth/pages/RegisterPage';
 import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/features/auth/pages/VerifyEmailPage';
 import { LandingPage } from '@/features/landing/pages/LandingPage';
 import { AboutPage } from '@/features/marketing/pages/AboutPage';
@@ -55,6 +56,7 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />

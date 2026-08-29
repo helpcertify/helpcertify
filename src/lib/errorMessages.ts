@@ -24,6 +24,9 @@ export function friendlyAuthError(err: unknown, fallback: string): string {
         return 'No account found with that email.';
       case 'auth/too-many-requests':
         return 'Too many attempts. Please wait a moment and try again.';
+      case 'auth/expired-action-code':
+      case 'auth/invalid-action-code':
+        return 'This reset link has expired or was already used. Request a new one.';
       case 'auth/popup-closed-by-user':
         return 'Sign-in was cancelled.';
       case 'auth/popup-blocked':
