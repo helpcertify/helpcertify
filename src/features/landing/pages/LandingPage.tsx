@@ -15,6 +15,25 @@ const AdminAccessModal = lazy(() =>
 
 const DOMAINS = ['Cybersecurity', 'Cloud', 'IT & Infrastructure', 'AI & Machine Learning', 'Project Management'];
 
+// Kept in the prerendered HTML (not behind JavaScript) so URL-classification
+// and search crawlers can read, without authenticating, exactly what kind of
+// service this is: professional certification exam preparation.
+const EXAM_PREP_AREAS = [
+  'Cybersecurity certification preparation',
+  'Cloud certification preparation',
+  'IT certification preparation',
+  'AI / machine-learning certification preparation',
+  'Project-management certification preparation',
+];
+
+const WHAT_YOU_GET = [
+  'Practice questions',
+  'Mock exams',
+  'Certification exam practice',
+  'Professional certification training',
+  'Exam-readiness analytics',
+];
+
 const FEATURES = [
   {
     title: 'Practise your weak areas',
@@ -67,11 +86,29 @@ export function LandingPage() {
           <span className="text-brand-ink">with Focused Practice</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
-          Timed mock exams, practice-question banks, a detailed explanation for every question, a
+          {/* Literal operator name (not the {COMPANY} store value) so this
+              ownership sentence is one unbroken string in the prerendered
+              HTML for URL-classification crawlers. */}
+          <strong className="text-ink-muted">
+            HelpCertify is an online certification exam-preparation and practice platform operated by IndyaBees.
+          </strong>{' '}
+          It provides practice questions, mock exams, a detailed explanation for every question, a
           study plan built around your exam date, and domain-level analytics &mdash; for students
           and professionals preparing for IT, cybersecurity, cloud, AI/ML, and project-management
-          certification exams.
+          certification exams. HelpCertify is an independent study aid and is not affiliated with,
+          endorsed by, or sponsored by any certification body.
         </p>
+
+        <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-sm text-ink-faint">
+          {WHAT_YOU_GET.map((item) => (
+            <li
+              key={item}
+              className="rounded-full border border-surface-border bg-surface-raised px-3 py-1"
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
         <Link
           to="/register"
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
@@ -108,13 +145,33 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="border-t border-surface-border py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-2xl font-bold text-ink">Certification exam preparation we cover</h2>
+          <p className="mt-2 max-w-2xl text-sm text-ink-faint">
+            HelpCertify is a professional-education service focused on certification
+            exam readiness. Practice sets and mock exams are available for:
+          </p>
+          <ul className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {EXAM_PREP_AREAS.map((area) => (
+              <li
+                key={area}
+                className="rounded-lg border border-surface-border bg-surface-raised px-4 py-3 text-sm text-ink-muted"
+              >
+                {area}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       <footer className="border-t border-surface-border py-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Logo size="sm" />
             <p className="mt-2 max-w-sm text-sm text-ink-faint">
-              Certification exam preparation: mock exams, practice-question banks, explanations,
-              and analytics in one place.
+              Online certification exam preparation and professional education: mock exams,
+              practice questions, explanations, and analytics in one place.
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm text-ink-faint sm:items-end">

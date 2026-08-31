@@ -33,6 +33,30 @@ if (!template.includes('<div id="root"></div>')) {
 // The empty shell every non-prerendered (client-only) route falls back to.
 writeFileSync(join(dist, 'app.html'), template);
 
+// dist/404.html — Vercel serves this with a real HTTP 404 for any request
+// that matches neither a static file nor a rewrite in vercel.json, so a
+// nonexistent URL (or missing asset) returns 404 instead of a 200 SPA
+// shell. Kept as static HTML with noindex; it does not boot the SPA.
+const notFound = template
+  .replace(/<title>[\s\S]*?<\/title>/, '<title>Page not found — HelpCertify</title>')
+  .replace(
+    '<meta charset="UTF-8" />',
+    '<meta charset="UTF-8" />\n    <meta name="robots" content="noindex" />',
+  )
+  .replace(/<script type="module"[^>]*><\/script>/g, '')
+  .replace(
+    '<div id="root"></div>',
+    `<div id="root"><main style="max-width:32rem;margin:12vh auto;padding:0 1.5rem;font-family:Inter,system-ui,sans-serif;text-align:center">
+      <p style="font-size:.875rem;letter-spacing:.05em;text-transform:uppercase;opacity:.6">HelpCertify</p>
+      <h1 style="font-size:1.75rem;margin:.5rem 0">Page not found</h1>
+      <p style="opacity:.75">The page you asked for doesn't exist. HelpCertify is an online
+      certification exam-preparation and practice platform operated by IndyaBees.</p>
+      <p style="margin-top:1.5rem"><a href="/" style="color:#155EEF">Go to the homepage</a></p>
+    </main></div>`,
+  );
+writeFileSync(join(dist, '404.html'), notFound);
+console.log('wrote 404.html');
+
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 function pageHtml(route) {
