@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
+import { useCompany } from '@/features/marketing/companyInfoStore';
 
 // Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
 // neither in the initial bundle nor in the build-time prerender module
@@ -12,29 +13,26 @@ const AdminAccessModal = lazy(() =>
   })),
 );
 
-const STATS = [
-  { label: 'Certifications', value: '3+' },
-  { label: 'Learners', value: '10k+' },
-  { label: 'Success Rate', value: '95%' },
-];
+const DOMAINS = ['Cybersecurity', 'Cloud', 'IT & Infrastructure', 'AI & Machine Learning', 'Project Management'];
 
 const FEATURES = [
   {
-    title: 'Adaptive Practice',
-    body: 'Large question banks you can work through in resumable, batched sessions, picking up exactly where you left off.',
+    title: 'Practise your weak areas',
+    body: 'Large question banks in resumable, batched sessions — plus a focused mode that resurfaces the questions you get wrong most.',
   },
   {
-    title: 'Real-time Analytics',
-    body: 'Ranked results with per-question breakdowns, so you and your admin can see exactly where to focus next.',
+    title: 'Detailed analytics',
+    body: 'Ranked results with a per-question breakdown, so you and your admin can see exactly where to focus next.',
   },
   {
-    title: 'Instant Feedback',
+    title: 'Instant explanations',
     body: 'Practice mode tells you right away whether an answer was correct, with the reasoning behind it.',
   },
 ];
 
 export function LandingPage() {
   const [showAdminAccess, setShowAdminAccess] = useState(false);
+  const COMPANY = useCompany();
 
   return (
     <div className="min-h-screen bg-surface">
@@ -42,27 +40,37 @@ export function LandingPage() {
         <Logo />
         {/* No theme toggle here on request — it moved to the login screens
             (Admin Access modal and the student LoginPage) instead. */}
-        <button
-          type="button"
-          onClick={() => setShowAdminAccess(true)}
-          className="rounded-lg border border-surface-border bg-surface-raised px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400"
-        >
-          Admin Portal
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/login"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink"
+          >
+            Log in
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowAdminAccess(true)}
+            className="rounded-lg border border-surface-border bg-surface-raised px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400"
+          >
+            Admin Portal
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-6 pb-24 pt-10 text-center">
         <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
-          Revolutionizing Certification Prep Through AI
+          Certification exam preparation
         </span>
         <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
-          Master Your Certification with
+          Master Your Certification Exam
           <br />
-          <span className="text-brand-ink">Intelligent Practice</span>
+          <span className="text-brand-ink">with Focused Practice</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
-          Timed exam quizzes, resumable practice tests, and ranked results built around real exam content.
-          Personalized for your success.
+          Timed mock exams, practice-question banks, a detailed explanation for every question, a
+          study plan built around your exam date, and domain-level analytics &mdash; for students
+          and professionals preparing for IT, cybersecurity, cloud, AI/ML, and project-management
+          certification exams.
         </p>
         <Link
           to="/register"
@@ -70,13 +78,21 @@ export function LandingPage() {
         >
           Get Started →
         </Link>
+        <p className="mt-4 text-sm text-ink-faint">
+          Already have an account?{' '}
+          <Link to="/login" className="text-brand-ink underline">
+            Log in
+          </Link>
+        </p>
 
-        <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {STATS.map((s) => (
-            <div key={s.label} className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <div className="text-2xl font-bold text-brand-ink">{s.value}</div>
-              <div className="mt-1 text-sm text-ink-faint">{s.label}</div>
-            </div>
+        <div className="mt-14 flex flex-wrap justify-center gap-2">
+          {DOMAINS.map((d) => (
+            <span
+              key={d}
+              className="rounded-full border border-surface-border bg-surface-raised px-4 py-1.5 text-sm text-ink-muted"
+            >
+              {d}
+            </span>
           ))}
         </div>
       </main>
@@ -97,19 +113,20 @@ export function LandingPage() {
           <div>
             <Logo size="sm" />
             <p className="mt-2 max-w-sm text-sm text-ink-faint">
-              Certification exam prep built around real practice: quizzes, practice tests, and results in one place.
+              Certification exam preparation: mock exams, practice-question banks, explanations,
+              and analytics in one place.
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm text-ink-faint sm:items-end">
-            <div className="flex gap-4">
-              <Link to="/privacy" className="hover:text-ink-muted">
-                Privacy Policy
-              </Link>
-              <Link to="/terms" className="hover:text-ink-muted">
-                Terms of Service
-              </Link>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 sm:justify-end">
+              <Link to="/about" className="hover:text-ink-muted">About</Link>
+              <Link to="/contact" className="hover:text-ink-muted">Contact</Link>
+              <Link to="/privacy" className="hover:text-ink-muted">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-ink-muted">Terms of Service</Link>
+              <Link to="/refund" className="hover:text-ink-muted">Refund Policy</Link>
+              <Link to="/support" className="hover:text-ink-muted">Support</Link>
             </div>
-            <span>© {new Date().getFullYear()} Helpcertify. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} {COMPANY.operatorName}. HelpCertify is a product and service of {COMPANY.operatorName}.</span>
           </div>
         </div>
       </footer>

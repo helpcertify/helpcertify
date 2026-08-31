@@ -67,7 +67,7 @@ export const COMPANY: CompanyInfo = {
   tagline:
     'Online certification exam-preparation and practice-test platform operated by IndyaBees.',
   summary:
-    'HelpCertify is an online certification exam-preparation and practice-test platform. It offers timed mock exams, large resumable practice question banks, personalized study plans, and ranked performance analytics for IT, security, cloud, and project-management certifications.',
+    'HelpCertify is an online certification exam-preparation and practice-test platform. It offers timed mock exams, large resumable practice question banks, personalized study plans, and ranked performance analytics for IT, security, cloud, AI/ML, and project-management certifications.',
 
   // HelpCertify is a product and service of IndyaBees, a partnership firm
   // registered in India (operator-provided 2026-08-29).
