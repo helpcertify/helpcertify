@@ -2,6 +2,11 @@
   "rewrites": [{ "source": "/(.*)", "destination": "/app.html" }],
   "redirects": [
     {
+      "source": "/security.txt",
+      "destination": "/.well-known/security.txt",
+      "permanent": true
+    },
+    {
       "source": "/((?!api/).*)",
       "has": [{ "type": "host", "value": "www.helpcertify.com" }],
       "destination": "https://helpcertify.com/$1",

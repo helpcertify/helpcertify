@@ -1,0 +1,6 @@
+Contact: mailto:security@helpcertify.com
+Contact: https://helpcertify.com/contact
+Expires: 2027-08-31T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://helpcertify.com/.well-known/security.txt
+Policy: https://helpcertify.com/terms
