@@ -8,8 +8,8 @@
     { "source": "/verify/:path*", "destination": "/app.html" },
     { "source": "/home", "destination": "/app.html" },
     { "source": "/home/:path*", "destination": "/app.html" },
-    { "source": "/quizzes/:path*", "destination": "/app.html" },
-    { "source": "/practice-tests/:path*", "destination": "/app.html" },
+    { "source": "/quizzes/:path+", "destination": "/app.html" },
+    { "source": "/practice-tests/:path+", "destination": "/app.html" },
     { "source": "/admin", "destination": "/app.html" },
     { "source": "/admin/:path*", "destination": "/app.html" }
   ],
