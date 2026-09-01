@@ -3,7 +3,7 @@
 // command line. Equivalent to doing it by hand in the Firebase Console:
 // Authentication tab -> Add user (email + password), then Firestore tab ->
 // users/{that uid} -> set role: "admin", isActive: true (create the doc if
-// it doesn't exist yet). Role lives only on that Firestore doc — no custom
+// it doesn't exist yet). Role lives only on that Firestore doc - no custom
 // claim, no Admin SDK code required either way; this script just does both
 // console steps in one command instead.
 //
@@ -22,12 +22,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const envPath = join(here, '..', '.env.local');
 if (existsSync(envPath)) {
   // A line-by-line KEY=value parser breaks on a multi-line value (e.g. a PEM
-  // private key) — `vercel env pull` writes those as real newlines inside
+  // private key) - `vercel env pull` writes those as real newlines inside
   // the quotes rather than as a single line with escaped `\n`s, and
   // .env.local gets regenerated in that shape any time something re-pulls
   // it (confirmed live: a VS Code Vercel extension did this mid-session).
   // Matching `KEY="...anything, including newlines..."` up to the next
-  // literal `"` handles both shapes — a PEM body never contains a `"`.
+  // literal `"` handles both shapes - a PEM body never contains a `"`.
   const envText = readFileSync(envPath, 'utf8');
   const re = /^([A-Z0-9_]+)="([\s\S]*?)"[ \t]*$/gm;
   let match;
@@ -62,7 +62,7 @@ const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 const privateKey = (process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
 if (!projectId || !clientEmail || !privateKey) {
-  console.error('Missing FIREBASE_ADMIN_* env vars — check frontend/.env.local');
+  console.error('Missing FIREBASE_ADMIN_* env vars - check frontend/.env.local');
   process.exit(1);
 }
 
@@ -75,7 +75,7 @@ let uid;
 try {
   const existing = await auth.getUserByEmail(email);
   uid = existing.uid;
-  console.log(`Found existing auth account for ${email} (${uid}) — promoting to admin.`);
+  console.log(`Found existing auth account for ${email} (${uid}) - promoting to admin.`);
 } catch {
   const created = await auth.createUser({ email, password, displayName: name });
   uid = created.uid;

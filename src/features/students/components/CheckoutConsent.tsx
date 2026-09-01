@@ -1,4 +1,3 @@
-import { useCompany } from '@/features/marketing/companyInfoStore';
 import { ALL_CONSENT, EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '../lib/checkoutConsent';
 
 // One combined acknowledgement replaces the previous four separate boxes.
@@ -13,7 +12,6 @@ export function CheckoutConsent({
   value: CheckoutConsentState;
   onChange: (next: CheckoutConsentState) => void;
 }) {
-  const COMPANY = useCompany();
   const cls = 'text-brand-ink underline hover:no-underline';
   const link = (href: string, label: string) => (
     <a href={href} target="_blank" rel="noopener" className={cls}>
@@ -30,12 +28,9 @@ export function CheckoutConsent({
         className="mt-0.5 h-4 w-4 shrink-0"
       />
       <span>
-        I confirm I am purchasing the correct product, that a free preview is available to evaluate the
-        question format and explanations first, and I have read and agree to the{' '}
-        {link('/terms', 'Terms of Service')}, {link('/refund', 'Refund & Cancellation Policy')},{' '}
-        {link('/privacy', 'Privacy Policy')} and {link('/support', 'Support Policy')} — including that a
-        technical issue is investigated first and does not automatically qualify for a refund.{' '}
-        {link(`mailto:${COMPANY.grievanceEmail}`, 'Contact / Grievance')}.
+        I have read and agree to the {link('/terms', 'Terms of Service')},{' '}
+        {link('/refund', 'Refund & Cancellation Policy')}, {link('/privacy', 'Privacy Policy')} and{' '}
+        {link('/support', 'Support Policy')}.
       </span>
     </label>
   );

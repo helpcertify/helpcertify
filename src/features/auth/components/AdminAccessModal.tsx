@@ -22,7 +22,7 @@ type AdminLoginForm = z.infer<typeof adminLoginSchema>;
 
 // Matches the reference screenshots' "Admin Access" card: a plain
 // email/password login gated to role === 'admin', reusing the same Firebase
-// Auth session as the student side — just a different entry point and a
+// Auth session as the student side - just a different entry point and a
 // role check after sign-in, rather than a separate credential system.
 export function AdminAccessModal({ onClose }: AdminAccessModalProps) {
   const navigate = useNavigate();

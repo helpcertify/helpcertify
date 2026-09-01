@@ -61,7 +61,7 @@ export function AdminHomePage() {
         <StatCard label="Admin Accounts" value={stats?.adminAccounts} />
       </div>
 
-      {/* Products & Pricing summary — kept to three small cards plus one
+      {/* Products & Pricing summary - kept to three small cards plus one
           "manage" link, not a second dashboard, per request not to
           overcrowd this page. */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-4">

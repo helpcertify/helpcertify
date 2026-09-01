@@ -8,11 +8,11 @@ import QRCode from 'qrcode';
 
 // Ranked results (admin) + a student's own history/dashboard, plus learner
 // completion certificates (issuance, listing, PDF download, public
-// verification) — folded in here rather than a 13th api/*.ts file (Vercel's
+// verification) - folded in here rather than a 13th api/*.ts file (Vercel's
 // Hobby plan caps a deployment at 12 Serverless Functions, and this repo is
 // already at that limit), and this file already owns "a student's own
 // attempt history," which a certificate is directly derived from.
-// Self-contained — see api/auth.ts's header comment for why.
+// Self-contained - see api/auth.ts's header comment for why.
 
 function getAdminApp() {
   if (getApps().length) return getApps()[0];
@@ -59,7 +59,7 @@ async function requireUser(req: VercelRequest): Promise<{ uid: string; role: Rol
     throw Err.unauthenticated('Invalid or expired token');
   }
   // Role comes from the Firestore users/{uid} doc, not an ID-token custom
-  // claim — see api/admin.ts's requireAdmin for why.
+  // claim - see api/admin.ts's requireAdmin for why.
   const snap = await db.collection('users').doc(decoded.uid).get();
   const user = snap.data();
   if (!snap.exists || !user?.isActive) throw Err.unauthenticated('Account not found or deactivated');
@@ -70,7 +70,7 @@ const SUBMITTED_STATUSES = ['submitted', 'auto_submitted'];
 
 // Firestore's DocumentData is an index-signature type (`any`-valued fields),
 // so `d.data()` fields are accessed directly rather than through a named
-// interface — matches the rest of this project's Vercel functions (e.g.
+// interface - matches the rest of this project's Vercel functions (e.g.
 // quiz-session.ts reads `attempt.status`, `attempt.quizId` etc. straight off
 // `.data()!` without a per-collection type).
 function toAttemptRow(d: FirebaseFirestore.QueryDocumentSnapshot): { id: string } & Record<string, any> {
@@ -131,10 +131,10 @@ async function deleteAttempt(role: Role, body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
-// Certificates — one per eligible, completed quiz attempt or fully-answered
+// Certificates - one per eligible, completed quiz attempt or fully-answered
 // practice test. Every field the PDF renders is snapshotted here from
 // server-trusted sources at issuance time (the graded attempt/progress doc,
-// the quiz/practiceTest doc, and the caller's own users/{uid}.name) — never
+// the quiz/practiceTest doc, and the caller's own users/{uid}.name) - never
 // accepted from the client. Doc id is a Firestore auto-id: not a
 // predictable/sequential value, used directly as the public Certificate ID
 // in the PDF, the download filename, and the /verify/:certificateId URL.
@@ -163,7 +163,7 @@ async function logCertificateAccess(certificateId: string, learnerUid: string | 
 const issueCertificateSchema = z.object({
   sourceType: z.enum(['quiz', 'practiceTest']),
   sourceId: z.string().min(1),
-  // Required for a quiz (the specific quizAttempts doc just submitted —
+  // Required for a quiz (the specific quizAttempts doc just submitted -
   // QuizDoc.maxAttempts means there can be more than one); ignored for a
   // practiceTest, whose "attempt" is its own single progress doc.
   attemptId: z.string().min(1).optional(),
@@ -207,7 +207,7 @@ async function issueOrGetCertificate(uid: string, body: unknown) {
     );
     if (!eligible) throw Err.failedPrecondition('This attempt is not eligible for a certificate yet');
 
-    // Attempt number — how many of this learner's own completed attempts on
+    // Attempt number - how many of this learner's own completed attempts on
     // this quiz (by submission time) this one is, oldest first.
     const allAttemptsSnap = await db.collection('quizAttempts').where('userId', '==', uid).where('quizId', '==', sourceId).get();
     const completed = allAttemptsSnap.docs
@@ -242,7 +242,7 @@ async function issueOrGetCertificate(uid: string, body: unknown) {
 
     sourceTitle = test.title ?? 'Practice Test';
     certificationName = test.examName || test.category || 'Other';
-    attemptNumber = 1; // one completion certificate per (learner, practice test) — see CertificateDoc's own comment
+    attemptNumber = 1; // one completion certificate per (learner, practice test) - see CertificateDoc's own comment
     questionsCompleted = answeredCount;
     totalQuestions = test.totalQuestions ?? 0;
     scoreCorrect = null; // practice tests have no pass/fail score
@@ -312,7 +312,7 @@ async function getCertificate(uid: string, body: unknown) {
   return { certificate: { id: snap.id, ...cert } };
 }
 
-// Public — no auth required, matching how a real credential-verification
+// Public - no auth required, matching how a real credential-verification
 // page works (a third party checking a certificate a learner shared with
 // them). Returns only the fields relevant to verifying authenticity, never
 // account-internal data.
@@ -340,7 +340,7 @@ async function verifyCertificate(body: unknown) {
 }
 
 // Renders the certificate PDF fresh, every time, from the stored
-// server-trusted doc — never from a client-supplied blob. A4 landscape,
+// server-trusted doc - never from a client-supplied blob. A4 landscape,
 // White-matte JPEG of the HelpCertify lockup for the certificate PDF
 // header. Regenerate with scripts/gen-logo.mjs (writes the base64 to
 // scripts/_logo-print-base64.txt). ~330x120 px.
@@ -497,7 +497,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
 
-    // Public — no signed-in learner required, matching how a real
+    // Public - no signed-in learner required, matching how a real
     // credential-verification page works for a third party checking a
     // certificate someone shared with them.
     if (action === 'verifyCertificate') {

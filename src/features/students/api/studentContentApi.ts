@@ -2,10 +2,10 @@ import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from '
 import { db } from '@/lib/firebase';
 import type { QuizDoc, PracticeTestDoc, QuestionDoc } from '@/types/models';
 
-// Direct Firestore reads — firestore.rules already gates these correctly for
+// Direct Firestore reads - firestore.rules already gates these correctly for
 // a signed-in student (published quizzes readable once isPublished; every
 // practiceTest doc readable once signed in, since nothing sensitive lives on
-// it — the availability window is enforced server-side by
+// it - the availability window is enforced server-side by
 // api/practice-session.ts, this client-side bucketing is just for display),
 // so no Vercel function round-trip is needed just to list/read them.
 
@@ -37,7 +37,7 @@ export async function listPracticeTestsBucketed(): Promise<PracticeTestBuckets> 
 }
 
 // Single-doc reads for the course detail/landing pages (QuizDetailPage,
-// PracticeTestDetailPage) — same direct-Firestore-read approach as the list
+// PracticeTestDetailPage) - same direct-Firestore-read approach as the list
 // functions above, just narrowed to one doc. Returns null rather than
 // throwing on a missing/deleted id so the page can render a clean "not
 // found" state instead of an error boundary.
@@ -63,17 +63,17 @@ export async function getQuizWithQuestions(quizId: string): Promise<{ quiz: Quiz
   };
 }
 
-// Free preview — the first N questions (by `order`) of a quiz/practice
+// Free preview - the first N questions (by `order`) of a quiz/practice
 // test, readable the same way getQuizWithQuestions above already reads the
 // full set (no purchase gate on the question docs themselves, see that
-// function's file-header comment) — a non-buyer never needs a purchase
+// function's file-header comment) - a non-buyer never needs a purchase
 // just to see these. N is the admin's own previewQuestionCount for that
 // specific quiz/test (see api/content-admin.ts), passed in by the caller
 // (QuizDetailPage/PracticeTestDetailPage, which already have the parent
 // doc loaded) rather than a fixed constant here. Checking a selected
 // answer's correctness still goes through api/quiz-session.ts's/
 // api/practice-session.ts's previewCheckAnswer, since the private answer
-// key is never readable directly from the client — those re-check the same
+// key is never readable directly from the client - those re-check the same
 // previewQuestionCount server-side, so this is never a way to see more than
 // the admin intended even if a caller passed a larger number by mistake.
 export async function getQuizPreviewQuestions(

@@ -3,7 +3,7 @@ import { formatReward } from '@/utils/currency';
 
 // Shared by the Home dashboard and My Profile's Refer & Earn section, so a
 // referred learner sees the same reminder wherever they land, for as long
-// as the coupon is actually still usable — see useMyWelcomeCoupon, which
+// as the coupon is actually still usable - see useMyWelcomeCoupon, which
 // stops returning it the moment it's redeemed (or expires/is
 // deactivated), so this banner disappears on its own rather than needing
 // to be dismissed.

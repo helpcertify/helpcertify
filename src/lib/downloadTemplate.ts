@@ -36,7 +36,7 @@ Answer: A
 `,
 };
 
-// A real .docx template would need hand-built Open XML — this plain-text
+// A real .docx template would need hand-built Open XML - this plain-text
 // version shows the exact syntax the parser expects, which an admin can
 // paste into Word and save as .docx. Simpler and far less fragile than
 // generating OOXML by hand for a one-off template download.

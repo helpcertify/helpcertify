@@ -1,9 +1,9 @@
 // Pure, framework-agnostic validation rules for a Products & Pricing
-// package — no Firestore/network calls, so these are directly unit-
+// package - no Firestore/network calls, so these are directly unit-
 // testable (see packageValidation.test.ts), the same way
 // referralRules.ts/studyPlan.ts's calculations are. api/content-admin.ts
 // re-implements the same short checks inline (no cross-file imports across
-// api/*.ts, per this repo's existing convention) — this file is the
+// api/*.ts, per this repo's existing convention) - this file is the
 // tested, canonical spec for what that inline logic must do.
 
 export interface PriceFields {
@@ -37,12 +37,12 @@ export function isCountNonNegative(count: number): boolean {
 }
 
 // A package can publish without a real price only when explicitly marked
-// Free — otherwise it needs a positive selling price.
+// Free - otherwise it needs a positive selling price.
 export function hasPublishablePrice(sellingPrice: number, isFree: boolean): boolean {
   return isFree || sellingPrice > 0;
 }
 
-// "Package cannot publish without a valid entitlement" — must actually
+// "Package cannot publish without a valid entitlement" - must actually
 // grant access to at least one existing quiz or practice test.
 export function hasEntitlement(includedQuizIds: string[], includedPracticeTestIds: string[]): boolean {
   return includedQuizIds.length > 0 || includedPracticeTestIds.length > 0;
@@ -53,7 +53,7 @@ export function isAccessibleCountWithinBank(accessibleQuestionCount: number, eli
   return accessibleQuestionCount <= eligiblePublishedQuestionCount;
 }
 
-// Case-insensitive — "Complete" and "complete" read as the same name to a
+// Case-insensitive - "Complete" and "complete" read as the same name to a
 // learner, so both count as a duplicate within one certification.
 export function isDuplicatePackageName(candidateName: string, existingNames: string[], excludePackageId?: string, existingIds?: string[]): boolean {
   const normalized = candidateName.trim().toLowerCase();

@@ -4,23 +4,23 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 // Independent, server-to-server confirmation that a payment actually
-// completed — the second (and more reliable) half of api/checkout.ts's
+// completed - the second (and more reliable) half of api/checkout.ts's
 // verifyPayment. That client callback can simply never fire (closed tab,
 // lost network, browser crash right after paying) even though Razorpay
 // captured the money; this webhook is Razorpay calling *us*, so it doesn't
 // depend on the student's browser at all. Register this URL
 // (https://<domain>/api/razorpay-webhook) plus a webhook secret in the
 // Razorpay Dashboard → Settings → Webhooks, subscribed to "payment.captured"
-// — that's a Razorpay-dashboard action only the account owner can do.
+// - that's a Razorpay-dashboard action only the account owner can do.
 //
-// No Firebase auth here — the caller is Razorpay's servers, not a signed-in
+// No Firebase auth here - the caller is Razorpay's servers, not a signed-in
 // user. Authenticity instead comes from the X-Razorpay-Signature header,
 // an HMAC-SHA256 of the *raw* request body using the webhook secret. That
 // means Vercel's automatic JSON body-parsing has to be turned off (a parsed
-// body re-serialized wouldn't byte-for-byte match what Razorpay signed) —
+// body re-serialized wouldn't byte-for-byte match what Razorpay signed) -
 // hence reading the stream manually below.
 //
-// Self-contained — see api/auth.ts's header comment for why (no shared code
+// Self-contained - see api/auth.ts's header comment for why (no shared code
 // across api/*.ts). finalizeOrder duplicates api/checkout.ts's function of
 // the same name rather than importing it; it's intentionally idempotent
 // (no-ops once an order is already 'paid') so it's safe if both this webhook
@@ -42,15 +42,15 @@ db.settings({ ignoreUndefinedProperties: true });
 
 type ItemType = 'quiz' | 'practiceTest' | 'package';
 
-// Refer & Earn — the referrer's reward is real HelpCertify credit (not a
+// Refer & Earn - the referrer's reward is real HelpCertify credit (not a
 // coupon): non-withdrawable, always a flat money amount (a percentage
 // doesn't make sense for a standing balance not tied to one specific
-// purchase at grant time — that's the referee's coupon instead), spendable
+// purchase at grant time - that's the referee's coupon instead), spendable
 // across future purchases up to a percentage cap (see
 // api/checkout.ts's applyMyCredit), only becomes spendable after a
 // validation/holding period, and can be clawed back on refund (see
 // api/admin.ts's refundOrder). Granted only once the referee's first
-// *eligible* order is actually paid (never on signup alone — see
+// *eligible* order is actually paid (never on signup alone - see
 // ReferralDoc). Amount/validation-period/expiry/eligible-items/monthly-
 // limit are all admin-configurable (see api/admin.ts's
 // getAppSettings/updateAppSettings); the defaults below are only the
@@ -83,7 +83,7 @@ async function processReferralOnPurchase(
   const hasEligibleItem = eligibleItemIds.length === 0 || orderItems.some((i) => eligibleItemIds.includes(i.itemId));
   if (!hasEligibleItem) return; // none of this order's items qualify - referral stays 'registered' for a later purchase
 
-  // Monthly cap — fetch this referrer's own entries and filter in memory
+  // Monthly cap - fetch this referrer's own entries and filter in memory
   // rather than adding a range (grantedAt) + equality (referrerUid) query,
   // matching this codebase's existing convention of avoiding a composite-
   // index requirement for a query this small (see getUserDetailAdmin's
@@ -134,12 +134,12 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   const snap = await ref.get();
   if (!snap.exists) return 'not_found';
   const order = snap.data()!;
-  // Also skips an already-refunded order — same
+  // Also skips an already-refunded order - same
   // shouldSkipAlreadyProcessedOrder guard as referralRules.ts's tested
   // version (see api/admin.ts's refundOrder for the other side of this).
   if (order.status === 'paid' || order.status === 'refunded') return 'already_paid';
 
-  // Read before marking paid — processReferralOnPurchase's "is this their
+  // Read before marking paid - processReferralOnPurchase's "is this their
   // first purchase" check needs to see the world as it was before this
   // order counted as paid.
   const batch = db.batch();
@@ -149,13 +149,13 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
 
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
     if (item.itemType === 'package') {
-      // A package doesn't get its own purchase doc — it fans out to one
+      // A package doesn't get its own purchase doc - it fans out to one
       // purchase doc per included item, same as api/checkout.ts's own
       // finalizeOrder (duplicated here, same no-shared-code convention).
       // See PackageDoc's own comment in src/types/models.ts.
       const pkgSnap = await db.collection('packages').doc(item.itemId).get();
       const pkgData = pkgSnap.data();
-      if (!pkgData) continue; // package deleted between order creation and payment — nothing to grant
+      if (!pkgData) continue; // package deleted between order creation and payment - nothing to grant
       const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
       const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
       for (const quizId of includedQuizIds) {
@@ -191,7 +191,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   if (order.couponCode) {
     batch.update(db.collection('coupons').doc(order.couponCode), { usedCount: FieldValue.increment(1) });
   }
-  // Only clear the cart for an order that actually came from it — see
+  // Only clear the cart for an order that actually came from it - see
   // api/checkout.ts's finalizeOrder (same logic, duplicated here) for why.
   if (order.fromCart) {
     batch.set(db.collection('carts').doc(order.userId), { items: [], couponCode: null, updatedAt: Timestamp.now() }, { merge: true });
@@ -199,7 +199,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   await batch.commit();
 
   // One-time patch of the payment id onto the immutable purchase-consent
-  // record (see api/checkout.ts's finalizeOrder — same best-effort patch).
+  // record (see api/checkout.ts's finalizeOrder - same best-effort patch).
   await db
     .collection('purchaseConsents')
     .doc(orderId)

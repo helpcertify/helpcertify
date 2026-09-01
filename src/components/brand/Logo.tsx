@@ -9,7 +9,7 @@ interface LogoProps {
 }
 
 // The HelpCertify lockup (3D shield-check-cap mark + wordmark). One image so
-// the wordmark styling always matches the brand art — see scripts/gen-logo.mjs
+// the wordmark styling always matches the brand art - see scripts/gen-logo.mjs
 // for how it's produced from src/assets/logo-source.png.
 export function Logo({ to = '/', size = 'md', className }: LogoProps) {
   const height = size === 'sm' ? 28 : 36;

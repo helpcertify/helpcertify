@@ -8,7 +8,7 @@ import { formatMoney } from '@/utils/currency';
 
 interface ProductCardShellProps {
   id: string;
-  // Never 'package' — a certification/package card uses CertificationCard
+  // Never 'package' - a certification/package card uses CertificationCard
   // instead (see its own file for why ProductCardShell isn't a fit there).
   itemType: 'quiz' | 'practiceTest';
   title: string;
@@ -25,7 +25,7 @@ interface ProductCardShellProps {
   // most callers don't need this at all.
   extra?: ReactNode;
   // Each page keeps its own owned/in-cart/reattempt/session-duration/study-
-  // goal logic — this shell only owns the look (cover, badge, rating,
+  // goal logic - this shell only owns the look (cover, badge, rating,
   // price), not the action buttons, since that logic genuinely differs per
   // page and per item type.
   footer: ReactNode;
@@ -62,7 +62,7 @@ export function ProductCardShell({
           <h3 className="line-clamp-2 pt-1 text-[15px] font-semibold leading-snug text-[#0F172A]">{title}</h3>
         </Link>
         {/* Bottom-right of the light-blue header, not the old cover-image
-            corner — the click affordance that used to sit on the (now
+            corner - the click affordance that used to sit on the (now
             removed) colored banner. */}
         <ClickHereLink href={detailHref} />
       </div>

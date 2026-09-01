@@ -1,13 +1,13 @@
 import type { StudyDaySelection } from '@/types/models';
 
-// Personal Study Planner (Phase 1) — pure calculation engine, no I/O.
+// Personal Study Planner (Phase 1) - pure calculation engine, no I/O.
 // Deliberately kept side-effect-free and framework-free so every formula
 // here is unit-testable in isolation against the worked examples in the
 // approved proposal, and so the same functions can run identically on the
 // dashboard (read-heavy) and the goal-setup form (what-if preview before
 // saving). Every "today"/date argument is expected to already represent the
 // correct local calendar day for the learner (i.e. constructed from a
-// Date that's already been shifted into their timezone) — this module does
+// Date that's already been shifted into their timezone) - this module does
 // no timezone conversion itself, only calendar-day arithmetic on whatever
 // Date it's given.
 
@@ -43,7 +43,7 @@ export function calendarDaysBetween(from: Date, to: Date): number {
 
 // Counts scheduled-weekday days in [from, to], both inclusive. Returns 0 if
 // the range is empty/inverted (e.g. a practice deadline that's already
-// passed) rather than a negative count — a negative "days available" has
+// passed) rather than a negative count - a negative "days available" has
 // no sensible meaning downstream.
 export function countScheduledDaysInclusive(from: Date, to: Date, studyDays: StudyDaySelection): number {
   const span = calendarDaysBetween(from, to);
@@ -57,7 +57,7 @@ export function countScheduledDaysInclusive(from: Date, to: Date, studyDays: Stu
   return count;
 }
 
-// The date of the Nth scheduled day starting from `from` (inclusive) — e.g.
+// The date of the Nth scheduled day starting from `from` (inclusive) - e.g.
 // n=1 is the first scheduled day on/after `from`, which may be `from`
 // itself if it's a study day. Used to turn "30 study days needed" into an
 // actual calendar date (the pace-mode practice-completion date).
@@ -78,7 +78,7 @@ export function nthScheduledDate(from: Date, studyDays: StudyDaySelection, n: nu
 }
 
 // ---------------------------------------------------------------------------
-// Option A — I Have an Exam Date
+// Option A - I Have an Exam Date
 // ---------------------------------------------------------------------------
 
 export interface ExamDatePlanInputs {
@@ -114,7 +114,7 @@ export function computeExamDatePlan(inputs: ExamDatePlanInputs): ExamDatePlanRes
 }
 
 // ---------------------------------------------------------------------------
-// Option B — Plan At My Pace
+// Option B - Plan At My Pace
 // ---------------------------------------------------------------------------
 
 export interface PacePlanInputs {
@@ -124,7 +124,7 @@ export interface PacePlanInputs {
   studyDays: StudyDaySelection;
   revisionBufferDays: number;
   minutesPerQuestion: number;
-  // Already resolved to a questions/day number — see
+  // Already resolved to a questions/day number - see
   // questionsPerDayFromMinutes for converting a time-based input first.
   paceQuestionsPerDay: number;
 }
@@ -147,7 +147,7 @@ export function computePacePlan(inputs: PacePlanInputs): PacePlanResult {
   return { remainingQuestions, studyDaysNeeded, practiceCompletionDate, suggestedExamDate, estMinutesPerDay };
 }
 
-// A learner picking a time budget instead of a question count (§8) — this
+// A learner picking a time budget instead of a question count (§8) - this
 // is the one conversion point between the two, used both to preview a
 // pace plan and to re-express an exam-date plan's daily target as minutes.
 export function questionsPerDayFromMinutes(minutesPerDay: number, minutesPerQuestion: number): number {
@@ -178,10 +178,10 @@ export interface PlanStatusInputs {
 
 export interface PlanStatusResult {
   status: PlanStatus;
-  // Positive when ahead, positive-magnitude when behind — always read
+  // Positive when ahead, positive-magnitude when behind - always read
   // together with `status` rather than by sign alone.
   deltaQuestions: number;
-  // Only meaningful when status is 'catch_up' — how many more questions per
+  // Only meaningful when status is 'catch_up' - how many more questions per
   // scheduled day would close the gap by the practice deadline.
   extraPerDay: number;
 }
@@ -199,7 +199,7 @@ export function computePlanStatus(inputs: PlanStatusInputs): PlanStatusResult {
     tolerance = 1,
   } = inputs;
 
-  // Scheduled days strictly between the baseline and today — today itself
+  // Scheduled days strictly between the baseline and today - today itself
   // isn't "expected" yet since the day isn't over.
   const scheduledDaysElapsed =
     calendarDaysBetween(baselineDate, today) <= 0 ? 0 : countScheduledDaysInclusive(baselineDate, addDays(today, -1), studyDays);
@@ -220,7 +220,7 @@ export function computePlanStatus(inputs: PlanStatusInputs): PlanStatusResult {
 
 // Below this many unique answered questions, a learner's own timing is too
 // noisy to trust (a slow first few questions while getting oriented would
-// badly skew a tiny sample) — the course's own default is used instead.
+// badly skew a tiny sample) - the course's own default is used instead.
 // Chosen so it kicks in well within a first week of normal study at almost
 // any pace, while still being large enough for outliers to average out.
 export const PERSONAL_PACE_MIN_ANSWERED = 50;
@@ -236,7 +236,7 @@ export interface SessionTiming {
 }
 
 // Average minutes/question across a learner's own submitted sessions for a
-// test — reattempts included on purpose (this is about typical answering
+// test - reattempts included on purpose (this is about typical answering
 // speed, not first-pass progress, so there's no reason to exclude them the
 // way unique-progress counting does). Returns null if there's nothing to
 // average yet.
@@ -263,7 +263,7 @@ export interface FeasibilityResult {
 }
 
 // Flags an exam-date plan whose implied daily workload is unreasonably
-// high, rather than rejecting it outright — the caller decides what to
+// high, rather than rejecting it outright - the caller decides what to
 // show (the proposal's constructive message + adjustment options), this
 // just supplies the numbers. `comfortableMinutesPerDay` is the ceiling past
 // which a plan is considered to need adjustment; 120 (2 hours/day) is a
@@ -384,7 +384,7 @@ export function computeStudyStreak(inputs: StudyStreakInputs): number {
 }
 
 // Whole calendar days since the most recent day with any recorded activity,
-// or null if there's no activity at all yet (a brand-new plan — see the
+// or null if there's no activity at all yet (a brand-new plan - see the
 // dashboard's recovery-messaging note on why that's a different message
 // than "welcome back after a gap"). Used to tell a genuine missed-day gap
 // apart from a learner who's simply been studying slightly under pace every
@@ -411,7 +411,7 @@ export const PERCENT_MILESTONES = [25, 50, 75, 100] as const;
 export const STREAK_MILESTONES = [3, 7, 14, 30] as const;
 
 // Returns milestone keys newly crossed by going from `previousCount` to
-// `currentCount` (for questions or streak-days alike) — a jump of several
+// `currentCount` (for questions or streak-days alike) - a jump of several
 // at once (e.g. a big batch submit crossing both 250 and the next one some
 // day) still returns every threshold crossed, not just the nearest one.
 export function newlyCrossedThresholds(previousCount: number, currentCount: number, thresholds: readonly number[]): number[] {

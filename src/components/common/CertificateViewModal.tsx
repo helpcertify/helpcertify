@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { Certificate } from '@/features/admin/api/resultsApi';
 import { toDate } from '@/utils/formatDate';
 import logoLockup from '@/assets/logo-lockup.png';
+import { ModalCloseButton } from './ModalCloseButton';
 
 interface Props {
   certificate: Certificate;
@@ -18,7 +19,7 @@ const STATUS_LABEL: Record<Certificate['status'], string> = {
   invalid: 'Invalid',
 };
 
-// "View Certificate" — a read-only preview of exactly what the PDF says
+// "View Certificate" - a read-only preview of exactly what the PDF says
 // (learner name, item, attempt, score/completion, certificate id), reused
 // by both the results-page "ready" panel and My Certificates. Download/
 // Print/Verify all live here too so a learner never has to leave this view
@@ -30,9 +31,10 @@ export function CertificateViewModal({ certificate, onClose, onDownload, onPrint
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-raised p-6"
+        className="relative w-full max-w-lg rounded-xl border border-surface-border bg-surface-raised p-6"
         onClick={(e) => e.stopPropagation()}
       >
+        <ModalCloseButton onClose={onClose} />
         <img src={logoLockup} alt="HelpCertify" className="mb-4 h-9 w-auto object-contain" width={197} height={90} />
         {certificate.status !== 'issued' && (
           <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm font-semibold text-red-500">

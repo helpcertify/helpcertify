@@ -5,7 +5,7 @@ import { COMPANY, EDITABLE_COMPANY_FIELDS, type CompanyInfo } from './companyInf
 // companyInfo.ts (so it renders synchronously during prerender and in the
 // first client paint, with no hydration mismatch), then the SPA merges any
 // admin overrides from Firestore `appSettings/company` over the top once
-// they load — see loadCompanyInfo.ts, called from AppProviders. Marketing /
+// they load - see loadCompanyInfo.ts, called from AppProviders. Marketing /
 // legal pages read this via `useCompany()` and never import Firebase, so
 // they stay safe for the SSR prerender.
 interface CompanyInfoState {

@@ -5,6 +5,7 @@ import { useMyCredits } from '@/features/students/hooks/useMyCredits';
 import { OrderSummary, type OrderSummaryItem } from '@/features/students/components/OrderSummary';
 import { CheckoutConsent } from '@/features/students/components/CheckoutConsent';
 import { EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '@/features/students/lib/checkoutConsent';
+import { ModalCloseButton } from './ModalCloseButton';
 
 interface Props {
   title: string;
@@ -21,24 +22,33 @@ interface Props {
 // A confirm-and-pay step for Buy Now: the order summary, the four mandatory
 // consent acknowledgements (Pay stays disabled until all are ticked), plus an
 // optional coupon field. The actual discounted total shows up in Razorpay's
-// own checkout — createOrder is the single source of truth for pricing and
+// own checkout - createOrder is the single source of truth for pricing and
 // for re-checking consent server-side.
 export function BuyNowModal({ title, price, originalPrice, currency, paying, summaryItem, onClose, onConfirm }: Props) {
   const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [showOffers, setShowOffers] = useState(false);
   const [useCredit, setUseCredit] = useState(false);
   const [consent, setConsent] = useState<CheckoutConsentState>(EMPTY_CONSENT);
   const { data: myCoupons } = useMyAvailableCoupons();
   const { data: credits } = useMyCredits();
 
   const canPay = !paying && allConsentsGiven(consent);
+  const applyCoupon = (code: string) => {
+    const c = code.trim();
+    if (!c) return;
+    setAppliedCoupon(c);
+    setCouponInput(c);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-surface-border bg-surface-raised p-6"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-surface-border bg-surface-raised p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-1 text-lg font-bold text-ink">{title}</h2>
+        <ModalCloseButton onClose={onClose} />
+        <h2 className="mb-1 pr-8 text-lg font-bold text-ink">{title}</h2>
         <div className="mb-4 flex items-center gap-2">
           {originalPrice && originalPrice > price && (
             <span className="text-sm text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
@@ -60,33 +70,76 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
           <CheckoutConsent value={consent} onChange={setConsent} />
         </div>
 
-        {/* Coupons already earned by this account (mainly Refer & Earn
-            rewards) — one click fills the code in below. */}
-        {myCoupons && myCoupons.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {myCoupons.map((c) => (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => setCouponInput(c.code)}
-                className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF]"
-              >
-                🎁 {c.code} ({formatReward(c.type, c.value)} off)
-              </button>
-            ))}
-          </div>
-        )}
-
         <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
           Have a coupon code?
         </label>
-        <input
-          value={couponInput}
-          onChange={(e) => setCouponInput(e.target.value)}
-          placeholder="Optional"
-          className="input-dark mb-1"
-        />
-        <p className="mb-3 text-xs text-ink-faint">The discounted total (if any) shows on the next, payment screen.</p>
+        <div className="flex gap-2">
+          <input
+            value={couponInput}
+            onChange={(e) => setCouponInput(e.target.value)}
+            placeholder="Optional"
+            disabled={!!appliedCoupon}
+            className="input-dark flex-1 disabled:opacity-60"
+          />
+          {appliedCoupon ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAppliedCoupon(null);
+                setCouponInput('');
+              }}
+              className="shrink-0 rounded-lg border border-surface-border px-4 text-sm font-semibold text-ink-muted hover:border-red-400 hover:text-red-500"
+            >
+              Remove
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!couponInput.trim()}
+              onClick={() => applyCoupon(couponInput)}
+              className="shrink-0 rounded-lg bg-[#155EEF] px-4 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          )}
+        </div>
+        {appliedCoupon ? (
+          <p className="mb-3 mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            Coupon &quot;{appliedCoupon}&quot; applied. The final total shows on the next payment screen.
+          </p>
+        ) : (
+          <p className="mb-3 mt-1 text-xs text-ink-faint">
+            The discounted total, if any, shows on the next payment screen.
+          </p>
+        )}
+
+        {/* Coupons already earned by this account (mainly Refer & Earn
+            rewards), tucked behind a toggle. One click applies the code. */}
+        {myCoupons && myCoupons.length > 0 && (
+          <div className="mb-3">
+            <button
+              type="button"
+              onClick={() => setShowOffers((v) => !v)}
+              className="text-xs font-semibold text-[#155EEF] hover:underline"
+            >
+              {showOffers ? 'Hide' : 'View'} available offers ({myCoupons.length})
+            </button>
+            {showOffers && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {myCoupons.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => applyCoupon(c.code)}
+                    className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF]"
+                  >
+                    🎁 {c.code} ({formatReward(c.type, c.value)} off)
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {credits && credits.spendableMinor > 0 && (
           <label className="mb-5 flex items-start gap-2.5 rounded-lg border border-surface-border p-3 text-sm">
@@ -101,7 +154,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
         <button
           type="button"
           disabled={!canPay}
-          onClick={() => onConfirm(consent, couponInput.trim() || undefined, useCredit)}
+          onClick={() => onConfirm(consent, appliedCoupon ?? (couponInput.trim() || undefined), useCredit)}
           className="w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {paying ? 'Opening payment…' : 'Continue to Payment'}

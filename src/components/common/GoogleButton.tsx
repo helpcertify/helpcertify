@@ -4,7 +4,7 @@ interface GoogleButtonProps {
   label: string;
 }
 
-// Google's own multi-color "G" mark — the standard third-party
+// Google's own multi-color "G" mark - the standard third-party
 // "Sign in with Google" treatment per Google's branding guidelines.
 export function GoogleButton({ onClick, disabled, label }: GoogleButtonProps) {
   return (

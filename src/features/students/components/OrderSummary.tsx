@@ -20,7 +20,7 @@ const TYPE_LABEL: Record<OrderSummaryItem['itemType'], string> = {
 };
 
 // The "YOU'RE PURCHASING" order summary shown before the Pay button on both
-// checkout surfaces (BuyNowModal and CartPage). Every value is passed in —
+// checkout surfaces (BuyNowModal and CartPage). Every value is passed in -
 // nothing about the product (name, question count, price, access period) is
 // hard-coded here.
 export function OrderSummary({

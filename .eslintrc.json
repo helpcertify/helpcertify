@@ -12,6 +12,21 @@
   "plugins": ["react-refresh"],
   "rules": {
     "react-refresh/only-export-components": ["warn", { "allowConstantExport": true }],
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/[\\u2012-\\u2015]/]",
+        "message": "Do not use en/em dashes (– —). Use a hyphen '-' or rewrite the sentence."
+      },
+      {
+        "selector": "TemplateElement[value.raw=/[\\u2012-\\u2015]/]",
+        "message": "Do not use en/em dashes (– —). Use a hyphen '-' or rewrite the sentence."
+      },
+      {
+        "selector": "JSXText[value=/[\\u2012-\\u2015]/]",
+        "message": "Do not use en/em dashes (– —). Use a hyphen '-' or rewrite the sentence."
+      }
+    ]
   }
 }

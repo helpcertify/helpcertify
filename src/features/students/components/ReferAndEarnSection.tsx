@@ -13,7 +13,7 @@ import type { ReferralDoc, ReferralStatus } from '@/types/models';
 
 // One label + color per lifecycle stage (see ReferralDoc's own comment for
 // what each status means). 'invited' has no real trigger in this app
-// today (no page-view tracking) — kept here for completeness, in case a
+// today (no page-view tracking) - kept here for completeness, in case a
 // referral doc is ever manually seeded into it.
 const STATUS_META: Record<ReferralStatus, { label: string; className: string }> = {
   invited: { label: 'Invited', className: 'bg-surface-raised text-ink-faint' },
@@ -26,13 +26,13 @@ const STATUS_META: Record<ReferralStatus, { label: string; className: string }> 
   expired: { label: 'Expired', className: 'bg-surface-raised text-ink-faint' },
 };
 
-// Refer & Earn — the referral code is lazily backfilled the first time this
+// Refer & Earn - the referral code is lazily backfilled the first time this
 // section mounts (ensureReferralCode is a no-op once one's already set, so
 // this is safe to call on every visit). Every reward is granted server-
 // side only (see api/checkout.ts's/api/razorpay-webhook.ts's
-// processReferralOnPurchase) — this section only ever displays what
+// processReferralOnPurchase) - this section only ever displays what
 // already happened, it never grants anything itself. The referral list
-// below deliberately never shows the referred person's name (item 16 —
+// below deliberately never shows the referred person's name (item 16 -
 // no PII in the learner-facing dashboard); the admin audit view is the
 // only place that's shown (see AdminReferralAuditPage.tsx).
 export function ReferAndEarnSection() {
@@ -49,7 +49,7 @@ export function ReferAndEarnSection() {
     },
   });
 
-  // Fire once, only for an account that doesn't have a code yet — every
+  // Fire once, only for an account that doesn't have a code yet - every
   // account created after this feature shipped already gets one at signup,
   // so this mutation only ever actually writes for a pre-existing account.
   useEffect(() => {
@@ -71,7 +71,7 @@ export function ReferAndEarnSection() {
   const { data: credits } = useMyCredits();
   const creditByReferralId = new Map((credits?.entries ?? []).map((e) => [e.referralId, e]));
 
-  // Item 4/5 — a code can still be applied here if this account registered
+  // Item 4/5 - a code can still be applied here if this account registered
   // without one, as long as it hasn't purchased anything yet (enforced
   // server-side; this button just surfaces the flow).
   const applyCodeMutation = useMutation({
@@ -90,7 +90,7 @@ export function ReferAndEarnSection() {
   if (!profile) return null;
 
   const referralLink = profile.referralCode ? `${window.location.origin}/register?ref=${profile.referralCode}` : null;
-  // Whether *this* account was itself referred — the "apply a code" input
+  // Whether *this* account was itself referred - the "apply a code" input
   // only makes sense before that's ever happened.
   const wasReferred = referrals !== undefined && referrals.some((r) => r.refereeUid === firebaseUser?.uid);
 
@@ -175,7 +175,7 @@ export function ReferAndEarnSection() {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2.5"
               >
                 <div>
-                  {/* Referral #N, not the referred person's name — item 16 */}
+                  {/* Referral #N, not the referred person's name - item 16 */}
                   <div className="text-sm font-semibold text-[#0F172A]">Referral #{referrals.length - i}</div>
                   <div className="text-xs text-[#64748B]">{toDate(r.createdAt).toLocaleDateString()}</div>
                 </div>

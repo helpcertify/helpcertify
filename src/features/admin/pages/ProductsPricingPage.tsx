@@ -31,7 +31,7 @@ function toDateOrNull(v: unknown): Date | null {
   return toDate(v);
 }
 
-// Products & Pricing landing page — one row per certification (never one
+// Products & Pricing landing page - one row per certification (never one
 // row per package, per the spec's own worked CISM example), a Scheduled
 // Offers tab, and the toolbar/summary counts an admin needs to find what
 // they're looking for across a growing catalog. Edit/Preview/Duplicate/

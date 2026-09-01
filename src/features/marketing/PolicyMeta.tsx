@@ -1,6 +1,6 @@
 import { useCompany } from './companyInfoStore';
 
-// Effective date + version line shown at the top of each legal page —
+// Effective date + version line shown at the top of each legal page -
 // standard practice and what the e-commerce and data-protection rules
 // expect on a dated, versioned policy.
 export function PolicyMeta() {

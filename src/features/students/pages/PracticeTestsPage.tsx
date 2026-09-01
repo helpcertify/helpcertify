@@ -17,7 +17,7 @@ import { PrimaryGoalStatRow } from '../components/PrimaryGoalStatRow';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
-// ({ _seconds, _nanoseconds }, not { seconds }) — toDate() handles that
+// ({ _seconds, _nanoseconds }, not { seconds }) - toDate() handles that
 // shape; a bare `ts.seconds * 1000` silently produced an Invalid Date here.
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -32,7 +32,7 @@ export function PracticeTestsPage() {
   const [filters, setFilters] = useState(DEFAULT_EXAM_FILTERS);
   const [downloadingCertId, setDownloadingCertId] = useState<string | null>(null);
 
-  // Real, server-issued certificate — never the old client-only jsPDF
+  // Real, server-issued certificate - never the old client-only jsPDF
   // generator (fabricated a "certificate id" from a truncated test id, no
   // persistence, no ownership check, no verification). Idempotent: issuing
   // again for the same fully-completed test just returns the same
@@ -68,7 +68,7 @@ export function PracticeTestsPage() {
   const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
 
-  // A purchase is permanent access — the admin's availability window can't
+  // A purchase is permanent access - the admin's availability window can't
   // take away something a student already paid for (the backend enforces
   // this too, see api/practice-session.ts). A purchased-but-window-expired
   // test is treated as available here instead of landing in the locked
@@ -117,7 +117,7 @@ export function PracticeTestsPage() {
       ) : (
         // Fixed-width cards (flex-wrap, not a CSS grid that stretches each
         // cell) so every card is the exact same size as the Home
-        // dashboard's Recommended for You cards, on request — not just
+        // dashboard's Recommended for You cards, on request - not just
         // visually similar but literally the same w-60/sm:w-72.
         <div className="mb-8 flex flex-wrap gap-4">
           {filteredAvailable.map((test) => (

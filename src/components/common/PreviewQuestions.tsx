@@ -9,20 +9,20 @@ interface PreviewQuestionsProps {
   itemType: PurchasableItemType;
   itemId: string;
   // The item's own admin-configured previewQuestionCount (QuizDoc/
-  // PracticeTestDoc) — passed down from the detail page rather than
+  // PracticeTestDoc) - passed down from the detail page rather than
   // refetched here, since that page already has the parent doc loaded.
   previewQuestionCount: number;
   // Opens the same Buy Now modal the Course Access card's own button
-  // opens — passed down rather than duplicated here, so there's one Buy
+  // opens - passed down rather than duplicated here, so there's one Buy
   // Now flow, just two entry points into it.
   onBuyNow?: () => void;
 }
 
-// Free preview — shows the first few questions of a not-yet-owned quiz/
+// Free preview - shows the first few questions of a not-yet-owned quiz/
 // practice test, lets the visitor pick an answer, and reveals correctness
 // via api/quiz-session.ts's/api/practice-session.ts's previewCheckAnswer.
 // Neither the question read nor the correctness check needs a purchase or
-// session — see those two files for the server-side re-check that keeps
+// session - see those two files for the server-side re-check that keeps
 // this from ever exposing more than the first few questions' answers, even
 // to someone scripting direct calls to the endpoint.
 export function PreviewQuestions({ itemType, itemId, previewQuestionCount, onBuyNow }: PreviewQuestionsProps) {

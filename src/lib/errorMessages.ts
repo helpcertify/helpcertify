@@ -3,7 +3,7 @@ import { FirebaseError } from 'firebase/app';
 // Firebase/Auth/Functions errors carry a machine code (e.g.
 // "auth/email-already-in-use", "functions/internal") but a message meant
 // for developers, not end users. This maps the common ones we actually hit
-// to something a signing-up user can act on — most importantly, the plain
+// to something a signing-up user can act on - most importantly, the plain
 // "internal" a callable throws when it isn't deployed at all shouldn't
 // surface verbatim (see functions-not-deployed handling below).
 export function friendlyAuthError(err: unknown, fallback: string): string {

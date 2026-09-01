@@ -6,7 +6,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { COMPANY } from '@/features/marketing/companyInfo';
 
-// The admin portal's one settings screen — OTP toggles, plus (below) the
+// The admin portal's one settings screen - OTP toggles, plus (below) the
 // Refer & Earn reward/eligibility controls. One combined Save Changes
 // button, matching api/admin.ts's updateAppSettingsSchema, which takes
 // every field together rather than supporting a partial update.
@@ -19,11 +19,11 @@ export function AdminSettingsPage() {
   const [emailOtpEnabled, setEmailOtpEnabled] = useState(false);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
-  // Refer & Earn — every amount is typed in rupees (converted to/from
+  // Refer & Earn - every amount is typed in rupees (converted to/from
   // paise only at the load/save boundary, never stored as a raw
   // major-unit number), matching how every other price field in the admin
   // already works (see PracticeTestFormCard's own price input). The
-  // referrer's reward is always a flat credit amount (no percent option —
+  // referrer's reward is always a flat credit amount (no percent option -
   // see CreditLedgerEntryDoc's own comment on why); the referee's stays a
   // coupon, flat or percent.
   const [creditAmount, setCreditAmount] = useState('');

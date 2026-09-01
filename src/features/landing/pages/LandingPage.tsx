@@ -5,7 +5,7 @@ import { useCompany } from '@/features/marketing/companyInfoStore';
 
 // Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
 // neither in the initial bundle nor in the build-time prerender module
-// graph — scripts/prerender.mjs renders this page to static HTML and must
+// graph - scripts/prerender.mjs renders this page to static HTML and must
 // not evaluate Firebase. Only loads when the Admin Portal button is used.
 const AdminAccessModal = lazy(() =>
   import('@/features/auth/components/AdminAccessModal').then((m) => ({
@@ -37,7 +37,7 @@ const WHAT_YOU_GET = [
 const FEATURES = [
   {
     title: 'Practise your weak areas',
-    body: 'Large question banks in resumable, batched sessions — plus a focused mode that resurfaces the questions you get wrong most.',
+    body: 'Large question banks in resumable, batched sessions - plus a focused mode that resurfaces the questions you get wrong most.',
   },
   {
     title: 'Detailed analytics',
@@ -57,7 +57,7 @@ export function LandingPage() {
     <div className="min-h-screen bg-surface">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Logo />
-        {/* No theme toggle here on request — it moved to the login screens
+        {/* No theme toggle here on request - it moved to the login screens
             (Admin Access modal and the student LoginPage) instead. */}
         <div className="flex items-center gap-2">
           <Link
@@ -93,7 +93,7 @@ export function LandingPage() {
             HelpCertify is an online certification exam-preparation and practice platform operated by IndyaBees.
           </strong>{' '}
           It provides practice questions, mock exams, a detailed explanation for every question, a
-          study plan built around your exam date, and domain-level analytics &mdash; for students
+          study plan built around your exam date, and domain-level analytics - for students
           and professionals preparing for IT, cybersecurity, cloud, AI/ML, and project-management
           certification exams. HelpCertify is an independent study aid and is not affiliated with,
           endorsed by, or sponsored by any certification body.

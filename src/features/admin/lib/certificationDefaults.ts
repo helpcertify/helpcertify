@@ -1,5 +1,5 @@
 // Pure helpers that generate the "technical" certification fields a
-// non-technical admin should never have to type — slug, display order,
+// non-technical admin should never have to type - slug, display order,
 // card icon, independent-preparation disclaimer. Framework-agnostic and
 // unit-tested (see certificationDefaults.test.ts); the simplified product
 // form (CertificationEditorPage.tsx) calls these when building its
@@ -8,7 +8,7 @@
 
 import type { CertificationIconKey } from '@/types/models';
 
-/** Lowercase, hyphen-separated, ASCII-only — matches api/content-admin.ts's
+/** Lowercase, hyphen-separated, ASCII-only - matches api/content-admin.ts's
  *  createCertificationSchema slug regex (`^[a-z0-9-]+$`). */
 export function slugify(text: string): string {
   return text
@@ -20,7 +20,7 @@ export function slugify(text: string): string {
     .replace(/-{2,}/g, '-');
 }
 
-/** `base`, or `base-2`, `base-3`… — the first form not already in `taken`.
+/** `base`, or `base-2`, `base-3`… - the first form not already in `taken`.
  *  Comparison is case-insensitive since slugs are always lowercased. */
 export function uniqueSlug(base: string, taken: Iterable<string>): string {
   const used = new Set<string>();
@@ -45,8 +45,8 @@ const ICON_RULES: ReadonlyArray<[RegExp, CertificationIconKey]> = [
   [/\b(data|analytics|databricks|snowflake|tableau|ai|ml|machine learning|tensorflow)\b/i, 'chart'],
 ];
 
-/** A sensible card icon for a provider/track name. Everything else — ISACA,
- *  (ISC)², CompTIA (Security+), PMI, EC-Council, etc. — falls back to the
+/** A sensible card icon for a provider/track name. Everything else - ISACA,
+ *  (ISC)², CompTIA (Security+), PMI, EC-Council, etc. - falls back to the
  *  HelpCertify shield. */
 export function iconForProvider(provider: string): CertificationIconKey {
   for (const [pattern, icon] of ICON_RULES) if (pattern.test(provider)) return icon;

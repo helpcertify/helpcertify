@@ -11,7 +11,7 @@ import { friendlyAuthError } from '@/lib/errorMessages';
 const RESEND_COOLDOWN_SECONDS = 30;
 
 // Reached only when a signed-in account still has emailVerified === false
-// (see ProtectedRoute) — not itself wrapped in ProtectedRoute, since a
+// (see ProtectedRoute) - not itself wrapped in ProtectedRoute, since a
 // route that requires verification can't also be the one you're sent to
 // verify. Handles its own redirects instead: away if not signed in at all,
 // onward to /home if this account turns out to already be verified.

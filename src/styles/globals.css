@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 /* Light theme (default) and dark theme (.dark on <html>, toggled by
-   useThemeStore) — both defined here as RGB-channel-triple CSS variables so
+   useThemeStore) - both defined here as RGB-channel-triple CSS variables so
    Tailwind's `rgb(var(--x) / <alpha-value>)` color functions (see
    tailwind.config.js) can still support opacity modifiers like
    bg-surface-raised/50. Every existing bg-surface/bg-surface-raised/
    border-surface-border/text-ink* usage across the app repaints correctly
-   from these two blocks alone — no per-component edits needed for those.
+   from these two blocks alone - no per-component edits needed for those.
    Only the plain Tailwind-default utilities some components used directly
    instead of these tokens (text-white, text-neutral-300/400/500) needed a
    one-time sweep to the new ink/ink-muted/ink-faint tokens. */
@@ -18,13 +18,13 @@
   --color-surface-raised: 248 250 252;
   --color-surface-border: 226 232 240;
   --color-ink: 15 23 42;
-  /* Both bumped one step darker on the slate scale (were 600/500) — real
+  /* Both bumped one step darker on the slate scale (were 600/500) - real
      user feedback that nav tabs and card stat lines (which lean on these
      two tokens everywhere) read as too washed-out on the light theme, even
      though the old values technically passed WCAG AA. */
   --color-ink-muted: 51 65 85; /* slate-700, was slate-600 (71 85 105) */
   --color-ink-faint: 71 85 105; /* slate-600, was slate-500 (100 116 139) */
-  --color-brand-ink: 21 94 239; /* #155EEF — the HelpCertify design-system's Primary Electric Blue */
+  --color-brand-ink: 21 94 239; /* #155EEF - the HelpCertify design-system's Primary Electric Blue */
 }
 
 .dark {
@@ -35,7 +35,7 @@
   --color-ink: 255 255 255;
   --color-ink-muted: 212 212 212;
   --color-ink-faint: 163 163 163;
-  --color-brand-ink: 96 165 250; /* blue-400 — bright enough for text on a near-black card */
+  --color-brand-ink: 96 165 250; /* blue-400 - bright enough for text on a near-black card */
 }
 
 body {
@@ -43,7 +43,7 @@ body {
 }
 
 @layer components {
-  /* Shared text/number/date input styling — used across every admin form.
+  /* Shared text/number/date input styling - used across every admin form.
      Name predates the theme system (was dark-only); kept as-is rather than
      renamed everywhere it's used, since it's just a class identifier now,
      not a description of a fixed appearance. */
@@ -55,7 +55,7 @@ body {
   }
 
   /* Hides the scrollbar on a horizontally-scrolling row (CourseCarousel)
-     while leaving it fully scrollable by drag/touch/wheel — only the arrow
+     while leaving it fully scrollable by drag/touch/wheel - only the arrow
      buttons and native gestures are meant to be visible ways to move it.
      No Tailwind plugin for this is installed, so it's a plain rule instead. */
   .scrollbar-none {

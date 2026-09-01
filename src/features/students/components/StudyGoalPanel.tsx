@@ -33,7 +33,7 @@ function formatDisplayDate(d: Date): string {
 }
 
 // The goal-setup flow, inline on the practice test's own landing page
-// instead of a separate route — on request, so setting a study goal is a
+// instead of a separate route - on request, so setting a study goal is a
 // same-page action rather than another level of navigation. Previously
 // lived at its own /study-plan route (StudyPlanSetupPage.tsx, now removed);
 // this is that same UI and calculation logic, just embedded and driven by
@@ -135,7 +135,7 @@ export function StudyGoalPanel({
       // outside this panel in the component tree, so without invalidating
       // them explicitly here they'd keep showing whatever was true before
       // this save. (The key here has to match useExamCountdowns' actual
-      // queryKey exactly — 'examCountdowns', plural, with the uid — or the
+      // queryKey exactly - 'examCountdowns', plural, with the uid - or the
       // just-added exam won't show in the sidebar until the next refetch.)
       queryClient.invalidateQueries({ queryKey: ['student', 'examCountdowns', uid] });
       queryClient.invalidateQueries({ queryKey: ['student', 'studyPlans', uid] });
@@ -149,7 +149,7 @@ export function StudyGoalPanel({
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-[#155EEF]/20">
       {/* Colorful hero, matching the app's own two accents (brand blue +
-          amber) — this is a single focused flow, so it can afford one
+          amber) - this is a single focused flow, so it can afford one
           deliberate splash of color rather than the muted-gray treatment
           the rest of this page uses. */}
       <div className="bg-gradient-to-br from-[#155EEF] to-[#0f2f8f] p-5 text-white">
@@ -303,7 +303,7 @@ export function StudyGoalPanel({
               </div>
             </div>
 
-            {/* Right column — the live result, kept visible alongside the
+            {/* Right column - the live result, kept visible alongside the
                 form instead of below the fold, so every input change's
                 effect is seen immediately without scrolling. */}
             <div className="space-y-5 lg:sticky lg:top-20">

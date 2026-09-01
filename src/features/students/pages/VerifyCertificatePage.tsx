@@ -4,7 +4,7 @@ import { certificatesApi } from '@/features/admin/api/resultsApi';
 import { toDate } from '@/utils/formatDate';
 import { Logo } from '@/components/brand/Logo';
 
-// Public certificate verification — reachable without signing in, the same
+// Public certificate verification - reachable without signing in, the same
 // way a real credential-verification page works for a third party checking
 // a certificate a learner shared with them (an employer, for instance).
 // Deliberately shows only non-sensitive fields (see api/results.ts's

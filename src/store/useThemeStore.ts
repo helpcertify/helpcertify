@@ -4,8 +4,8 @@ export type Theme = 'light' | 'dark';
 
 // The app is LIGHT by default. Dark mode is a globally admin-gated feature:
 // appSettings/appearance.darkModeEnabled, loaded once at boot by
-// src/features/appearance/loadAppearance.ts. Until that flag is known — and
-// any time it is off — the app is forced to light regardless of a saved
+// src/features/appearance/loadAppearance.ts. Until that flag is known - and
+// any time it is off - the app is forced to light regardless of a saved
 // per-device preference. `hc_dark_allowed` mirrors the last-known flag into
 // localStorage so the inline no-flash script in index.html can make the
 // same decision before any JS bundle runs.
@@ -53,7 +53,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     try {
       localStorage.setItem('theme', theme);
     } catch {
-      /* private mode — preference just won't persist */
+      /* private mode - preference just won't persist */
     }
     set({ theme });
     applyTheme(get().darkModeAllowed ? theme : 'light');

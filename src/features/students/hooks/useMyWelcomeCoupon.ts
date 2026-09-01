@@ -11,7 +11,7 @@ export interface MyWelcomeCoupon {
   value: number;
 }
 
-// Refer & Earn — this account's own welcome coupon, if it was created via
+// Refer & Earn - this account's own welcome coupon, if it was created via
 // someone else's referral link, shared by both StudentHomePage's banner
 // and ReferAndEarnSection's (My Profile) banner so the "already used"
 // check doesn't get duplicated. The referrals/{myUid} doc (as referee) is
@@ -20,7 +20,7 @@ export interface MyWelcomeCoupon {
 // actually says whether it's been redeemed yet (both doc reads are
 // allowed by firestore.rules for the account they belong to). Returns
 // undefined while loading, null once loaded if there's nothing to show
-// (no referral, or the coupon's already been used/expired/deactivated) —
+// (no referral, or the coupon's already been used/expired/deactivated) -
 // every null branch below logs *why*, since a silent null here is
 // otherwise indistinguishable from "nothing to show" vs. "something's
 // actually broken" (e.g. a Firestore rules mismatch throwing instead of
@@ -70,7 +70,7 @@ export function useMyWelcomeCoupon() {
           value: referral.refereeRewardValue ?? 0,
         };
       } catch (err) {
-        // Most likely a Firestore permission-denied — logged loudly rather
+        // Most likely a Firestore permission-denied - logged loudly rather
         // than left as a silent, unexplained missing banner.
         console.error('useMyWelcomeCoupon: failed to check welcome-coupon status', err);
         return null;

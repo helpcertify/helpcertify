@@ -4,9 +4,9 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
-// New file for the v2 (Quiz + Practice Test) platform — different actions
+// New file for the v2 (Quiz + Practice Test) platform - different actions
 // than functions/src/_migrated-v1-reference/admin.ts (which was
-// user-management for the old course/certificate product). Self-contained —
+// user-management for the old course/certificate product). Self-contained -
 // see api/auth.ts's header comment for why (no shared code across api/*.ts).
 
 function getAdminApp() {
@@ -52,7 +52,7 @@ async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
   }
 
   // Role comes from the Firestore users/{uid} doc, not an ID-token custom
-  // claim — this is what lets an admin be created (or promoted) entirely
+  // claim - this is what lets an admin be created (or promoted) entirely
   // from the Firebase Console (Auth: add user: Firestore: set role:'admin'
   // on their users/{uid} doc), no Admin SDK script required.
   const snap = await db.collection('users').doc(decoded.uid).get();
@@ -155,18 +155,18 @@ async function listAdminLogs() {
 }
 
 // --- App settings (Email/Mobile OTP toggles, Refer & Earn rewards) -----
-// A single appSettings/general doc rather than one doc per setting — a
+// A single appSettings/general doc rather than one doc per setting - a
 // single doc keeps getAppSettings/updateAppSettings a plain get/set
 // instead of a query.
 
-// Refer & Earn — defaults match what's hardcoded in api/auth.ts's
+// Refer & Earn - defaults match what's hardcoded in api/auth.ts's
 // linkReferral (referee coupon) and api/checkout.ts's/
 // api/razorpay-webhook.ts's processReferralOnPurchase (referrer credit),
 // applied whenever appSettings/general doesn't have these fields yet
 // (every doc that predates this admin control) so behavior doesn't
 // silently change for anyone until an admin actually saves new values.
 // The referrer's reward is always a flat credit amount now (not a
-// coupon, so no percent option — see CreditLedgerEntryDoc); the referee's
+// coupon, so no percent option - see CreditLedgerEntryDoc); the referee's
 // stays a coupon (flat or percent, default 10% per the current spec).
 const REFERRAL_DEFAULTS = {
   referralCreditAmountMinor: 25000, // ₹250, in paise
@@ -189,9 +189,9 @@ async function getAppSettings() {
     emailOtpEnabled: data?.emailOtpEnabled === true,
     // Global dark-mode feature flag. Kept on its own publicly-readable doc
     // (appSettings/appearance) so the SPA can read it without an admin
-    // call — see src/features/appearance/loadAppearance.ts.
+    // call - see src/features/appearance/loadAppearance.ts.
     darkModeEnabled: appearanceSnap.data()?.darkModeEnabled === true,
-    // Always false in the response regardless of what's stored — there's
+    // Always false in the response regardless of what's stored - there's
     // no SMS provider wired up yet (see updateAppSettings), so this can
     // never actually be true no matter what a stale doc might say.
     mobileOtpEnabled: false,
@@ -207,7 +207,7 @@ async function getAppSettings() {
 }
 
 // discountValue: flat is paise (same convention as CouponDoc/createCoupon);
-// percent is capped at 95 — same reasoning as api/coupons.ts's own cap (a
+// percent is capped at 95 - same reasoning as api/coupons.ts's own cap (a
 // 100% coupon would zero out the order Razorpay needs a positive amount for).
 const refereeRewardSchema = z
   .object({
@@ -220,9 +220,9 @@ const refereeRewardSchema = z
 
 const updateAppSettingsSchema = z.object({
   emailOtpEnabled: z.boolean(),
-  // Global dark-mode feature flag — persisted to appSettings/appearance.
+  // Global dark-mode feature flag - persisted to appSettings/appearance.
   darkModeEnabled: z.boolean(),
-  // Accepted but ignored below — mobile OTP has no SMS provider wired up
+  // Accepted but ignored below - mobile OTP has no SMS provider wired up
   // yet, so this can't actually be turned on. Still typed/validated here
   // (rather than omitted) so the Settings page's checkbox has somewhere
   // real to send its value once a provider is added.
@@ -279,7 +279,7 @@ async function updateAppSettings(uid: string, body: unknown) {
 // --- Company / contact details (appSettings/company) ---------------------
 // Admin-editable overrides for the public contact facts shown on the
 // marketing/legal pages and checkout consent links. Stored in its own doc
-// (publicly readable — see firestore.rules) so the marketing SPA can read
+// (publicly readable - see firestore.rules) so the marketing SPA can read
 // it without auth. The frontend keeps the compile-time defaults in
 // src/features/marketing/companyInfo.ts and merges a stored value only when
 // it's a non-blank string, so an empty field here just falls back.
@@ -336,7 +336,7 @@ async function updateCompanyInfo(uid: string, body: unknown) {
     action: 'updateCompanyInfo',
     targetType: 'appSettings',
     targetId: 'company',
-    description: `Updated company / contact details (entity "${d.operatorName || '—'}", contact ${d.contactEmail || '—'}, phone ${d.contactPhone || '—'})`,
+    description: `Updated company / contact details (entity "${d.operatorName || '-'}", contact ${d.contactEmail || '-'}, phone ${d.contactPhone || '-'})`,
   });
 
   return { success: true };
@@ -344,7 +344,7 @@ async function updateCompanyInfo(uid: string, body: unknown) {
 
 // --- Users list (Learner Analytics' "Users" tab) ------------------------
 // One read of every user doc plus one read of every purchase doc, joined
-// in memory by userId — simpler than N per-user count queries, and fine
+// in memory by userId - simpler than N per-user count queries, and fine
 // at this app's current scale (see this file's header comment: no shared
 // helpers across api/*.ts, so this pattern is duplicated rather than
 // imported wherever a listing needs a purchase count per user).
@@ -371,7 +371,7 @@ async function listUsersAdmin() {
         role: data.role as string,
         isActive: data.isActive as boolean,
         // Missing entirely = registered before this feature existed, or
-        // OTP was off at the time — never actually blocked, so treated as
+        // OTP was off at the time - never actually blocked, so treated as
         // verified rather than shown as a false alarm.
         emailVerified: data.emailVerified !== false,
         createdAt: data.createdAt,
@@ -389,7 +389,7 @@ async function getUserDetailAdmin(body: unknown) {
 
   const [userSnap, ordersSnap] = await Promise.all([
     db.collection('users').doc(parsed.data.uid).get(),
-    // Two equality filters (userId, status) — no orderBy on a third field,
+    // Two equality filters (userId, status) - no orderBy on a third field,
     // so this doesn't need a composite index. Sorted in memory instead,
     // fine at the per-user order volumes this app has.
     db.collection('orders').where('userId', '==', parsed.data.uid).where('status', '==', 'paid').get(),
@@ -415,14 +415,14 @@ function getRazorpayCreds() {
 
 const refundOrderSchema = z.object({ orderId: z.string().min(1), reason: z.string().trim().min(1).max(500) });
 
-// Item 11 — refunds an order via Razorpay's own refund API, then reverses
+// Item 11 - refunds an order via Razorpay's own refund API, then reverses
 // any referral benefit tied to it: mirrors
 // src/features/students/lib/referralRules.ts's nextStatusOnRefund (that
 // module is the tested, canonical version; duplicated inline here since
 // api/*.ts files can't import across each other or from src/). An
 // already-spent portion of a clawed-back credit entry (spent on a
 // *different* purchase before this refund happened) is not itself clawed
-// back — a deliberate simplification, not an oversight.
+// back - a deliberate simplification, not an oversight.
 async function refundOrder(uid: string, body: unknown) {
   const parsed = refundOrderSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
@@ -454,7 +454,7 @@ async function refundOrder(uid: string, body: unknown) {
 
   // Reverse a referral benefit tied to this order, if this was the
   // referee's own qualifying purchase (a referrer's credit was granted,
-  // or about to be) — nextStatusOnRefund only reverses 'pending'/
+  // or about to be) - nextStatusOnRefund only reverses 'pending'/
   // 'rewarded', leaving every other status (already rejected/reversed/
   // expired, or one that never reached a reward at all) untouched.
   const referralsSnap = await db.collection('referrals').where('qualifyingOrderId', '==', orderId).limit(1).get();
@@ -487,7 +487,7 @@ async function refundOrder(uid: string, body: unknown) {
   return { success: true };
 }
 
-// Item 15 — the Referral Audit admin page. referrer/referee names+emails
+// Item 15 - the Referral Audit admin page. referrer/referee names+emails
 // are fine to expose here (admin-only); contrast with item 16, which
 // keeps the *learner-facing* referral list free of the other party's PII
 // (see ReferAndEarnSection.tsx).

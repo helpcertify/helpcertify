@@ -54,7 +54,7 @@ describe('StudentShell "Your Exams"', () => {
     ]);
     renderShell();
     // Desktop sidebar is the only "Your Exams" block in the DOM until the
-    // mobile menu is opened — exactly one countdown, and it's the newer goal.
+    // mobile menu is opened - exactly one countdown, and it's the newer goal.
     expect(screen.getAllByText(/Days to Go/i)).toHaveLength(1);
     expect(screen.getByText('CISA')).toBeInTheDocument();
     expect(screen.queryByText('CISM')).not.toBeInTheDocument();

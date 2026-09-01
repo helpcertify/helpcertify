@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { callAction } from '@/lib/vercelApi';
 import type { CertificationIconKey, CertificationCategory } from '@/types/models';
 
-// The learner home page's "Choose Your Exam Preparation" section — see
+// The learner home page's "Choose Your Exam Preparation" section - see
 // api/cart.ts's getLearnerCatalog for how state is resolved server-side
 // (never trusted from the client). A package is never its own entitlement
 // type; ACTIVE means every included quiz/practiceTest is already owned,
@@ -32,14 +32,14 @@ export interface CatalogPackage {
   displayOrder: number;
   state: PackageState;
   aggregateTotalQuestions: number;
-  // Published questions in the included practice bank(s) — the real count
+  // Published questions in the included practice bank(s) - the real count
   // from the uploaded question docs, not the admin-typed figure. Use this
   // for the learner-facing "N questions" line.
   practiceQuestionCount: number;
   // Access period in days for this bundle (see PackageDoc.accessValidityDays).
   accessValidityDays: number;
   includedItems: IncludedCatalogItem[];
-  // Entitlement summary — api/cart.ts's getLearnerCatalog spreads the whole
+  // Entitlement summary - api/cart.ts's getLearnerCatalog spreads the whole
   // PackageDoc into the response, so these ride along already; declared here
   // so the certification card can show "N questions · M mock exams" without
   // parsing the admin's free-text description.
@@ -56,7 +56,7 @@ export interface CatalogCertification {
   name: string;
   provider: CertificationCategory;
   description: string;
-  // The independent-preparation disclaimer for this certification —
+  // The independent-preparation disclaimer for this certification -
   // getLearnerCatalog spreads the whole cert doc, so it rides along.
   independentPrepDisclaimer: string;
   iconKey: CertificationIconKey;

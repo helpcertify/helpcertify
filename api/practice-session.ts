@@ -7,8 +7,8 @@ import { z } from 'zod';
 // Student-facing practice-test sessions: batched, resumable, immediate
 // feedback always on, reattempt-last-batch for reinforcement. Listing
 // available practice tests is a direct Firestore read from the client
-// (firestore.rules already gates it by the availability window) — only the
-// server-trusted parts live here. Self-contained — see api/auth.ts's header
+// (firestore.rules already gates it by the availability window) - only the
+// server-trusted parts live here. Self-contained - see api/auth.ts's header
 // comment for why.
 
 function getAdminApp() {
@@ -73,17 +73,17 @@ async function getOrCreateProgress(uid: string, testId: string) {
   return { ref, progress };
 }
 
-// Practice sessions no longer have an enforced timer — Practice Question
+// Practice sessions no longer have an enforced timer - Practice Question
 // Bank sessions are sized by question count (10/25/50/custom), not
 // minutes; a test's own durationPerSessionMinutes (still admin-settable in
 // content-admin.ts) is now purely an "approximately N minutes" estimate the
 // client computes itself, not something the server gates on. expiresAt
 // still exists on the session doc, but only as a generous stale-session
-// cleanup window — an abandoned in_progress session past this age is
+// cleanup window - an abandoned in_progress session past this age is
 // treated as expired so a student isn't ever blocked from starting a new
 // one, not because their time genuinely "ran out."
 const SESSION_STALE_HOURS = 24;
-// Sensible ceiling for a single sitting — large enough for a "Custom" power
+// Sensible ceiling for a single sitting - large enough for a "Custom" power
 // user, small enough that one session can't quietly claim most of a huge
 // bank in one shot.
 const MAX_SESSION_SIZE = 200;
@@ -103,7 +103,7 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
   const test = testSnap.data()!;
 
-  // Paid tests need a purchases/ record before a batch can start — the
+  // Paid tests need a purchases/ record before a batch can start - the
   // actual enforcement point (the client-side gate is just UX).
   let alreadyPurchased = false;
   if ((test.price ?? 0) > 0) {
@@ -116,7 +116,7 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   if ((test.availableFrom as Timestamp).toMillis() > now.toMillis()) {
     throw Err.failedPrecondition('This practice test has not opened yet');
   }
-  // A purchase is permanent access — the admin's availability window is
+  // A purchase is permanent access - the admin's availability window is
   // only a gate for browsing/free access, not something that can revoke
   // access a student already paid for. Confirmed live: a paying student
   // hitting this after the window closed would be locked out of something
@@ -126,7 +126,7 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   }
 
   // The existing-session check and the new session's creation both need to
-  // agree on "is there already an in_progress session" atomically — two
+  // agree on "is there already an in_progress session" atomically - two
   // tabs/devices calling this at the same instant could otherwise both pass
   // the check and each get handed an overlapping batch of "unseen"
   // questions before either one's answeredQuestionIds write ever lands.
@@ -231,7 +231,7 @@ const masterySchema = z.object({
   feedbackMode: z.enum(['immediate', 'end_of_session']).optional(),
 });
 
-// Master My Mistakes (Section 31) — an intentional-repeat session over
+// Master My Mistakes (Section 31) - an intentional-repeat session over
 // practiceProgress.incorrectQuestionIds, never unseen questions. Doesn't
 // touch answeredQuestionIds (see saveAnswer's isMastery check), so this
 // can never inflate unique-coverage.
@@ -274,15 +274,15 @@ async function startMasteryBatch(uid: string, body: unknown) {
   return { sessionId: sessionRef.id, session };
 }
 
-// Weak Areas (Section 5/11) — without question-level domain metadata (see
+// Weak Areas (Section 5/11) - without question-level domain metadata (see
 // QuestionDoc.domain, currently untagged on every existing question), this
 // is defined as persistently-low cumulative accuracy rather than a
 // domain/topic grouping: any seen question with correct/attempts below
 // WEAK_ACCURACY_THRESHOLD, ordered weakest-first (the closest this release
-// gets to "adaptive question selection" — prioritizing what most needs
+// gets to "adaptive question selection" - prioritizing what most needs
 // review, not just repeating in arbitrary order). A stricter, longer-memory
 // set than incorrectQuestionIds (which only reflects the single most recent
-// attempt) — a question missed once long ago but since answered right
+// attempt) - a question missed once long ago but since answered right
 // twice more isn't "weak," even though it may have left incorrectQuestionIds
 // only recently.
 const WEAK_ACCURACY_THRESHOLD = 0.5;
@@ -329,7 +329,7 @@ async function startWeakAreasBatch(uid: string, body: unknown) {
   return { sessionId: sessionRef.id, session };
 }
 
-// Revision Cycle (Section 32) — only once the whole bank has genuinely
+// Revision Cycle (Section 32) - only once the whole bank has genuinely
 // been covered once (uniqueCoverage === totalQuestions); draws from every
 // question in the bank, not just unseen ones (there are none left), and
 // (like mastery/weak-areas) never touches answeredQuestionIds.
@@ -396,12 +396,12 @@ const saveAnswerSchema = z.object({
   sessionId: z.string().min(1),
   questionId: z.string().min(1),
   selectedOptionId: z.string().min(1),
-  // Optional self-rating — learning analytics only, never used in the
+  // Optional self-rating - learning analytics only, never used in the
   // isCorrect computation below.
   confidence: z.enum(['guessing', 'unsure', 'confident']).optional(),
 });
 
-// Practice Momentum XP (Section 25) — motivational only, never read by any
+// Practice Momentum XP (Section 25) - motivational only, never read by any
 // entitlement/coverage/accuracy calculation. Any intentional-repeat session
 // (Master My Mistakes, Weak Areas, Revision Cycle) awards the smaller
 // "reviewed a weak question" amount instead of the normal first-attempt
@@ -441,7 +441,7 @@ async function saveAnswer(uid: string, body: unknown) {
     ...(confidence ? { confidence } : {}),
   });
 
-  // Correct-streak — Practice Test only, resets to 0 on a miss. Tracked on
+  // Correct-streak - Practice Test only, resets to 0 on a miss. Tracked on
   // the session doc itself (this batch's own streak), not persisted
   // globally; submitBatch compares this session's best against the
   // test's all-time bestStreak on practiceProgress.
@@ -459,10 +459,10 @@ async function saveAnswer(uid: string, body: unknown) {
       bestStreakThisSession: nextBestThisSession,
     });
     // Practice progress only tracks "seen at least once" for fresh-batch
-    // purposes on the student's real first pass — a reattempt/mastery
+    // purposes on the student's real first pass - a reattempt/mastery
     // session re-serves already-seen questions and shouldn't affect this
     // set. incorrectQuestionIds, by contrast, is updated regardless of
-    // session type — a mistake mastered during a Master My Mistakes
+    // session type - a mistake mastered during a Master My Mistakes
     // session should still drop off that list.
     const progressUpdate: Record<string, unknown> = {
       xpTotal: FieldValue.increment(xpAwarded),
@@ -474,7 +474,7 @@ async function saveAnswer(uid: string, body: unknown) {
     }
     // Cumulative per-question accuracy (Section 28's "unique coverage" vs
     // "total answers submitted" distinction, and Section 29/30's Mastered/
-    // Learning/Needs Review buckets) — updated regardless of session type,
+    // Learning/Needs Review buckets) - updated regardless of session type,
     // since a mastery/weak-areas/revision repeat is still a real attempt at
     // this specific question, just not new coverage.
     progressUpdate.questionStats = {
@@ -487,13 +487,13 @@ async function saveAnswer(uid: string, body: unknown) {
     await db.collection('practiceProgress').doc(`${uid}_${session.testId}`).set(progressUpdate, { merge: true });
   } else {
     // A repeat submission within the same session (shouldn't normally
-    // happen from the UI, which disables an already-answered question) —
+    // happen from the UI, which disables an already-answered question) -
     // still reflect the current streak/XP truth back to the client rather
     // than silently returning stale numbers.
     await ref.update({ currentStreak: nextStreak, bestStreakThisSession: nextBestThisSession });
   }
 
-  // Streak is shown live regardless of feedback mode — Section 24 doesn't
+  // Streak is shown live regardless of feedback mode - Section 24 doesn't
   // treat it as something that leaks correctness the way the correct
   // option/explanation would (a streak counter alone doesn't tell you
   // which specific answer was right), but see PracticeTakingPage.tsx: it
@@ -503,7 +503,7 @@ async function saveAnswer(uid: string, body: unknown) {
   const streakInfo = { streak: nextStreak, xpAwarded };
 
   // Review At End (feedbackMode === 'end_of_session') must never leak
-  // correctness mid-session — the answer is still recorded above (the
+  // correctness mid-session - the answer is still recorded above (the
   // server needs it for the end-of-session review), it's just withheld
   // from this response. Missing feedbackMode (a session from before this
   // field existed) behaves as 'immediate', same as it always has.
@@ -513,11 +513,11 @@ async function saveAnswer(uid: string, body: unknown) {
   return { isCorrect, correctOptionId, explanation, ...streakInfo };
 }
 
-// Free preview — same reasoning as api/quiz-session.ts's previewCheckAnswer:
+// Free preview - same reasoning as api/quiz-session.ts's previewCheckAnswer:
 // no purchase/session required, but the question's own `order` is
 // re-checked server-side against the practice test's own
 // previewQuestionCount (an admin-configurable field, set when the test is
-// created/edited — see api/content-admin.ts), so this can never become a
+// created/edited - see api/content-admin.ts), so this can never become a
 // back door to the full answer key. Falls back to 5 for a test created
 // before this field existed.
 const DEFAULT_PREVIEW_QUESTION_LIMIT = 5;
@@ -548,19 +548,19 @@ async function previewCheckAnswer(body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
-// Study Planner (Phase 1) — saveStudyPlan is the only write this feature
+// Study Planner (Phase 1) - saveStudyPlan is the only write this feature
 // needs server-side; every read (the plan itself, progress, past sessions
 // for pace/streak/milestones) goes straight from the client via the
 // Firestore SDK, the same established pattern this file's header comment
 // already describes for listing available practice tests. See
 // src/features/students/lib/studyPlan.ts for the actual calculation engine
-// — it can't be imported here (no shared code across api/*.ts, see
+// - it can't be imported here (no shared code across api/*.ts, see
 // api/auth.ts's header comment), so this action only validates and stores
 // inputs, it doesn't recompute the plan itself.
 //
 // baselineDailyTarget is trusted from the client rather than recomputed
 // here: it's a UX reference point for the student's own "ahead/behind"
-// framing, not an entitlement or security boundary — even a wrong value
+// framing, not an entitlement or security boundary - even a wrong value
 // only ever makes that one student's own status chip inaccurate to
 // themselves. baselineAnsweredCount, by contrast, is read server-side from
 // practiceProgress rather than trusted from the client, since it's trivial
@@ -587,7 +587,7 @@ const saveStudyPlanSchema = z.object({
   studyDays: studyDaySchema,
   // The daily target implied by whichever inputs the learner just chose,
   // computed client-side by the same calculation engine that renders the
-  // "Your Plan" result card — see the note above on why this is trusted.
+  // "Your Plan" result card - see the note above on why this is trusted.
   baselineDailyTarget: z.number().int().min(0).max(5000),
 });
 
@@ -608,7 +608,7 @@ async function saveStudyPlan(uid: string, body: unknown) {
   const { progress } = await getOrCreateProgress(uid, d.testId);
   // A progress doc can exist (created by startOrResumeBatch's merge-set)
   // before answeredQuestionIds is ever written (that field is only added by
-  // saveAnswer, on the first answered question) — so it can be undefined
+  // saveAnswer, on the first answered question) - so it can be undefined
   // here even though the doc itself exists.
   const baselineAnsweredCount = progress.answeredQuestionIds?.length ?? 0;
   const revisionBufferDays = test.revisionBufferDays ?? 3;
@@ -636,7 +636,7 @@ async function saveStudyPlan(uid: string, body: unknown) {
   return { success: true };
 }
 
-// Milestone celebrations (Study Planner step 4) — write-once records so a
+// Milestone celebrations (Study Planner step 4) - write-once records so a
 // celebration is shown exactly once per (learner, test, milestone). The key
 // format is validated but not checked against a fixed enum: the actual
 // threshold values (100/250/500 questions, 25/50/75/100 percent, 3/7/14/30
@@ -670,7 +670,7 @@ async function recordMilestone(uid: string, body: unknown) {
     });
     // Section 26's "Today's Goal Complete → +25 XP" bonus reuses this
     // same write-once guarantee (a 'dailyTargetBonus_<date>' key can only
-    // ever be created once) rather than a second endpoint — the .create()
+    // ever be created once) rather than a second endpoint - the .create()
     // above already raced-and-won by the time this runs, so the increment
     // below can't double-award even from two simultaneous requests.
     if (milestoneKey.startsWith('dailyTargetBonus_')) {
@@ -698,7 +698,7 @@ async function submitBatch(uid: string, body: unknown) {
   const { ref, session } = await loadOwnedInProgressSession(uid, parsed.data.sessionId);
   await ref.update({ status: 'submitted', submittedAt: Timestamp.now() });
 
-  // Personal best (Section 24: "New Personal Best") — compared against the
+  // Personal best (Section 24: "New Personal Best") - compared against the
   // test's all-time bestStreak only once the session is actually done, not
   // continuously mid-session, so a still-in-progress streak can't
   // prematurely claim a best that a later question in the same session
@@ -718,7 +718,7 @@ async function submitBatch(uid: string, body: unknown) {
   return { session: { ...session, status: 'submitted' }, newPersonalBest, bestStreak: bestThisSession };
 }
 
-// The end-of-session review screen (both feedback modes use this — Learn
+// The end-of-session review screen (both feedback modes use this - Learn
 // As You Go for its "Review Answers" button, Review At End since it's the
 // only place those answers are ever revealed at all). Only for a
 // non-in_progress session, so a Review At End session can't have this

@@ -6,11 +6,11 @@ import { z } from 'zod';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 // Razorpay checkout: create an Order server-side (recomputing every price
-// from the live quiz/practiceTest docs — the client never gets to state an
+// from the live quiz/practiceTest docs - the client never gets to state an
 // amount), then verify the payment signature Razorpay's Checkout.js hands
 // back before granting entitlements. api/razorpay-webhook.ts is the second,
 // independent confirmation path (in case the client never calls verifyPayment
-// — closed tab, lost connection, etc.) — it duplicates the "mark paid + grant
+// - closed tab, lost connection, etc.) - it duplicates the "mark paid + grant
 // entitlements" logic below rather than importing it, matching this
 // project's no-shared-code-across-api/*.ts convention (see api/auth.ts's
 // header comment).
@@ -64,7 +64,7 @@ type ItemType = 'quiz' | 'practiceTest' | 'package';
 const collectionFor = (itemType: ItemType) =>
   itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
 
-// A package is never its own entitlement record — "already own this
+// A package is never its own entitlement record - "already own this
 // package" means every included quiz/practiceTest already has its own
 // purchase doc. Duplicated from api/cart.ts, same no-shared-code
 // convention as everything else here.
@@ -94,7 +94,7 @@ async function validateCoupon(code: string, uid: string) {
   if (!c.active) return null;
   if (c.expiresAt && (c.expiresAt as Timestamp).toMillis() < Date.now()) return null;
   if (c.maxUses !== null && c.maxUses !== undefined && c.usedCount >= c.maxUses) return null;
-  // Refer & Earn reward coupons are minted for one specific learner — see
+  // Refer & Earn reward coupons are minted for one specific learner - see
   // CouponDoc.restrictedToUserId. Absent on every admin-created coupon, so
   // this never affects the normal any-signed-in-learner codes.
   if (c.restrictedToUserId && c.restrictedToUserId !== uid) return null;
@@ -107,7 +107,7 @@ function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: numbe
   return Math.min(raw, Math.max(subtotal - 100, 0));
 }
 
-// Duplicated from src/features/marketing/policyVersions.ts — api/*.ts can't
+// Duplicated from src/features/marketing/policyVersions.ts - api/*.ts can't
 // import from src/. This server copy is the authoritative one recorded on
 // the order and the purchase-consent doc.
 const POLICY_VERSIONS = {
@@ -127,7 +127,7 @@ function accessPeriodLabelFor(days: number | null | undefined): string {
 }
 
 // The four mandatory purchase-consent acknowledgements. z.literal(true)
-// makes a missing or unticked box a hard validation failure — the Pay
+// makes a missing or unticked box a hard validation failure - the Pay
 // button being disabled client-side is a convenience, this is the gate.
 const consentSchema = z.object({
   correctProduct: z.literal(true),
@@ -141,26 +141,26 @@ const consentSchema = z.object({
 const createOrderSchema = z.object({
   consent: consentSchema,
   // Buy Now: a direct, single-item order that bypasses the cart entirely
-  // — (see finalizeOrder) doesn't touch whatever else might be sitting in
+  // - (see finalizeOrder) doesn't touch whatever else might be sitting in
   // the student's actual cart. couponCode here is a code typed directly
   // into the Buy Now dialog, separate from whatever the cart itself has
   // stored.
   buyNowItem: z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) }).optional(),
   couponCode: z.string().trim().min(1).optional(),
-  // Refer & Earn credit — a separate lever from a coupon code (both can
+  // Refer & Earn credit - a separate lever from a coupon code (both can
   // apply to the same order); see applyMyCredit below.
   useCredit: z.boolean().optional(),
 });
 
 const REFERRAL_CREDIT_MAX_PERCENT_DEFAULT = 25;
 
-// Refer & Earn credit — sums this buyer's own *currently active* credit
+// Refer & Earn credit - sums this buyer's own *currently active* credit
 // entries (recomputed from timestamps, not trusted from a possibly-stale
-// stored status — see CreditLedgerEntryDoc's own comment), applies
+// stored status - see CreditLedgerEntryDoc's own comment), applies
 // computeCreditApplicable's cap (min of maxPercent-of-subtotal and what's
 // actually available), and consumes it oldest-expiring-first across
 // entries. Returns 0/empty when useCredit wasn't requested or there's
-// nothing spendable — never throws, since "no credit to apply" isn't an
+// nothing spendable - never throws, since "no credit to apply" isn't an
 // error the way an invalid typed-in coupon code is.
 async function applyMyCredit(
   uid: string,
@@ -224,7 +224,7 @@ async function applyMyCredit(
 }
 
 // Mirrors src/features/students/lib/referralRules.ts's
-// computeCreditApplicable — that module is the tested, canonical version;
+// computeCreditApplicable - that module is the tested, canonical version;
 // duplicated inline since api/*.ts files can't import across each other
 // or from src/ (see api/auth.ts's header comment).
 function computeCreditApplicableInline(subtotalMinor: number, availableMinor: number, maxPercent: number): number {
@@ -242,7 +242,7 @@ async function createOrder(uid: string, body: unknown) {
   let couponCode: string | null;
   // A coupon typed directly into Buy Now was never checked anywhere before
   // now, so an invalid one should fail loudly here rather than silently
-  // charging full price — the cart path already validated (or self-healed)
+  // charging full price - the cart path already validated (or self-healed)
   // its stored code before this point, so it keeps the existing quiet
   // drop-if-now-invalid behavior instead.
   const isExplicitBuyNowCoupon = !!buyNowItem;
@@ -257,7 +257,7 @@ async function createOrder(uid: string, body: unknown) {
     couponCode = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
   }
 
-  // Recompute everything from the live docs — never trust the cart (or any
+  // Recompute everything from the live docs - never trust the cart (or any
   // client input) as a price source for a real payment.
   const orderItems: {
     itemType: ItemType;
@@ -270,11 +270,11 @@ async function createOrder(uid: string, body: unknown) {
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
     const snap = await db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get();
-    if (!snap.exists) continue; // deleted since being added — silently dropped, same as api/cart.ts
+    if (!snap.exists) continue; // deleted since being added - silently dropped, same as api/cart.ts
     const data = snap.data()!;
     if (entry.itemType === 'package') {
       // A package never has its own purchase doc (see PackageDoc's own
-      // comment) — "already owned" means every included item is already
+      // comment) - "already owned" means every included item is already
       // owned, matching api/cart.ts's isPackageFullyOwned.
       if (await isPackageFullyOwned(uid, data)) continue;
       orderItems.push({
@@ -287,14 +287,14 @@ async function createOrder(uid: string, body: unknown) {
       });
     } else {
       const purchaseSnap = await db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get();
-      if (purchaseSnap.exists) continue; // already owned — don't charge twice
+      if (purchaseSnap.exists) continue; // already owned - don't charge twice
       orderItems.push({
         itemType: entry.itemType,
         itemId: entry.itemId,
         title: data.title,
         unitPrice: data.price ?? 0,
         // A direct quiz / practice-test purchase has no stored link to a
-        // certification (only packages carry certificationId) — recorded null.
+        // certification (only packages carry certificationId) - recorded null.
         certificationId: null,
         accessPeriodLabel: accessPeriodLabelFor(data.accessPeriodDays),
       });
@@ -316,7 +316,7 @@ async function createOrder(uid: string, body: unknown) {
     }
   }
 
-  // Refer & Earn credit — a separate, stackable discount on top of any
+  // Refer & Earn credit - a separate, stackable discount on top of any
   // coupon above, capped at admin-configured % of the subtotal.
   const credit = await applyMyCredit(uid, subtotal, useCredit);
   discount += credit.appliedMinor;
@@ -379,7 +379,7 @@ async function createOrder(uid: string, body: unknown) {
     paidAt: null,
   });
 
-  // Immutable purchase-consent record — a separate write-once doc (id =
+  // Immutable purchase-consent record - a separate write-once doc (id =
   // order id) so a later price/policy/product change can never rewrite what
   // this customer was shown and agreed to. finalizeOrder patches in the
   // razorpayPaymentId/paidAt once; nothing else ever touches it.
@@ -406,7 +406,7 @@ async function createOrder(uid: string, body: unknown) {
     paidAt: null,
   });
 
-  // Only now that the order itself is confirmed created — a failed
+  // Only now that the order itself is confirmed created - a failed
   // Razorpay call above must never leave credit half-consumed with no
   // order to show for it.
   credit.writes();
@@ -414,15 +414,15 @@ async function createOrder(uid: string, body: unknown) {
   return { orderId: orderRef.id, razorpayOrderId: rzpOrder.id, amount: total, currency, keyId };
 }
 
-// Refer & Earn — the referrer's reward is real HelpCertify credit (not a
+// Refer & Earn - the referrer's reward is real HelpCertify credit (not a
 // coupon): non-withdrawable, always a flat money amount (a percentage
 // doesn't make sense for a standing balance not tied to one specific
-// purchase at grant time — that's the referee's coupon instead), spendable
+// purchase at grant time - that's the referee's coupon instead), spendable
 // across future purchases up to a percentage cap (see applyMyCredit),
 // only becomes spendable after a validation/holding period, and can be
 // clawed back on refund (see api/admin.ts's refundOrder). Granted only
 // once the referee's first *eligible* order is actually paid (never on
-// signup alone — see ReferralDoc). Amount/validation-period/expiry/
+// signup alone - see ReferralDoc). Amount/validation-period/expiry/
 // eligible-items/monthly-limit are all admin-configurable (see
 // api/admin.ts's getAppSettings/updateAppSettings); the defaults below are
 // only the fallback for a doc that predates that control. Duplicated in
@@ -458,7 +458,7 @@ async function processReferralOnPurchase(
   const hasEligibleItem = eligibleItemIds.length === 0 || orderItems.some((i) => eligibleItemIds.includes(i.itemId));
   if (!hasEligibleItem) return; // none of this order's items qualify - referral stays 'registered' for a later purchase
 
-  // Monthly cap — fetch this referrer's own entries and filter in memory
+  // Monthly cap - fetch this referrer's own entries and filter in memory
   // rather than adding a range (grantedAt) + equality (referrerUid) query,
   // matching this codebase's existing convention of avoiding a composite-
   // index requirement for a query this small (see getUserDetailAdmin's
@@ -500,7 +500,7 @@ async function processReferralOnPurchase(
   });
 }
 
-// Shared by both the client-verify path (here) and the webhook — kept as a
+// Shared by both the client-verify path (here) and the webhook - kept as a
 // small duplicated function rather than an import, per this project's
 // no-shared-code-across-api/*.ts convention. Idempotent: safe to call twice
 // for the same order (e.g. both the client callback and the webhook land)
@@ -510,12 +510,12 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   const snap = await ref.get();
   if (!snap.exists) return 'not_found';
   const order = snap.data()!;
-  // Also skips an already-refunded order — same
+  // Also skips an already-refunded order - same
   // shouldSkipAlreadyProcessedOrder guard as referralRules.ts's tested
   // version (see api/admin.ts's refundOrder for the other side of this).
   if (order.status === 'paid' || order.status === 'refunded') return 'already_paid';
 
-  // Read before marking paid — processReferralOnPurchase's "is this their
+  // Read before marking paid - processReferralOnPurchase's "is this their
   // first purchase" check needs to see the world as it was before this
   // order counted as paid.
   const batch = db.batch();
@@ -525,7 +525,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
 
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
     if (item.itemType === 'package') {
-      // A package doesn't get its own purchase doc — it fans out to one
+      // A package doesn't get its own purchase doc - it fans out to one
       // purchase doc per included item, the exact same shape an individual
       // purchase would create, so every existing entitlement gate
       // (api/quiz-session.ts, api/practice-session.ts) and every student
@@ -533,7 +533,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
       // own comment in src/types/models.ts.
       const pkgSnap = await db.collection('packages').doc(item.itemId).get();
       const pkgData = pkgSnap.data();
-      if (!pkgData) continue; // package deleted between order creation and payment — nothing to grant
+      if (!pkgData) continue; // package deleted between order creation and payment - nothing to grant
       const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
       const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
       for (const quizId of includedQuizIds) {
@@ -569,7 +569,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   if (order.couponCode) {
     batch.update(db.collection('coupons').doc(order.couponCode), { usedCount: FieldValue.increment(1) });
   }
-  // Only clear the cart for an order that actually came from it — a Buy Now
+  // Only clear the cart for an order that actually came from it - a Buy Now
   // order (fromCart: false) must never wipe out unrelated items the
   // student still has sitting in their cart.
   if (order.fromCart) {
@@ -578,7 +578,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   await batch.commit();
 
   // Patch the payment id onto the immutable consent record (one-time; the
-  // record is otherwise never modified). Best-effort — an order that
+  // record is otherwise never modified). Best-effort - an order that
   // predates purchaseConsents simply has no doc here.
   await db
     .collection('purchaseConsents')

@@ -49,17 +49,17 @@ export function GrievanceBlock() {
       <P>If you are not satisfied with our response, you can escalate:</P>
       <UL>
         <li>
-          <strong>Data / privacy matters</strong> &ndash; to the Data Protection Board of
+          <strong>Data / privacy matters</strong> - to the Data Protection Board of
           India, once it is operational, under the Digital Personal Data Protection Act, 2023.
         </li>
         <li>
-          <strong>Consumer matters</strong> &ndash; to the National Consumer Helpline
+          <strong>Consumer matters</strong> - to the National Consumer Helpline
           (call 1915 or visit consumerhelpline.gov.in), or to the Consumer Disputes Redressal
           Commission with jurisdiction where you reside or work, under the Consumer Protection
           Act, 2019.
         </li>
         <li>
-          <strong>Security incidents</strong> &ndash; to CERT-In (cert-in.org.in).
+          <strong>Security incidents</strong> - to CERT-In (cert-in.org.in).
         </li>
       </UL>
     </Section>

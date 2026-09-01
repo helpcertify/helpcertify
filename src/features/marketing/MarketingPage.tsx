@@ -4,7 +4,7 @@ import logoLockup from '@/assets/logo-lockup.png';
 import { useCompany } from './companyInfoStore';
 
 // Shared chrome for every public marketing / legal page. Deliberately
-// self-contained: no theme store, no auth, no data fetching — so these
+// self-contained: no theme store, no auth, no data fetching - so these
 // pages render identically whether they're reached inside the SPA
 // (BrowserRouter) or emitted as static HTML by scripts/prerender.mjs
 // (StaticRouter). Styling uses the same Tailwind design tokens as the rest
@@ -63,7 +63,7 @@ export function MarketingPage({
           </div>
           <p className="mt-4 text-xs text-ink-faint">
             &copy; {new Date().getFullYear()} {COMPANY.operatorName}. {COMPANY.brand} is a
-            product and service of {COMPANY.operatorName}, {COMPANY.operatorType} &mdash;{' '}
+            product and service of {COMPANY.operatorName}, {COMPANY.operatorType} - {' '}
             {COMPANY.registeredAddress}.
           </p>
           <p className="mt-1 text-xs text-ink-faint">

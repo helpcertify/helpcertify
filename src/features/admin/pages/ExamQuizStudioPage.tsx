@@ -8,7 +8,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
 // scheduledStart arrives over JSON as a serialized Firestore Timestamp
-// ({ _seconds, _nanoseconds }, not { seconds }) — toDate() handles that
+// ({ _seconds, _nanoseconds }, not { seconds }) - toDate() handles that
 // shape; a bare `ts.seconds * 1000` silently produced an Invalid Date here.
 function formatTimestamp(ts: unknown): string | null {
   if (!ts) return null;
@@ -52,7 +52,7 @@ export function ExamQuizStudioPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         {/* key forces a fresh mount whenever which quiz is being edited
-            changes (including switching to/from "create" mode) — QuizFormCard
+            changes (including switching to/from "create" mode) - QuizFormCard
             seeds its fields from editingQuiz only in each useState's initial
             value, which React only reads once per mount. Without this key,
             clicking Edit reused the same mounted instance and every field

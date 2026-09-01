@@ -117,7 +117,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
     onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
   });
 
-  // Nothing published to sell yet — a compact "Coming Soon" card, no
+  // Nothing published to sell yet - a compact "Coming Soon" card, no
   // selector row.
   if (packages.length === 0) {
     return (
@@ -241,7 +241,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
         </div>
       </div>
 
-      {/* Package selector — grows to fill, wraps instead of overflowing */}
+      {/* Package selector - grows to fill, wraps instead of overflowing */}
       <div
         role="radiogroup"
         aria-label={`Choose a ${certification.name} package`}

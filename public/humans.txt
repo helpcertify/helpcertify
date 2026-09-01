@@ -1,6 +1,6 @@
 /* TEAM */
 Operator: IndyaBees
-Site: HelpCertify — online certification exam preparation, practice questions, and mock exams
+Site: HelpCertify - online certification exam preparation, practice questions, and mock exams
 Contact: contact@helpcertify.com
 Location: Chennai, Tamil Nadu, India
 

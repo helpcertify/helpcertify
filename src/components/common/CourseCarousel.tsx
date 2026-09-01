@@ -7,7 +7,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
 import { ProductCardShell } from './ProductCardShell';
 export interface CarouselItem {
-  // Never 'package' — a carousel item is always one flat quiz/practiceTest;
+  // Never 'package' - a carousel item is always one flat quiz/practiceTest;
   // packages render via CertificationCard instead.
   itemType: 'quiz' | 'practiceTest';
   id: string;
@@ -38,7 +38,7 @@ interface CourseCarouselProps {
 // ['student','purchases'] queries every other page already populates, so
 // it works self-sufficiently regardless of which page renders it (and
 // React Query dedupes the fetch against whatever the parent already
-// loaded — no extra network round trip in practice).
+// loaded - no extra network round trip in practice).
 export function CourseCarousel({ title, items }: CourseCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -159,7 +159,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
   });
 
   // Context-aware label instead of a generic "Go start it" for an owned
-  // item — a quiz is a timed Mock Exam, a practice test is untimed batched
+  // item - a quiz is a timed Mock Exam, a practice test is untimed batched
   // practice, so the verb differs slightly even though the underlying
   // "go to the take page" behavior is identical either way.
   const ownedCtaLabel = item.itemType === 'quiz' ? 'Start Mock Exam' : 'Start Practice';

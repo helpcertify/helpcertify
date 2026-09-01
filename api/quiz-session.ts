@@ -7,9 +7,9 @@ import { z } from 'zod';
 // Student-facing exam-quiz taking: start/resume, answer, exit-tracking,
 // submit+grade. Listing available quizzes and reading question text is a
 // direct Firestore read from the client (firestore.rules already allows a
-// signed-in user to read a published quiz's public question docs — no
-// answer key is ever in them) — only the server-trusted parts live here.
-// Self-contained — see api/auth.ts's header comment for why.
+// signed-in user to read a published quiz's public question docs - no
+// answer key is ever in them) - only the server-trusted parts live here.
+// Self-contained - see api/auth.ts's header comment for why.
 
 function getAdminApp() {
   if (getApps().length) return getApps()[0];
@@ -74,7 +74,7 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
   const quiz = quizSnap.data()!;
   if (!quiz.isPublished) throw Err.notFound('Quiz not found');
 
-  // Paid quizzes need a purchases/ record before an attempt can start — this
+  // Paid quizzes need a purchases/ record before an attempt can start - this
   // is the actual enforcement point. The client-side "Start Quiz" gate is
   // just UX; someone could hit this endpoint directly, so it's re-checked
   // here regardless of what the client claims.
@@ -88,7 +88,7 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
     throw Err.failedPrecondition('This quiz has not opened yet');
   }
 
-  // Real attempt-count gate (see QuizDoc.maxAttempts) — replaces what used
+  // Real attempt-count gate (see QuizDoc.maxAttempts) - replaces what used
   // to be an "any prior attempt blocks a new one" check. Fetches every
   // attempt for this (uid, quizId) rather than just the most recent one, so
   // the count below is accurate.
@@ -99,7 +99,7 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
     if ((attempt.expiresAt as Timestamp).toMillis() > now.toMillis()) {
       return { attemptId: inProgress.id, attempt, resumed: true };
     }
-    // Expired but never finalized (e.g. the tab was closed) — auto-submit
+    // Expired but never finalized (e.g. the tab was closed) - auto-submit
     // it now so the student sees why they can't restart, rather than a
     // silently stuck attempt.
     await finalizeAttempt(inProgress.id, 'auto_submitted');
@@ -193,12 +193,12 @@ async function saveAnswer(uid: string, body: unknown) {
   return { isCorrect, correctOptionId };
 }
 
-// Free preview — lets a non-buyer try the first few questions and see
+// Free preview - lets a non-buyer try the first few questions and see
 // correctness, no purchase or session required. Deliberately re-checks the
 // question's own `order` against the quiz's own previewQuestionCount (an
-// admin-configurable field, set when the quiz is created/edited — see
+// admin-configurable field, set when the quiz is created/edited - see
 // api/content-admin.ts), rather than trusting that the client only ever
-// asks about preview-eligible questions — otherwise this endpoint would be
+// asks about preview-eligible questions - otherwise this endpoint would be
 // a back door to the full answer key, one question at a time, for anyone
 // scripting direct calls to it with arbitrary questionIds. Falls back to 5
 // for a quiz created before this field existed.

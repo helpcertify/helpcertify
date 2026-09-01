@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 
 // A small blue icon tile replacing the old full-width colored cover banner
-// on the Recommended for You cards (HelpCertify Electric Blue theme) — one
+// on the Recommended for You cards (HelpCertify Electric Blue theme) - one
 // consistent brand-blue square with a white icon, rather than a different
 // saturated color per certification. The specific icon is a deterministic,
 // purely decorative pick (hash of the id, with a couple of keyword nudges
-// for "security"/"audit" titles) — it doesn't reflect any real category
+// for "security"/"audit" titles) - it doesn't reflect any real category
 // taxonomy in the data model, just visual variety within one blue family.
 
 function hashString(s: string): number {

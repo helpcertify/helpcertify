@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // A native <input type="datetime-local">'s displayed format (12-hour AM/PM
-// vs 24-hour) follows the visitor's OS/browser locale — not something HTML
+// vs 24-hour) follows the visitor's OS/browser locale - not something HTML
 // or CSS can force. This replaces it with an explicit date + hour + minute
 // + AM/PM control that always reads as hh:mm AM/PM, for every admin
 // regardless of their machine's regional settings. Drop-in compatible:
@@ -48,7 +48,7 @@ export function DateTime12hInput({ value, onChange }: Props) {
   const [minute, setMinute] = useState(initial.minute);
   const [ampm, setAmpm] = useState<'AM' | 'PM'>(initial.ampm);
 
-  // Re-sync when the parent resets value out from under this component —
+  // Re-sync when the parent resets value out from under this component -
   // e.g. resetForm() after a successful create, or switching which item is
   // being edited.
   useEffect(() => {

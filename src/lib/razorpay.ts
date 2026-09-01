@@ -1,4 +1,4 @@
-// Thin wrapper around Razorpay's own Checkout.js — loaded from their CDN at
+// Thin wrapper around Razorpay's own Checkout.js - loaded from their CDN at
 // call time (not bundled; this is how Razorpay's integration is meant to
 // work) rather than eagerly on every page load, since most visitors never
 // reach checkout.

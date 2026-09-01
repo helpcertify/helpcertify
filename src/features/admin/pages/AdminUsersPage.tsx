@@ -8,10 +8,10 @@ function formatDate(ts: unknown): string {
 }
 
 // The admin-facing "who's registered, who's verified, who's actually
-// bought something" view — a plain list plus a per-user detail panel with
+// bought something" view - a plain list plus a per-user detail panel with
 // their paid orders. There's no mobile-number field collected anywhere in
 // the app yet (that would arrive alongside Mobile OTP, once an SMS
-// provider is connected — see AdminSettingsPage), so that column reads
+// provider is connected - see AdminSettingsPage), so that column reads
 // "Not collected" for every row rather than silently omitting it.
 export function AdminUsersPage() {
   const { data } = useQuery({ queryKey: ['admin', 'users'], queryFn: adminApi.listUsersAdmin });

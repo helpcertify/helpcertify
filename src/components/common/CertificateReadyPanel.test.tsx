@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { CertificateReadyPanel } from './CertificateReadyPanel';
 import { certificatesApi, type Certificate } from '@/features/admin/api/resultsApi';
 
-// Not vi.importActual — the real module imports @/lib/firebase, which
+// Not vi.importActual - the real module imports @/lib/firebase, which
 // initializes a live Firebase app at import time and throws in this test
 // environment (no Firebase config present). A plain mock avoids that
 // entirely; only the runtime value (certificatesApi) is needed here, the

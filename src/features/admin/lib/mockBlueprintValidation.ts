@@ -1,15 +1,15 @@
 // Pure validation rules for a Mock Rules blueprint (Products & Pricing
-// step 3) — no Firestore/network calls, unit-tested directly. A blueprint
+// step 3) - no Firestore/network calls, unit-tested directly. A blueprint
 // never carries its own bank reference: it always inherits the bank from
 // its contentVersionId (see MockBlueprintDoc's own comment in
 // src/types/models.ts), which is what actually prevents questions from
-// silently mixing across content versions — there's no separate "which
+// silently mixing across content versions - there's no separate "which
 // bank" field a blueprint could disagree with its version about.
 
 import type { DomainAllocation } from '@/types/models';
 
 // Rounding in a percent-based UI means an exact 100 is unrealistic to
-// demand — a small tolerance avoids rejecting 99.9%/100.1% from float
+// demand - a small tolerance avoids rejecting 99.9%/100.1% from float
 // arithmetic while still catching a genuinely wrong configuration.
 const PERCENT_TOLERANCE = 0.5;
 
@@ -51,7 +51,7 @@ export interface MockBlueprintValidationResult {
 }
 
 // The combined check the publish step (and the "clear validation errors
-// before publishing" requirement) runs — one place with one wording per
+// before publishing" requirement) runs - one place with one wording per
 // failure, rather than each caller re-deriving its own error strings.
 export function validateMockBlueprint(args: {
   domains: DomainAllocation[];

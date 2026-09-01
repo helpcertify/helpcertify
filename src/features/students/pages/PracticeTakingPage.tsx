@@ -24,16 +24,16 @@ interface AnswerFeedback {
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-// A generic, non-question-specific reminder — not fabricated per-question
+// A generic, non-question-specific reminder - not fabricated per-question
 // content. AnswerKeyDoc has one explanation string, not separate why-
 // correct/why-wrong/exam-tip fields, so this is the same static line every
 // time, distinct from the real admin-authored explanation above it.
 const EXAM_TIP = 'Eliminate the options that are only partially related, and choose the one that most directly addresses what the question is actually asking.';
 
-// Practice Session — the Practice Momentum experience, visually matched to
+// Practice Session - the Practice Momentum experience, visually matched to
 // the supplied reference (two-column shell: dominant question column +
 // 360px sidebar). Mock Exam's own taking page (QuizTakingPage.tsx) is a
-// separate file and is untouched — none of Practice Momentum (streak, XP,
+// separate file and is untouched - none of Practice Momentum (streak, XP,
 // Today's Goal, immediate feedback/explanations) belongs there.
 export function PracticeTakingPage() {
   const { testId } = useParams<{ testId: string }>();
@@ -101,13 +101,13 @@ export function PracticeTakingPage() {
   }, [testId, isReattempt, isMastery, isWeakAreas, isRevision, sessionSize, requestedFeedbackMode, navigate, pushToast]);
 
   // The server's own record of this session's mode/type is what actually
-  // gates the UI, not the query params used to request it — a resumed
+  // gates the UI, not the query params used to request it - a resumed
   // session keeps whatever it was started with.
   const feedbackMode: PracticeFeedbackMode = session?.feedbackMode ?? 'immediate';
   const isImmediate = feedbackMode === 'immediate';
   const isIntentionalRepeat = !!session?.isMastery || !!session?.isWeakAreas || !!session?.isRevision;
 
-  // The practice test's own title/estimate — needed for the header
+  // The practice test's own title/estimate - needed for the header
   // regardless of session type (unlike Today's Target below, which only
   // applies to a normal, new-coverage session).
   const { data: test } = useQuery({
@@ -116,11 +116,11 @@ export function PracticeTakingPage() {
     enabled: !!testId,
   });
 
-  // Today's Target — reuses the exact same Study Plan calculation engine
+  // Today's Target - reuses the exact same Study Plan calculation engine
   // and daily-answered-map pattern as StudyPlanSection.tsx/
   // PracticeTestDetailPage's PlanSummaryCard, just computed here so it can
   // be shown live during the session (Section 26). Only fetched for a
-  // normal session — none of the intentional-repeat modes contribute new
+  // normal session - none of the intentional-repeat modes contribute new
   // coverage, so the daily target doesn't apply to them.
   const trackingDailyTarget = !isReattempt && !isIntentionalRepeat;
   const { data: existingPlan } = useQuery({
@@ -184,7 +184,7 @@ export function PracticeTakingPage() {
   }, [dailyAnsweredMap, answeredToday]);
 
   // Award the one-time daily-target-complete bonus (Section 26) the moment
-  // this session's own answers push today's count to the target — reuses
+  // this session's own answers push today's count to the target - reuses
   // the existing write-once recordMilestone action (see api/practice-
   // session.ts), so a duplicate call here (e.g. answering further past the
   // target) is a harmless no-op, not a double award.
@@ -203,7 +203,7 @@ export function PracticeTakingPage() {
   };
 
   // Grading a practice answer is a real network round-trip (the answer key
-  // lives server-side, on purpose — it's never shipped to the client up
+  // lives server-side, on purpose - it's never shipped to the client up
   // front). `saving` blocks the Submit button and every option until the
   // result is back, so fast taps can't outrun the response.
   const submitAnswer = async () => {
@@ -243,7 +243,7 @@ export function PracticeTakingPage() {
   const isLastQuestion = currentIndex === questions.length - 1;
 
   // Finish is available from any question in the session, not just the
-  // last one — clicking it with questions still unanswered confirms first
+  // last one - clicking it with questions still unanswered confirms first
   // (with the actual count) rather than finishing immediately.
   const handleFinishClick = () => {
     if (unansweredCount > 0) {
@@ -253,7 +253,7 @@ export function PracticeTakingPage() {
     }
   };
 
-  // Next Question is always available — a question is never a hard gate
+  // Next Question is always available - a question is never a hard gate
   // on moving forward, whether or not it's been submitted. Submit Answer
   // (below) is the only place an unanswered question needs a confirmation,
   // since that's an explicit "I'm choosing to skip this" action rather
@@ -286,7 +286,7 @@ export function PracticeTakingPage() {
   if (!session || !current) return <div className="p-8 text-ink-faint">Loading practice session…</div>;
 
   const result = feedback[current.id];
-  // Only 'immediate' mode ever has a non-null isCorrect — 'end_of_session'
+  // Only 'immediate' mode ever has a non-null isCorrect - 'end_of_session'
   // always gets isCorrect: null back from saveAnswer, so this can never
   // accidentally reveal correctness in that mode even if `result` exists.
   const revealed = isImmediate && !!result && result.isCorrect !== null;
@@ -305,7 +305,7 @@ export function PracticeTakingPage() {
   return (
     <div className="min-h-screen bg-surface px-4 py-5 sm:px-6">
       <div className="mx-auto w-full max-w-[1500px]">
-        {/* Session header — title/mode pill (left), question count + progress
+        {/* Session header - title/mode pill (left), question count + progress
             (center), End Session (right). */}
         <div className="mb-5 flex flex-col gap-4 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 shrink-0">
@@ -341,7 +341,7 @@ export function PracticeTakingPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* Left column — question, answers, explanation, bottom nav. */}
+          {/* Left column - question, answers, explanation, bottom nav. */}
           <div>
             <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
               <h2 className="mb-4 text-lg font-semibold leading-relaxed text-[#0F172A]">
@@ -415,7 +415,7 @@ export function PracticeTakingPage() {
               </div>
 
               {/* Always visible while unanswered, whether or not an option
-                  is picked yet — clicking it with nothing selected warns
+                  is picked yet - clicking it with nothing selected warns
                   first rather than silently doing nothing (see
                   showSkipConfirm below). */}
               {!isSubmittedForCurrent && (
@@ -430,14 +430,14 @@ export function PracticeTakingPage() {
               )}
 
               {/* Learn As You Go: one unified explanation panel, not
-                  separate boxes — the answer choices above already show
+                  separate boxes - the answer choices above already show
                   what was selected vs correct. Only one explanation string
                   exists per question (AnswerKeyDoc.explanation), so this
                   shows that single admin-authored text under "Why this is
                   correct"; the Exam Tip below it is a static, non-question-
                   specific reminder, not fabricated per-question content
                   (there's no such field in the schema). Review At End:
-                  never shown — result is always undefined-equivalent there
+                  never shown - result is always undefined-equivalent there
                   (isCorrect is null), so `revealed` is false and none of
                   this renders. */}
               {revealed && result.explanation && (
@@ -457,12 +457,12 @@ export function PracticeTakingPage() {
               )}
             </div>
 
-            {/* Bottom navigation — one static row, always in the same
+            {/* Bottom navigation - one static row, always in the same
                 three positions regardless of session state: Previous /
                 Mark for Review / Next Question (the only strong primary
                 CTA, becoming Finish Practice on the last question). Never
                 hidden or reflowed based on whether the current question has
-                been answered — an unanswered question is never a hard gate
+                been answered - an unanswered question is never a hard gate
                 on moving forward. Finish Session lives in the sidebar
                 instead of competing with Next. */}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -494,7 +494,7 @@ export function PracticeTakingPage() {
             </div>
           </div>
 
-          {/* Right sidebar — Your Progress (Today's Goal), Practice
+          {/* Right sidebar - Your Progress (Today's Goal), Practice
               Momentum, Questions navigator, Finish Session. Practice
               Momentum only shown in Learn As You Go (Section 24/26): a
               Review At End session reveals no streak/XP truth mid-session,
@@ -551,7 +551,7 @@ export function PracticeTakingPage() {
               </div>
             )}
 
-            {/* Question navigator — represents navigation status only
+            {/* Question navigator - represents navigation status only
                 (answered/current/unanswered/marked), never correctness
                 (Section 20). Only ever holds this session's own batch, not
                 the whole question bank, so this never risks loading 1,500+
@@ -560,7 +560,7 @@ export function PracticeTakingPage() {
               <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">
                 Questions ({answeredCount}/{questions.length} Answered)
               </div>
-              {/* Green here means "answered," not "correct" — every
+              {/* Green here means "answered," not "correct" - every
                   answered question gets this same color regardless of
                   right/wrong, so it never leaks correctness (Section 20).
                   Correctness only ever appears on the question/answer
@@ -602,7 +602,7 @@ export function PracticeTakingPage() {
               </div>
             </div>
 
-            {/* Finish Session — secondary, not competing with Next
+            {/* Finish Session - secondary, not competing with Next
                 Question for primary-CTA attention. */}
             <button
               type="button"
@@ -628,9 +628,9 @@ export function PracticeTakingPage() {
         onCancel={() => setShowFinishConfirm(false)}
       />
 
-      {/* End Session — never terminates instantly. The session doc stays
+      {/* End Session - never terminates instantly. The session doc stays
           in_progress (nothing is submitted here), so it's resumable later
-          exactly like any other unfinished session — same persistence
+          exactly like any other unfinished session - same persistence
           PracticeTestDetailPage's "Continue Where You Left Off" already
           reads. */}
       <ConfirmDialog
@@ -646,7 +646,7 @@ export function PracticeTakingPage() {
         onCancel={() => setShowEndConfirm(false)}
       />
 
-      {/* No option selected yet — confirming just moves on (Next Question
+      {/* No option selected yet - confirming just moves on (Next Question
           is always enabled regardless), it doesn't submit anything since
           there's nothing to grade without a selected option. */}
       <ConfirmDialog
@@ -667,7 +667,7 @@ export function PracticeTakingPage() {
 
 type ReviewFilter = 'all' | 'correct' | 'incorrect';
 
-// Section 22/23 — shown after Finish Session in either feedback mode. This
+// Section 22/23 - shown after Finish Session in either feedback mode. This
 // is the only place a Review At End session's answers/explanations are
 // ever revealed (see getBatchReview's own in_progress guard server-side).
 function PracticeReviewScreen({
@@ -683,7 +683,7 @@ function PracticeReviewScreen({
     bestStreak: number;
   };
   testId: string;
-  // The whole test bank's question count — distinct from
+  // The whole test bank's question count - distinct from
   // review.summary.totalQuestions, which is only this one batch's size.
   // Certificate eligibility is whole-test coverage, not one batch.
   testTotalQuestions: number;
@@ -695,7 +695,7 @@ function PracticeReviewScreen({
 
   // Certificate eligibility is the *whole test's* coverage (every
   // currently-published question answered at least once across every past
-  // session), not just this one batch's summary — re-read fresh here since
+  // session), not just this one batch's summary - re-read fresh here since
   // this batch's submit may be exactly what pushed the test to 100%.
   const { data: overallAnsweredCount } = useQuery({
     queryKey: ['student', 'practiceOverallAnswered', uid, testId],
@@ -721,7 +721,7 @@ function PracticeReviewScreen({
   });
   // Switching filters can drop the previously-selected question out of the
   // visible set (e.g. it was correct but the user just tapped "Incorrect")
-  // — jump to the first question the new filter actually shows instead of
+  // - jump to the first question the new filter actually shows instead of
   // silently leaving question 1 (or an invisible one) selected.
   useEffect(() => {
     setSelectedId(filtered[0]?.questionId ?? null);

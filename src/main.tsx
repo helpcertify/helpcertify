@@ -13,8 +13,8 @@ const app = (
 );
 
 // Public marketing routes ship with real prerendered markup inside #root
-// (see scripts/prerender.mjs) — hydrate those. Every client-only route
-// falls back to app.html with an empty #root — mount fresh there.
+// (see scripts/prerender.mjs) - hydrate those. Every client-only route
+// falls back to app.html with an empty #root - mount fresh there.
 if (rootElement.firstElementChild) {
   hydrateRoot(rootElement, app);
 } else {

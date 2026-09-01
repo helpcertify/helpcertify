@@ -1,10 +1,10 @@
-// The read model a future learner-integration phase would consume — built
+// The read model a future learner-integration phase would consume - built
 // now so the admin's Preview & Publish step can render exactly what a
 // learner would eventually see, and so item 16's requirement ("prove
 // unpublished products are excluded") is testable without wiring this into
 // the actual learner home page yet (see this file's own callers: it is
 // NOT imported by api/cart.ts's getLearnerCatalog or any learner-facing
-// page — that wiring is explicitly a later phase).
+// page - that wiring is explicitly a later phase).
 //
 // Pure and framework-agnostic: takes plain data, no Firestore calls.
 
@@ -64,7 +64,7 @@ export interface PublishedCertificationReadModel {
 }
 
 // Only a `published` certification with at least one `published` package
-// appears — a draft/scheduled/unpublished/archived certification, or a
+// appears - a draft/scheduled/unpublished/archived certification, or a
 // published certification whose every package is unpublished/archived/
 // draft, is excluded entirely rather than shown as an empty shell.
 export function buildPublishedReadModel(

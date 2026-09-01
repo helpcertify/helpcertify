@@ -8,7 +8,7 @@ const SIZE_PX: Record<'sm' | 'md' | 'lg', number> = { sm: 14, md: 18, lg: 24 };
 
 const STAR_PATH = 'M12 2.5l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.7l7.1-.6z';
 
-// Read-only mode (no onChange) used to render each star twice — a full row
+// Read-only mode (no onChange) used to render each star twice - a full row
 // of muted background stars with a gold row clipped on top of it, the
 // standard "percentage fill" trick. That relies on two separately
 // rasterized SVGs landing pixel-for-pixel on top of each other, which
@@ -16,9 +16,9 @@ const STAR_PATH = 'M12 2.5l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9
 // each SVG anti-aliases its own edges against transparency before the two
 // get composited, so a visible gray fringe (and, on some renders, real
 // misalignment) showed through at every star's edge regardless of the
-// rating. Rendering exactly one <svg> per star instead — solid gold or
+// rating. Rendering exactly one <svg> per star instead - solid gold or
 // solid gray for a whole star, and a single gradient-filled path only for
-// the one star that's genuinely fractional — means there's never a second
+// the one star that's genuinely fractional - means there's never a second
 // layer for the browser to misalign against.
 function readOnlyStar(n: number, value: number, px: number) {
   const frac = Math.max(0, Math.min(1, value - (n - 1)));
@@ -44,7 +44,7 @@ function readOnlyStar(n: number, value: number, px: number) {
 }
 
 // Interactive mode (onChange provided) is a plain 1-5 click picker instead
-// — a review can only submit a whole star count, no fractional input.
+// - a review can only submit a whole star count, no fractional input.
 export function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
   const px = SIZE_PX[size];
 

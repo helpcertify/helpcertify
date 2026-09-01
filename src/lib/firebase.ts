@@ -18,10 +18,10 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // Point every SDK at the local emulator suite (`firebase emulators:start`)
-// instead of production when running `npm run dev` with this flag set —
+// instead of production when running `npm run dev` with this flag set -
 // never true in a deployed build. No functions emulator connection anymore:
 // every server-trusted operation now runs as a Vercel function under
-// frontend/api/ (plain `vercel dev`), not a Firebase Cloud Function — see
+// frontend/api/ (plain `vercel dev`), not a Firebase Cloud Function - see
 // frontend/api/enrollment.ts's header comment.
 if (import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });

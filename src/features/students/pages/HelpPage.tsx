@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 // Landed on from the header's "Help" link (StudentShell). There's no
 // support-ticket/live-chat backend in this app, so this stays an honest
-// self-serve hub — quick links to the pages a student most often needs
+// self-serve hub - quick links to the pages a student most often needs
 // when they're stuck, rather than a fabricated contact form or email
 // address that nothing would actually answer.
 export function HelpPage() {

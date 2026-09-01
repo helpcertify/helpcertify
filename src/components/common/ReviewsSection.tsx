@@ -10,12 +10,12 @@ interface ReviewsSectionProps {
   itemType: PurchasableItemType;
   itemId: string;
   // Reviewing is gated to ownership (free items count as owned too), same
-  // as every other owned-check in this app — the caller already computes
+  // as every other owned-check in this app - the caller already computes
   // this for its own CTA logic, so it's passed in rather than recomputed.
   owned: boolean;
 }
 
-// Shared by QuizDetailPage and PracticeTestDetailPage — the review form
+// Shared by QuizDetailPage and PracticeTestDetailPage - the review form
 // (write/edit/delete your own review) plus the list of everyone else's,
 // under a single "Reviews" heading. Submitting invalidates the parent
 // quiz/practiceTest queries too, since ratingAvg/ratingCount live

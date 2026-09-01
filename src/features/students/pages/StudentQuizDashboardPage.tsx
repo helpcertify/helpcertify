@@ -6,7 +6,7 @@ import { CertificateReadyPanel } from '@/components/common/CertificateReadyPanel
 // Reuses the same "Learner Results" table shape as the admin Performance
 // page, scoped to just the signed-in learner's own attempt (their rank
 // within the full leaderboard, but only their own row is returned/shown).
-// Doubles as this quiz's results page — the certificate panel below issues
+// Doubles as this quiz's results page - the certificate panel below issues
 // (or idempotently re-fetches) a completion certificate the moment this
 // page loads for a passed, submitted attempt; a not-yet-eligible attempt
 // (still in progress, or below the pass mark) just never shows the panel,

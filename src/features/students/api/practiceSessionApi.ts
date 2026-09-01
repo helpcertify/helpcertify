@@ -4,10 +4,10 @@ import type { PracticeConfidence, PracticeFeedbackMode, QuestionOption, StudyDay
 export interface PracticeSessionState {
   status: 'in_progress' | 'submitted' | 'expired';
   batchQuestionIds: string[];
-  // Serialized Firestore Timestamp over JSON — { _seconds, _nanoseconds },
+  // Serialized Firestore Timestamp over JSON - { _seconds, _nanoseconds },
   // not { seconds }. Not currently read anywhere, but see
   // quizSessionApi.ts's QuizAttemptState for what reading this wrong shape
-  // did to the quiz timer — read via @/utils/formatDate's toDate() if this
+  // did to the quiz timer - read via @/utils/formatDate's toDate() if this
   // ever needs displaying.
   expiresAt: unknown;
   answeredCount: number;
@@ -34,7 +34,7 @@ export interface BatchReviewQuestion {
 
 export const practiceSessionApi = {
   // sessionSize is the primary "how much would you like to practice"
-  // control (10/25/50/custom) — see PracticeTestDetailPage.tsx's session
+  // control (10/25/50/custom) - see PracticeTestDetailPage.tsx's session
   // setup card. feedbackMode picks Learn As You Go vs Review At End,
   // defaulting server-side to 'immediate' when omitted.
   startOrResumeBatch: (testId: string, sessionSize?: number, feedbackMode?: PracticeFeedbackMode) =>
@@ -48,7 +48,7 @@ export const practiceSessionApi = {
       testId,
       feedbackMode,
     }),
-  // Master My Mistakes (Section 31) — drills practiceProgress.
+  // Master My Mistakes (Section 31) - drills practiceProgress.
   // incorrectQuestionIds instead of unseen questions; throws if there are
   // none right now (see api/practice-session.ts's startMasteryBatch).
   startMasteryBatch: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
@@ -56,7 +56,7 @@ export const practiceSessionApi = {
       testId,
       feedbackMode,
     }),
-  // Weak Areas (Section 5/11) — persistently-low cumulative accuracy
+  // Weak Areas (Section 5/11) - persistently-low cumulative accuracy
   // questions, weakest first; throws if none qualify right now (see
   // api/practice-session.ts's startWeakAreasBatch).
   startWeakAreasBatch: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
@@ -64,7 +64,7 @@ export const practiceSessionApi = {
       testId,
       feedbackMode,
     }),
-  // Revision Cycle (Section 32) — only startable once the whole bank has
+  // Revision Cycle (Section 32) - only startable once the whole bank has
   // genuinely been covered once (see api/practice-session.ts's
   // startRevisionCycle, which rejects it otherwise).
   startRevisionCycle: (testId: string, feedbackMode?: PracticeFeedbackMode) =>
@@ -73,7 +73,7 @@ export const practiceSessionApi = {
       feedbackMode,
     }),
   // isCorrect/correctOptionId/explanation are all null when the session's
-  // feedbackMode is 'end_of_session' — nothing to show until the batch is
+  // feedbackMode is 'end_of_session' - nothing to show until the batch is
   // submitted (see api/practice-session.ts's saveAnswer, which withholds
   // these server-side, not just in this response's shape). streak/
   // xpAwarded are always present (Practice Momentum, motivational only).
@@ -92,7 +92,7 @@ export const practiceSessionApi = {
       { sessionId }
     ),
   // Only callable once the session is no longer in_progress (submitted or
-  // expired) — see api/practice-session.ts's getBatchReview.
+  // expired) - see api/practice-session.ts's getBatchReview.
   getBatchReview: (sessionId: string) =>
     callAction<{
       questions: BatchReviewQuestion[];
@@ -104,7 +104,7 @@ export const practiceSessionApi = {
       questionId,
       selectedOptionId,
     }),
-  // See StudyGoalPanel.tsx — baselineDailyTarget is computed client-side
+  // See StudyGoalPanel.tsx - baselineDailyTarget is computed client-side
   // by the same calculation engine that renders the result card, then sent
   // along to be stored (see api/practice-session.ts's saveStudyPlan for why
   // that's fine to trust: it's a UX reference point, not a security value).
@@ -118,7 +118,7 @@ export const practiceSessionApi = {
     baselineDailyTarget: number;
   }) => callAction<{ success: true }>('practice-session', 'saveStudyPlan', { ...payload }),
   // Write-once celebration record (see api/practice-session.ts's
-  // recordMilestone) — `created: false` just means this milestone was
+  // recordMilestone) - `created: false` just means this milestone was
   // already recorded (by an earlier session or another tab), not an error.
   recordMilestone: (testId: string, milestoneKey: string, value?: number) =>
     callAction<{ created: boolean }>('practice-session', 'recordMilestone', { testId, milestoneKey, value }),

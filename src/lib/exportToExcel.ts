@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import type { AttemptRow } from '@/features/admin/api/resultsApi';
 
 // Runs entirely client-side from data already fetched for the on-screen
-// table — no extra Vercel function spent just to generate a file. exceljs
+// table - no extra Vercel function spent just to generate a file. exceljs
 // (not the npm `xlsx` package, which has unpatched prototype-pollution/ReDoS
 // advisories on its published registry version) produces a real .xlsx.
 export async function exportResultsToExcel(quizTitle: string, rows: AttemptRow[]) {

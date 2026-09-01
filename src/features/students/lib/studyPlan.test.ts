@@ -25,7 +25,7 @@ const NO_SUNDAY: StudyDaySelection = { ...ALL_DAYS, sun: false };
 
 describe('countScheduledDaysInclusive', () => {
   it('counts every day when all days are scheduled', () => {
-    // Mon 2026-08-31 through Sun 2026-09-06 — a full week, inclusive.
+    // Mon 2026-08-31 through Sun 2026-09-06 - a full week, inclusive.
     expect(countScheduledDaysInclusive(new Date(2026, 7, 31), new Date(2026, 8, 6), ALL_DAYS)).toBe(7);
   });
 
@@ -66,7 +66,7 @@ describe('computeExamDatePlan', () => {
     expect(result.remainingQuestions).toBe(1200);
     expect(result.practiceDeadline.getDate()).toBe(27);
     expect(result.practiceDeadline.getMonth()).toBe(9); // October (0-indexed)
-    // dailyTarget = ceil(1200 / eligibleStudyDaysLeft) — eligibleStudyDaysLeft
+    // dailyTarget = ceil(1200 / eligibleStudyDaysLeft) - eligibleStudyDaysLeft
     // is whatever countScheduledDaysInclusive(today, practiceDeadline) is;
     // assert the relationship holds rather than a hand-computed magic number.
     expect(result.dailyTarget).toBe(Math.ceil(1200 / result.eligibleStudyDaysLeft));
@@ -234,9 +234,9 @@ describe('sumTrailingDays', () => {
   // 2026-08-30 through 2026-09-05 inclusive (today minus 0..6 days).
   const today = new Date(2026, 8, 5);
   const map = buildDailyAnsweredMap([
-    { startedAt: new Date(2026, 7, 30), answeredCount: 100 }, // Sun, 6 days before today — within this week's window
-    { startedAt: new Date(2026, 8, 1), answeredCount: 10 }, // Tue, 4 days ago — this week
-    { startedAt: new Date(2026, 8, 3), answeredCount: 20 }, // Thu, 2 days ago — this week
+    { startedAt: new Date(2026, 7, 30), answeredCount: 100 }, // Sun, 6 days before today - within this week's window
+    { startedAt: new Date(2026, 8, 1), answeredCount: 10 }, // Tue, 4 days ago - this week
+    { startedAt: new Date(2026, 8, 3), answeredCount: 20 }, // Thu, 2 days ago - this week
     { startedAt: new Date(2026, 8, 5), answeredCount: 5 }, // today
   ]);
 
@@ -249,7 +249,7 @@ describe('sumTrailingDays', () => {
   });
 
   it('sums a window shifted back by offsetDays (the prior week)', () => {
-    // The 7 days before the current week: 2026-08-23 through 2026-08-29 — none of the recorded activity falls in it.
+    // The 7 days before the current week: 2026-08-23 through 2026-08-29 - none of the recorded activity falls in it.
     expect(sumTrailingDays(map, today, 7, 7)).toBe(0);
   });
 });

@@ -5,9 +5,9 @@ import { QuestionEditorList } from '../components/QuestionEditorList';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
-// Answer-key preview with the correct option highlighted — matches the
+// Answer-key preview with the correct option highlighted - matches the
 // reference screenshots' "quiz-details view" (reached via a quiz's View
-// button) — plus inline editing per question, so fixing a typo or a wrong
+// button) - plus inline editing per question, so fixing a typo or a wrong
 // answer doesn't require re-uploading the whole .docx.
 export function QuizAnswerKeyPage() {
   const { quizId } = useParams<{ quizId: string }>();

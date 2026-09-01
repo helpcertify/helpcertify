@@ -23,7 +23,7 @@ export function ClickHereLink({ href }: { href: string }) {
 // A soft blue pill (light background, blue text) instead of plain uppercase
 // gray text or a strong saturated fill, so "ISACA · Associate" reads as a
 // distinct piece of metadata without competing with the primary CTA for
-// attention — the HelpCertify Electric Blue theme's "light blue background"
+// attention - the HelpCertify Electric Blue theme's "light blue background"
 // token (#E8F0FF) rather than a solid brand-blue fill.
 export function CategoryBadge({ category, skillLevel }: { category: string; skillLevel: string }) {
   return (

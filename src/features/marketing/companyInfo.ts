@@ -18,7 +18,7 @@
 export interface CompanyInfo {
   /** Product / brand name as shown to users. */
   brand: string;
-  /** Canonical origin — matches the <link rel="canonical"> in index.html. */
+  /** Canonical origin - matches the <link rel="canonical"> in index.html. */
   origin: string;
   /** One-line description of what the platform is (used in <meta> tags too). */
   tagline: string;
@@ -51,7 +51,7 @@ export interface CompanyInfo {
   /** Udyam (MSME) registration number; blank = not shown. */
   udyamNumber: string;
 
-  /** Outbound transactional sender (from api/auth.ts) — informational only. */
+  /** Outbound transactional sender (from api/auth.ts) - informational only. */
   noReplyEmail: string;
   /** Payment processor (from src/lib/razorpay.ts / api/checkout.ts). */
   paymentProcessor: string;
@@ -80,7 +80,7 @@ export const COMPANY: CompanyInfo = {
 
   contactEmail: 'contact@helpcertify.com',
   contactPhone: '+91 95666 56276',
-  // Same inbox as contactEmail for now — a dedicated address can be set
+  // Same inbox as contactEmail for now - a dedicated address can be set
   // from the admin Settings page later without any code change.
   grievanceEmail: 'contact@helpcertify.com',
   grievanceOfficer: 'Rajkumar',

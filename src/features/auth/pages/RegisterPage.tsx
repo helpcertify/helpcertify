@@ -31,7 +31,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
-  // Refer & Earn — a referral link points here as "?ref=CODE"; carried
+  // Refer & Earn - a referral link points here as "?ref=CODE"; carried
   // through to both signup paths below, never shown as a form field.
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get('ref')?.trim() || undefined;
@@ -50,7 +50,7 @@ export function RegisterPage() {
   // form (the form itself is gated by the zod resolver).
   const policiesAccepted = watch('policiesAccepted') === true;
 
-  // Shown once, right after a signup that used a valid referral link — the
+  // Shown once, right after a signup that used a valid referral link - the
   // coupon is already redeemable at that point, not a promise of something
   // granted later (see api/auth.ts's linkReferral). Also persisted on My
   // Profile's Refer & Earn section in case this toast gets missed (e.g. an
@@ -64,7 +64,7 @@ export function RegisterPage() {
   };
 
   const mutation = useMutation({
-    // policiesAccepted is validated client-side only — it never needs to
+    // policiesAccepted is validated client-side only - it never needs to
     // reach the API, so only the three real fields are sent.
     mutationFn: (values: RegisterForm) =>
       authApi.register({ name: values.name, email: values.email, password: values.password, referralCode }),
@@ -103,7 +103,7 @@ export function RegisterPage() {
           <div className="h-px flex-1 bg-surface-border" />
         </div>
 
-        {/* noValidate: see LoginPage.tsx — native type="email" constraint
+        {/* noValidate: see LoginPage.tsx - native type="email" constraint
             validation would otherwise block the submit event before Zod's
             error message ever gets a chance to render. */}
         <form noValidate onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">

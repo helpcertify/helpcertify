@@ -44,7 +44,7 @@ describe('LoginPage', () => {
 
   it('submits email and password to authApi.login', async () => {
     // Navigation itself is driven by initAuth.ts's onAuthStateChanged
-    // listener reacting to the real sign-in, not by this mutation directly —
+    // listener reacting to the real sign-in, not by this mutation directly -
     // this test only verifies the form calls authApi.login with the right args.
     vi.mocked(authApi.login).mockResolvedValue(undefined);
 
@@ -55,7 +55,7 @@ describe('LoginPage', () => {
     await user.type(screen.getByLabelText(/password/i), 'hunter22practice');
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
-    // Assert on just the first argument — TanStack Query v5 calls
+    // Assert on just the first argument - TanStack Query v5 calls
     // mutationFn with an internal context object as a second argument, which
     // toHaveBeenCalledWith would otherwise (incorrectly) fail on.
     await waitFor(() => {

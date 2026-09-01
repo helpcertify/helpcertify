@@ -8,11 +8,11 @@ interface UploadReportProps {
 }
 
 // Shown after a quiz/practice-test upload on both create forms (QuizFormCard,
-// PracticeTestFormCard) — surfaces what an admin needs to know about
+// PracticeTestFormCard) - surfaces what an admin needs to know about
 // problems in their .docx: which specific questions the parser had to skip
 // and why, plus document-level numbering issues (duplicate/missing question
 // numbers in the source file). This used to only go to console.warn, which
-// an admin would never think to open — confirmed live: a 928-numbered file
+// an admin would never think to open - confirmed live: a 928-numbered file
 // that only had 834 real question paragraphs looked exactly like the app
 // silently dropping ~90 questions until someone dug into the file's own XML
 // to find the gaps/duplicates.

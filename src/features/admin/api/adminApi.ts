@@ -12,7 +12,7 @@ export interface DashboardStats {
 // paise, percent is 1-95 (see api/admin.ts's getAppSettings/
 // updateAppSettings for where these are actually read/applied). The
 // referrer's reward is always a flat credit amount now (not a coupon, so
-// no type selector — see CreditLedgerEntryDoc).
+// no type selector - see CreditLedgerEntryDoc).
 export type RewardType = 'flat' | 'percent';
 
 export interface AppSettings {
@@ -21,7 +21,7 @@ export interface AppSettings {
   // toggle; when false the whole app is light-only. Stored on the
   // publicly-readable appSettings/appearance doc, not appSettings/general.
   darkModeEnabled: boolean;
-  // Always false until an SMS provider is wired up server-side — the
+  // Always false until an SMS provider is wired up server-side - the
   // checkbox for it stays disabled in AdminSettingsPage regardless.
   mobileOtpEnabled: boolean;
   referralCreditAmountMinor: number;
@@ -101,7 +101,7 @@ export const adminApi = {
   getAppSettings: () => callAction<AppSettings>('admin', 'getAppSettings'),
   // Reshapes the flat AppSettings the page works with into the
   // {refereeReward: {type, value}} the backend's updateAppSettingsSchema
-  // actually expects — keeps the frontend's shape symmetric with
+  // actually expects - keeps the frontend's shape symmetric with
   // getAppSettings's own flat response.
   updateAppSettings: (payload: AppSettings) =>
     callAction<{ success: true }>('admin', 'updateAppSettings', {
@@ -125,7 +125,7 @@ export const adminApi = {
       { uid }
     ),
 
-  // Item 11/15 — the minimal admin refund action and the Referral Audit
+  // Item 11/15 - the minimal admin refund action and the Referral Audit
   // list (see api/admin.ts's refundOrder/listReferralsAdmin).
   refundOrder: (orderId: string, reason: string) => callAction<{ success: true }>('admin', 'refundOrder', { orderId, reason }),
   listReferralsAdmin: () => callAction<{ referrals: AdminReferralRow[] }>('admin', 'listReferralsAdmin'),

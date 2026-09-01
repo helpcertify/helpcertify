@@ -24,12 +24,12 @@ interface ExamFilterBarProps {
   filters: ExamFilters;
   onChange: (next: ExamFilters) => void;
   // Some pages (e.g. a detail-less list) have no concept of started/
-  // in-progress/completed — hide the status dropdown there rather than
+  // in-progress/completed - hide the status dropdown there rather than
   // show a filter that can never do anything.
   showStatus?: boolean;
 }
 
-// Shared filter bar for Practice Exams and Mock Exams — replaces the old
+// Shared filter bar for Practice Exams and Mock Exams - replaces the old
 // standalone Categories tab; its provider/level filtering moved inline here
 // instead, plus price and progress-status filters and a search box. There's
 // no separate "Certification" field in the data model distinct from
@@ -101,7 +101,7 @@ export function ExamFilterBar({ filters, onChange, showStatus = true }: ExamFilt
   );
 }
 
-// The actual predicate — kept separate from the bar itself so each page's
+// The actual predicate - kept separate from the bar itself so each page's
 // own item shape (quiz vs practice test have different field names for
 // "how far along am I") can compute its own `status` however makes sense,
 // then run every other filter through this one shared function.

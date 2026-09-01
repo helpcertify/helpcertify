@@ -9,7 +9,7 @@ export interface ReviewView {
   itemId: string;
   rating: number;
   comment: string;
-  // Serialized Firestore Timestamp over JSON — { _seconds, _nanoseconds },
+  // Serialized Firestore Timestamp over JSON - { _seconds, _nanoseconds },
   // not { seconds }. Read via @/utils/formatDate's toDate().
   createdAt: unknown;
   updatedAt: unknown;

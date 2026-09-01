@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { to: '/admin/settings', label: 'Settings' },
 ];
 
-// The nav links were `hidden sm:flex` with no mobile fallback at all —
+// The nav links were `hidden sm:flex` with no mobile fallback at all -
 // confirmed live: below that breakpoint they just vanished, leaving no way
 // to reach Question Bank/Practice Exams/Learner Analytics on a phone. A
 // hamburger toggle now takes their place below sm:.

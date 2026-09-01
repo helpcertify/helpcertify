@@ -1,5 +1,5 @@
 // Money moves through this app in the smallest unit of whatever currency an
-// item is priced in — paise for INR, cents for USD — matching what
+// item is priced in - paise for INR, cents for USD - matching what
 // Razorpay's API expects. Both currencies use a 100:1 minor:major ratio, so
 // the conversion math is identical; only display formatting is
 // currency-aware.
@@ -28,7 +28,7 @@ export function minorToMajor(minor: number): number {
 }
 
 // Refer & Earn's rewards (and admin-created coupons generally) can be a
-// flat amount or a percentage, admin-configurable — one place to format
+// flat amount or a percentage, admin-configurable - one place to format
 // either, rather than duplicating the flat-vs-percent branch everywhere a
 // reward is shown (RegisterPage's welcome toast, ReferAndEarnSection's
 // banner and referral list).

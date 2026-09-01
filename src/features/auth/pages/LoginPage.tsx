@@ -25,7 +25,7 @@ export function LoginPage() {
   const pushToast = useUiStore((s) => s.pushToast);
 
   // Navigate once initAuth.ts's listener actually populates the profile,
-  // rather than right after the mutation resolves — signInWithEmailAndPassword
+  // rather than right after the mutation resolves - signInWithEmailAndPassword
   // resolving doesn't guarantee onAuthStateChanged has fired yet.
   useEffect(() => {
     if (profile) navigate(profile.role === 'admin' ? '/admin' : '/home', { replace: true });
@@ -43,7 +43,7 @@ export function LoginPage() {
   });
 
   const googleMutation = useMutation({
-    // No referral code to carry here — that's only ever captured from the
+    // No referral code to carry here - that's only ever captured from the
     // register page's "?ref=" link (see RegisterPage.tsx).
     mutationFn: () => authApi.signInWithGoogle(),
     onError: (err) => pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error'),
@@ -72,7 +72,7 @@ export function LoginPage() {
           <div className="h-px flex-1 bg-surface-border" />
         </div>
 
-        {/* noValidate: hand validation entirely to Zod/React Hook Form — without
+        {/* noValidate: hand validation entirely to Zod/React Hook Form - without
             it, the browser's native type="email" constraint check blocks the
             submit event before handleSubmit ever runs, so our error message
             never renders. */}

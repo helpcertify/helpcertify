@@ -110,7 +110,7 @@ export function CertificationEditorPage() {
     />
   );
 
-  // Opened by id but the list query hasn't resolved yet — hold rather than
+  // Opened by id but the list query hasn't resolved yet - hold rather than
   // flash the new-product wizard for a frame.
   if (!wizardMode && !certification) {
     return (
@@ -299,7 +299,7 @@ function SummaryHeader({ certification, packages }: { certification: Certificati
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — Product Details
+// Step 1 - Product Details
 // ---------------------------------------------------------------------------
 
 function StepProductDetails({
@@ -329,7 +329,7 @@ function StepProductDetails({
   const [description, setDescription] = useState(certification?.description ?? '');
   const [featured, setFeatured] = useState(certification?.featured ?? false);
 
-  // Advanced Settings — auto-filled, overridable
+  // Advanced Settings - auto-filled, overridable
   const [advOpen, setAdvOpen] = useState(false);
   const [slugTouched, setSlugTouched] = useState(!!certification);
   const [slug, setSlug] = useState(certification?.slug ?? '');
@@ -391,7 +391,7 @@ function StepProductDetails({
         if (!alreadyLinked) {
           try {
             await contentAdminApi.saveContentVersion(id, {
-              versionName: `${shortName.trim() || 'Certification'} — current outline`,
+              versionName: `${shortName.trim() || 'Certification'} - current outline`,
               versionCode: `${effectiveSlug}-v1`.slice(0, 50),
               associatedBankType: 'quiz',
               associatedBankId: mockBankId,
@@ -435,7 +435,7 @@ function StepProductDetails({
           <option value="">Select a question bank…</option>
           {practiceBanks.map((b) => (
             <option key={b.id} value={b.id}>
-              {b.title} — {b.totalQuestions.toLocaleString()} questions
+              {b.title} - {b.totalQuestions.toLocaleString()} questions
             </option>
           ))}
         </select>
@@ -449,7 +449,7 @@ function StepProductDetails({
           <option value="">Not set</option>
           {quizBanks.map((b) => (
             <option key={b.id} value={b.id}>
-              {b.title} — {b.totalQuestions.toLocaleString()} questions
+              {b.title} - {b.totalQuestions.toLocaleString()} questions
             </option>
           ))}
         </select>
@@ -562,7 +562,7 @@ function QuestionBankSummary({ certification }: { certification: CertificationAd
   return (
     <div className="space-y-4 text-sm">
       {!practiceBank ? (
-        <p className="text-ink-faint">No practice question bank linked yet — set one in Product Details.</p>
+        <p className="text-ink-faint">No practice question bank linked yet - set one in Product Details.</p>
       ) : (
         <div className="rounded-lg border border-surface-border p-4">
           <div className="font-medium text-ink">{practiceBank.title}</div>
@@ -600,7 +600,7 @@ function QuestionBankSummary({ certification }: { certification: CertificationAd
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Packages & Pricing
+// Step 2 - Packages & Pricing
 // ---------------------------------------------------------------------------
 
 interface CardState {
@@ -894,8 +894,8 @@ function MockConfigStatusChip({
   return (
     <div className={`rounded-lg border p-3 text-sm ${status === 'ready' ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300'}`}>
       {status === 'ready'
-        ? 'Mock exam configuration ready — domain allocation derived from the question bank.'
-        : 'Mock exam configuration needs attention — add domain tags to the mock question bank, or set the allocation under Mock Configuration.'}
+        ? 'Mock exam configuration ready - domain allocation derived from the question bank.'
+        : 'Mock exam configuration needs attention - add domain tags to the mock question bank, or set the allocation under Mock Configuration.'}
     </div>
   );
 }
@@ -944,7 +944,7 @@ function PackageList({ packages, onChanged }: { packages: PackageAdminRow[]; onC
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — Review & Publish
+// Step 3 - Review & Publish
 // ---------------------------------------------------------------------------
 
 function StepReview({
@@ -1181,7 +1181,7 @@ function AdvancedActions({ certification, onChanged }: { certification: Certific
 }
 
 // ---------------------------------------------------------------------------
-// Content Versions (raw) — kept for multi-outline certifications
+// Content Versions (raw) - kept for multi-outline certifications
 // ---------------------------------------------------------------------------
 
 function ContentVersionsPanel({ certification, onDirty }: { certification: CertificationAdminRow; onDirty: () => void }) {
@@ -1243,7 +1243,7 @@ function ContentVersionsPanel({ certification, onDirty }: { certification: Certi
                 <span className="font-medium text-ink">{v.versionName}</span>{' '}
                 <span className="text-ink-faint">
                   ({v.versionCode}) · {v.associatedBankType === 'quiz' ? 'Mock Exam' : 'Practice Test'} bank · effective {toDate(v.effectiveFrom).toLocaleDateString()}
-                  {v.effectiveTo ? ` – ${toDate(v.effectiveTo).toLocaleDateString()}` : ' onward'}
+                  {v.effectiveTo ? ` - ${toDate(v.effectiveTo).toLocaleDateString()}` : ' onward'}
                 </span>
               </div>
               <button type="button" onClick={() => deleteMutation.mutate(v.id)} className="text-xs text-red-500 hover:underline">Remove</button>
@@ -1283,7 +1283,7 @@ function ContentVersionsPanel({ certification, onDirty }: { certification: Certi
 }
 
 // ---------------------------------------------------------------------------
-// Mock Rules (raw) — reused verbatim under "Customize Mock Rules"
+// Mock Rules (raw) - reused verbatim under "Customize Mock Rules"
 // ---------------------------------------------------------------------------
 
 function StepMockRules({
@@ -1446,7 +1446,7 @@ function StepMockRules({
 }
 
 // ---------------------------------------------------------------------------
-// Custom package form (raw) — the full entitlement/pricing form, kept as an
+// Custom package form (raw) - the full entitlement/pricing form, kept as an
 // escape hatch so nothing the old editor could do is lost.
 // ---------------------------------------------------------------------------
 
@@ -1629,11 +1629,11 @@ function CustomPackageForm({ certificationId, onChanged }: { certificationId: st
 function cleanError(err: unknown, fallback: string): string {
   const msg = err instanceof Error ? err.message : '';
   if (!msg) return fallback;
-  if (/slug/i.test(msg)) return 'That web address is already taken by another product — change the short name or set a different slug in Advanced Settings.';
+  if (/slug/i.test(msg)) return 'That web address is already taken by another product - change the short name or set a different slug in Advanced Settings.';
   if (/unpublished certification cannot expose/i.test(msg)) return 'Publish the certification before publishing its packages.';
   if (/no included quiz\/practice test|at least one quiz or practice test|valid entitlement/i.test(msg)) return 'Connect this package to a question bank first.';
   if (/selling price/i.test(msg)) return 'Enter a selling price greater than zero, or mark the package Free.';
   if (/accessible question count|eligible/i.test(msg)) return msg.replace(/^[a-z]+: /i, '');
-  if (/domain/i.test(msg)) return 'Mock domain allocation needs attention — open Customize Mock Rules.';
+  if (/domain/i.test(msg)) return 'Mock domain allocation needs attention - open Customize Mock Rules.';
   return msg;
 }

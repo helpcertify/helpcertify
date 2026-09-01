@@ -2,12 +2,12 @@ import { auth } from './firebase';
 
 // Every server-trusted operation (grading, atomic counters, role changes,
 // answer-key access) now runs as a Vercel serverless function under
-// frontend/api/ instead of a Firebase Cloud Function callable — Cloud
+// frontend/api/ instead of a Firebase Cloud Function callable - Cloud
 // Functions require the Blaze plan just to deploy, while a Vercel function
 // using a Firebase service account can perform the exact same Admin SDK
 // operations without it (see frontend/api/enrollment.ts's header comment
 // for the full story). Each api/*.ts file groups several related actions
-// behind one POST endpoint — this helper is the client-side half: it
+// behind one POST endpoint - this helper is the client-side half: it
 // attaches the caller's ID token and dispatches by `action`, mirroring how
 // httpsCallable(functions, 'actionName') used to work.
 export class VercelApiError extends Error {

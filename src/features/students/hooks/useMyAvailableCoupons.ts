@@ -11,7 +11,7 @@ export interface AvailableCoupon {
   value: number;
 }
 
-// Every coupon currently usable by this account — mainly Refer & Earn
+// Every coupon currently usable by this account - mainly Refer & Earn
 // rewards (CouponDoc.restrictedToUserId set to this uid, see api/auth.ts's
 // linkReferral and api/checkout.ts's/api/razorpay-webhook.ts's
 // grantReferralRewardIfEligible), but this naturally covers any other
@@ -19,7 +19,7 @@ export interface AvailableCoupon {
 // Shown at checkout (Cart and Buy Now) so a learner doesn't have to
 // remember or go find a code they've already earned. Firestore rules only
 // ever let this query return coupons restricted to the signed-in account
-// (see firestore.rules' coupons/{code} rule) — a regular admin-created,
+// (see firestore.rules' coupons/{code} rule) - a regular admin-created,
 // not-restricted-to-anyone coupon never shows up here.
 export function useMyAvailableCoupons() {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);

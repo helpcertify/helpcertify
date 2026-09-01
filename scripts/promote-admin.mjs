@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Sets role:'admin' on an EXISTING Firebase Auth user's Firestore doc — for
+// Sets role:'admin' on an EXISTING Firebase Auth user's Firestore doc - for
 // when the auth account was already created (e.g. by hand in the Firebase
 // Console) and only the Firestore side is missing. Doesn't touch
 // Authentication at all, just reads the existing user record for
@@ -37,7 +37,7 @@ const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 const privateKey = (process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
 if (!projectId || !clientEmail || !privateKey) {
-  console.error('Missing FIREBASE_ADMIN_* env vars — check frontend/.env.local');
+  console.error('Missing FIREBASE_ADMIN_* env vars - check frontend/.env.local');
   process.exit(1);
 }
 

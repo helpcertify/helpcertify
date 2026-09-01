@@ -9,7 +9,7 @@ interface Props {
   dashboardHref: string;
 }
 
-// "Your completion certificate is ready" — shown immediately on the
+// "Your completion certificate is ready" - shown immediately on the
 // results page once a certificate has been issued (or re-fetched, since
 // issuance is idempotent) for the attempt just finished.
 export function CertificateReadyPanel({ certificate, dashboardHref }: Props) {

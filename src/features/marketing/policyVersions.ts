@@ -5,7 +5,7 @@
 //
 // Bump the relevant date string in the same commit that changes a policy
 // page's substance. The server keeps its own copy of this object (api/
-// checkout.ts / api/razorpay-webhook.ts) — this project's convention is no
+// checkout.ts / api/razorpay-webhook.ts) - this project's convention is no
 // imports across api/*.ts or from src/, so the literal is duplicated there
 // and that server copy is the authoritative one written to the record.
 export const POLICY_VERSIONS = {

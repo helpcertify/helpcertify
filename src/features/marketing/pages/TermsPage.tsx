@@ -90,8 +90,8 @@ export function TermsPage() {
 
       <Section heading="6. Intellectual property">
         <P>
-          All content on the Service &mdash; questions, explanations, study plans, text, and
-          design &mdash; belongs to {COMPANY.operatorName} or its licensors and is original
+          All content on the Service - questions, explanations, study plans, text, and
+          design - belongs to {COMPANY.operatorName} or its licensors and is original
           work, not reproduced from any official exam or third-party course. You get a
           personal, non-exclusive, non-transferable licence to use it for your own exam
           preparation for the duration of your access. All other rights are reserved.
@@ -119,7 +119,7 @@ export function TermsPage() {
       <Section heading="9. Support and technical issues">
         <P>
           If you report a technical issue, {COMPANY.brand} will first investigate and attempt
-          to resolve it &mdash; for example by fixing the defect, restoring access, resetting
+          to resolve it - for example by fixing the defect, restoring access, resetting
           an affected attempt, correcting your progress, providing equivalent access, or
           extending your access period. Resolution may take up to 7 calendar days depending on
           the issue, and you agree to allow us this reasonable opportunity. A technical issue
@@ -140,7 +140,7 @@ export function TermsPage() {
           {' '}{COMPANY.operatorName} a non-exclusive, royalty-free licence to display and
           store that content in connection with the Service. We may edit or remove content
           that breaches this section or the law. If you believe content posted by another user
-          is unlawful or breaches these Terms, contact our Grievance Officer &mdash; we
+          is unlawful or breaches these Terms, contact our Grievance Officer - we
           acknowledge such complaints within 24 hours and aim to resolve them within 15 days,
           in line with the Information Technology (Intermediary Guidelines and Digital Media
           Ethics Code) Rules, 2021.
@@ -166,8 +166,7 @@ export function TermsPage() {
           You can stop using the Service and ask us to close your account at any time by
           emailing {COMPANY.contactEmail}. We may suspend or close an account for breach of
           these Terms or where required by law. On closure, we handle your data as set out in
-          the <a href="/privacy" className="text-brand-ink underline">Privacy Policy</a>{' '}
-          &mdash; some records are deleted immediately and some are retained where the law
+          the <a href="/privacy" className="text-brand-ink underline">Privacy Policy</a>{' '} - some records are deleted immediately and some are retained where the law
           requires.
         </P>
       </Section>
@@ -196,24 +195,24 @@ export function TermsPage() {
       <Section heading="15. General">
         <UL>
           <li>
-            <strong>Assignment</strong> &ndash; you may not transfer your rights under these
+            <strong>Assignment</strong> - you may not transfer your rights under these
             Terms. We may transfer ours to a successor of the business, on notice to you.
           </li>
           <li>
-            <strong>Severability</strong> &ndash; if any part of these Terms is found
+            <strong>Severability</strong> - if any part of these Terms is found
             unenforceable, the rest continues to apply.
           </li>
           <li>
-            <strong>Waiver</strong> &ndash; not enforcing a term on one occasion does not
+            <strong>Waiver</strong> - not enforcing a term on one occasion does not
             waive our right to enforce it later.
           </li>
           <li>
-            <strong>Entire agreement</strong> &ndash; these Terms, the Privacy Policy, the
+            <strong>Entire agreement</strong> - these Terms, the Privacy Policy, the
             Refund &amp; Cancellation Policy, the Support Policy, and the Disclaimer are the
             whole agreement between us about the Service.
           </li>
           <li>
-            <strong>Notices</strong> &ndash; we give notice to you by email to your account
+            <strong>Notices</strong> - we give notice to you by email to your account
             address or by posting on the Service; you give notice to us at{' '}
             {COMPANY.contactEmail}.
           </li>

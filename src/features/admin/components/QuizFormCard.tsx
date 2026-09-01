@@ -18,7 +18,7 @@ interface QuizFormCardProps {
 }
 
 // ts arrives over JSON as a serialized Firestore Timestamp ({ _seconds,
-// _nanoseconds }, not { seconds }) — toDate() handles that shape; passing
+// _nanoseconds }, not { seconds }) - toDate() handles that shape; passing
 // the bare (previously always-undefined) `.seconds` field here silently
 // produced an empty edit-form field instead of the quiz's actual scheduled time.
 function toLocalInputValue(ts: unknown): string {
@@ -31,7 +31,7 @@ function toLocalInputValue(ts: unknown): string {
 
 // Matches the "Exam Quiz Studio" screenshot: source format, upload, nav/scoring
 // checkboxes, duration type, scheduled start, publish. Reused for edit (minus
-// the file re-upload, which isn't supported — metadata-only update).
+// the file re-upload, which isn't supported - metadata-only update).
 export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) {
   const isEditing = !!editingQuiz;
   const queryClient = useQueryClient();
@@ -44,10 +44,10 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   const [passMarkPercent, setPassMarkPercent] = useState(editingQuiz?.passMarkPercent?.toString() ?? '60');
   const [previewQuestionCount, setPreviewQuestionCount] = useState(editingQuiz?.previewQuestionCount?.toString() ?? '5');
   const [accessPeriodDays, setAccessPeriodDays] = useState(editingQuiz?.accessPeriodDays?.toString() ?? '0');
-  // Standard Template is the only format the create form offers now — CISA
+  // Standard Template is the only format the create form offers now - CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createQuiz's schema still expects.
-  // Existing quizzes created with sourceFormat 'cisa_qa' are unaffected —
+  // Existing quizzes created with sourceFormat 'cisa_qa' are unaffected -
   // this only governs new uploads, and editing never touches the field.
   const sourceFormat: QuestionSourceFormat = 'standard';
   const [file, setFile] = useState<File | null>(null);
@@ -66,7 +66,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
   );
   const [uploading, setUploading] = useState(false);
   // Kept separate from the form fields above so resetForm() (called right
-  // after a successful create) doesn't also wipe this — an admin needs to
+  // after a successful create) doesn't also wipe this - an admin needs to
   // read the report after the form's already cleared for the next upload.
   const [uploadReport, setUploadReport] = useState<{
     totalQuestions: number;
@@ -194,7 +194,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
       <div className="space-y-5">
         <Field label="Title">
           {/* spellCheck relies on the browser/OS's own dictionary (the
-              familiar red squiggly underline + right-click suggestions) —
+              familiar red squiggly underline + right-click suggestions) -
               no app-side dictionary is bundled, so acronyms like "CISM" or
               "ISACA" may get flagged even though they're correct; there's
               no way to distinguish an intentional acronym from a real typo

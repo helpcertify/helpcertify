@@ -4,7 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, type DocumentReference } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
-// Ratings & reviews for quizzes/practiceTests. Self-contained — see
+// Ratings & reviews for quizzes/practiceTests. Self-contained - see
 // api/auth.ts's header comment for why (no shared code across api/*.ts).
 
 function getAdminApp() {
@@ -65,7 +65,7 @@ const itemRefSchema = z.object({
 });
 
 // A student can only review something they actually own (free items count
-// as owned too, same as every other owned-check in this app) — mirrors the
+// as owned too, same as every other owned-check in this app) - mirrors the
 // paywall gate in quiz-session.ts/practice-session.ts rather than
 // duplicating a fresh set of rules.
 async function assertOwnsItem(uid: string, itemType: ItemType, itemId: string): Promise<DocumentReference> {
@@ -80,7 +80,7 @@ async function assertOwnsItem(uid: string, itemType: ItemType, itemId: string): 
   return parentRef;
 }
 
-// Reviews are only ever queried by itemId (not itemType too) on purpose —
+// Reviews are only ever queried by itemId (not itemType too) on purpose -
 // itemId is already globally unique (independent Firestore auto-ids), and a
 // query needs no orderBy either (sorting happens in JS after the fetch, see
 // listReviews below) so this stays a single-field equality filter Firestore
@@ -103,7 +103,7 @@ async function submitReview(uid: string, name: string, body: unknown) {
 
   await db.runTransaction(async (t) => {
     // Recompute the aggregate from every OTHER review plus this one's new
-    // rating, rather than an incremental FieldValue.increment — a full
+    // rating, rather than an incremental FieldValue.increment - a full
     // recompute can't drift even if this ever runs concurrently with itself
     // (Firestore retries the transaction on contention) or if a past write
     // ever went missing.
@@ -162,7 +162,7 @@ async function listReviews(body: unknown) {
   const millis = (d: FirebaseFirestore.QueryDocumentSnapshot) =>
     (d.data().updatedAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
   // Sorted here in JS (see reviewsForItemQuery's comment) rather than via
-  // Firestore orderBy — on the snapshot docs, before spreading into the
+  // Firestore orderBy - on the snapshot docs, before spreading into the
   // response shape, since spreading DocumentData's index signature into an
   // object literal doesn't carry the signature through to the mapped type.
   const reviews = [...snap.docs].sort((a, b) => millis(b) - millis(a)).map((d) => ({ id: d.id, ...d.data() }));

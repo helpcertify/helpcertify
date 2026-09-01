@@ -1,7 +1,7 @@
 // The purchase-consent acknowledgements recorded when a customer checks the
 // single combined "I confirm and agree" box at checkout (shared by
 // BuyNowModal and CartPage, enforced again server-side in
-// api/checkout.ts's createOrder). The box maps to all four keys at once —
+// api/checkout.ts's createOrder). The box maps to all four keys at once -
 // they stay separate so the immutable purchase-consent record keeps
 // itemising exactly what was agreed to; the combined wording lives in
 // CheckoutConsent.tsx.

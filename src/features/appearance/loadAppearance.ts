@@ -3,7 +3,7 @@ import { db } from '@/lib/firebase';
 import { useThemeStore } from '@/store/useThemeStore';
 
 // SPA-only: reads the admin-controlled dark-mode feature flag from
-// Firestore `appSettings/appearance` (publicly readable — see
+// Firestore `appSettings/appearance` (publicly readable - see
 // firestore.rules) and tells the theme store whether a saved dark
 // preference may take effect. Imported ONLY by AppProviders, so Firebase
 // stays out of the SSR/prerender module graph. Runs once per page load;

@@ -12,7 +12,7 @@ import { DateTime12hInput } from '@/components/common/DateTime12hInput';
 import { SKILL_LEVELS } from '@/types/models';
 import type { QuestionSourceFormat, SkillLevel } from '@/types/models';
 
-// Quick availability-window shortcuts — 1 Day/5 Days/1 Week/1 Month/3
+// Quick availability-window shortcuts - 1 Day/5 Days/1 Week/1 Month/3
 // Months/6 Months/1 Year, on request, since manually picking both From and
 // Until dates every time was slow. Picking one sets Until to (From, or now
 // if From is blank) + that duration; From is only auto-filled when it was
@@ -33,7 +33,7 @@ interface PracticeTestFormCardProps {
 }
 
 // ts arrives over JSON as a serialized Firestore Timestamp ({ _seconds,
-// _nanoseconds }, not { seconds }) — toDate() handles that shape; passing
+// _nanoseconds }, not { seconds }) - toDate() handles that shape; passing
 // the bare (previously always-undefined) `.seconds` field here silently
 // produced an empty edit-form field instead of the test's actual window.
 function toLocalInputValue(ts: unknown): string {
@@ -59,7 +59,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const [availableFrom, setAvailableFrom] = useState(toLocalInputValue(editingTest?.availableFrom));
   const [availableUntil, setAvailableUntil] = useState(toLocalInputValue(editingTest?.availableUntil));
   // null durationPerSessionMinutes means the admin is leaving session length
-  // up to each student (see api/practice-session.ts) — studentChoosesDuration
+  // up to each student (see api/practice-session.ts) - studentChoosesDuration
   // just toggles which of these two the form is currently in; the number
   // input itself is disabled while it's on, and the stored value is null
   // rather than whatever stale number is still sitting in the field.
@@ -74,7 +74,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   );
   const [previewQuestionCount, setPreviewQuestionCount] = useState(editingTest?.previewQuestionCount?.toString() ?? '5');
   const [accessPeriodDays, setAccessPeriodDays] = useState(editingTest?.accessPeriodDays?.toString() ?? '0');
-  // Personal Study Planner (Phase 1) config — defaults match
+  // Personal Study Planner (Phase 1) config - defaults match
   // createPracticeTestSchema's own defaults in api/content-admin.ts, so a
   // freshly-created test behaves identically whether or not the admin
   // touches this section at all.
@@ -83,11 +83,11 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   const [defaultMinutesPerQuestion, setDefaultMinutesPerQuestion] = useState(
     editingTest?.defaultMinutesPerQuestion?.toString() ?? '1.8'
   );
-  // Standard Template is the only format the create form offers now — CISA
+  // Standard Template is the only format the create form offers now - CISA
   // Q&A was removed from this selector on request. Not a stateful choice
   // any more, just the fixed value createPracticeTest's schema still
   // expects. Existing tests created with sourceFormat 'cisa_qa' are
-  // unaffected — this only governs new uploads, and editing never touches
+  // unaffected - this only governs new uploads, and editing never touches
   // the field.
   const sourceFormat: QuestionSourceFormat = 'standard';
   const [file, setFile] = useState<File | null>(null);
@@ -98,7 +98,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
   );
   const [uploading, setUploading] = useState(false);
   // Kept separate from the form fields above so resetForm() (called right
-  // after a successful create) doesn't also wipe this — an admin needs to
+  // after a successful create) doesn't also wipe this - an admin needs to
   // read the report after the form's already cleared for the next upload.
   const [uploadReport, setUploadReport] = useState<{
     totalQuestions: number;
@@ -231,7 +231,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
       <div className="space-y-5">
         <Field label="Practice Test Title">
           {/* spellCheck relies on the browser/OS's own dictionary (the
-              familiar red squiggly underline + right-click suggestions) —
+              familiar red squiggly underline + right-click suggestions) -
               no app-side dictionary is bundled, so acronyms like "CISM" or
               "ISACA" may get flagged even though they're correct; there's
               no way to distinguish an intentional acronym from a real typo
@@ -247,7 +247,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
         </Field>
 
         <Field label="Exam / Certification Name (shown on the learner's exam countdown, e.g. 'CISA')">
-          {/* Distinct from the title above — this is what groups multiple
+          {/* Distinct from the title above - this is what groups multiple
               practice tests together as "the same exam goal" on the
               student dashboard (see StudentShell.tsx's exam countdown),
               independent of whatever product name each one was given.
@@ -297,7 +297,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               <label className="mb-1 block text-xs text-ink-faint">Until</label>
               <DateTime12hInput value={availableUntil} onChange={setAvailableUntil} />
             </div>
-            {/* Shortcuts for Until, on request — sets it to From (or now,
+            {/* Shortcuts for Until, on request - sets it to From (or now,
                 if From is still blank) plus the chosen duration, instead of
                 picking both dates by hand every time. */}
             <div className="flex flex-wrap gap-1.5">
@@ -339,7 +339,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
               />
             </div>
           </div>
-          {/* Optional, on request — the admin decides whether this choice
+          {/* Optional, on request - the admin decides whether this choice
               exists at all; students never get to pick their own session
               length unless it's explicitly turned on here. */}
           <label className="mt-2 flex items-center gap-2 text-sm text-ink-muted">

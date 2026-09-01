@@ -55,7 +55,7 @@ export function QuizTakingPage() {
       .catch((err) => {
         pushToast(err instanceof Error ? err.message : 'Could not start this quiz', 'error');
         // The client-side gate (see StudentHomePage) already hides "Start"
-        // behind "Add to Cart" for an unpurchased quiz — this 402 is a
+        // behind "Add to Cart" for an unpurchased quiz - this 402 is a
         // backstop for a stale cache or a direct URL, so send them
         // somewhere useful rather than just back to the listing.
         navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home');
@@ -68,7 +68,7 @@ export function QuizTakingPage() {
     if (!attempt || finalResult) return;
     const tick = () => {
       // attempt.expiresAt arrives over JSON as a serialized Firestore
-      // Timestamp — { _seconds, _nanoseconds }, NOT { seconds } — reading
+      // Timestamp - { _seconds, _nanoseconds }, NOT { seconds } - reading
       // the wrong field silently produced NaN*1000 here (confirmed live:
       // the countdown showed "NaN:NaN" for every quiz-taker). toDate()
       // handles that shape correctly.
@@ -103,7 +103,7 @@ export function QuizTakingPage() {
   // Grading is a real network round-trip (the answer key is never shipped
   // to the client up front). Tapping an option then immediately tapping
   // Next/Submit before that round-trip resolves used to look like feedback
-  // "randomly" not showing — confirmed live: fast taps outran the response.
+  // "randomly" not showing - confirmed live: fast taps outran the response.
   // `saving` now blocks Next/Submit and the options themselves until this
   // question's save is back, so a result (or a save failure) is always seen
   // before you can move on.
@@ -182,7 +182,7 @@ export function QuizTakingPage() {
   const result = feedback[current.id];
   const answered = quiz.showImmediateResult && !!result;
 
-  // Submit is available from any question, not just the last one — clicking
+  // Submit is available from any question, not just the last one - clicking
   // it while questions are still unanswered asks for confirmation first
   // (with the actual count) rather than submitting immediately, since this
   // is a one-way action for a strict/timed quiz.
@@ -208,7 +208,7 @@ export function QuizTakingPage() {
         </div>
 
         {/* Right-side panel on desktop (fixed width, sticky so it stays
-            reachable while scrolling a long question) — stacks above the
+            reachable while scrolling a long question) - stacks above the
             question on mobile instead, same as before. Its own scroll area
             stays bounded regardless of question count: a bare flex-wrap
             here previously grew without limit, so a real 1000+ question
@@ -228,7 +228,7 @@ export function QuizTakingPage() {
 
                   // The plain -300 shades read fine on a near-black dark-theme
                   // card but washed out to near-illegible on the light theme's
-                  // white card — dark: variants pick a solid, readable shade
+                  // white card - dark: variants pick a solid, readable shade
                   // per theme instead of one compromise color for both.
                   let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
                   if (answered) {
@@ -255,7 +255,7 @@ export function QuizTakingPage() {
                 })}
               </div>
               {saving && <div className="mt-3 text-sm text-ink-faint">Checking…</div>}
-              {/* Only a positive confirmation banner — a wrong pick is
+              {/* Only a positive confirmation banner - a wrong pick is
                   already unambiguous from the red/green option highlighting
                   above, so a second "Incorrect" line was redundant and (per
                   the same light-theme contrast issue) hard to read. */}
@@ -268,7 +268,7 @@ export function QuizTakingPage() {
 
             {/* Previous/Next stay together as one tight row for fast
                 navigation. Mark for Review sits next to Submit Quiz instead
-                of beside the question header — it used to squeeze the
+                of beside the question header - it used to squeeze the
                 question text into a narrow column on mobile. */}
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-3">

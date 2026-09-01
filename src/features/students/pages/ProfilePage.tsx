@@ -8,13 +8,13 @@ import { ReferAndEarnSection } from '../components/ReferAndEarnSection';
 // Was a modal (ProfileModal) triggered from the sidebar's "My Profile"
 // button; moved to a real page/route on request, same content, just laid
 // out like every other page instead of an overlay. Kept generic (name,
-// email, avatar, headline, bio) — this platform is for anyone taking exams
+// email, avatar, headline, bio) - this platform is for anyone taking exams
 // (students, working professionals, etc.), not scoped to a single
 // institution, so it drops the department/year-of-admission/current-
 // academic-year fields a campus-specific profile page would have.
 //
 // Change Password moved to Settings → Security on request (same
-// authApi.changePassword call, just relocated — see SettingsPage.tsx).
+// authApi.changePassword call, just relocated - see SettingsPage.tsx).
 // This page is scoped to identity + learning goal + exams owned; the
 // fuller attempt history/scoring is on My Attempts, not duplicated here.
 export function ProfilePage() {
@@ -56,7 +56,7 @@ export function ProfilePage() {
       <h1 className="mb-1 text-[28px] font-bold text-[#0F172A]">My Profile</h1>
       <p className="mb-6 text-sm text-[#64748B]">Manage your profile and learning journey.</p>
 
-      {/* Profile hero — identity at a glance, editable inline rather than a
+      {/* Profile hero - identity at a glance, editable inline rather than a
           permanent block of form fields. */}
       <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -138,7 +138,7 @@ export function ProfilePage() {
 
       <ReferAndEarnSection />
 
-      {/* Your Learning Journey + My Exams — moved here from the Home
+      {/* Your Learning Journey + My Exams - moved here from the Home
           dashboard on request, so Home stays focused on "what to do right
           now" and this page holds identity + the learner's goal + what
           they own. */}

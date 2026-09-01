@@ -6,9 +6,9 @@ import { createHash, randomInt, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 // Replaces functions/src/_migrated-v1-reference/register.ts + provision-profile.ts.
-// Self-contained — Vercel's per-function bundler for this project has no
+// Self-contained - Vercel's per-function bundler for this project has no
 // support for local cross-file imports between api/*.ts files (confirmed via
-// three separate failed live deploys — see the project's
+// three separate failed live deploys - see the project's
 // vercel-function-constraints memory), so every function file duplicates its
 // own Admin SDK init / auth-guard / helpers rather than importing shared code.
 
@@ -42,13 +42,13 @@ const Err = {
 };
 
 // Only students self-register here. Admin accounts are created via
-// admin.ts's createAdminAccount action (by an existing admin) — never
+// admin.ts's createAdminAccount action (by an existing admin) - never
 // self-service, same policy the v1 register.ts already had.
 const registerSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(128),
-  // Refer & Earn — a code carried from a "?ref=" link, never a form field
+  // Refer & Earn - a code carried from a "?ref=" link, never a form field
   // the learner types themselves. See linkReferral below.
   referralCode: z.string().trim().min(1).max(20).optional(),
 });
@@ -69,7 +69,7 @@ function hashOtpCode(code: string): string {
 }
 
 // Resend's REST API directly via fetch rather than the `resend` npm
-// package — avoids adding a dependency for what's a single POST call, and
+// package - avoids adding a dependency for what's a single POST call, and
 // matches how Razorpay/Firebase are already called from api/*.ts (plain
 // HTTP, no SDK). `verify.helpcertify.com` is the domain verified in the
 // Resend dashboard for this project.
@@ -98,7 +98,7 @@ function otpEmailHtml(name: string, code: string): string {
   </div>`;
 }
 
-// Shared by register() and resendEmailOtp() — generates a fresh 6-digit
+// Shared by register() and resendEmailOtp() - generates a fresh 6-digit
 // code, stores only its hash (same reasoning as never storing a plaintext
 // password), and emails the plaintext code to the user.
 async function issueEmailOtp(uid: string, email: string, name: string): Promise<void> {
@@ -112,7 +112,7 @@ async function issueEmailOtp(uid: string, email: string, name: string): Promise<
   await sendEmail(email, 'Your Helpcertify verification code', otpEmailHtml(name, code));
 }
 
-// Refer & Earn — 6 uppercase base32-ish characters (Crockford's alphabet,
+// Refer & Earn - 6 uppercase base32-ish characters (Crockford's alphabet,
 // no 0/O/1/I ambiguity), generated from crypto randomness. Collisions are
 // astronomically unlikely at this length (same "don't bother checking"
 // precedent as content-admin.ts's generateCode for quiz access codes), so
@@ -125,7 +125,7 @@ function generateReferralCode(): string {
   return code;
 }
 
-// The referee's own welcome coupon's code — "CERTI" (Helpcertify) plus 4
+// The referee's own welcome coupon's code - "CERTI" (Helpcertify) plus 4
 // characters from the same clean alphabet as generateReferralCode above,
 // e.g. "CERTIX7K2" (9 characters total, short enough to type by hand and
 // read as belonging to this app).
@@ -136,7 +136,7 @@ function generateWelcomeCouponCode(): string {
   return `CERTI${suffix}`;
 }
 
-// Standard Vercel idiom for the client's IP — same defensive
+// Standard Vercel idiom for the client's IP - same defensive
 // array-or-string handling already used for the authorization header
 // below. Used only for the Refer & Earn same-signup-IP fraud check (see
 // isSameSignupIp); never anything security-sensitive on its own.
@@ -148,7 +148,7 @@ function getClientIp(req: VercelRequest): string | null {
 }
 
 // Mirrors src/features/students/lib/referralRules.ts's isSelfReferral /
-// isSameSignupIp — that module is the tested, canonical version; these
+// isSameSignupIp - that module is the tested, canonical version; these
 // are duplicated inline since api/*.ts files can't import across each
 // other or from src/ (see this file's header comment).
 function isSelfReferral(referrerUid: string, newUid: string): boolean {
@@ -159,7 +159,7 @@ function isSameSignupIp(referrerSignupIp: string | null | undefined, newSignupIp
   return referrerSignupIp === newSignupIp;
 }
 
-// Refer & Earn — the new user's own welcome coupon, granted immediately at
+// Refer & Earn - the new user's own welcome coupon, granted immediately at
 // signup (not gated on a purchase like the referrer's reward is) since it
 // exists to encourage that very first purchase, not reward one that
 // already happened. Type/value are admin-configurable (see
@@ -177,7 +177,7 @@ interface ReferralLinkResult {
 }
 
 // A referral doc that was rejected for a fraud reason (self-referral,
-// same signup IP) is still written — status 'rejected' with a reason —
+// same signup IP) is still written - status 'rejected' with a reason -
 // so it's visible in the admin audit view (item 15), unlike a merely
 // unknown/mistyped code, which stays silent (that's a typo, not fraud;
 // see linkReferral below).
@@ -203,14 +203,14 @@ async function writeRejectedReferral(
   });
 }
 
-// Shared by register(), provisionProfile(), and applyReferralCode() —
+// Shared by register(), provisionProfile(), and applyReferralCode() -
 // resolves a referral code (from a "?ref=" link, or entered later on My
 // Profile) to its owner and, if eligible, writes the referrals/{newUid}
 // doc (status 'registered'; the new user's own welcome coupon is minted
-// right here, already redeemable). Never throws on a bad/unknown code —
+// right here, already redeemable). Never throws on a bad/unknown code -
 // that's a typo, not fraud, so it should never block signing up or
 // applying a code; it just silently returns undefined. Self-referral and
-// same-signup-IP *are* recorded as a 'rejected' referral doc (item 12) —
+// same-signup-IP *are* recorded as a 'rejected' referral doc (item 12) -
 // still doesn't throw, since account creation itself is never blocked
 // over this, only the referral link.
 async function linkReferral(
@@ -289,12 +289,12 @@ async function register(req: VercelRequest, body: unknown) {
   const emailOtpEnabled = settingsSnap.data()?.emailOtpEnabled === true;
   const signupIp = getClientIp(req);
 
-  // Refer & Earn — resolved before the user doc is written so referredBy
+  // Refer & Earn - resolved before the user doc is written so referredBy
   // can be set in the same call rather than a second write.
   const referralResult = await linkReferral(uid, name, referralCode, signupIp);
 
   // Role lives only on the Firestore doc below, not an ID-token custom claim
-  // — see api/admin.ts's requireAdmin for why (it's what lets an admin be
+  // - see api/admin.ts's requireAdmin for why (it's what lets an admin be
   // created straight from the Firebase Console, no Admin SDK code needed).
   const now = FieldValue.serverTimestamp();
   await db.collection('users').doc(uid).set({
@@ -303,7 +303,7 @@ async function register(req: VercelRequest, body: unknown) {
     role: 'student',
     avatarUrl: null,
     isActive: true,
-    // Grandfathered true whenever email OTP isn't turned on — only actually
+    // Grandfathered true whenever email OTP isn't turned on - only actually
     // gates anything (see ProtectedRoute) when it's explicitly false.
     emailVerified: !emailOtpEnabled,
     referredBy: referralResult?.referrerUid,
@@ -389,12 +389,12 @@ async function requireIdToken(req: VercelRequest): Promise<string> {
 }
 
 // Google sign-in creates the Firebase Auth account client-side directly
-// (signInWithPopup) — nothing provisions the Firestore profile or the role
+// (signInWithPopup) - nothing provisions the Firestore profile or the role
 // claim unless something explicitly does it after. authApi.signInWithGoogle()
-// calls this every time (new or returning user); idempotent — only writes on
+// calls this every time (new or returning user); idempotent - only writes on
 // an account's actual first sign-in.
 const provisionProfileSchema = z.object({
-  // Refer & Earn — see registerSchema's own referralCode comment; same
+  // Refer & Earn - see registerSchema's own referralCode comment; same
   // "?ref=" link, carried through Google sign-in too.
   referralCode: z.string().trim().min(1).max(20).optional(),
 });
@@ -419,7 +419,7 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
   const name = userRecord.displayName ?? userRecord.email?.split('@')[0] ?? 'New user';
   const signupIp = getClientIp(req);
 
-  // Refer & Earn — resolved before the user doc is written so referredBy
+  // Refer & Earn - resolved before the user doc is written so referredBy
   // can be set in the same call rather than a second write.
   const referralResult = await linkReferral(uid, name, referralCode, signupIp);
 
@@ -430,7 +430,7 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
     role: 'student',
     avatarUrl: userRecord.photoURL ?? null,
     isActive: true,
-    // Google already verifies the address via OAuth — never OTP-gated,
+    // Google already verifies the address via OAuth - never OTP-gated,
     // regardless of the emailOtpEnabled setting.
     emailVerified: true,
     referredBy: referralResult?.referrerUid,
@@ -442,7 +442,7 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
   return { provisioned: true, welcomeCoupon: referralResult?.refereeCoupon ?? null };
 }
 
-// Generic (headline/bio/website), not institution-specific — matches
+// Generic (headline/bio/website), not institution-specific - matches
 // ProfilePage already dropping the old department/year fields for the
 // same reason: this platform isn't scoped to students at one school.
 const updateProfileSchema = z.object({
@@ -466,7 +466,7 @@ async function updateProfile(req: VercelRequest, body: unknown) {
   return { success: true };
 }
 
-// Refer & Earn — backfills a referral code for an account that predates
+// Refer & Earn - backfills a referral code for an account that predates
 // this feature (every account created after it gets one lazily here too,
 // the first time they open My Profile, rather than needing every existing
 // signup path to be touched). Idempotent: returns the existing code
@@ -493,7 +493,7 @@ async function ensureReferralCode(req: VercelRequest) {
 
 const applyReferralCodeSchema = z.object({ referralCode: z.string().trim().min(1).max(20) });
 
-// Refer & Earn — item 4/5 of the spec: a code doesn't have to be entered
+// Refer & Earn - item 4/5 of the spec: a code doesn't have to be entered
 // only at registration, it can be applied any time up until this
 // account's first purchase. Reuses linkReferral's exact eligibility/fraud
 // logic; the only thing added here is the "haven't purchased anything
@@ -531,7 +531,7 @@ async function applyReferralCode(req: VercelRequest, body: unknown) {
   const referralResult = await linkReferral(uid, user.name as string, parsed.data.referralCode, signupIp);
   if (!referralResult) {
     // Covers both an unknown code and a fraud rejection (self-referral /
-    // same signup IP) — linkReferral already recorded the latter as a
+    // same signup IP) - linkReferral already recorded the latter as a
     // 'rejected' referral doc for the audit trail; either way, nothing
     // here for this account to redeem.
     return { success: false as const, reason: 'That referral code could not be applied.' };

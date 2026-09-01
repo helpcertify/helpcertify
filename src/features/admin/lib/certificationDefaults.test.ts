@@ -27,7 +27,7 @@ describe('iconForProvider', () => {
     expect(iconForProvider('Microsoft Azure')).toBe('cloud');
   });
   it('maps networking', () => expect(iconForProvider('Cisco')).toBe('network'));
-  it('maps data/AI', () => expect(iconForProvider('Google Cloud – Machine Learning')).toBe('cloud')); // cloud rule wins first
+  it('maps data/AI', () => expect(iconForProvider('Google Cloud - Machine Learning')).toBe('cloud')); // cloud rule wins first
   it('falls back to the shield', () => {
     expect(iconForProvider('ISACA')).toBe('shield');
     expect(iconForProvider('PMI')).toBe('shield');

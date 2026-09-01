@@ -12,12 +12,12 @@ import type { StudyPlanDoc } from '@/types/models';
 
 const EXPIRY_WARNING_DAYS = 7;
 
-// My Profile's "Your Learning Journey" + "My Exams" — the identity+goal+
+// My Profile's "Your Learning Journey" + "My Exams" - the identity+goal+
 // exams-owned picture the new HelpCertify design system scopes this page
 // to. Performance Summary / Recommended Next Step / Recent Attempts (which
 // used to live here) are dropped: they don't appear in the new Profile
 // page's structure, and that attempt history/scoring is still reachable
-// from My Attempts, so nothing is actually lost — just no longer
+// from My Attempts, so nothing is actually lost - just no longer
 // duplicated on this page. Self-sufficient (its own queries) rather than
 // taking props from ProfilePage, so it works regardless of which page
 // renders it.
@@ -70,7 +70,7 @@ export function ProfileActivitySections() {
   const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
 
-  // Your Learning Journey — one card per practice test with an active plan,
+  // Your Learning Journey - one card per practice test with an active plan,
   // built entirely from data already fetched above (studyPlans + the test's
   // own record + this learner's unique-answered progress). See
   // StudyPlanSection for the actual calculations and rendering.
@@ -101,7 +101,7 @@ export function ProfileActivitySections() {
       ((t.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${t.id}`))
   );
 
-  // My Exams — everything owned (free or purchased), as horizontal cards.
+  // My Exams - everything owned (free or purchased), as horizontal cards.
   interface OwnedItem {
     id: string;
     title: string;

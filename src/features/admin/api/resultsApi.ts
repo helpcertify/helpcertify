@@ -2,7 +2,7 @@ import { callAction, VercelApiError } from '@/lib/vercelApi';
 import { auth } from '@/lib/firebase';
 
 export interface AttemptRow {
-  // Doc id — present at runtime on every row (toAttemptRow spreads
+  // Doc id - present at runtime on every row (toAttemptRow spreads
   // `{id: d.id, ...d.data()}`), just never previously declared here since
   // nothing read it before the certificate feature needed it to identify
   // *which* completed attempt to issue a certificate for.
@@ -22,9 +22,9 @@ export interface AttemptRow {
   durationSeconds: number;
   exitCount: number;
   // Present on every doc (QuizAttemptDoc.submittedAt) but not previously
-  // declared here since nothing read it — the Home dashboard's "Recent
+  // declared here since nothing read it - the Home dashboard's "Recent
   // attempts" table needs a date per row. Serialized Firestore Timestamp
-  // over JSON ({ _seconds, _nanoseconds }, not { seconds }) — read via
+  // over JSON ({ _seconds, _nanoseconds }, not { seconds }) - read via
   // @/utils/formatDate's toDate().
   submittedAt: unknown;
 }
@@ -76,11 +76,11 @@ export interface PublicCertificate {
   revokedAt: unknown;
 }
 
-// Not a JSON action — the server responds with the actual PDF bytes (see
+// Not a JSON action - the server responds with the actual PDF bytes (see
 // api/results.ts's downloadCertificatePdf), so this bypasses callAction's
 // res.json() and reads a blob instead. Shared by both the download and
 // print flows below, since both need the exact same authenticated,
-// ownership-checked PDF bytes — only what happens with them afterward
+// ownership-checked PDF bytes - only what happens with them afterward
 // differs.
 async function fetchCertificatePdf(certificateId: string): Promise<{ blob: Blob; filename: string }> {
   const idToken = await auth.currentUser?.getIdToken();
@@ -102,7 +102,7 @@ async function fetchCertificatePdf(certificateId: string): Promise<{ blob: Blob;
 
 export const certificatesApi = {
   // Called right after a passing quiz submit / a practice test reaching
-  // 100% answered — idempotent, always safe to call again (returns the same
+  // 100% answered - idempotent, always safe to call again (returns the same
   // certificate for the same already-completed attempt instead of minting
   // a duplicate).
   issueOrGetCertificate: (sourceType: CertificateSourceType, sourceId: string, attemptId?: string) =>
@@ -115,7 +115,7 @@ export const certificatesApi = {
   restoreCertificate: (certificateId: string) => callAction<{ success: true }>('results', 'restoreCertificate', { certificateId }),
 
   // Drives the browser's native file-save via a blob + synthetic
-  // <a download> click — an actual file download, not the page's print
+  // <a download> click - an actual file download, not the page's print
   // dialog.
   downloadCertificatePdf: async (certificateId: string): Promise<void> => {
     const { blob, filename } = await fetchCertificatePdf(certificateId);
@@ -130,13 +130,13 @@ export const certificatesApi = {
   },
 
   // Opens the same PDF in a new tab so the learner can use the browser's
-  // own PDF-viewer print control — distinct from Download PDF, which never
+  // own PDF-viewer print control - distinct from Download PDF, which never
   // opens anything, it just saves the file.
   printCertificatePdf: async (certificateId: string): Promise<void> => {
     const { blob } = await fetchCertificatePdf(certificateId);
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
-    // Deliberately not revoked immediately — the new tab needs the object
+    // Deliberately not revoked immediately - the new tab needs the object
     // URL to stay alive to actually render the PDF it just opened.
   },
 };

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { PurchasableItemType } from '@/types/models';
+import { ModalCloseButton } from './ModalCloseButton';
 
 interface Item {
   itemType: PurchasableItemType;
@@ -9,7 +10,7 @@ interface Item {
 
 // Shared across every checkout path (Cart, and each listing page's Buy Now)
 // via useCheckout, so a purchase always ends the same clear way regardless
-// of which route got the student there — a plain toast wasn't a strong
+// of which route got the student there - a plain toast wasn't a strong
 // enough confirmation, and only the Cart page had a dedicated success
 // screen at all.
 export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; onClose: () => void }) {
@@ -18,11 +19,12 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised shadow-xl"
+        className="relative w-full max-w-md rounded-xl border border-surface-border bg-surface-raised shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
+        <ModalCloseButton onClose={onClose} />
         {/* Same plain white-card convention as ConfirmDialog/BuyNowModal
-            elsewhere in the app — no colored gradient hero. The checkmark
+            elsewhere in the app - no colored gradient hero. The checkmark
             stays semantic green (a "this worked" signal) inside a small
             circle instead of a full-width banner. */}
         <div className="p-6 text-center">

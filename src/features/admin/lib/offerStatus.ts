@@ -1,4 +1,4 @@
-// Pure offer-status computation — no cron/scheduled job exists in this
+// Pure offer-status computation - no cron/scheduled job exists in this
 // app (see referralRules.ts's own computeCreditStatus for the same
 // established pattern), so an offer's Scheduled/Active/Expired state is
 // derived lazily from timestamps wherever it's read, never trusted from a
@@ -23,16 +23,16 @@ export function computeOfferStatus(offer: OfferFields, now: Date): OfferStatus {
   return 'active';
 }
 
-// The price a learner would actually pay right now — the offer price only
+// The price a learner would actually pay right now - the offer price only
 // while it's genuinely Active, the regular selling price otherwise. Not
-// wired into api/checkout.ts this phase (see PackageDoc's own comment) —
+// wired into api/checkout.ts this phase (see PackageDoc's own comment) -
 // used only by the admin preview and this module's own tests.
 export function effectivePrice(pkg: OfferFields & { sellingPrice: number }, now: Date): number {
   return computeOfferStatus(pkg, now) === 'active' ? pkg.offerPrice! : pkg.sellingPrice;
 }
 
 // Two offer windows on the *same* package overlap if either window's start
-// falls strictly inside the other's [start, end) span — used to block a
+// falls strictly inside the other's [start, end) span - used to block a
 // second scheduled offer from silently colliding with one still pending or
 // active on the same package.
 export function offersOverlap(a: { offerStart: Date; offerEnd: Date }, b: { offerStart: Date; offerEnd: Date }): boolean {

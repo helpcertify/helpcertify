@@ -135,7 +135,7 @@ export function CartPage() {
               ) : (
                 <div>
                   {/* Coupons already earned by this account (mainly Refer &
-                      Earn rewards) — one click applies them directly,
+                      Earn rewards) - one click applies them directly,
                       instead of the learner needing to go find and retype
                       a code they already have. */}
                   {myCoupons && myCoupons.length > 0 && (

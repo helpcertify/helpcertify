@@ -14,7 +14,7 @@ const STATUS_BADGE: Record<Certificate['status'], string> = {
   invalid: 'bg-neutral-800 text-ink-faint',
 };
 
-// My Certificates — every completion certificate this learner has earned,
+// My Certificates - every completion certificate this learner has earned,
 // across both Mock Exams (quiz) and Practice Exams, with type + certification
 // filters. Certificates are never deleted, only revoked/superseded, so a
 // learner's full history always stays visible here (see api/results.ts's

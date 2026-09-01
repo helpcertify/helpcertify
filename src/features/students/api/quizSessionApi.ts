@@ -1,9 +1,9 @@
 import { callAction } from '@/lib/vercelApi';
 
 // startedAt/expiresAt arrive over JSON as a serialized Firestore Timestamp
-// — { _seconds, _nanoseconds } — not an ISO string and not { seconds }.
+// - { _seconds, _nanoseconds } - not an ISO string and not { seconds }.
 // Read either through @/utils/formatDate's toDate(), which handles this
-// shape (plus a real Timestamp instance or ISO string) — { seconds: number }
+// shape (plus a real Timestamp instance or ISO string) - { seconds: number }
 // here previously caused QuizTakingPage's countdown to render "NaN:NaN"
 // for every quiz-taker (attempt.expiresAt.seconds was always undefined).
 export interface QuizAttemptState {

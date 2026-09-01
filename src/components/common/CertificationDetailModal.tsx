@@ -1,4 +1,5 @@
 import { formatMoney } from '@/utils/currency';
+import { ModalCloseButton } from './ModalCloseButton';
 import { visibleBenefits } from '@/features/admin/lib/packageTemplates';
 import type { CatalogCertification, CatalogPackage } from '@/features/students/api/certificationCatalogApi';
 
@@ -9,7 +10,7 @@ interface Props {
   onClose: () => void;
 }
 
-// "View details" — the full learner-facing breakdown of every package under
+// "View details" - the full learner-facing breakdown of every package under
 // a certification: benefits, price, and the key numbers. getLearnerCatalog
 // already returns everything (includedFeatures, practiceQuestionCount,
 // mock attempts, access period), so there's no extra backend call. Mirrors
@@ -31,10 +32,11 @@ export function CertificationDetailModal({ certification, selectedPackage, onSel
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-surface-border bg-surface-raised p-6"
+        className="relative max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-surface-border bg-surface-raised p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{certification.provider}</div>
+        <ModalCloseButton onClose={onClose} />
+        <div className="pr-8 text-xs font-semibold uppercase tracking-wide text-ink-faint">{certification.provider}</div>
         <h2 className="mt-0.5 text-xl font-bold text-ink">{certification.name}</h2>
         {certification.description && <p className="mt-2 text-sm text-ink-muted">{certification.description}</p>}
 

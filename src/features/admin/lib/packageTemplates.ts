@@ -1,5 +1,5 @@
 // The three ready-made package shapes the simplified Packages & Pricing
-// step offers — Practice Questions, Mock Exams, Complete Preparation. Each
+// step offers - Practice Questions, Mock Exams, Complete Preparation. Each
 // template fixes the entitlement flags a learner would expect for that
 // shape so the admin only ever fills in prices and a few numbers; the raw
 // per-entitlement switches stay available under the step's "Advanced" /
@@ -7,7 +7,7 @@
 //
 // Pure and framework-agnostic (unit-tested in packageTemplates.test.ts).
 // Prices are handled in MINOR units (paise/cents) throughout, matching
-// CreatePackagePayload — the form converts with majorToMinor before
+// CreatePackagePayload - the form converts with majorToMinor before
 // calling in.
 
 import type { CreatePackagePayload } from '../api/contentAdminApi';
@@ -95,7 +95,7 @@ export interface TemplateContext {
   certificationId: string;
   practiceBankId: string | null;
   mockBankId: string | null;
-  /** Published questions in the practice bank — the hard cap on any promised count. */
+  /** Published questions in the practice bank - the hard cap on any promised count. */
   eligiblePracticeQuestions: number;
   defaultValidityDays: number;
   currency: 'INR' | 'USD';
@@ -140,14 +140,14 @@ export function buildPackageBenefits(id: TemplateId, v: TemplateValues, eligible
   ];
 }
 
-// Drop the "detailed explanation" benefit line wherever it appears —
+// Drop the "detailed explanation" benefit line wherever it appears -
 // existing packages have it baked into includedFeatures, so filter it at
 // display time as well as no longer generating it above.
 export function visibleBenefits(features: string[]): string[] {
   return features.filter((f) => !/^detailed\s+(answer\s+)?explanations?$/i.test(f.trim()));
 }
 
-/** Turn one enabled template card into a full CreatePackagePayload — every
+/** Turn one enabled template card into a full CreatePackagePayload - every
  *  entitlement flag fixed by the template, safe platform defaults applied
  *  for the rest. */
 export function templateToCreatePayload(id: TemplateId, v: TemplateValues, ctx: TemplateContext): CreatePackagePayload {

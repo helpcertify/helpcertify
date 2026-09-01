@@ -6,7 +6,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useUiStore } from '@/store/useUiStore';
 
 // exceljs is a large dependency only needed when an admin actually clicks
-// Export — dynamic import keeps it out of the main app bundle entirely.
+// Export - dynamic import keeps it out of the main app bundle entirely.
 async function exportResultsToExcel(...args: Parameters<typeof import('@/lib/exportToExcel').exportResultsToExcel>) {
   const mod = await import('@/lib/exportToExcel');
   return mod.exportResultsToExcel(...args);

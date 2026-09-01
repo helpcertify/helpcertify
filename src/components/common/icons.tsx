@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 
 // Small hand-rolled line icons (24x24 viewBox, stroke-based, inherit
 // currentColor for both fill and stroke) used where an emoji glyph proved
-// unreliable across platforms/fonts — see the cart icon fix in
+// unreliable across platforms/fonts - see the cart icon fix in
 // StudentShell.tsx, where the 🛒 emoji was rendering as a near-invisible
 // monochrome fallback glyph on at least one real device. Kept minimal on
 // purpose; add more here only as an emoji actually needs replacing, not
@@ -72,7 +72,7 @@ export function MoonIcon({ className = 'h-5 w-5' }: IconProps) {
 }
 
 // Used by StarRating (ratings & reviews) in both a filled (solid gold) and
-// outline (unfilled/muted) variant — see StarRating.tsx for how the two are
+// outline (unfilled/muted) variant - see StarRating.tsx for how the two are
 // composed into an average-rating badge and a click-to-pick star selector.
 // Takes an explicit `style` too, unlike the icons above, since StarRating
 // needs a size that varies by its own `size` prop rather than a fixed
@@ -100,7 +100,7 @@ export function StarIcon({ filled = true, className = 'h-4 w-4', style }: IconPr
   );
 }
 
-// Header's Notifications button (StudentShell) — there's no notifications
+// Header's Notifications button (StudentShell) - there's no notifications
 // backend/collection in this data model at all, so the button is an honest
 // "nothing to show yet" affordance (a toast on click), not a fake unread
 // badge.
@@ -141,7 +141,7 @@ export function SearchIcon({ className = 'h-4 w-4' }: IconProps) {
   );
 }
 
-// Used by WishlistButton — filled (solid) once saved, outline otherwise.
+// Used by WishlistButton - filled (solid) once saved, outline otherwise.
 export function HeartIcon({ filled = true, className = 'h-4 w-4' }: IconProps & { filled?: boolean }) {
   const path = 'M12 21s-7.5-4.6-10.2-9.1C.2 9 1 5.7 3.9 4.5c2.1-.9 4.4-.2 5.8 1.6L12 8.4l2.3-2.3c1.4-1.8 3.7-2.5 5.8-1.6 2.9 1.2 3.7 4.5 2.1 7.4C19.5 16.4 12 21 12 21z';
   return filled ? (

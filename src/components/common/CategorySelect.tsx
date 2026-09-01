@@ -10,7 +10,7 @@ const CUSTOM_SENTINEL = '__custom__';
 
 // Used on both the Quiz and Practice Test admin forms. The category field
 // is stored as a plain string (api/content-admin.ts's schema accepts any
-// non-empty string, not just this fixed list — see its own comment), so an
+// non-empty string, not just this fixed list - see its own comment), so an
 // admin whose vendor isn't in CERTIFICATION_CATEGORIES can type their own
 // instead of being stuck picking the closest fit or "Other". Switches to a
 // text input either when "+ Add new category" is chosen, or when editing

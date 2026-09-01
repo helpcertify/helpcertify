@@ -33,12 +33,12 @@ if (!template.includes('<div id="root"></div>')) {
 // The empty shell every non-prerendered (client-only) route falls back to.
 writeFileSync(join(dist, 'app.html'), template);
 
-// dist/404.html — Vercel serves this with a real HTTP 404 for any request
+// dist/404.html - Vercel serves this with a real HTTP 404 for any request
 // that matches neither a static file nor a rewrite in vercel.json, so a
 // nonexistent URL (or missing asset) returns 404 instead of a 200 SPA
 // shell. Kept as static HTML with noindex; it does not boot the SPA.
 const notFound = template
-  .replace(/<title>[\s\S]*?<\/title>/, '<title>Page not found — HelpCertify</title>')
+  .replace(/<title>[\s\S]*?<\/title>/, '<title>Page not found - HelpCertify</title>')
   .replace(
     '<meta charset="UTF-8" />',
     '<meta charset="UTF-8" />\n    <meta name="robots" content="noindex" />',

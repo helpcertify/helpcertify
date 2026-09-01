@@ -34,48 +34,48 @@ export function PrivacyPage() {
       <Section heading="What we collect">
         <UL>
           <li>
-            <strong>Account data</strong> &ndash; your name, email address, and password
+            <strong>Account data</strong> - your name, email address, and password
             (stored only as a hash by our authentication provider), plus any profile details
             you add such as a headline or avatar, and your confirmation that you are 18 or
             older.
           </li>
           <li>
-            <strong>Learning activity</strong> &ndash; the quizzes and practice tests you
+            <strong>Learning activity</strong> - the quizzes and practice tests you
             start, your answers, scores, timestamps, and study-plan settings. This is used for
             your own results and analytics and is not shared with anyone outside the providers
             listed below.
           </li>
           <li>
-            <strong>Purchase data</strong> &ndash; the items you buy, order and payment
+            <strong>Purchase data</strong> - the items you buy, order and payment
             references, coupon usage, and referral activity. Card and bank details are entered
             directly with our payment processor and are never received or stored by us.
           </li>
           <li>
-            <strong>Purchase-consent records</strong> &ndash; at checkout we record the
+            <strong>Purchase-consent records</strong> - at checkout we record the
             product, price, access period, and policy versions shown to you, together with the
             consent boxes you ticked and when. This is kept as evidence of what was agreed and
             is used only for order fulfilment, refund and dispute review, and legal compliance.
           </li>
           <li>
-            <strong>Support and grievance records</strong> &ndash; the messages you send us
+            <strong>Support and grievance records</strong> - the messages you send us
             and our replies, kept so we can handle and, if needed, evidence how a request was
             resolved.
           </li>
           <li>
-            <strong>Technical data</strong> &ndash; standard server logs (IP address, browser
+            <strong>Technical data</strong> - standard server logs (IP address, browser
             type, pages requested, timestamps) generated when you use the site.
           </li>
         </UL>
         <P>
           Please do not send us sensitive personal data (such as government ID numbers, health
-          or financial information) &mdash; we do not need it and do not ask for it.
+          or financial information) - we do not need it and do not ask for it.
         </P>
       </Section>
 
       <Section heading="Why we use it, and our legal basis">
         <UL>
           <li>
-            To provide the platform &mdash; sign-in, exams, practice tests, results, study
+            To provide the platform - sign-in, exams, practice tests, results, study
             plans, and to grant access to what you have bought. <em>Basis: your consent and
             performance of our contract with you.</em>
           </li>
@@ -104,10 +104,10 @@ export function PrivacyPage() {
 
       <Section heading="Service providers we share data with">
         <UL>
-          <li><strong>Google Firebase</strong> &ndash; authentication, database, and file storage.</li>
-          <li><strong>Vercel</strong> &ndash; website hosting and serverless functions.</li>
-          <li><strong>{COMPANY.paymentProcessor}</strong> &ndash; payment processing.</li>
-          <li><strong>Resend</strong> &ndash; delivery of transactional email.</li>
+          <li><strong>Google Firebase</strong> - authentication, database, and file storage.</li>
+          <li><strong>Vercel</strong> - website hosting and serverless functions.</li>
+          <li><strong>{COMPANY.paymentProcessor}</strong> - payment processing.</li>
+          <li><strong>Resend</strong> - delivery of transactional email.</li>
         </UL>
         <P>
           Each processes data only on our written instructions, under a data-processing
@@ -119,7 +119,7 @@ export function PrivacyPage() {
 
       <Section heading="Where your data is processed">
         <P>
-          Some of our processors &mdash; including Google/Firebase and Vercel &mdash; store and
+          Some of our processors - including Google/Firebase and Vercel - store and
           process data on servers located outside India, including in the United States. Indian
           law currently permits transfers of personal data to countries that the Central
           Government has not restricted; none are restricted at present. Each processor is
@@ -131,7 +131,7 @@ export function PrivacyPage() {
         <P>
           We keep your account and learning data while your account is active. When you close
           your account, or withdraw the consent an activity relies on, we delete or anonymise
-          the related data unless we are required to keep it &mdash; for example purchase,
+          the related data unless we are required to keep it - for example purchase,
           invoice, and purchase-consent records are kept for the period tax, accounting, and
           consumer-protection law requires (generally up to three years for a possible
           consumer dispute, longer where tax law requires). Server logs are kept for a short
@@ -146,13 +146,13 @@ export function PrivacyPage() {
           <li>correct, complete, or update your data, or erase data we no longer need;</li>
           <li>address a grievance about how we handle your data (see below);</li>
           <li>
-            act on a nomination &mdash; you may nominate another person to exercise these
+            act on a nomination - you may nominate another person to exercise these
             rights on your behalf if you die or are unable to act.
           </li>
         </UL>
         <P>
           Where an activity relies on your consent, you can withdraw that consent at any time,
-          as easily as you gave it &mdash; by changing your settings, using the unsubscribe
+          as easily as you gave it - by changing your settings, using the unsubscribe
           link in our emails, or emailing us. Withdrawing consent does not affect processing
           already carried out, and some features will stop working without the data they need.
           To exercise any right, email{' '}
@@ -186,7 +186,7 @@ export function PrivacyPage() {
       <Section heading="Security">
         <P>
           We protect your data with reasonable security safeguards appropriate to a platform
-          of our size &mdash; encryption in transit, access controls, hashed passwords,
+          of our size - encryption in transit, access controls, hashed passwords,
           separation of payment data (handled entirely by {COMPANY.paymentProcessor}), and
           regular review of our providers&rsquo; security. No system is perfectly secure; if a
           personal-data breach occurs that is likely to affect you, we will notify you and the

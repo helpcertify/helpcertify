@@ -28,12 +28,12 @@ function milestoneCelebrationText(key: string): string {
   return '🎉 Milestone reached!';
 }
 
-// "Your Learning Journey" on My Profile — same plan/progress calculations
+// "Your Learning Journey" on My Profile - same plan/progress calculations
 // as before (studyPlan.ts is untouched), restyled into the design system's
 // compact 3-stat horizontal card instead of the old fuller card (streak
 // chip, status chip, insight sentence, recovery callout). Those extra
 // numbers still get computed and still drive the milestone-celebration
-// toast (the mutation/effect below is unchanged) — they're just no longer
+// toast (the mutation/effect below is unchanged) - they're just no longer
 // rendered here, since the new Profile page is meant to be a condensed
 // identity + goal summary, not a second dashboard (see My Exams below for
 // the actual "start a session" actions, so this card doesn't need one too).
@@ -89,7 +89,7 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
   const remainingQuestions = Math.max(0, totalQuestions - uniqueAnsweredCount);
   const bankComplete = remainingQuestions === 0;
 
-  // Non-reattempt sessions only — a reattempt re-answers already-completed
+  // Non-reattempt sessions only - a reattempt re-answers already-completed
   // questions, so it isn't "new questions today" (see buildDailyAnsweredMap).
   const { data: dailyAnsweredMap } = useQuery({
     queryKey: ['student', 'streakSessions', uid, testId],

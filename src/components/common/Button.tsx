@@ -1,12 +1,12 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-// Single source of truth for button appearance across the app — every page
+// Single source of truth for button appearance across the app - every page
 // used to hand-roll its own className string, which is how "Next" ended up
 // a slightly different border-gray from "Previous" ended up a slightly
 // different border-gray from "Cancel". The variants below are semantic, not
 // decorative: primary is the main CTA, success/info are the deliberately
 // distinct green/blue used on the practice/quiz Next-vs-Finish buttons
-// (mobile mis-tap fix — kept as named variants here rather than flattened
+// (mobile mis-tap fix - kept as named variants here rather than flattened
 // into one color, since that distinction was the point), danger is for
 // destructive actions, secondary/ghost are low-emphasis.
 export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'info' | 'danger' | 'ghost';

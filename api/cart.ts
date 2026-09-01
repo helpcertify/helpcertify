@@ -5,10 +5,10 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 // Student cart for paid quizzes/practice tests. Entirely Admin-SDK mediated
-// (no direct client Firestore reads/writes to carts/coupons/purchases) —
+// (no direct client Firestore reads/writes to carts/coupons/purchases) -
 // this repo has no local firestore.rules file at all (rules live outside
 // this repo), so routing every cart operation through here means zero rules
-// changes are ever needed for the payment feature. Self-contained — see
+// changes are ever needed for the payment feature. Self-contained - see
 // api/auth.ts's header comment for why (no shared code across api/*.ts).
 
 function getAdminApp() {
@@ -61,7 +61,7 @@ const collectionFor = (itemType: ItemType) =>
   itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
 
 // A package is never its own entitlement record (see PackageDoc's own
-// comment in src/types/models.ts) — "already own this package" means every
+// comment in src/types/models.ts) - "already own this package" means every
 // included quiz/practiceTest already has its own purchase doc, whether that
 // happened by buying the bundle or by buying each item individually.
 async function isPackageFullyOwned(uid: string, pkg: FirebaseFirestore.DocumentData): Promise<boolean> {
@@ -83,7 +83,7 @@ async function validateCoupon(code: string, uid: string) {
   if (!c.active) return null;
   if (c.expiresAt && (c.expiresAt as Timestamp).toMillis() < Date.now()) return null;
   if (c.maxUses !== null && c.maxUses !== undefined && c.usedCount >= c.maxUses) return null;
-  // Refer & Earn reward coupons are minted for one specific learner — see
+  // Refer & Earn reward coupons are minted for one specific learner - see
   // CouponDoc.restrictedToUserId. Absent on every admin-created coupon, so
   // this never affects the normal any-signed-in-learner codes.
   if (c.restrictedToUserId && c.restrictedToUserId !== uid) return null;
@@ -93,7 +93,7 @@ async function validateCoupon(code: string, uid: string) {
 function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: number): number {
   if (subtotal <= 0) return 0;
   const raw = coupon.discountType === 'percent' ? Math.round((subtotal * coupon.discountValue) / 100) : coupon.discountValue;
-  // Never let a coupon zero out an order entirely — Razorpay requires a
+  // Never let a coupon zero out an order entirely - Razorpay requires a
   // positive amount, and a free "purchase" isn't really a purchase. Cap the
   // discount so at least ₹1 (100 paise) remains payable.
   return Math.min(raw, Math.max(subtotal - 100, 0));
@@ -115,7 +115,7 @@ interface HydratedItem {
 }
 
 // Re-reads every item's live price/title and drops anything deleted or
-// already purchased through some other path — the cart is never trusted as
+// already purchased through some other path - the cart is never trusted as
 // a price source, only as a list of item references.
 async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; couponCode: string | null; dirty: boolean }> {
   const cartSnap = await db.collection('carts').doc(uid).get();
@@ -173,7 +173,7 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
     const coupon = await validateCoupon(storedCoupon, uid);
     if (!coupon) {
       storedCoupon = null;
-      dirty = true; // coupon expired/deactivated since being applied — drop it silently
+      dirty = true; // coupon expired/deactivated since being applied - drop it silently
     }
   }
 
@@ -225,7 +225,7 @@ async function addItem(uid: string, body: unknown) {
   const itemCurrency: Currency = itemData.currency ?? 'INR';
   if (price <= 0) throw Err.invalidArgument('This item is free, no need to add it to your cart');
 
-  // A package never has its own purchase doc — "already own" means every
+  // A package never has its own purchase doc - "already own" means every
   // included item is already owned (see isPackageFullyOwned).
   const alreadyOwned =
     itemType === 'package'
@@ -237,10 +237,10 @@ async function addItem(uid: string, body: unknown) {
   const snap = await ref.get();
   const existing = (snap.exists ? snap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
   if (existing.some((e) => e.itemType === itemType && e.itemId === itemId)) {
-    return summarize(uid); // already in cart — no-op, not an error
+    return summarize(uid); // already in cart - no-op, not an error
   }
 
-  // A Razorpay order is single-currency, so a cart can't mix them — caught
+  // A Razorpay order is single-currency, so a cart can't mix them - caught
   // here (at add-time, where the student can actually act on it) rather
   // than at checkout.
   if (existing.length > 0) {
@@ -306,7 +306,7 @@ async function listMyPurchases(uid: string) {
     purchases: snap.docs.map((d) => ({
       itemType: d.data().itemType as ItemType,
       itemId: d.data().itemId as string,
-      // Added for Billing & Orders' fuller product cards (purchase date) —
+      // Added for Billing & Orders' fuller product cards (purchase date) -
       // was already stored on every purchase doc, just never returned here.
       purchasedAt: d.data().purchasedAt as unknown,
     })),
@@ -321,7 +321,7 @@ async function removeCoupon(uid: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Learner certification catalog — the "Choose Your Exam Preparation" home
+// Learner certification catalog - the "Choose Your Exam Preparation" home
 // page section groups packages under their certification, with per-learner
 // owned/in-cart state resolved server-side (never trusted from the client).
 // Folded into this file for the same 12-function-cap reasoning as the
@@ -353,7 +353,7 @@ async function getLearnerCatalog(uid: string) {
   }
   // db.getAll() throws when called with zero refs (e.g. no packages
   // published yet, or a certification whose packages have no quizzes
-  // included) — guard each call rather than let an empty catalog 500.
+  // included) - guard each call rather than let an empty catalog 500.
   const [quizDocs, testDocs] = await Promise.all([
     allQuizIds.size > 0 ? db.getAll(...[...allQuizIds].map((id) => db.collection('quizzes').doc(id))) : Promise.resolve([]),
     allTestIds.size > 0 ? db.getAll(...[...allTestIds].map((id) => db.collection('practiceTests').doc(id))) : Promise.resolve([]),
@@ -372,7 +372,7 @@ async function getLearnerCatalog(uid: string) {
       includedQuizIds.every((id) => ownedSet.has(`quiz_${id}`)) &&
       includedPracticeTestIds.every((id) => ownedSet.has(`practiceTest_${id}`));
     const state: PackageState = allOwned ? 'ACTIVE' : cartPackageIds.has(doc.id) ? 'IN_CART' : 'AVAILABLE';
-    // Practice-bank questions only — the real published count from the
+    // Practice-bank questions only - the real published count from the
     // uploaded question docs, used for the learner-facing "N questions"
     // figure (never the admin-typed accessibleQuestionCount).
     const practiceQuestionCount = includedPracticeTestIds.reduce(
@@ -410,14 +410,14 @@ async function getLearnerCatalog(uid: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Wishlist actions — folded into this file rather than a separate
+// Wishlist actions - folded into this file rather than a separate
 // api/wishlist.ts. Vercel's Hobby plan caps a deployment at 12 Serverless
 // Functions; this repo was already at exactly 12, and a 13th file failed
 // the deployment (build succeeded, "Deploying outputs" step rejected it).
 // Wishlist and cart are the same conceptual domain anyway (a student's
 // saved-item list, same shape/never-trust-stored-price reasoning), so this
 // is a natural consolidation, not just a workaround. Reuses this file's own
-// getAdminApp/db/Err/requireStudent/ItemType/collectionFor — no duplication
+// getAdminApp/db/Err/requireStudent/ItemType/collectionFor - no duplication
 // needed within one file, unlike the no-shared-code rule across files.
 // ---------------------------------------------------------------------------
 
@@ -434,7 +434,7 @@ interface HydratedWishlistItem {
   ratingCount: number;
   totalQuestions: number;
   // Quiz cards show one overall duration; practice-test cards show a
-  // per-session duration — same field on the wire either way so the
+  // per-session duration - same field on the wire either way so the
   // frontend card can render it without knowing which item type it got.
   // null for a practice test whose admin left session length up to the
   // student (see PracticeTestDoc's durationPerSessionMinutes).
@@ -444,7 +444,7 @@ interface HydratedWishlistItem {
 // Mirrors hydrateCart above: never trust the stored list as a price/title
 // source, and silently drop anything deleted or already purchased since
 // being wishlisted. Unlike the cart, a free item is never dropped just for
-// being free — there's no checkout constraint here, so wishlisting
+// being free - there's no checkout constraint here, so wishlisting
 // something free to try later is a perfectly normal state.
 async function hydrateWishlist(uid: string): Promise<{ items: HydratedWishlistItem[] }> {
   const ref = db.collection('wishlists').doc(uid);
@@ -498,7 +498,7 @@ async function getWishlist(uid: string) {
 }
 
 // Wishlist deliberately never supports 'package' (out of scope this
-// phase — see PackageDoc's own comment) — its own narrower schema instead
+// phase - see PackageDoc's own comment) - its own narrower schema instead
 // of reusing addItemSchema, since hydrateWishlist reads `title` off the
 // item doc and a PackageDoc has no such field (it's `name`).
 const wishlistItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) });
@@ -515,7 +515,7 @@ async function addWishlistItem(uid: string, body: unknown) {
   const snap = await ref.get();
   const existing = (snap.exists ? snap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
   if (existing.some((e) => e.itemType === itemType && e.itemId === itemId)) {
-    return getWishlist(uid); // already wishlisted — no-op, not an error
+    return getWishlist(uid); // already wishlisted - no-op, not an error
   }
 
   await ref.set(

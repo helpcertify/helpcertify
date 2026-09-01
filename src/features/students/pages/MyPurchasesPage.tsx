@@ -8,7 +8,7 @@ import { toDate } from '@/utils/formatDate';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 
 interface PurchasedItem {
-  // A purchase doc is never itemType 'package' — buying a package fans out
+  // A purchase doc is never itemType 'package' - buying a package fans out
   // to one purchase doc per included quiz/practiceTest instead (see
   // PackageDoc's own comment in src/types/models.ts), so this page only
   // ever deals with the two flat item types.
@@ -30,7 +30,7 @@ interface PurchasedItem {
   answered: number;
 }
 
-// Billing & Orders — every purchase as a full product card (cover, rating,
+// Billing & Orders - every purchase as a full product card (cover, rating,
 // stats, price, progress), not just a bare title + link, so this reads as
 // an actual order history instead of a plain list.
 export function MyPurchasesPage() {
@@ -40,7 +40,7 @@ export function MyPurchasesPage() {
   const { data: items, isLoading } = useQuery({
     queryKey: ['student', 'purchasedItems', purchases?.purchases],
     queryFn: async (): Promise<PurchasedItem[]> => {
-      // Defensive filter, not just a type narrowing — a purchase doc should
+      // Defensive filter, not just a type narrowing - a purchase doc should
       // never be itemType 'package', but this guards against ever silently
       // mis-rendering one as a practice test if that ever changed.
       const list = (purchases?.purchases ?? []).filter(
@@ -50,11 +50,11 @@ export function MyPurchasesPage() {
         list.map(async (p) => {
           const collectionName = p.itemType === 'quiz' ? 'quizzes' : 'practiceTests';
           const snap = await getDoc(doc(db, collectionName, p.itemId));
-          if (!snap.exists()) return null; // deleted since purchase — quietly dropped
+          if (!snap.exists()) return null; // deleted since purchase - quietly dropped
           const data = snap.data();
 
           // Unique-answered progress, same source each item's own detail
-          // page already uses — a free item still counts as "owned" here
+          // page already uses - a free item still counts as "owned" here
           // (this whole page is scoped to what a purchase record exists
           // for, so a free item never appears regardless).
           let answered = 0;

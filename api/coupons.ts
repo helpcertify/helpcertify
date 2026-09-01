@@ -5,7 +5,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 // Admin-managed discount coupons for the cart/checkout flow. Self-contained
-// — see api/auth.ts's header comment for why (no shared code across
+// - see api/auth.ts's header comment for why (no shared code across
 // api/*.ts).
 
 function getAdminApp() {
@@ -56,7 +56,7 @@ async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
   return { uid: decoded.uid };
 }
 
-// discountValue for 'percent' is capped at 95 — a 100%-off coupon would zero
+// discountValue for 'percent' is capped at 95 - a 100%-off coupon would zero
 // out an order entirely, which api/cart.ts's computeDiscount already guards
 // against at apply-time, but rejecting it here too means the admin UI never
 // even offers to create one.

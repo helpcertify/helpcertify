@@ -16,7 +16,7 @@ export interface QuestionOption {
 }
 
 // One entry per question the .docx parser (api/content-admin.ts) had to
-// skip — surfaced in the create-form's upload report, not just the browser
+// skip - surfaced in the create-form's upload report, not just the browser
 // console, so an admin can actually see what needs fixing in the source
 // file without opening dev tools.
 export interface ParseErrorEntry {
@@ -30,7 +30,7 @@ export interface EditableQuestion {
   questionText: string;
   options: QuestionOption[];
   correctOptionId: string | null;
-  // Optional domain/topic tag (Intelligent Learning) — the only way a
+  // Optional domain/topic tag (Intelligent Learning) - the only way a
   // question ever gets one; never set by the bulk .docx upload parser.
   domain?: string;
 }
@@ -43,7 +43,7 @@ export interface QuizSummary {
   totalQuestions: number;
   durationType: DurationType;
   durationMinutes: number;
-  // Serialized Firestore Timestamp over JSON — { _seconds, _nanoseconds },
+  // Serialized Firestore Timestamp over JSON - { _seconds, _nanoseconds },
   // not { seconds }. Read via @/utils/formatDate's toDate(), never this
   // field directly (see QuizTakingPage.tsx's countdown-timer bug history).
   scheduledStart: unknown;
@@ -55,7 +55,7 @@ export interface QuizSummary {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
-  // A plain string, not the CertificationCategory union — the create forms
+  // A plain string, not the CertificationCategory union - the create forms
   // let an admin type a category that isn't in the fixed list (see
   // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
   // non-empty string rather than restricting to the known set.
@@ -78,25 +78,25 @@ export interface PracticeTestSummary {
   // api/practice-session.ts's startOrResumeBatch) instead of setting one.
   durationPerSessionMinutes: number | null;
   defaultInitialBatchSize: number;
-  // Serialized Firestore Timestamp over JSON — { _seconds, _nanoseconds },
+  // Serialized Firestore Timestamp over JSON - { _seconds, _nanoseconds },
   // not { seconds }. Read via @/utils/formatDate's toDate().
   availableFrom: unknown;
   availableUntil: unknown;
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
-  // A plain string, not the CertificationCategory union — the create forms
+  // A plain string, not the CertificationCategory union - the create forms
   // let an admin type a category that isn't in the fixed list (see
   // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
   // non-empty string rather than restricting to the known set.
   category: string;
   skillLevel: SkillLevel;
   description: string;
-  // The certification/exam this test prepares for (e.g. "CISA") — distinct
+  // The certification/exam this test prepares for (e.g. "CISA") - distinct
   // from `title`. See PracticeTestDoc.examName in src/types/models.ts.
   examName?: string;
   previewQuestionCount: number;
-  // Personal Study Planner (Phase 1) config — see CreatePracticeTestPayload's
+  // Personal Study Planner (Phase 1) config - see CreatePracticeTestPayload's
   // comment on the same three fields.
   revisionBufferDays?: number;
   defaultMinutesPerQuestion?: number;
@@ -119,7 +119,7 @@ export interface CreateQuizPayload {
   price: number;
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
-  // A plain string, not the CertificationCategory union — the create forms
+  // A plain string, not the CertificationCategory union - the create forms
   // let an admin type a category that isn't in the fixed list (see
   // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
   // non-empty string rather than restricting to the known set.
@@ -133,21 +133,21 @@ export interface CreateQuizPayload {
 
 export interface CreatePracticeTestPayload {
   title: string;
-  // The certification/exam this test prepares for (e.g. "CISA") — distinct
+  // The certification/exam this test prepares for (e.g. "CISA") - distinct
   // from `title`. See PracticeTestDoc.examName in src/types/models.ts.
   examName?: string;
   sourceFormat: QuestionSourceFormat;
   fileUrl: string;
   availableFrom: string;
   availableUntil: string;
-  // null means the admin is leaving session length up to each student —
+  // null means the admin is leaving session length up to each student -
   // see PracticeTestSummary's comment on this same field.
   durationPerSessionMinutes: number | null;
   defaultInitialBatchSize: number;
   price: number;
   originalPrice?: number | null;
   currency: 'INR' | 'USD';
-  // A plain string, not the CertificationCategory union — the create forms
+  // A plain string, not the CertificationCategory union - the create forms
   // let an admin type a category that isn't in the fixed list (see
   // CategorySelect.tsx), and api/content-admin.ts's schema accepts any
   // non-empty string rather than restricting to the known set.
@@ -155,7 +155,7 @@ export interface CreatePracticeTestPayload {
   skillLevel: SkillLevel;
   description: string;
   previewQuestionCount: number;
-  // Personal Study Planner (Phase 1) config — see api/content-admin.ts's
+  // Personal Study Planner (Phase 1) config - see api/content-admin.ts's
   // createPracticeTestSchema for defaults.
   revisionBufferDays?: number;
   defaultMinutesPerQuestion?: number;

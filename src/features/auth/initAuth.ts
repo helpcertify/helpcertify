@@ -16,7 +16,7 @@ async function loadProfile(firebaseUser: FirebaseUser): Promise<SafeUser> {
     avatarUrl: profileData?.avatarUrl ?? firebaseUser.photoURL ?? null,
     headline: profileData?.headline ?? null,
     bio: profileData?.bio ?? null,
-    // Missing = registered before this field existed (or OTP was off) —
+    // Missing = registered before this field existed (or OTP was off) -
     // treated as verified rather than retroactively locking anyone out.
     emailVerified: profileData?.emailVerified !== false,
     referralCode: profileData?.referralCode ?? null,
@@ -25,10 +25,10 @@ async function loadProfile(firebaseUser: FirebaseUser): Promise<SafeUser> {
 
 /**
  * Called once at app startup (see app/providers.tsx). Keeps the auth store
- * in sync with Firebase Auth's own session — sign-in, sign-out, and a token
+ * in sync with Firebase Auth's own session - sign-in, sign-out, and a token
  * refresh on another tab all flow through this one listener automatically.
  * Role comes from the Firestore users/{uid} doc, not an ID-token custom
- * claim — this is what lets an admin account be created (or promoted)
+ * claim - this is what lets an admin account be created (or promoted)
  * entirely from the Firebase Console, no Admin SDK script required (see
  * api/admin.ts's requireAdmin for the same reasoning server-side).
  */
@@ -43,7 +43,7 @@ export function initAuthListener(): () => void {
 }
 
 // Re-reads the Firestore profile for the currently signed-in user and pushes
-// it into the store — used right after VerifyEmailPage confirms an OTP, so
+// it into the store - used right after VerifyEmailPage confirms an OTP, so
 // the newly-true emailVerified flag takes effect without waiting for
 // onAuthStateChanged to fire again (it doesn't fire on a Firestore write).
 export async function refreshProfile(): Promise<void> {

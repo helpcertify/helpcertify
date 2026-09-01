@@ -6,18 +6,18 @@ import { z } from 'zod';
 import JSZip from 'jszip';
 import { randomBytes } from 'crypto';
 
-// category is validated as any non-empty string (not a fixed enum) — the
+// category is validated as any non-empty string (not a fixed enum) - the
 // admin create forms let an admin type a custom certification body/vendor
 // beyond src/types/models.ts's CERTIFICATION_CATEGORIES list (see
 // CategorySelect.tsx), so this file no longer needs its own duplicate of
 // that list the way it used to.
 
-// Duplicated from src/types/models.ts's SKILL_LEVELS — same reasoning.
+// Duplicated from src/types/models.ts's SKILL_LEVELS - same reasoning.
 const SKILL_LEVELS = ['Foundation', 'Associate', 'Expert'] as const;
 
 // Quiz + practice-test content management (create/update/delete/list, both
 // docx-format parsers, answer-key preview) for the v2 platform. Self-contained
-// — see api/auth.ts's header comment for why (no shared code across
+// - see api/auth.ts's header comment for why (no shared code across
 // api/*.ts). A quiz/practice-test upload can run to ~1,500 questions (the
 // real CISM banks this app was built against), so this gets the highest
 // maxDuration the Hobby plan allows, same reasoning as the old
@@ -68,7 +68,7 @@ async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
   }
 
   // Role comes from the Firestore users/{uid} doc, not an ID-token custom
-  // claim — see api/admin.ts's requireAdmin for why.
+  // claim - see api/admin.ts's requireAdmin for why.
   const snap = await db.collection('users').doc(decoded.uid).get();
   const user = snap.data();
   if (!snap.exists || !user?.isActive) throw Err.unauthenticated('Account not found or deactivated');
@@ -83,7 +83,7 @@ async function writeAdminLog(args: {
   targetType: string;
   targetId: string;
   description: string;
-  // Products & Pricing audit trail (item 19) — optional so every existing
+  // Products & Pricing audit trail (item 19) - optional so every existing
   // call site (which never set these) keeps compiling and working exactly
   // as before.
   previousValue?: unknown;
@@ -111,7 +111,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 // ---------------------------------------------------------------------------
-// Docx parsing — two formats, each returning the same shape.
+// Docx parsing - two formats, each returning the same shape.
 // ---------------------------------------------------------------------------
 
 interface ParsedOption {
@@ -132,7 +132,7 @@ interface ParseError {
 interface ParseResult {
   valid: ParsedQuestion[];
   errors: ParseError[];
-  // Document-level notes distinct from per-question errors — e.g. the
+  // Document-level notes distinct from per-question errors - e.g. the
   // source file's own numbering being inconsistent (duplicate/missing
   // question numbers). Not a reason to reject anything: the question text
   // itself may be perfectly fine, it's the label that's off, which an
@@ -162,7 +162,7 @@ async function extractParagraphs(fileBuffer: Buffer): Promise<Paragraph[]> {
   });
 }
 
-// CISA Q&A format — reuses the logic already validated in production against
+// CISA Q&A format - reuses the logic already validated in production against
 // ~1,500 real CISM questions (see functions/src/_migrated-v1-reference's
 // docxParser.ts, one level up in the repo, under admin/):
 //   N. <question stem>
@@ -172,7 +172,7 @@ async function extractParagraphs(fileBuffer: Buffer): Promise<Paragraph[]> {
 //   D. option
 //   [Answer: X]        <- optional; a highlighted option is the fallback
 //
-// The question line used to also require para.bold — confirmed live this
+// The question line used to also require para.bold - confirmed live this
 // silently rejected an entire real 832-question CISA file (uploaded
 // "CISA Question Bank Updated 17th Nov 25 - QandA.docx") whose question
 // stems aren't bold at all, just plainly numbered "N. ..." text. The N./
@@ -191,7 +191,7 @@ async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
   const errors: ParseError[] = [];
   // Tracks every "N." label seen, in the order encountered, purely to
   // report numbering problems in the source file afterward (duplicates,
-  // gaps) — confirmed a real, recurring source of confusion: a student's
+  // gaps) - confirmed a real, recurring source of confusion: a student's
   // "928-question" file actually only had 834 distinct question
   // paragraphs (134 numbers never appeared at all, 40 appeared twice),
   // which without this report looked indistinguishable from the app
@@ -271,7 +271,7 @@ async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
   return { valid, errors, warnings };
 }
 
-// Standard Template format — this app's own simpler convention (no
+// Standard Template format - this app's own simpler convention (no
 // reference example existed for this one, unlike CISA Q&A):
 //   Q: <question text>
 //   A) option
@@ -342,12 +342,12 @@ async function parseStandardTemplateFormat(fileBuffer: Buffer): Promise<ParseRes
 }
 
 // The create forms no longer expose a format picker (Standard Template is
-// the only listed option) — but real content still arrives in whichever
+// the only listed option) - but real content still arrives in whichever
 // format it was originally authored in, CISA Q&A included (confirmed live:
 // forcing every upload through the standard parser produced "No questions
 // could be parsed" for an admin's real CISA-formatted file). Rather than
 // trust whatever sourceFormat the client sends, try standard first and
-// fall back to CISA Q&A automatically if it finds nothing — the two
+// fall back to CISA Q&A automatically if it finds nothing - the two
 // formats have distinctly different structure (Q:/A)/Correct: vs numbered
 // bold stems with lettered options), so a file in one shape reliably
 // parses to zero questions in the other, making "zero valid, try the other
@@ -362,7 +362,7 @@ async function fetchAndParse(fileUrl: string): Promise<{ result: ParseResult; de
   if (standardResult.valid.length > 0) return { result: standardResult, detectedFormat: 'standard' };
   const cisaResult = await parseCisaQaFormat(buffer);
   if (cisaResult.valid.length > 0) return { result: cisaResult, detectedFormat: 'cisa_qa' };
-  // Neither format found anything — report whichever attempt got further
+  // Neither format found anything - report whichever attempt got further
   // (more parse errors surfaced usually means it was closer to being the
   // intended format), so the admin sees useful errors instead of nothing.
   return standardResult.errors.length >= cisaResult.errors.length
@@ -384,13 +384,13 @@ async function writeQuestionsBatch(parentRef: DocumentReference, questions: Pars
 
 // Deletes every doc in a question subcollection plus each one's private
 // answerKey. Used to read each question's own private/ subcollection first
-// to discover what to delete there — one sequential await per question,
+// to discover what to delete there - one sequential await per question,
 // which for a large bank (the 1,467-question CISM quiz that prompted this
 // fix) blew past this function's 60-second maxDuration and got killed
 // mid-delete by Vercel, leaving the quiz partially deleted. The answerKey
 // doc's path is always known (every write goes through
 // writeQuestionsBatch/updateQuestionCommon, both of which only ever touch
-// .collection('private').doc('answerKey') — confirmed nothing else is ever
+// .collection('private').doc('answerKey') - confirmed nothing else is ever
 // written there), so it's referenced directly instead of discovered via a
 // read; batch.delete() on a path that doesn't exist is a harmless no-op.
 // This turns ~1,467 sequential round trips into 4 batch commits total.
@@ -415,7 +415,7 @@ function generateCode(): string {
 // ---------------------------------------------------------------------------
 
 // price/originalPrice arrive from the admin form already converted to paise
-// (the form itself takes whole rupees for readability) — both optional so
+// (the form itself takes whole rupees for readability) - both optional so
 // existing create/update call sites without pricing keep working unchanged.
 const createQuizSchema = z.object({
   title: z.string().trim().min(2).max(200),
@@ -436,7 +436,7 @@ const createQuizSchema = z.object({
   description: z.string().trim().max(5000).default(''),
   passMarkPercent: z.number().int().min(1).max(100).default(60),
   // How many of the first questions a non-buyer can try for free before
-  // being asked to purchase — admin's choice per quiz, not a fixed
+  // being asked to purchase - admin's choice per quiz, not a fixed
   // platform-wide number. 0 disables the free preview entirely.
   previewQuestionCount: z.number().int().min(0).max(200).default(5),
   // How many separate attempts a student may start for this quiz.
@@ -594,7 +594,7 @@ async function getQuizAnswerKey(body: unknown) {
   };
 }
 
-// Shared by updateQuizQuestion/updatePracticeTestQuestion below — fixing a
+// Shared by updateQuizQuestion/updatePracticeTestQuestion below - fixing a
 // typo, a wrong option, or the marked-correct answer in an already-uploaded
 // bank previously meant re-uploading the whole .docx from scratch.
 const questionOptionSchema = z.object({ id: z.string().min(1), text: z.string().trim().min(1) });
@@ -603,7 +603,7 @@ const updateQuestionFieldsSchema = z.object({
   questionText: z.string().trim().min(1),
   options: z.array(questionOptionSchema).min(2),
   correctOptionId: z.string().min(1),
-  // Optional domain/topic tag (Intelligent Learning, Release 3) — the only
+  // Optional domain/topic tag (Intelligent Learning, Release 3) - the only
   // way a question ever gets one; the bulk .docx upload parser never sets
   // it. Sent as '' to clear a previously-set tag.
   domain: z.string().trim().max(100).optional(),
@@ -656,7 +656,7 @@ const createPracticeTestSchema = z.object({
   availableUntil: z.string().datetime(),
   // null means the admin is leaving session length up to each student
   // (see api/practice-session.ts's startOrResumeBatch, which then requires
-  // the student to supply one when starting a fresh session) — the admin
+  // the student to supply one when starting a fresh session) - the admin
   // still decides whether that choice exists at all, students never get it
   // unless this is explicitly left null.
   durationPerSessionMinutes: z.number().int().min(1).max(600).nullable(),
@@ -667,13 +667,13 @@ const createPracticeTestSchema = z.object({
   category: z.string().trim().min(1).max(100).default('Other'),
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   description: z.string().trim().max(5000).default(''),
-  // The certification/exam this content prepares for (e.g. "CISA") — see
+  // The certification/exam this content prepares for (e.g. "CISA") - see
   // PracticeTestDoc.examName in src/types/models.ts. Optional/blank is
   // fine; every reader falls back to `title`.
   examName: z.string().trim().max(100).default(''),
-  // See createQuizSchema's previewQuestionCount comment — same convention.
+  // See createQuizSchema's previewQuestionCount comment - same convention.
   previewQuestionCount: z.number().int().min(0).max(200).default(5),
-  // Personal Study Planner (Phase 1) config — read by
+  // Personal Study Planner (Phase 1) config - read by
   // src/features/students/lib/studyPlan.ts's calculation engine and by
   // saveStudyPlan in api/practice-session.ts. All three have sensible
   // defaults so a test created before this feature existed behaves exactly
@@ -681,7 +681,7 @@ const createPracticeTestSchema = z.object({
   revisionBufferDays: z.number().int().min(0).max(60).default(3),
   defaultMinutesPerQuestion: z.number().min(0.1).max(30).default(1.8),
   studyPlannerEnabled: z.boolean().default(true),
-  // See createQuizSchema's accessPeriodDays — 0 = Lifetime access.
+  // See createQuizSchema's accessPeriodDays - 0 = Lifetime access.
   accessPeriodDays: z.number().int().min(0).max(3650).default(0),
 });
 
@@ -838,25 +838,25 @@ async function updatePracticeTestQuestion(uid: string, body: unknown) {
 
 // ---------------------------------------------------------------------------
 // Products & Pricing: Certification / Content Version / Package / Mock
-// Blueprint actions — the admin configuration side of the "Certification ->
+// Blueprint actions - the admin configuration side of the "Certification ->
 // Packages" learner catalog (see src/types/models.ts's CertificationDoc/
 // PackageDoc for the full design rationale). A Package is purely a bundle
 // reference to existing quizzes/practiceTests, never its own entitlement
-// type — see PackageDoc's own comment. This phase is admin-configuration
+// type - see PackageDoc's own comment. This phase is admin-configuration
 // only: nothing here is read by the learner-facing checkout/cart/entitlement
 // code (api/cart.ts's getLearnerCatalog, api/checkout.ts) beyond the
 // `isPublished`/`price`/`originalPrice` bridge fields those already read
 // unmodified from before this round.
 // ---------------------------------------------------------------------------
 
-// Duplicated from src/types/models.ts's CERTIFICATION_ICON_KEYS — same
+// Duplicated from src/types/models.ts's CERTIFICATION_ICON_KEYS - same
 // no-shared-code reasoning as SKILL_LEVELS above.
 const CERTIFICATION_ICON_KEYS = ['shield', 'cloud', 'network', 'chart', 'generic'] as const;
 const CERTIFICATION_STATUSES = ['draft', 'scheduled', 'published', 'unpublished', 'archived'] as const;
 const PACKAGE_STATUSES = ['draft', 'published', 'unpublished', 'archived'] as const;
 
 // Slug must be unique across every certification (excluding the one being
-// edited, when updating) — single equality-filter query, no composite
+// edited, when updating) - single equality-filter query, no composite
 // index needed, same convention used throughout this file.
 async function assertSlugAvailable(slug: string, excludeCertificationId: string | null) {
   const snap = await db.collection('certifications').where('slug', '==', slug).get();
@@ -865,7 +865,7 @@ async function assertSlugAvailable(slug: string, excludeCertificationId: string 
 }
 
 // A scheduled certification "publishes at the configured server time" (item
-// 14) with no cron job in this app — same lazy-computation, opportunistic
+// 14) with no cron job in this app - same lazy-computation, opportunistic
 // self-heal pattern as api/checkout.ts's referral credit status. Called
 // whenever certifications are listed; flips status/isPublished in place for
 // any certification whose scheduled effectiveFrom has already passed.
@@ -885,7 +885,7 @@ async function resolveScheduledCertifications(docs: FirebaseFirestore.QueryDocum
   if (dirty) await batch.commit();
 }
 
-// Only the top-level fields that actually changed — kept short and
+// Only the top-level fields that actually changed - kept short and
 // JSON-serializable for the adminLogs doc, not a deep diff.
 function diffFields(before: Record<string, unknown>, after: Record<string, unknown>): { field: string; from: unknown; to: unknown }[] {
   const diffs: { field: string; from: unknown; to: unknown }[] = [];
@@ -981,7 +981,7 @@ async function createCertification(uid: string, body: unknown) {
     effectiveTo: d.effectiveTo ? Timestamp.fromDate(new Date(d.effectiveTo)) : null,
     defaultValidityDays: d.defaultValidityDays,
     featured: d.featured,
-    // Every certification starts as a Draft — publishing is always an
+    // Every certification starts as a Draft - publishing is always an
     // explicit, separate action (see publishCertification below), never a
     // side effect of the create call.
     status: 'draft' as const,
@@ -1074,7 +1074,7 @@ async function deleteCertification(uid: string, body: unknown) {
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Certification not found');
 
-  // Refuse a cascading delete — an admin must archive/delete the dependent
+  // Refuse a cascading delete - an admin must archive/delete the dependent
   // packages first. This is a hard delete (only ever reachable for a
   // certification that never had any packages); once packages exist, the
   // recommended path is Archive, not delete.
@@ -1095,7 +1095,7 @@ async function deleteCertification(uid: string, body: unknown) {
   return { success: true };
 }
 
-// Publication lifecycle — Draft/Scheduled/Published/Unpublished/Archived
+// Publication lifecycle - Draft/Scheduled/Published/Unpublished/Archived
 // (item 14). Publishing a certification does not require it to already
 // have packages (packages have their own independent publish gate, see
 // canPublishPackage); this action only governs the certification record
@@ -1191,7 +1191,7 @@ async function restoreCertification(uid: string, body: unknown) {
   const existing = snap.data()!;
   if (existing.status !== 'archived') throw Err.failedPrecondition('Only an archived certification can be restored');
 
-  // Restores to Draft, not straight back to Published — an admin should
+  // Restores to Draft, not straight back to Published - an admin should
   // consciously re-publish rather than have an archived product silently
   // reappear live.
   await ref.update({ status: 'draft', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
@@ -1215,7 +1215,7 @@ async function duplicateCertification(uid: string, body: unknown) {
   if (!snap.exists) throw Err.notFound('Certification not found');
   const existing = snap.data()!;
 
-  // A unique slug for the copy — timestamp suffix rather than a counting
+  // A unique slug for the copy - timestamp suffix rather than a counting
   // loop, simple and collision-proof enough for an admin-only, low-volume
   // action.
   const copySlug = `${existing.slug}-copy-${Date.now().toString(36)}`;
@@ -1265,7 +1265,7 @@ async function listCertificationsAdmin() {
 }
 
 // ---------------------------------------------------------------------------
-// Content versions & mock blueprints — both embedded arrays on the
+// Content versions & mock blueprints - both embedded arrays on the
 // certification doc (see CertificationDoc's own comment for why: a handful
 // of small, always-edited-together records, not a query-heavy collection).
 // ---------------------------------------------------------------------------
@@ -1280,8 +1280,8 @@ async function saveContentVersion(uid: string, body: unknown) {
   if (!snap.exists) throw Err.notFound('Certification not found');
   const existing = snap.data()!;
 
-  // The referenced bank must actually exist, and — "archived question
-  // banks cannot be selected for new products" — must still be published.
+  // The referenced bank must actually exist, and - "archived question
+  // banks cannot be selected for new products" - must still be published.
   // Only QuizDoc has an isPublished field at all; PracticeTestDoc has no
   // archived/unpublished concept in this data model (only an
   // availableFrom/availableUntil window), so this check only applies to a
@@ -1298,7 +1298,7 @@ async function saveContentVersion(uid: string, body: unknown) {
   const effectiveTo = version.effectiveTo ? Timestamp.fromDate(new Date(version.effectiveTo)) : null;
   const id = version.id ?? db.collection('_ids').doc().id;
 
-  // "Content-version effective dates must not conflict" — no two versions
+  // "Content-version effective dates must not conflict" - no two versions
   // on the same certification may have overlapping [effectiveFrom, effectiveTo) windows.
   const overlaps = versions.some((v) => {
     if (v.id === id) return false;
@@ -1359,7 +1359,7 @@ async function deleteContentVersion(uid: string, body: unknown) {
   return { success: true };
 }
 
-// The domain distribution of a bank's published questions — used both to
+// The domain distribution of a bank's published questions - used both to
 // populate the Mock Rules editor and to validate a blueprint's domain
 // allocations against what the bank can actually support. Single
 // collection read (this repo's banks run up to ~1,500 questions, the same
@@ -1499,8 +1499,8 @@ const createPackageSchema = z.object({
 // every included item actually exist and are published (see
 // saveContentVersion's own comment on treating an unpublished bank as
 // "archived" for this repo's purposes), enforces a unique package name
-// within the certification, and — if this package is being set as the
-// recommended one — unsets any sibling's isRecommended flag in the same
+// within the certification, and - if this package is being set as the
+// recommended one - unsets any sibling's isRecommended flag in the same
 // batch (at most one recommended package per certification is an
 // application-level invariant, not a Firestore constraint).
 async function validatePackageRefsAndClearSiblingRecommended(
@@ -1518,7 +1518,7 @@ async function validatePackageRefsAndClearSiblingRecommended(
   if (includedQuizIds.length === 0 && includedPracticeTestIds.length === 0) {
     throw Err.invalidArgument('A package must include at least one quiz or practice test');
   }
-  // db.getAll() throws when called with zero refs — a package can legally
+  // db.getAll() throws when called with zero refs - a package can legally
   // include only quizzes or only practice tests, so either list can be
   // empty on its own even though the combined check above passed.
   const [quizSnaps, testSnaps] = await Promise.all([
@@ -1531,7 +1531,7 @@ async function validatePackageRefsAndClearSiblingRecommended(
   if (missingQuiz) throw Err.invalidArgument(`includedQuizIds references a quiz that does not exist: ${missingQuiz.id}`);
   const missingTest = testSnaps.find((s) => !s.exists);
   if (missingTest) throw Err.invalidArgument(`includedPracticeTestIds references a practice test that does not exist: ${missingTest.id}`);
-  // Only QuizDoc has an isPublished field — PracticeTestDoc has no
+  // Only QuizDoc has an isPublished field - PracticeTestDoc has no
   // archived/unpublished concept in this data model (see
   // saveContentVersion's own comment on the same distinction).
   const archivedQuiz = quizSnaps.find((s) => !s.data()?.isPublished);
@@ -1551,7 +1551,7 @@ async function validatePackageRefsAndClearSiblingRecommended(
 }
 
 // "Offer price cannot exceed regular price", "offer end after offer
-// start", "package cannot publish without a valid price unless Free" —
+// start", "package cannot publish without a valid price unless Free" -
 // duplicated from src/features/admin/lib/packageValidation.ts's tested
 // canonical version.
 function validatePackagePricing(d: {
@@ -1581,7 +1581,7 @@ async function createPackage(uid: string, body: unknown) {
   validatePackagePricing(d);
   if (d.practiceAccessEnabled && d.accessibleQuestionCount > 0) {
     // Checked again, more precisely (against the actual referenced banks'
-    // question counts), at publish time in publishPackage — this create-
+    // question counts), at publish time in publishPackage - this create-
     // time check only guards the obviously-wrong "more than physically
     // possible" case using the banks named in this same call.
   }
@@ -1631,7 +1631,7 @@ async function createPackage(uid: string, body: unknown) {
     isFree: d.isFree,
     status: 'draft' as const,
     isPublished: false,
-    // Bridge fields — see PackageDoc's own comment. Kept in sync with
+    // Bridge fields - see PackageDoc's own comment. Kept in sync with
     // sellingPrice/regularPrice so a future, unmodified learner-checkout
     // read of `price`/`originalPrice` reflects the same numbers.
     price: d.sellingPrice,
@@ -1663,7 +1663,7 @@ const updatePackageSchema = z.object({
   includedPracticeTestIds: z.array(z.string().min(1)).optional(),
   displayOrder: z.number().int().min(0).optional(),
   // Every access/pricing field is independently optional here (a partial
-  // update) — statically listed rather than derived from
+  // update) - statically listed rather than derived from
   // packageAccessSchema, since z.infer can't see through a dynamically
   // built object shape.
   packageType: z.string().trim().min(1).max(50).optional(),
@@ -1768,7 +1768,7 @@ async function deletePackage(uid: string, body: unknown) {
   if (!snap.exists) throw Err.notFound('Package not found');
 
   // "If a package is already referenced by historical data, do not
-  // physically delete it. Archive it." — every purchase fanned out from
+  // physically delete it. Archive it." - every purchase fanned out from
   // buying this package (or a coincidental individual purchase of the same
   // items) tags sourcePackageId; a single equality-filter existence check.
   const referenced = await db.collection('purchases').where('sourcePackageId', '==', parsed.data.packageId).limit(1).get();
@@ -1952,7 +1952,7 @@ async function listPackagesAdmin(body: unknown) {
   const parsed = listPackagesAdminSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   // Filtered-by-certification case is an equality-only query (no orderBy
-  // chained onto it — that combination needs a composite index this repo
+  // chained onto it - that combination needs a composite index this repo
   // doesn't provision); sorted in memory instead, same convention as
   // api/checkout.ts's monthly-referral-cap count.
   const snap = parsed.data.certificationId
@@ -1964,7 +1964,7 @@ async function listPackagesAdmin(body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
-// Audit history — reuses the existing adminLogs collection/writeAdminLog
+// Audit history - reuses the existing adminLogs collection/writeAdminLog
 // helper (item 19), rather than a parallel audit table.
 // ---------------------------------------------------------------------------
 
@@ -1974,7 +1974,7 @@ async function getAuditHistoryForCertification(body: unknown) {
   const { certificationId } = parsed.data;
 
   // adminLogs has no certificationId field of its own for a package-level
-  // entry — package ids under this certification are looked up first, then
+  // entry - package ids under this certification are looked up first, then
   // both queries (targetId == certificationId, targetId in packageIds) run
   // and are merged/sorted in memory (Firestore has no native OR across two
   // different fields' equality here).

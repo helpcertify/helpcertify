@@ -1,6 +1,6 @@
 import { useThemeStore } from '@/store/useThemeStore';
 
-// Dropped into any header — StudentShell, AdminShell, the public pages.
+// Dropped into any header - StudentShell, AdminShell, the public pages.
 // Same visual language as the other icon-only header buttons (cart, mobile
 // nav toggle): a bordered square, no fill.
 export function ThemeToggle({ className = '' }: { className?: string }) {
@@ -8,7 +8,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const darkModeAllowed = useThemeStore((s) => s.darkModeAllowed);
 
-  // Dark mode is an admin-gated feature — with it off, the app is light
+  // Dark mode is an admin-gated feature - with it off, the app is light
   // only and there is nothing to toggle.
   if (!darkModeAllowed) return null;
 

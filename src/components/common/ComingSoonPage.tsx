@@ -1,4 +1,4 @@
-// Temporary placeholder for routes not yet built out — replaced page by
+// Temporary placeholder for routes not yet built out - replaced page by
 // page through the build phases in the rebuild plan. Having every route
 // resolve to something (rather than 404ing) lets the shell/theme/nav be
 // verified end-to-end before every feature exists.

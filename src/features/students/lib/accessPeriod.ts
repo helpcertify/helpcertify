@@ -1,6 +1,6 @@
 // A product's access period, for display on checkout surfaces and in the
 // purchase-consent record. Individual quizzes / practice tests default to
-// 0 (permanent) — the entitlement gates in api/quiz-session.ts /
+// 0 (permanent) - the entitlement gates in api/quiz-session.ts /
 // api/practice-session.ts do not expire access today; this label is what
 // the learner is shown and what gets snapshotted at purchase. Packages
 // carry their own accessValidityDays (always >= 1).

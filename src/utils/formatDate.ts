@@ -1,9 +1,9 @@
 /**
  * Normalizes whatever shape a "timestamp" arrives in on the frontend into a
  * real Date:
- *  - a Firestore Timestamp instance (from a direct client SDK read) — has .toDate()
+ *  - a Firestore Timestamp instance (from a direct client SDK read) - has .toDate()
  *  - the plain-object shape a Callable Function's JSON response serializes
- *    a Timestamp into — { _seconds, _nanoseconds } — NOT an ISO string
+ *    a Timestamp into - { _seconds, _nanoseconds } - NOT an ISO string
  *  - an already-ISO string or epoch number
  * Any new UI code reading a time field from a callable response should go
  * through this rather than rendering the value directly.
@@ -26,7 +26,7 @@ export function formatDate(value: unknown): string {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
-// "16-Aug-2026" — an unambiguous day-month-year format (no locale-dependent
+// "16-Aug-2026" - an unambiguous day-month-year format (no locale-dependent
 // slash ordering like toLocaleDateString()'s "9/8/2026", which reads as
 // either 9 Aug or Sep 8 depending on the viewer's locale) for exam-date-ish
 // displays (Study Plan's exam countdown, suggested exam date).

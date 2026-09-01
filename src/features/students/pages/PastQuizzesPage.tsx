@@ -14,7 +14,7 @@ export function PastQuizzesPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Certificate eligibility needs each quiz's own passMarkPercent (not
-  // stored on the attempt itself) — fetched once per unique quizId here
+  // stored on the attempt itself) - fetched once per unique quizId here
   // rather than per row, and cached under a key derived from the id list so
   // it only refetches when the actual set of quizzes attempted changes.
   const quizIds = [...new Set(attempts.map((a) => a.quizId))];
@@ -27,7 +27,7 @@ export function PastQuizzesPage() {
     enabled: quizIds.length > 0,
   });
 
-  // Real, server-issued certificate — never the old client-only jsPDF
+  // Real, server-issued certificate - never the old client-only jsPDF
   // generator (fabricated a "certificate id" from a truncated attempt id,
   // no persistence, no ownership check, no verification). Idempotent:
   // issuing again for the same attempt just returns the same certificate.

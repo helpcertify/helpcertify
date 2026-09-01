@@ -26,11 +26,11 @@ function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
 }
 
-// Practice Question Bank session sizing — question count is the primary
+// Practice Question Bank session sizing - question count is the primary
 // control (not a duration in minutes, even for a test the admin gave a
 // fixed durationPerSessionMinutes; that field is now purely the basis for
 // the secondary "approximately N minutes" estimate below, never a gate on
-// starting or how long a session lasts — see api/practice-session.ts's
+// starting or how long a session lasts - see api/practice-session.ts's
 // header comment on SESSION_STALE_HOURS).
 const SESSION_SIZE_PRESETS = [
   { size: 10, label: 'Quick Practice' },
@@ -42,18 +42,18 @@ const MAX_CUSTOM_SESSION_SIZE = 200;
 
 // A fixed 10-question free sample regardless of the admin's own
 // previewQuestionCount setting (which still governs the free-preview limit
-// enforced server-side in api/practice-session.ts) — on request, so every
+// enforced server-side in api/practice-session.ts) - on request, so every
 // visitor sees the same "try 10 questions" experience. Falls back to the
 // admin's own count only if they deliberately set something smaller (a
 // disabled preview, previewQuestionCount: 0, still means no preview at all).
 const SAMPLE_PREVIEW_COUNT = 10;
 
 // Master HelpCertify design-system layout: a full-width header row (badges,
-// title, rating, stat line, decorative mark), then a two-column row —
+// title, rating, stat line, decorative mark), then a two-column row -
 // Practice Setup + Study Plan when owned, or Course Access + Free Preview
-// when not — then Study Goal full-width, then Reviews full-width. No
+// when not - then Study Goal full-width, then Reviews full-width. No
 // recommendations carousel on this page, on request (kept on the browse
-// pages, MockExamsPage/PracticeTestsPage/etc). Purely a visual pass — the
+// pages, MockExamsPage/PracticeTestsPage/etc). Purely a visual pass - the
 // underlying data/mutations are unchanged from before this restyle.
 export function PracticeTestDetailPage() {
   const { testId } = useParams<{ testId: string }>();
@@ -65,7 +65,7 @@ export function PracticeTestDetailPage() {
   const [sessionSize, setSessionSize] = useState<number>(DEFAULT_SESSION_SIZE);
   const [customSize, setCustomSize] = useState('');
   const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_of_session'>('immediate');
-  // Inline goal-setup, not a separate page/route — every other entry point
+  // Inline goal-setup, not a separate page/route - every other entry point
   // (the Practice Exams card, its hover popover, the dashboard nudge, the
   // purchase-success modal) links here with ?goal=1 rather than to a
   // /study-plan route, so this single flag opens the same panel regardless
@@ -100,7 +100,7 @@ export function PracticeTestDetailPage() {
     queryFn: () => getStudyPlan(uid!, testId!),
     enabled: !!uid && !!testId,
   });
-  // "Continue where you left off" — an unfinished (in_progress) session,
+  // "Continue where you left off" - an unfinished (in_progress) session,
   // read directly via the client SDK same as the queries above (firestore.
   // rules already lets a signed-in learner read their own practiceSessions
   // docs). Only ever one in_progress session per learner per test (see
@@ -162,7 +162,7 @@ export function PracticeTestDetailPage() {
   const from = test.availableFrom?.toMillis() ?? 0;
   const until = test.availableUntil?.toMillis() ?? Infinity;
   const rawState: 'available' | 'upcoming' | 'expired' = now < from ? 'upcoming' : now > until ? 'expired' : 'available';
-  // A purchase is permanent access, same override as PracticeTestsPage — the
+  // A purchase is permanent access, same override as PracticeTestsPage - the
   // admin's availability window can't take away something already paid for.
   // Keyed to an actual purchase record specifically, not the broader `owned`
   // (a free-but-expired test has no purchase to justify overriding the
@@ -173,12 +173,12 @@ export function PracticeTestDetailPage() {
   const done = answered >= test.totalQuestions;
   const previewCount = test.previewQuestionCount === 0 ? 0 : SAMPLE_PREVIEW_COUNT;
 
-  // Intelligent Learning (Release 3) — derived entirely from
+  // Intelligent Learning (Release 3) - derived entirely from
   // practiceProgress.questionStats, never a separate stored value. Weak
   // Areas: persistently-low cumulative accuracy (a longer memory than
   // incorrectQuestionIds, which only reflects the single most recent
   // attempt). Accuracy: cumulative correct/attempts across every answered
-  // question — not "first-attempt accuracy" specifically, since that isn't
+  // question - not "first-attempt accuracy" specifically, since that isn't
   // tracked separately from cumulative attempts.
   const questionStats = progress?.questionStats ?? {};
   const statsEntries = Object.values(questionStats);
@@ -187,7 +187,7 @@ export function PracticeTestDetailPage() {
   const totalCorrect = statsEntries.reduce((sum, s) => sum + s.correct, 0);
   const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
-  // Section 29's Question Bank Dashboard — Mastered/Learning/Needs Review
+  // Section 29's Question Bank Dashboard - Mastered/Learning/Needs Review
   // buckets, derived from questionStats + incorrectQuestionIds rather than
   // a separately stored state (Section 8: "do not unnecessarily duplicate
   // data if these states can be derived reliably from existing attempt
@@ -209,18 +209,18 @@ export function PracticeTestDetailPage() {
   return (
     // Fills the width StudentShell's sidebar leaves available (up to a
     // 1440px cap) instead of centering a much-narrower fixed column inside
-    // it — that mismatch was the source of the large dead margins either
+    // it - that mismatch was the source of the large dead margins either
     // side of the page.
     <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
       <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Practice Exams
       </Link>
 
-      {/* Header — full width, badges/title/rating/stats on the left, a
+      {/* Header - full width, badges/title/rating/stats on the left, a
           decorative certification mark on the right. The left column is
           flex-1 (not just min-w-0) so it actually fills the row's width
           instead of shrinking to its own content and leaving a dead gap
-          before the icon — description text wraps at the full available
+          before the icon - description text wraps at the full available
           width instead of an arbitrary fixed cap. */}
       <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
@@ -241,7 +241,7 @@ export function PracticeTestDetailPage() {
           )}
 
           {/* One horizontal line with bullet separators rather than a
-              stack — same three facts as before, grouped tighter. */}
+              stack - same three facts as before, grouped tighter. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#475569]">
             <span>▣ {test.totalQuestions} Questions</span>
             <span className="text-[#CBD5E1]">•</span>
@@ -255,7 +255,7 @@ export function PracticeTestDetailPage() {
           )}
         </div>
 
-        {/* Decorative certification mark — reuses the same icon tile every
+        {/* Decorative certification mark - reuses the same icon tile every
             product card already uses, just larger, rather than a bespoke
             illustration asset. */}
         <div className="hidden shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] p-6 sm:flex">
@@ -265,7 +265,7 @@ export function PracticeTestDetailPage() {
         </div>
       </div>
 
-      {/* Section 29's Question Bank Dashboard — only once there's actually
+      {/* Section 29's Question Bank Dashboard - only once there's actually
           something to show; an all-unseen bank has nothing to bucket yet. */}
       {owned && answered > 0 && (
         <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
@@ -292,7 +292,7 @@ export function PracticeTestDetailPage() {
       )}
 
       {/* Two-column row: Practice Setup + Study Plan when owned, Course
-          Access + Free Preview when not. Practice Setup gets more width —
+          Access + Free Preview when not. Practice Setup gets more width -
           it's carrying the duration picker and both feedback-mode cards,
           more content than Study Plan's compact 3-stat summary. */}
       {owned ? (
@@ -370,9 +370,9 @@ export function PracticeTestDetailPage() {
         </div>
       )}
 
-      {/* Study Goal — full width, below the two-column row. Kept as a
+      {/* Study Goal - full width, below the two-column row. Kept as a
           click-to-open panel rather than always-expanded (the underlying
-          interaction, not just its skin) — same behavior as before this
+          interaction, not just its skin) - same behavior as before this
           restyle. */}
       {owned && test.studyPlannerEnabled !== false && showGoalPanel && (
         <div className="mb-6">
@@ -467,7 +467,7 @@ function PracticeSetupCard({
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
       <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Practice Setup</h2>
 
-      {/* Unique coverage — Section 3's "YOUR PROGRESS" bar. Never treats
+      {/* Unique coverage - Section 3's "YOUR PROGRESS" bar. Never treats
           answeredCount as anything other than unique questions ever
           submitted (see practiceProgress.answeredQuestionIds), so this
           number can't inflate from repeated Reattempt sessions. */}
@@ -485,7 +485,7 @@ function PracticeSetupCard({
       </div>
 
       {done ? (
-        // Section 32 — the "coverage complete" transition to revision, not
+        // Section 32 - the "coverage complete" transition to revision, not
         // a silent restart. Every entry point here uses an intentional-
         // repeat session type (isMastery/isWeakAreas/isRevision), so none
         // of this touches unique coverage (already 100% anyway).
@@ -521,7 +521,7 @@ function PracticeSetupCard({
           </div>
         </div>
       ) : unfinishedSession ? (
-        // Section 10 — an unfinished session is never silently discarded;
+        // Section 10 - an unfinished session is never silently discarded;
         // Resume Practice continues that exact session (startOrResumeBatch
         // returns it as-is), it doesn't start a new one with these pickers.
         <div className="mb-2 rounded-lg border border-[#DCE7FF] bg-[#EFF6FF] p-4">
@@ -583,7 +583,7 @@ function PracticeSetupCard({
               </div>
             </div>
             <div className="mt-2 text-xs text-[#64748B]">
-              {sessionSize} Questions · approximately {estLow}–{estHigh} minutes
+              {sessionSize} Questions · approximately {estLow}-{estHigh} minutes
             </div>
           </div>
 
@@ -642,7 +642,7 @@ interface CourseAccessTest {
   availableUntil: unknown;
 }
 
-// Section 16/18: the purchase card for a not-yet-owned test — Buy Now / Add
+// Section 16/18: the purchase card for a not-yet-owned test - Buy Now / Add
 // to Cart / wishlist, same mutations as before, restyled.
 function CourseAccessCard({
   test,
@@ -716,7 +716,7 @@ function CourseAccessCard({
   );
 }
 
-// A compact "here's your plan" readout once a study goal already exists —
+// A compact "here's your plan" readout once a study goal already exists -
 // the same daily target/countdown/progress numbers StudyGoalPanel and the
 // Home dashboard compute, condensed to a glance instead of the full
 // two-column setup form. Editing re-opens that full form (StudyGoalPanel)
@@ -749,7 +749,7 @@ function PlanSummaryCard({
   let dailyTarget: number;
   // "EXAM DATE" when the learner chose this date themselves (Option A);
   // "SUGGESTED EXAM DATE" when HelpCertify calculated it from their pace
-  // (Option B) — an ambiguous unlabeled date reads as a commitment either
+  // (Option B) - an ambiguous unlabeled date reads as a commitment either
   // way, so the two need visibly different wording, not just different math.
   let dateLabel: string;
   let dateValue: string;
@@ -796,7 +796,7 @@ function PlanSummaryCard({
         </button>
       </div>
 
-      {/* Which certification this plan actually belongs to — an ambiguous
+      {/* Which certification this plan actually belongs to - an ambiguous
           date with no exam name attached reads as belonging to whichever
           test page happens to be open, not as a durable fact about the
           learner's own goal. */}
@@ -807,7 +807,7 @@ function PlanSummaryCard({
         <div className="text-xs text-[#64748B]">{provider}</div>
       </div>
 
-      {/* Exam date on its own full-width line — a date string is long
+      {/* Exam date on its own full-width line - a date string is long
           enough that sharing a 3-column grid with the two shorter stats
           below forced it to wrap mid-word. Completion progress and today's
           target keep their side-by-side row underneath. */}

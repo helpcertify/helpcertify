@@ -32,7 +32,7 @@ const NAV_ITEMS = [
 // My Profile and Settings are account-level, not content tabs, so they're
 // pinned on after NAV_ITEMS instead of mixed into it: Settings last, My
 // Profile directly above it. Both are real routes now (My Profile used to
-// open a modal — moved to its own page/route on request), so both get the
+// open a modal - moved to its own page/route on request), so both get the
 // same active-state NavLink styling for free.
 
 // First name + last name initials for the header avatar ("Uma Mageshwari" ->
@@ -49,9 +49,9 @@ function initials(name?: string): string {
 // Matches the reference screenshots' "Learning Portal" student shell: a
 // unified top header (brand, search, account-utility icons) that spans the
 // full width at every breakpoint, with the actual nav living in a left
-// sidebar (lg: and up) or a dropdown just under the header (mobile) — the
+// sidebar (lg: and up) or a dropdown just under the header (mobile) - the
 // header itself never carries nav links. No department/academic-year badges
-// here — this platform isn't limited to students at an institution, so
+// here - this platform isn't limited to students at an institution, so
 // profile fields stay generic (name, email, avatar) rather than
 // campus-specific.
 export function StudentShell() {
@@ -60,7 +60,7 @@ export function StudentShell() {
   const pushToast = useUiStore((s) => s.pushToast);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  // staleTime keeps this from refetching on every focus/route-change — the
+  // staleTime keeps this from refetching on every focus/route-change - the
   // count only actually changes from an add/remove/checkout, and those
   // mutations already invalidate this same query key themselves.
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
@@ -68,7 +68,7 @@ export function StudentShell() {
 
   // The exam countdown pinned above Sign Out, visible on every page. The
   // "Your Exams" section shows a single card: the exam goal the learner most
-  // recently created or changed (not the soonest, and not one per goal) —
+  // recently created or changed (not the soonest, and not one per goal) -
   // see featuredExamCountdown.
   const { data: examCountdowns } = useExamCountdowns();
   const featuredExam = featuredExamCountdown(examCountdowns);
@@ -89,7 +89,7 @@ export function StudentShell() {
   // than a fabricated unread badge.
   const handleNotificationsClick = () => pushToast("You're all caught up. No new notifications yet.", 'info');
 
-  // text-ink (not text-ink-muted) for the inactive state — real user
+  // text-ink (not text-ink-muted) for the inactive state - real user
   // feedback that nav tab labels needed to read as solidly dark, not a
   // secondary/muted gray, to stay clearly visible.
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -113,7 +113,7 @@ export function StudentShell() {
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* Unified header — logo, search, Help, Saved Items, Cart (amber
+      {/* Unified header - logo, search, Help, Saved Items, Cart (amber
           count), Notifications, avatar. Fixed height (h-14) so the sidebar
           below can offset its own sticky position by an exact amount. */}
       <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-surface-border bg-surface px-4 lg:px-8">
@@ -184,7 +184,7 @@ export function StudentShell() {
         </div>
       </header>
 
-      {/* Mobile nav dropdown — below lg: only, opened by the header's
+      {/* Mobile nav dropdown - below lg: only, opened by the header's
           hamburger button. */}
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
@@ -207,7 +207,7 @@ export function StudentShell() {
       )}
 
       <div className="lg:flex">
-        {/* Desktop sidebar — lg: and up only, offset below the fixed-height
+        {/* Desktop sidebar - lg: and up only, offset below the fixed-height
             header (top-14 / h-[calc(100vh-3.5rem)] both match h-14 above).
             Nav-only now; the brand mark moved up into the header so it
             isn't shown twice. Sign Out stays pinned at the bottom via
@@ -243,7 +243,7 @@ export function StudentShell() {
   );
 }
 
-// Links to My Profile's own "Refer & Earn" section — that's where the
+// Links to My Profile's own "Refer & Earn" section - that's where the
 // actual referral link, copy button, and referral history live (see
 // ReferAndEarnSection.tsx); this sidebar card is just a permanent
 // reminder/entry point, same role the exam countdown cards play above it.

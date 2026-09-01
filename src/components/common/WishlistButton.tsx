@@ -4,7 +4,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { HeartIcon } from './icons';
 
 interface WishlistButtonProps {
-  // Never 'package' — a certification/package card has no wishlist heart
+  // Never 'package' - a certification/package card has no wishlist heart
   // this phase (see CertificationCard.tsx).
   itemType: 'quiz' | 'practiceTest';
   itemId: string;
@@ -13,7 +13,7 @@ interface WishlistButtonProps {
   // cover image whose color is unpredictable. 'inline': theme-aware neutral
   // icon with no scrim, for sitting on a plain surface/card background
   // (detail pages). Kept as a resolved prop rather than something callers
-  // fight over via className — two color utilities on the same element
+  // fight over via className - two color utilities on the same element
   // have equal CSS specificity, so which one "wins" depends on generated
   // stylesheet order, not JSX order; a variant prop resolves it in JS
   // instead of gambling on that.
@@ -25,7 +25,7 @@ interface WishlistButtonProps {
 // toggling on a card immediately reflects on the detail page (and back)
 // with no manual refetch needed. Meant to sit as an absolutely-positioned
 // sibling next to (not nested inside) a card's own <Link> to the detail
-// page — nesting a <button> inside an <a> is invalid HTML, so callers
+// page - nesting a <button> inside an <a> is invalid HTML, so callers
 // should wrap both in a shared `relative` container instead of nesting.
 export function WishlistButton({ itemType, itemId, className = '', variant = 'overlay' }: WishlistButtonProps) {
   const queryClient = useQueryClient();

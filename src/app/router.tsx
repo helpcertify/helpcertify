@@ -48,7 +48,7 @@ import { ProductsPricingPage } from '@/features/admin/pages/ProductsPricingPage'
 import { CertificationEditorPage } from '@/features/admin/pages/CertificationEditorPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
-// course/exam/certificate routes on 2026-08-22 — see
+// course/exam/certificate routes on 2026-08-22 - see
 // functions/src/_migrated-v1-reference/README.md for what this replaced.
 export function AppRouter() {
   return (
@@ -68,7 +68,7 @@ export function AppRouter() {
       <Route path="/refund" element={<RefundPage />} />
       <Route path="/support" element={<SupportPage />} />
       <Route path="/disclaimer" element={<DisclaimerPage />} />
-      {/* Public certificate verification — no login required, matching how
+      {/* Public certificate verification - no login required, matching how
           a real credential-verification page works for a third party
           checking a certificate a learner shared with them. */}
       <Route path="/verify/:certificateId" element={<VerifyCertificatePage />} />
@@ -83,7 +83,7 @@ export function AppRouter() {
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
           <Route path="/home/quizzes/:quizId" element={<QuizDetailPage />} />
           {/* Goal-setup lives inline on the detail page itself (opened via
-              ?goal=1), not a separate route — see StudyGoalPanel.tsx. */}
+              ?goal=1), not a separate route - see StudyGoalPanel.tsx. */}
           <Route path="/home/practice-tests/:testId" element={<PracticeTestDetailPage />} />
           <Route path="/home/purchases" element={<MyPurchasesPage />} />
           <Route path="/home/wishlist" element={<WishlistPage />} />

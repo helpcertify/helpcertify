@@ -13,7 +13,7 @@ import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { QuizDoc } from '@/types/models';
 
-// Full-length, timed exam simulations — this is the content that used to
+// Full-length, timed exam simulations - this is the content that used to
 // sit directly on the Home page ("Quiz Library"/"Available Quizzes"); moved
 // to its own tab so Home could become an actual personalized dashboard
 // instead of just this grid. Same owned/in-cart/buy-now/start-resume logic

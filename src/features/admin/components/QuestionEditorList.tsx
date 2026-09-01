@@ -13,7 +13,7 @@ interface ListProps {
   onSave: (questionId: string, data: SaveData) => Promise<void>;
 }
 
-// Shared by QuizAnswerKeyPage and PracticeTestAnswerKeyPage — fixing a
+// Shared by QuizAnswerKeyPage and PracticeTestAnswerKeyPage - fixing a
 // typo, a wrong option, or which answer is marked correct in an
 // already-uploaded bank previously meant re-uploading the whole .docx.
 export function QuestionEditorList({ questions, onSave }: ListProps) {

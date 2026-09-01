@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 // The hook module imports @/lib/firebase, which calls getAuth() at load
-// time — that throws under jsdom. featuredExamCountdown itself is pure and
+// time - that throws under jsdom. featuredExamCountdown itself is pure and
 // touches none of it, so stubbing the firebase module is enough to import it.
 vi.mock('@/lib/firebase', () => ({ db: {}, auth: {}, storage: {}, app: {} }));
 

@@ -44,7 +44,7 @@ describe('marketing routes', () => {
     expect(html).not.toMatch(/money-back/i);
     expect(html).not.toMatch(/no questions asked/i);
     expect(html).not.toMatch(/48[- ]hour (money-back |refund )?guarantee/i);
-    // 48 hours is still referenced — but only as a reporting window.
+    // 48 hours is still referenced - but only as a reporting window.
     expect(html).toMatch(/within 48 hours/i);
   });
 

@@ -2,7 +2,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { StudyPlanDoc } from '@/types/models';
 
-// Reads only — the same direct-Firestore-read pattern this app already uses
+// Reads only - the same direct-Firestore-read pattern this app already uses
 // for a student's own practiceProgress/quizAttempts (see StudentHomePage.tsx),
 // rather than a new backend action just to fetch back what was just saved.
 // Writes go through practiceSessionApi.saveStudyPlan instead (see that

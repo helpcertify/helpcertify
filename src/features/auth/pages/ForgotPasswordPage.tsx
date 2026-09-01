@@ -15,7 +15,7 @@ type Form = z.infer<typeof schema>;
 
 // Sends a Firebase password-reset email. We always show the same "if an
 // account exists, we've sent a link" confirmation regardless of whether the
-// address is registered — this matches Firebase's own email-enumeration
+// address is registered - this matches Firebase's own email-enumeration
 // protection and avoids revealing which emails have accounts.
 export function ForgotPasswordPage() {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -55,7 +55,7 @@ export function ForgotPasswordPage() {
             <h1 className="mb-2 text-center text-xl font-bold text-ink">Check your email</h1>
             <p className="mb-6 text-center text-sm text-ink-faint">
               If an account exists for <span className="text-ink">{sentTo}</span>, we&rsquo;ve
-              sent a link to reset your password. The link expires after a while &mdash; request
+              sent a link to reset your password. The link expires after a while - request
               a new one if it does. Also check your spam folder.
             </p>
             <Link
@@ -118,7 +118,7 @@ export function ForgotPasswordPage() {
               <Link to="/login" className="text-brand-ink underline">
                 Continue with Google
               </Link>{' '}
-              instead &mdash; those accounts don&rsquo;t have a password.
+              instead - those accounts don&rsquo;t have a password.
             </p>
           </>
         )}

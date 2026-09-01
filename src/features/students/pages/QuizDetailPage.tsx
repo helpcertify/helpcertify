@@ -18,11 +18,11 @@ import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
 // A fixed 10-question free sample regardless of the admin's own
-// previewQuestionCount setting — same convention as PracticeTestDetailPage,
+// previewQuestionCount setting - same convention as PracticeTestDetailPage,
 // on request, so every visitor sees the same "try 10 questions" experience.
 const SAMPLE_PREVIEW_COUNT = 10;
 
-// Master HelpCertify design-system layout — same visual language as
+// Master HelpCertify design-system layout - same visual language as
 // PracticeTestDetailPage (full-width header card, two-column Course
 // Access + Free Preview, full-width Reviews). Purely a visual pass; the
 // underlying data/mutations are unchanged from before this restyle.
@@ -87,13 +87,13 @@ export function QuizDetailPage() {
   return (
     // Fills the width StudentShell's sidebar leaves available (up to a
     // 1440px cap) instead of centering a much-narrower fixed column inside
-    // it — same fix as PracticeTestDetailPage, same underlying cause.
+    // it - same fix as PracticeTestDetailPage, same underlying cause.
     <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
       <Link to="/home/mock-exams" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Mock Exams
       </Link>
 
-      {/* Header — full width, badges/title/rating/stats on the left, a
+      {/* Header - full width, badges/title/rating/stats on the left, a
           decorative certification mark on the right. */}
       <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
         <div className="min-w-0">
@@ -131,7 +131,7 @@ export function QuizDetailPage() {
       </div>
 
       {/* Course Access + Free Preview when not owned; Course Access alone
-          (centered, capped width) when owned — there's no practice-setup/
+          (centered, capped width) when owned - there's no practice-setup/
           study-plan equivalent for a timed Mock Exam. */}
       <div className={`mb-6 grid grid-cols-1 gap-6 ${!owned && previewCount > 0 ? 'lg:grid-cols-[0.7fr_1.3fr] lg:items-start' : ''}`}>
         <div className={!owned && previewCount > 0 ? '' : 'max-w-sm'}>
@@ -203,7 +203,7 @@ export function QuizDetailPage() {
         </div>
 
         {/* Same fixed 10 questions, same order, for every visitor every
-            time — see getQuizPreviewQuestions's orderBy('order'). */}
+            time - see getQuizPreviewQuestions's orderBy('order'). */}
         {!owned && previewCount > 0 && (
           <div className="space-y-4">
             <FreePreviewCallout />

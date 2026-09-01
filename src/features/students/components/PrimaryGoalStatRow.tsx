@@ -19,7 +19,7 @@ import type { StudyPlanDoc } from '@/types/models';
 // The single-focus progress strip (Practiced / Accuracy / Study Streak /
 // Today's Target + This Week's Progress) that used to sit on the home page.
 // Moved to the top of the Practice Exams page. Self-contained: it runs its
-// own queries — react-query dedupes the shared ones (study plans, practice
+// own queries - react-query dedupes the shared ones (study plans, practice
 // progress, the practice-test buckets) with the host page. Renders nothing
 // until the learner has an active study plan with a real daily target.
 export function PrimaryGoalStatRow() {
@@ -136,7 +136,7 @@ export function PrimaryGoalStatRow() {
         />
         <StatCard
           icon="📈"
-          value={weeklyAccuracy !== null ? `${weeklyAccuracy}%` : '—'}
+          value={weeklyAccuracy !== null ? `${weeklyAccuracy}%` : '-'}
           valueColor="#16A34A"
           label="Accuracy"
           sub={

@@ -1,5 +1,5 @@
 // Self-generated (no external image/asset needed) banner cover for quiz/
-// practice test cards — a soft, muted colored background with the exam/
+// practice test cards - a soft, muted colored background with the exam/
 // course name itself as large white text. Each item deterministically gets
 // one of a handful of color pairs based on a hash of its id, so the same
 // item always shows the same color and different items get variety. The
@@ -15,7 +15,7 @@ function hashString(s: string): number {
 }
 
 // Muted/dusty tones rather than the previous saturated navy/burgundy/deep-
-// violet set — softer on the eye while still dark enough for white 800-
+// violet set - softer on the eye while still dark enough for white 800-
 // weight text to stay readable (a truly light pastel wouldn't have enough
 // contrast for that).
 const PALETTE: [string, string][] = [
@@ -29,7 +29,7 @@ const PALETTE: [string, string][] = [
 
 // No real text-measurement API in plain SVG, so this is an approximation:
 // bigger font for a short title, smaller (and wrapped further) for a long
-// one, with a rough chars-per-line budget derived from the font size — kept
+// one, with a rough chars-per-line budget derived from the font size - kept
 // deliberately conservative (a smaller width budget, a larger per-char
 // estimate) so a borderline-length line wraps to a second line rather than
 // risk running past the card edge. CARD_WIDTH below is also used as a

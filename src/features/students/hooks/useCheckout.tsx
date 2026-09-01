@@ -16,7 +16,7 @@ interface CheckoutItem {
 }
 
 // Shared by CartPage (checkout the whole cart) and every listing page's Buy
-// Now button (checkout one specific item directly, bypassing the cart) —
+// Now button (checkout one specific item directly, bypassing the cart) -
 // same Razorpay-open-then-verify flow either way, just a different
 // createOrder argument. Also owns the post-payment confirmation modal so
 // every caller gets the same clear "you're done, here's what to do next"

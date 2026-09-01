@@ -8,9 +8,9 @@ import { friendlyAuthError } from '@/lib/errorMessages';
 
 // A home for account-wide preferences. Appearance (theme) used to live as a
 // standalone icon toggle in the header; it moved here so the header stays
-// uncluttered and future settings have a natural place to land — each new
+// uncluttered and future settings have a natural place to land - each new
 // preference gets its own <section> card below Appearance, not a new header
-// icon. Security (Change Password) moved here from My Profile on request —
+// icon. Security (Change Password) moved here from My Profile on request -
 // same authApi.changePassword call as before, just relocated so password
 // management isn't duplicated across two pages.
 export function SettingsPage() {
@@ -26,7 +26,7 @@ export function SettingsPage() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   // Google sign-in accounts have no Helpcertify password on file to reauth
-  // against — changePassword would just fail confusingly for them, so this
+  // against - changePassword would just fail confusingly for them, so this
   // section is swapped for an explanatory note instead.
   const hasPasswordProvider = firebaseUser?.providerData.some((p) => p.providerId === 'password') ?? false;
 

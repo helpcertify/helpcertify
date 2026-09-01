@@ -5,7 +5,7 @@ import { useUiStore } from '@/store/useUiStore';
 const AUTO_DISMISS_MS = 5000;
 
 // Mounted once at the app root (see App.tsx) so pushToast() calls from any
-// page — including LoginPage/RegisterPage, which render outside any shell —
+// page - including LoginPage/RegisterPage, which render outside any shell -
 // are actually visible.
 export function ToastStack() {
   const toasts = useUiStore((s) => s.toasts);

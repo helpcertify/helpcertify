@@ -31,12 +31,12 @@ function timeOfDayGreeting(hour: number): string {
   return 'Good night';
 }
 
-// The personalized "what to do right now" dashboard — deliberately kept to
+// The personalized "what to do right now" dashboard - deliberately kept to
 // just the greeting/Continue Practice, Today's Mission + stat row (both
-// scoped to a single "primary" exam goal — see below), Continue where you
+// scoped to a single "primary" exam goal - see below), Continue where you
 // left off, and Recommended for you. The fuller activity/progress picture
 // (Your Study Plan per test, My Exams, Performance Summary, Recent
-// Attempts) stays on My Profile (see ProfileActivitySections.tsx) — this
+// Attempts) stays on My Profile (see ProfileActivitySections.tsx) - this
 // page is "today's next action for your main goal," not a second full
 // history/analytics view.
 export function StudentHomePage() {
@@ -85,7 +85,7 @@ export function StudentHomePage() {
     enabled: !!uid,
   });
 
-  // Every study plan the learner has, one per practice test — same query
+  // Every study plan the learner has, one per practice test - same query
   // (and cache key) ProfileActivitySections already populates, reused here
   // rather than re-fetched.
   const { data: studyPlans } = useQuery({
@@ -99,7 +99,7 @@ export function StudentHomePage() {
 
   const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
-  // All three buckets, not just "available" — a plan set on a test whose
+  // All three buckets, not just "available" - a plan set on a test whose
   // window has since lapsed should still resolve to real data instead of
   // silently disappearing from this "primary goal" pick.
   const anyTestById = new Map(
@@ -110,7 +110,7 @@ export function StudentHomePage() {
   );
 
   // The "primary" exam goal driving Today's Mission/the stat row/This
-  // Week's Progress below — a single focus, matching the single "CISA
+  // Week's Progress below - a single focus, matching the single "CISA
   // Exam" badge next to the greeting, not one strip per test (that's what
   // My Profile's "Your Learning Journey" is for). Prefers whichever
   // committed exam date is soonest; falls back to any other active plan
@@ -127,7 +127,7 @@ export function StudentHomePage() {
   const primaryProgress = primaryTest ? (practiceProgressDocs ?? []).find((p) => p.testId === primaryTest.id) : undefined;
   const uniqueAnsweredCount = primaryProgress?.answeredQuestionIds.length ?? 0;
 
-  // Non-reattempt sessions for just the primary test — same convention as
+  // Non-reattempt sessions for just the primary test - same convention as
   // StudyPlanSection's own streak query (a reattempt re-answers already-
   // completed questions, so it isn't "new questions today/this week").
   const { data: primarySessions } = useQuery({
@@ -176,14 +176,14 @@ export function StudentHomePage() {
   const todayAnswered = sumTrailingDays(dailyAnsweredMap, today, 1);
   const nearestExam = examCountdowns?.[0] ?? null;
 
-  // Real per-quiz attempt count (see QuizDoc.maxAttempts) — replaces what
+  // Real per-quiz attempt count (see QuizDoc.maxAttempts) - replaces what
   // used to be a hardcoded "Attempts remaining: 1" below.
   const attemptCountByQuizId = new Map<string, number>();
   for (const a of myAttempts ?? []) {
     attemptCountByQuizId.set(a.quizId, (attemptCountByQuizId.get(a.quizId) ?? 0) + 1);
   }
 
-  // Upcoming Mock Exams — owned quizzes not yet attempted at all.
+  // Upcoming Mock Exams - owned quizzes not yet attempted at all.
   const upcomingMockExams = (quizzes ?? [])
     .filter((q) => ((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`)) && !attemptByQuizId.get(q.id))
     .slice(0, 4);
@@ -195,7 +195,7 @@ export function StudentHomePage() {
   return (
     <div>
       {/* Welcome, primary action, and (when there's a committed exam date)
-          a small countdown badge — the same nearest-exam data the sidebar's
+          a small countdown badge - the same nearest-exam data the sidebar's
           "Your Exams" cards use, just the single soonest one here. */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -220,11 +220,11 @@ export function StudentHomePage() {
         )}
       </div>
 
-      {/* Refer & Earn — same banner (and same "hide it once it's used"
+      {/* Refer & Earn - same banner (and same "hide it once it's used"
           logic) as My Profile's, see WelcomeCouponBanner. */}
       <WelcomeCouponBanner className="mb-6" />
 
-      {/* Today's Mission — today's progress toward the primary goal's daily
+      {/* Today's Mission - today's progress toward the primary goal's daily
           target, distinct from "Continue where you left off" below (which
           tracks whatever's actually in progress, possibly a different
           test). Only shown once there's a real plan with a real target to
@@ -265,7 +265,7 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* Choose Your Exam Preparation — replaces the old "Recommended for
+      {/* Choose Your Exam Preparation - replaces the old "Recommended for
           you" flat item carousel. One card per certification, packages
           (Mock Exams/Practice Questions/Complete) grouped underneath it
           instead of showing up as separate, unrelated product cards. See
@@ -301,7 +301,7 @@ export function StudentHomePage() {
         )}
       </div>
 
-      {/* My Active Certifications — the same catalog data, filtered to
+      {/* My Active Certifications - the same catalog data, filtered to
           certifications where the learner already owns a package, so
           "continue learning" and "browse/buy" stay in visually distinct
           sections rather than mixed into one list. */}

@@ -8,7 +8,7 @@ import { formatMoney } from '@/utils/currency';
 // Landed on from the header's search field (StudentShell). Searches quizzes
 // (Mock Exams) and practice tests together by title, since the header field
 // itself has no idea which of the two a student means. Kept intentionally
-// light — a result card here only shows enough to decide whether to open
+// light - a result card here only shows enough to decide whether to open
 // the detail page, not the full owned/cart/buy-now branching every other
 // listing page has; that logic already lives on QuizDetailPage/
 // PracticeTestDetailPage once a card is clicked.
@@ -40,7 +40,7 @@ export function SearchResultsPage() {
     <div>
       {/* This page is only ever reached by submitting the header's search
           field, which has no natural "back" affordance of its own. Goes to
-          a fixed route (Learning Portal) rather than history back — a
+          a fixed route (Learning Portal) rather than history back - a
           direct link to /home/search (no prior in-app page) would otherwise
           have nowhere to go back to. */}
       <Link to="/home" className="mb-4 inline-block text-sm text-brand-ink hover:underline">

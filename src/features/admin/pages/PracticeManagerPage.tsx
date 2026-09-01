@@ -8,7 +8,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
-// ({ _seconds, _nanoseconds }, not { seconds }) — toDate() handles that
+// ({ _seconds, _nanoseconds }, not { seconds }) - toDate() handles that
 // shape; a bare `ts.seconds * 1000` silently produced an Invalid Date here.
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -46,7 +46,7 @@ export function PracticeManagerPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
           {/* key forces a fresh mount whenever which test is being edited
-              changes (including switching to/from "create" mode) — same fix
+              changes (including switching to/from "create" mode) - same fix
               as ExamQuizStudioPage's QuizFormCard, same underlying cause. */}
           <PracticeTestFormCard key={editingTest?.id ?? 'new'} editingTest={editingTest} onDoneEditing={() => setEditingTest(null)} />
 

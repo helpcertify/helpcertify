@@ -17,7 +17,7 @@ export interface MyCreditEntry {
 }
 
 export interface MyCredits {
-  // Sum of every 'active' entry's remainingMinor — what's actually
+  // Sum of every 'active' entry's remainingMinor - what's actually
   // spendable right now (see CartPage's/BuyNowModal's "use credit"
   // toggle). Excludes pending_validation (not yet spendable),
   // depleted/expired/reversed (nothing left, or no longer valid).
@@ -25,12 +25,12 @@ export interface MyCredits {
   entries: MyCreditEntry[];
 }
 
-// This account's own Refer & Earn credit ledger (the referrer side) —
+// This account's own Refer & Earn credit ledger (the referrer side) -
 // direct Firestore read, same pattern as useMyAvailableCoupons/
 // useMyWelcomeCoupon. Status here is *recomputed live* from each entry's
 // timestamps (see referralRules.ts's computeCreditStatus) rather than
 // trusted from the stored field, since nothing in this app proactively
-// flips pending_validation -> active/expired on a schedule — only
+// flips pending_validation -> active/expired on a schedule - only
 // whoever spends an entry (or an admin reversing one) writes a status
 // change. depleted/reversed still come from the stored value, since
 // those two are always written explicitly the moment they happen.

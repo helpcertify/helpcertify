@@ -3,8 +3,8 @@
 //   npm i --no-save sharp && node scripts/gen-logo.mjs
 //
 // Source: src/assets/logo-source.png  (transparent PNG, full "HelpCertify"
-// lockup — icon on the left, wordmark on the right, may carry a soft glow).
-// sharp is NOT a project dependency — install --no-save and re-run when the
+// lockup - icon on the left, wordmark on the right, may carry a soft glow).
+// sharp is NOT a project dependency - install --no-save and re-run when the
 // brand art changes.
 import sharp from 'sharp';
 import { writeFileSync } from 'node:fs';
@@ -18,7 +18,7 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 // "bad extract area" on this glow-y art) ------------------------------------
 const { data, info } = await sharp(SRC).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 const { width: W, height: H, channels: C } = info;
-const ALPHA = 190; // "strongly opaque" — excludes the soft glow halo
+const ALPHA = 190; // "strongly opaque" - excludes the soft glow halo
 
 function bbox(xLo = 0, xHi = W) {
   let minX = W, minY = H, maxX = -1, maxY = -1;
@@ -54,17 +54,17 @@ async function iconSquare(px) {
     .toBuffer();
 }
 
-// 1. Full lockup — header / footer / certificate screen (~2.5x display height).
+// 1. Full lockup - header / footer / certificate screen (~2.5x display height).
 const lockup = await sharp(SRC).extract(full).resize({ height: 120 }).toBuffer();
 await sharp(lockup).png({ compressionLevel: 9 }).toFile(`${OUT}/logo-lockup.png`);
 await sharp(lockup).webp({ quality: 90 }).toFile(`${OUT}/logo-lockup.webp`);
 
-// 2. Icon-only mark — small UI. Square, transparent.
+// 2. Icon-only mark - small UI. Square, transparent.
 const mark = await iconSquare(256);
 await sharp(mark).png({ compressionLevel: 9 }).toFile(`${OUT}/logo-mark.png`);
 await sharp(mark).webp({ quality: 90 }).toFile(`${OUT}/logo-mark.webp`);
 
-// 3. Favicon / PWA / Apple icons — icon centred in a transparent square.
+// 3. Favicon / PWA / Apple icons - icon centred in a transparent square.
 for (const size of [32, 180, 192, 512]) {
   const p = Math.round(size * 0.08);
   const inner = size - 2 * p;
@@ -76,7 +76,7 @@ for (const size of [32, 180, 192, 512]) {
     .toFile(`${PUB}/${name}.png`);
 }
 
-// 3b. Social / Open Graph card — 1200x630, lockup on a soft brand wash.
+// 3b. Social / Open Graph card - 1200x630, lockup on a soft brand wash.
 await sharp({
   create: { width: 1200, height: 630, channels: 4, background: { r: 240, g: 246, b: 255, alpha: 1 } },
 })
@@ -84,7 +84,7 @@ await sharp({
   .png({ compressionLevel: 9 })
   .toFile(`${PUB}/og-image.png`);
 
-// 4. Certificate PDF — white-matte JPEG (jsPDF has no alpha blend; JPEG
+// 4. Certificate PDF - white-matte JPEG (jsPDF has no alpha blend; JPEG
 //    keeps the inlined base64 in api/results.ts small).
 const printJpeg = await sharp(SRC)
   .flatten({ background: '#ffffff' })

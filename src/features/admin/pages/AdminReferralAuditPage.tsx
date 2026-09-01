@@ -19,7 +19,7 @@ const STATUS_BADGE: Record<string, string> = {
   expired: 'bg-neutral-800 text-ink-faint',
 };
 
-// Item 15's admin audit view — every referral, both directions of PII
+// Item 15's admin audit view - every referral, both directions of PII
 // visible here (referrer + referee name/email), unlike the learner-facing
 // Refer & Earn section which never shows the other party's identity (see
 // ReferAndEarnSection.tsx). Item 11's minimal refund action lives in the
