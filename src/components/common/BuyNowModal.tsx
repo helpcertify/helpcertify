@@ -44,16 +44,16 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-surface-border bg-surface-raised p-6"
+        className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-surface-border bg-surface-raised p-7 sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <ModalCloseButton onClose={onClose} />
-        <h2 className="mb-1 pr-8 text-lg font-bold text-ink">{title}</h2>
-        <div className="mb-4 flex items-center gap-2">
+        <h2 className="mb-2 pr-8 text-xl font-bold text-ink">{title}</h2>
+        <div className="mb-5 flex items-baseline gap-2.5">
           {originalPrice && originalPrice > price && (
-            <span className="text-sm text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
+            <span className="text-base text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
           )}
-          <span className="text-xl font-bold text-ink">{formatMoney(price, currency)}</span>
+          <span className="text-2xl font-bold text-ink">{formatMoney(price, currency)}</span>
         </div>
 
         <OrderSummary
@@ -61,12 +61,12 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
           currency={currency}
         />
 
-        <p className="mt-3 text-xs text-ink-faint">
+        <p className="mt-4 text-xs leading-relaxed text-ink-faint">
           A free preview is available on the product page to evaluate the question, answer and
           explanation format before you buy.
         </p>
 
-        <div className="my-4 border-t border-surface-border pt-4">
+        <div className="my-5 border-t border-surface-border pt-5">
           <CheckoutConsent value={consent} onChange={setConsent} />
         </div>
 
@@ -88,7 +88,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
                 setAppliedCoupon(null);
                 setCouponInput('');
               }}
-              className="shrink-0 rounded-lg border border-surface-border px-4 text-sm font-semibold text-ink-muted hover:border-red-400 hover:text-red-500"
+              className="shrink-0 rounded-lg border border-red-300 px-4 text-sm font-semibold text-red-500 hover:bg-red-50 dark:border-red-500/40 dark:hover:bg-red-500/10"
             >
               Remove
             </button>

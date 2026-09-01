@@ -665,8 +665,34 @@ function StepPackages({
   });
 
   const setCard = (id: TemplateId, patch: Partial<CardState>) => setCards((c) => ({ ...c, [id]: { ...c[id], ...patch } }));
-  const setValue = (id: TemplateId, key: keyof TemplateValues, value: TemplateValues[keyof TemplateValues]) =>
+  const setValue = (id: TemplateId, key: keyof TemplateValues, value: TemplateValues[keyof TemplateValues]) => {
+    // Once the admin edits Complete's price by hand, stop auto-summing it.
+    if (id === 'complete' && (key === 'sellingPrice' || key === 'regularPrice')) setCompletePriceTouched(true);
     setCards((c) => ({ ...c, [id]: { ...c[id], values: { ...c[id].values, [key]: value } } }));
+  };
+
+  // Complete Preparation = Practice Questions + Mock Exams. Kept in sync
+  // automatically until the admin overrides it.
+  const partsSelling = cards.practice.values.sellingPrice + cards.mock.values.sellingPrice;
+  const partsRegular =
+    (cards.practice.values.regularPrice ?? cards.practice.values.sellingPrice) +
+    (cards.mock.values.regularPrice ?? cards.mock.values.sellingPrice);
+  const [completePriceTouched, setCompletePriceTouched] = useState(() => {
+    const c = templatePackages.complete;
+    if (!c) return false;
+    const p = templatePackages.practice?.sellingPrice ?? 0;
+    const m = templatePackages.mock?.sellingPrice ?? 0;
+    return p + m > 0 && c.sellingPrice !== p + m;
+  });
+  useEffect(() => {
+    if (completePriceTouched || partsSelling <= 0) return;
+    setCards((c) => {
+      const v = c.complete.values;
+      const nextRegular = partsRegular > partsSelling ? partsRegular : null;
+      if (v.sellingPrice === partsSelling && v.regularPrice === nextRegular) return c;
+      return { ...c, complete: { ...c.complete, values: { ...v, sellingPrice: partsSelling, regularPrice: nextRegular } } };
+    });
+  }, [partsSelling, partsRegular, completePriceTouched]);
 
   const saveMutation = useMutation({
     mutationFn: async (id: TemplateId) => {
@@ -770,6 +796,11 @@ function TemplateCard({
           {needsMockBank && (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
               Set a mock exam question bank in Product Details to publish this package.
+            </p>
+          )}
+          {id === 'complete' && (
+            <p className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-xs text-[#155EEF] dark:bg-[#155EEF]/10">
+              The price is kept as Practice Questions + Mock Exams automatically. Edit it below to override.
             </p>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1246,7 +1277,7 @@ function ContentVersionsPanel({ certification, onDirty }: { certification: Certi
                   {v.effectiveTo ? ` - ${toDate(v.effectiveTo).toLocaleDateString()}` : ' onward'}
                 </span>
               </div>
-              <button type="button" onClick={() => deleteMutation.mutate(v.id)} className="text-xs text-red-500 hover:underline">Remove</button>
+              <button type="button" onClick={() => deleteMutation.mutate(v.id)} className="rounded-md border border-red-200 px-2 py-0.5 text-xs font-semibold text-red-500 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10">Remove</button>
             </div>
           ))}
         </div>
@@ -1396,7 +1427,7 @@ function StepMockRules({
               <input type="number" value={d.percent} onChange={(e) => updateDomainRow(i, { percent: Number(e.target.value) })} placeholder="%" className="input-dark" />
               <input type="number" value={d.questionCount} onChange={(e) => updateDomainRow(i, { questionCount: Number(e.target.value) })} placeholder="Questions" className="input-dark" />
               <div className="flex items-center text-xs text-ink-faint">{domainCounts ? `${domainCounts.byDomain[d.domain] ?? 0} eligible` : 'N/A'}</div>
-              <button type="button" onClick={() => removeDomainRow(i)} className="text-xs text-red-500 hover:underline">Remove</button>
+              <button type="button" onClick={() => removeDomainRow(i)} className="rounded-md border border-red-200 px-2 py-0.5 text-xs font-semibold text-red-500 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10">Remove</button>
             </div>
           ))}
           {domains.length === 0 && <p className="text-xs text-ink-faint">No domains yet. Use “Auto-fill from question bank”.</p>}

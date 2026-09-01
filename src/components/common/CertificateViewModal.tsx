@@ -109,7 +109,11 @@ export function CertificateViewModal({ certificate, onClose, onDownload, onPrint
           >
             Verify Certificate
           </Link>
-          <button type="button" onClick={onClose} className="rounded-lg border border-surface-border py-2 text-sm text-ink-muted">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#DCEAFF] dark:bg-[#155EEF]/10 dark:hover:bg-[#155EEF]/20"
+          >
             Close
           </button>
         </div>

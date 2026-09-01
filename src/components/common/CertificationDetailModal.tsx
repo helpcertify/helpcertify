@@ -56,9 +56,9 @@ export function CertificationDetailModal({ certification, selectedPackage, onSel
               >
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-ink">{pkg.name}</span>
-                  {pkg.isRecommended && (
-                    <span className="rounded-full bg-[#155EEF] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                      Recommended
+                  {(pkg.isRecommended || pkg.badgeText) && (
+                    <span className="rounded-full bg-[#F59E0B] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      {pkg.badgeText || 'Best Value'}
                     </span>
                   )}
                 </div>
@@ -93,7 +93,7 @@ export function CertificationDetailModal({ certification, selectedPackage, onSel
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-lg border border-surface-border py-2 text-sm text-ink-muted hover:border-brand-400"
+          className="mt-5 w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] py-2.5 text-sm font-semibold text-[#155EEF] transition-colors hover:bg-[#DCEAFF] dark:bg-[#155EEF]/10 dark:hover:bg-[#155EEF]/20"
         >
           Close
         </button>
