@@ -20,6 +20,7 @@ import {
   emptyTemplateValues,
   templateToCreatePayload,
   buildPackageBenefits,
+  visibleBenefits,
   detectTemplate,
   type TemplateId,
   type TemplateValues,
@@ -1038,7 +1039,7 @@ function StepReview({
                     <span className="font-bold text-[#0F172A]">{pkg.isFree ? 'Free' : formatMoney(price, pkg.currency)}</span>
                   </div>
                   <ul className="mt-2 space-y-0.5 text-xs text-[#475569]">
-                    {pkg.includedFeatures.map((f) => <li key={f}>• {f}</li>)}
+                    {visibleBenefits(pkg.includedFeatures).map((f) => <li key={f}>• {f}</li>)}
                   </ul>
                   <div className="mt-2 text-xs text-[#64748B]">
                     {pkg.accessValidityDays} days access

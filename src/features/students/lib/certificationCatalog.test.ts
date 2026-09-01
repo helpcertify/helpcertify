@@ -19,6 +19,7 @@ function makePackage(overrides: Partial<CatalogPackage> = {}): CatalogPackage {
     displayOrder: 0,
     state: 'AVAILABLE',
     aggregateTotalQuestions: 0,
+    practiceQuestionCount: 0,
     accessValidityDays: 180,
     includedItems: [],
     practiceAccessEnabled: false,

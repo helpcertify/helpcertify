@@ -4,6 +4,7 @@ import {
   templateToCreatePayload,
   emptyTemplateValues,
   detectTemplate,
+  visibleBenefits,
   type TemplateContext,
   type TemplateValues,
 } from './packageTemplates';
@@ -97,6 +98,29 @@ describe('templateToCreatePayload', () => {
   it('uses a benefits override when provided', () => {
     const p = templateToCreatePayload('practice', values({ benefitsOverride: ['Custom line'] }), ctx);
     expect(p.includedFeatures).toEqual(['Custom line']);
+  });
+});
+
+describe('visibleBenefits', () => {
+  it('drops the detailed-explanation line, keeps everything else', () => {
+    expect(
+      visibleBenefits(['1,482 practice questions', 'Detailed answer explanations', 'Detailed explanations', '180 days of access']),
+    ).toEqual(['1,482 practice questions', '180 days of access']);
+  });
+  it('does not touch a line that merely mentions explanations', () => {
+    expect(visibleBenefits(['Explanations released after submission'])).toEqual(['Explanations released after submission']);
+  });
+});
+
+describe('buildPackageBenefits', () => {
+  it('no longer includes a standalone explanation bullet', () => {
+    for (const id of ['practice', 'mock', 'complete'] as const) {
+      expect(buildPackageBenefits(id, values(), 1482).map((b) => b.toLowerCase())).not.toContain('detailed answer explanations');
+      expect(buildPackageBenefits(id, values(), 1482).map((b) => b.toLowerCase())).not.toContain('detailed explanations');
+    }
+  });
+  it('uses the real bank total for the question count, ignoring the typed number', () => {
+    expect(buildPackageBenefits('practice', values({ numberOfQuestions: 50 }), 1482)[0]).toBe('1,482 practice questions');
   });
 });
 

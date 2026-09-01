@@ -106,12 +106,13 @@ export interface TemplateContext {
  *  admin's numbers. A promised question count is never allowed to exceed
  *  `eligiblePracticeQuestions`. */
 export function buildPackageBenefits(id: TemplateId, v: TemplateValues, eligiblePracticeQuestions: number): string[] {
-  const questions = Math.max(0, Math.min(v.numberOfQuestions || 0, eligiblePracticeQuestions));
+  // The count shown to learners is always the real published total from the
+  // uploaded question docs, not the admin-typed number.
+  const questions = eligiblePracticeQuestions > 0 ? eligiblePracticeQuestions : Math.max(0, v.numberOfQuestions || 0);
   const days = `${v.validityDays} days of access`;
   if (id === 'practice') {
     return [
       `${questions.toLocaleString()} practice questions`,
-      'Detailed answer explanations',
       'Personalized study plan',
       'Domain-level performance analytics',
       days,
@@ -132,12 +133,18 @@ export function buildPackageBenefits(id: TemplateId, v: TemplateValues, eligible
   return [
     `All ${questions.toLocaleString()} practice questions`,
     `${v.mockAttempts} full-length mock attempts`,
-    'Detailed explanations',
     'Personalized study plan',
     'Performance analytics',
     'Completion certificates',
     days,
   ];
+}
+
+// Drop the "detailed explanation" benefit line wherever it appears —
+// existing packages have it baked into includedFeatures, so filter it at
+// display time as well as no longer generating it above.
+export function visibleBenefits(features: string[]): string[] {
+  return features.filter((f) => !/^detailed\s+(answer\s+)?explanations?$/i.test(f.trim()));
 }
 
 /** Turn one enabled template card into a full CreatePackagePayload — every

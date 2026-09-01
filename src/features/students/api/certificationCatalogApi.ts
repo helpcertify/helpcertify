@@ -32,6 +32,10 @@ export interface CatalogPackage {
   displayOrder: number;
   state: PackageState;
   aggregateTotalQuestions: number;
+  // Published questions in the included practice bank(s) — the real count
+  // from the uploaded question docs, not the admin-typed figure. Use this
+  // for the learner-facing "N questions" line.
+  practiceQuestionCount: number;
   // Access period in days for this bundle (see PackageDoc.accessValidityDays).
   accessValidityDays: number;
   includedItems: IncludedCatalogItem[];
@@ -52,6 +56,9 @@ export interface CatalogCertification {
   name: string;
   provider: CertificationCategory;
   description: string;
+  // The independent-preparation disclaimer for this certification —
+  // getLearnerCatalog spreads the whole cert doc, so it rides along.
+  independentPrepDisclaimer: string;
   iconKey: CertificationIconKey;
   isPublished: boolean;
   displayOrder: number;

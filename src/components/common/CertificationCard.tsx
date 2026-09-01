@@ -49,7 +49,8 @@ function CertificationIcon({ iconKey }: { iconKey: CertificationIconKey }) {
 // free-text description, then the bundle's aggregate question count.
 function packageKeyDetail(pkg: CatalogPackage): string {
   const parts: string[] = [];
-  const questions = pkg.accessibleQuestionCount || pkg.aggregateTotalQuestions;
+  // The real published count from the uploaded question docs.
+  const questions = pkg.practiceQuestionCount || pkg.aggregateTotalQuestions;
   if (pkg.practiceAccessEnabled && questions > 0) parts.push(`${questions.toLocaleString()} questions`);
   if (pkg.mockAccessEnabled && pkg.fullMockAttempts > 0) {
     parts.push(`${pkg.fullMockAttempts} mock exam${pkg.fullMockAttempts === 1 ? '' : 's'}`);
@@ -66,7 +67,7 @@ const CARD_SHELL =
 export function CertificationCardSkeleton() {
   return (
     <div className={`${CARD_SHELL} animate-pulse`}>
-      <div className="flex items-start gap-3 lg:w-56 lg:shrink-0">
+      <div className="flex items-start gap-3 lg:w-72 lg:shrink-0">
         <div className="h-11 w-11 shrink-0 rounded-xl bg-[#E8F0FF]" />
         <div className="flex-1 space-y-2">
           <div className="h-3 w-16 rounded bg-[#EFF6FF]" />
@@ -215,7 +216,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
   return (
     <div className={`${CARD_SHELL} hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)]`}>
       {/* Identity */}
-      <div className="flex items-start gap-3 lg:w-56 lg:shrink-0">
+      <div className="flex items-start gap-3 lg:w-72 lg:shrink-0">
         <CertificationIcon iconKey={certification.iconKey} />
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">{certification.provider}</div>
@@ -268,7 +269,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
                 </span>
               )}
               <span className="flex items-center gap-1 text-sm font-semibold text-[#0F172A] dark:text-ink">
-                {isSelected && <span aria-hidden="true">✓</span>}
+                {isSelected && <span className="text-[10px] leading-none text-[#155EEF]">✓</span>}
                 {pkg.name}
               </span>
               <span className="mt-1 flex items-baseline gap-1.5">

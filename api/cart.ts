@@ -372,9 +372,15 @@ async function getLearnerCatalog(uid: string) {
       includedQuizIds.every((id) => ownedSet.has(`quiz_${id}`)) &&
       includedPracticeTestIds.every((id) => ownedSet.has(`practiceTest_${id}`));
     const state: PackageState = allOwned ? 'ACTIVE' : cartPackageIds.has(doc.id) ? 'IN_CART' : 'AVAILABLE';
+    // Practice-bank questions only — the real published count from the
+    // uploaded question docs, used for the learner-facing "N questions"
+    // figure (never the admin-typed accessibleQuestionCount).
+    const practiceQuestionCount = includedPracticeTestIds.reduce(
+      (sum, id) => sum + (testById.get(id)?.totalQuestions ?? 0),
+      0,
+    );
     const aggregateTotalQuestions =
-      includedQuizIds.reduce((sum, id) => sum + (quizById.get(id)?.totalQuestions ?? 0), 0) +
-      includedPracticeTestIds.reduce((sum, id) => sum + (testById.get(id)?.totalQuestions ?? 0), 0);
+      includedQuizIds.reduce((sum, id) => sum + (quizById.get(id)?.totalQuestions ?? 0), 0) + practiceQuestionCount;
     const includedItems = [
       ...includedQuizIds.map((id) => ({ itemType: 'quiz' as const, itemId: id, title: quizById.get(id)?.title ?? 'Mock Exam' })),
       ...includedPracticeTestIds.map((id) => ({
@@ -384,7 +390,7 @@ async function getLearnerCatalog(uid: string) {
       })),
     ];
     const list = packagesByCert.get(pkg.certificationId as string) ?? [];
-    list.push({ id: doc.id, ...pkg, state, aggregateTotalQuestions, includedItems });
+    list.push({ id: doc.id, ...pkg, state, aggregateTotalQuestions, practiceQuestionCount, includedItems });
     packagesByCert.set(pkg.certificationId as string, list);
   }
 
