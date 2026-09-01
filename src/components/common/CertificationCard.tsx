@@ -241,11 +241,11 @@ export function CertificationCard({ certification }: CertificationCardProps) {
         </div>
       </div>
 
-      {/* Package selector - fixed-width tiles, evenly gapped, wrap on small screens */}
+      {/* Package selector - grows to fill, wraps instead of overflowing */}
       <div
         role="radiogroup"
         aria-label={`Choose a ${certification.name} package`}
-        className="flex min-w-0 flex-1 flex-wrap content-start gap-3"
+        className="flex min-w-0 flex-1 flex-wrap gap-2"
       >
         {packages.map((pkg) => {
           const isSelected = selected.id === pkg.id;
@@ -257,7 +257,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
               role="radio"
               aria-checked={isSelected}
               onClick={() => setSelectedId(pkg.id)}
-              className={`relative flex w-full flex-col rounded-xl border px-3 pb-2.5 pt-3 text-left transition-colors sm:w-[10.5rem] ${
+              className={`relative flex flex-1 basis-[8.5rem] flex-col rounded-xl border px-3 pb-2.5 pt-3 text-left transition-colors ${
                 isSelected
                   ? 'border-[#155EEF] bg-[#EFF6FF] ring-1 ring-[#155EEF] dark:bg-[#155EEF]/10'
                   : 'border-[#DCE7FF] bg-white hover:border-[#B9CEFF] dark:bg-surface'
