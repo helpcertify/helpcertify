@@ -37,20 +37,17 @@ describe('BuyNowModal', () => {
     expect(screen.getByText(/access period: 180 days/i)).toBeInTheDocument();
   });
 
-  it('keeps Continue to Payment disabled until all four consent boxes are checked', async () => {
+  it('keeps Continue to Payment disabled until the consent box is checked', async () => {
     const user = userEvent.setup();
     const onConfirm = renderModal();
 
     const pay = screen.getByRole('button', { name: /continue to payment/i });
     const boxes = screen.getAllByRole('checkbox');
-    expect(boxes).toHaveLength(4);
-    boxes.forEach((b) => expect(b).not.toBeChecked());
+    expect(boxes).toHaveLength(1);
+    expect(boxes[0]).not.toBeChecked();
     expect(pay).toBeDisabled();
 
-    for (let i = 0; i < boxes.length; i++) {
-      await user.click(boxes[i]);
-      if (i < boxes.length - 1) expect(pay).toBeDisabled();
-    }
+    await user.click(boxes[0]);
 
     expect(pay).toBeEnabled();
     await user.click(pay);
