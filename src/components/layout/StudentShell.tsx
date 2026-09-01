@@ -232,8 +232,8 @@ export function StudentShell() {
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1">
-          <main className="p-4 lg:p-8">
+        <div className="flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-1 flex-col">
+          <main className="flex-1 p-4 lg:p-8">
             <Outlet />
           </main>
           <SiteFooter />
