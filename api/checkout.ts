@@ -145,7 +145,9 @@ const createOrderSchema = z.object({
   // the student's actual cart. couponCode here is a code typed directly
   // into the Buy Now dialog, separate from whatever the cart itself has
   // stored.
-  buyNowItem: z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) }).optional(),
+  buyNowItem: z
+    .object({ itemType: z.enum(['quiz', 'practiceTest', 'package']), itemId: z.string().min(1) })
+    .optional(),
   couponCode: z.string().trim().min(1).optional(),
   // Refer & Earn credit - a separate lever from a coupon code (both can
   // apply to the same order); see applyMyCredit below.

@@ -71,7 +71,13 @@ export function useCheckout() {
       });
     } catch (err) {
       setPaying(false);
-      pushToast(err instanceof VercelApiError ? err.message : 'Could not start checkout', 'error');
+      const raw = err instanceof VercelApiError ? err.message : '';
+      const friendly = /validation failed/i.test(raw)
+        ? 'Something in this order looks off. Refresh the page and try again.'
+        : /coupon/i.test(raw)
+          ? raw
+          : raw || 'Could not start checkout';
+      pushToast(friendly, 'error');
     }
   };
 
