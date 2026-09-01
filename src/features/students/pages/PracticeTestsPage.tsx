@@ -13,6 +13,7 @@ import { toDate } from '@/utils/formatDate';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
+import { PrimaryGoalStatRow } from '../components/PrimaryGoalStatRow';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -104,6 +105,8 @@ export function PracticeTestsPage() {
     <div>
       <h1 className="mb-1 text-2xl font-bold text-ink">Practice Exams</h1>
       <p className="mb-6 text-sm text-ink-faint">Resume where you left off. Each session pulls only unanswered questions.</p>
+
+      <PrimaryGoalStatRow />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Available" value={available.length} color="text-brand-ink" />
