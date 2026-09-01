@@ -439,6 +439,14 @@ export interface CertificationDoc {
   // stored now, not rendered anywhere yet (see CertificationDetailModal.tsx
   // for the existing, unrelated generic disclaimer it shows today).
   independentPrepDisclaimer: string;
+  // The simplified product form's remembered bank choices. `practiceBankId`
+  // is the practiceTest bank its Practice/Complete packages reference;
+  // `mockBankId` is the quiz bank that backs its mock content version and
+  // Mock/Complete packages. null on certifications created before this field
+  // or through the raw Advanced form. Packages remain the source of truth
+  // for what a purchase actually grants — these are a convenience pointer.
+  practiceBankId: string | null;
+  mockBankId: string | null;
   contentVersions: ContentVersionDoc[];
   mockBlueprints: MockBlueprintDoc[];
   // Derived from `status` at write time — never the field the admin portal

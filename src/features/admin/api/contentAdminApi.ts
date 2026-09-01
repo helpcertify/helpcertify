@@ -181,6 +181,8 @@ export interface CertificationAdminRow {
   featured: boolean;
   status: CertificationStatus;
   independentPrepDisclaimer: string;
+  practiceBankId: string | null;
+  mockBankId: string | null;
   contentVersions: ContentVersionDoc[];
   mockBlueprints: MockBlueprintDoc[];
   isPublished: boolean;
@@ -248,6 +250,8 @@ export interface CreateCertificationPayload {
   featured: boolean;
   independentPrepDisclaimer: string;
   displayOrder: number;
+  practiceBankId?: string | null;
+  mockBankId?: string | null;
 }
 
 export interface CreatePackagePayload {

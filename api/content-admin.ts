@@ -953,6 +953,11 @@ const createCertificationSchema = z.object({
   featured: z.boolean().default(false),
   independentPrepDisclaimer: z.string().trim().max(1000).default(''),
   displayOrder: z.number().int().min(0).default(0),
+  // The simplified product form's remembered bank choices (see
+  // CertificationDoc). Practice packages reference the practiceTest bank
+  // directly; the quiz bank additionally backs the mock content version.
+  practiceBankId: z.string().min(1).nullable().optional(),
+  mockBankId: z.string().min(1).nullable().optional(),
 });
 
 async function createCertification(uid: string, body: unknown) {
@@ -981,6 +986,8 @@ async function createCertification(uid: string, body: unknown) {
     // side effect of the create call.
     status: 'draft' as const,
     independentPrepDisclaimer: d.independentPrepDisclaimer,
+    practiceBankId: d.practiceBankId ?? null,
+    mockBankId: d.mockBankId ?? null,
     contentVersions: [],
     mockBlueprints: [],
     isPublished: false,
@@ -1022,6 +1029,8 @@ const updateCertificationSchema = z.object({
   featured: z.boolean().optional(),
   independentPrepDisclaimer: z.string().trim().max(1000).optional(),
   displayOrder: z.number().int().min(0).optional(),
+  practiceBankId: z.string().min(1).nullable().optional(),
+  mockBankId: z.string().min(1).nullable().optional(),
 });
 
 async function updateCertification(uid: string, body: unknown) {
