@@ -16,10 +16,12 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
   email: z.string().email('Enter a valid email'),
   password: z.string().min(8, 'At least 8 characters'),
-  // DPDP Act: HelpCertify is an 18+ service — the learner must affirm this
-  // before an account is created (see Privacy Policy "Children").
-  ageConfirmed: z.literal(true, {
-    errorMap: () => ({ message: 'You must be 18 or older to use HelpCertify' }),
+  // The learner must accept the policies before an account is created. The
+  // 18+ requirement (DPDP Act, Privacy Policy "Children") lives in the
+  // Terms of Service that this box agrees to, rather than as its own
+  // separate affirmation.
+  policiesAccepted: z.literal(true, {
+    errorMap: () => ({ message: 'Please agree to the Terms of Service and Privacy Policy' }),
   }),
 });
 
@@ -44,9 +46,9 @@ export function RegisterPage() {
     watch,
     formState: { errors },
   } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
-  // Gate the Google sign-up path on the same 18+ / policy confirmation as
-  // the email form (the form itself is gated by the zod resolver).
-  const ageConfirmed = watch('ageConfirmed') === true;
+  // Gate the Google sign-up path on the same policy agreement as the email
+  // form (the form itself is gated by the zod resolver).
+  const policiesAccepted = watch('policiesAccepted') === true;
 
   // Shown once, right after a signup that used a valid referral link — the
   // coupon is already redeemable at that point, not a promise of something
@@ -62,8 +64,8 @@ export function RegisterPage() {
   };
 
   const mutation = useMutation({
-    // ageConfirmed is validated client-side only — it never needs to reach
-    // the API, so only the three real fields are sent.
+    // policiesAccepted is validated client-side only — it never needs to
+    // reach the API, so only the three real fields are sent.
     mutationFn: (values: RegisterForm) =>
       authApi.register({ name: values.name, email: values.email, password: values.password, referralCode }),
     onSuccess: (result) => announceWelcomeCoupon(result.welcomeCoupon),
@@ -86,12 +88,12 @@ export function RegisterPage() {
 
         <GoogleButton
           label={googleMutation.isPending ? 'Signing in…' : 'Continue with Google'}
-          disabled={googleMutation.isPending || !ageConfirmed}
+          disabled={googleMutation.isPending || !policiesAccepted}
           onClick={() => googleMutation.mutate()}
         />
-        {!ageConfirmed && (
+        {!policiesAccepted && (
           <p className="mt-2 text-center text-xs text-ink-faint">
-            Confirm the 18+ and policy agreement below to continue.
+            Agree to the Terms of Service and Privacy Policy below to continue.
           </p>
         )}
 
@@ -142,9 +144,9 @@ export function RegisterPage() {
           </div>
           <div>
             <label className="flex items-start gap-2 text-sm text-ink-muted">
-              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" {...register('ageConfirmed')} />
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" {...register('policiesAccepted')} />
               <span>
-                I confirm I am 18 years or older and agree to the{' '}
+                I agree to the{' '}
                 <a href="/terms" target="_blank" rel="noopener" className="text-brand-ink underline">
                   Terms of Service
                 </a>{' '}
@@ -155,7 +157,7 @@ export function RegisterPage() {
                 .
               </span>
             </label>
-            {errors.ageConfirmed && <p className="mt-1 text-sm text-red-400">{errors.ageConfirmed.message}</p>}
+            {errors.policiesAccepted && <p className="mt-1 text-sm text-red-400">{errors.policiesAccepted.message}</p>}
           </div>
           <button
             type="submit"
