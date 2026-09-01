@@ -52,9 +52,14 @@ export function CertificationEditorPage() {
   const pushToast = useUiStore((s) => s.pushToast);
 
   const isNew = !params.certificationId;
+  // Frozen at mount: a product created here keeps walking the wizard even
+  // after the first save swaps the URL to /admin/products/:id. A product
+  // opened directly by id starts in the edit layout.
+  const [wizardMode] = useState(isNew);
   const [certificationId, setCertificationId] = useState<string | null>(params.certificationId ?? null);
   const [step, setStep] = useState<Step>(searchParams.get('preview') ? 3 : 1);
   const [dirty, setDirty] = useState(false);
+  const previewRequested = !!searchParams.get('preview');
 
   useEffect(() => {
     if (!dirty) return;
@@ -97,14 +102,15 @@ export function CertificationEditorPage() {
         setCertificationId(id);
         setDirty(false);
         invalidate();
-        if (isNew) navigate(`/admin/products/${id}`, { replace: true });
+        if (!params.certificationId) navigate(`/admin/products/${id}`, { replace: true });
         pushToast('Draft saved', 'success');
+        if (wizardMode) setStep(2);
       }}
     />
   );
 
   // --- Edit view: summary header + collapsible sections ---
-  if (!isNew && certification) {
+  if (!wizardMode && certification) {
     return (
       <div>
         <PageHeader title={certification.name} onCancel={cancelSafely} />
@@ -123,6 +129,9 @@ export function CertificationEditorPage() {
               packages={packages}
               onChanged={() => { invalidate(); setDirty(false); }}
             />
+          </Section>
+          <Section title="Review & Publish" defaultOpen={previewRequested}>
+            <StepReview certification={certification} packages={packages} onChanged={invalidate} />
           </Section>
           <Section title="Mock Configuration">
             <MockConfigSection certification={certification} onChanged={invalidate} />
