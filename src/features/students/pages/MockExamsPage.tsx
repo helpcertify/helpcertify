@@ -9,6 +9,7 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
+import { Spinner } from '@/components/common/Spinner';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { QuizDoc } from '@/types/models';
@@ -112,8 +113,9 @@ export function MockExamsPage() {
                   type="button"
                   disabled={paying}
                   onClick={() => setBuyNowQuiz(quiz)}
-                  className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
                 >
+                  {paying && <Spinner className="h-4 w-4" />}
                   {paying ? 'Opening…' : 'Buy Now'}
                 </button>
               </div>

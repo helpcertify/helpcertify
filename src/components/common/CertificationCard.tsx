@@ -5,6 +5,7 @@ import { cartApi } from '@/features/students/api/cartApi';
 import { useCheckout } from '@/features/students/hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
+import { Spinner } from './Spinner';
 import { CertificationDetailModal } from './CertificationDetailModal';
 import { formatMoney } from '@/utils/currency';
 import { pickDefaultPackage } from '@/features/students/lib/certificationCatalog';
@@ -197,8 +198,9 @@ export function CertificationCard({ certification }: CertificationCardProps) {
           type="button"
           disabled={paying}
           onClick={() => setBuyNowOpen(true)}
-          className="w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
         >
+          {paying && <Spinner className="h-4 w-4" />}
           {paying ? 'Opening…' : `Buy for ${formatMoney(selected.price, selected.currency)}`}
         </button>
         <button

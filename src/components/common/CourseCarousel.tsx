@@ -6,6 +6,7 @@ import { useCheckout } from '@/features/students/hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
 import { ProductCardShell } from './ProductCardShell';
+import { Spinner } from './Spinner';
 export interface CarouselItem {
   // Never 'package' - a carousel item is always one flat quiz/practiceTest;
   // packages render via CertificationCard instead.
@@ -183,8 +184,9 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
           type="button"
           disabled={paying}
           onClick={onBuyNow}
-          className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
         >
+          {paying && <Spinner className="h-4 w-4" />}
           {paying ? 'Opening…' : 'Buy Now'}
         </button>
       </div>

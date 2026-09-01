@@ -11,6 +11,7 @@ import type { PurchasableItemType } from '@/types/models';
 import { OrderSummary } from '../components/OrderSummary';
 import { CheckoutConsent } from '../components/CheckoutConsent';
 import { EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '../lib/checkoutConsent';
+import { Spinner } from '@/components/common/Spinner';
 
 export function CartPage() {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -216,8 +217,9 @@ export function CartPage() {
               type="button"
               disabled={payingNow || !allConsentsGiven(consent)}
               onClick={handleCheckout}
-              className="mt-5 w-full rounded-lg bg-[#155EEF] py-3 font-medium text-white hover:opacity-90 disabled:opacity-60"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-3 font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
+              {payingNow && <Spinner className="h-4 w-4" />}
               {payingNow ? 'Opening payment…' : `Pay ${formatMoney(cart.total, cart.currency)}`}
             </button>
           </div>

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
+import { Spinner } from '@/components/common/Spinner';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import { PrimaryGoalStatRow } from '../components/PrimaryGoalStatRow';
@@ -261,8 +262,9 @@ function PracticeTestCard({
           type="button"
           disabled={paying}
           onClick={onBuyNow}
-          className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
         >
+          {paying && <Spinner className="h-4 w-4" />}
           {paying ? 'Opening…' : 'Buy Now'}
         </button>
       </div>

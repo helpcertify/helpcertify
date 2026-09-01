@@ -6,6 +6,7 @@ import { OrderSummary, type OrderSummaryItem } from '@/features/students/compone
 import { CheckoutConsent } from '@/features/students/components/CheckoutConsent';
 import { EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '@/features/students/lib/checkoutConsent';
 import { ModalCloseButton } from './ModalCloseButton';
+import { Spinner } from './Spinner';
 
 interface Props {
   title: string;
@@ -155,8 +156,9 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
           type="button"
           disabled={!canPay}
           onClick={() => onConfirm(consent, appliedCoupon ?? (couponInput.trim() || undefined), useCredit)}
-          className="w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
+          {paying && <Spinner className="h-4 w-4" />}
           {paying ? 'Opening payment…' : 'Continue to Payment'}
         </button>
         <button
