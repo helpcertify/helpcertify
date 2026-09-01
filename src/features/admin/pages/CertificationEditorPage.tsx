@@ -109,6 +109,17 @@ export function CertificationEditorPage() {
     />
   );
 
+  // Opened by id but the list query hasn't resolved yet — hold rather than
+  // flash the new-product wizard for a frame.
+  if (!wizardMode && !certification) {
+    return (
+      <div>
+        <PageHeader title="Edit certification" onCancel={cancelSafely} />
+        <p className="mt-6 text-sm text-ink-faint">Loading…</p>
+      </div>
+    );
+  }
+
   // --- Edit view: summary header + collapsible sections ---
   if (!wizardMode && certification) {
     return (
