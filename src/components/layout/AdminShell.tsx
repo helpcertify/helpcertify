@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { SiteFooter } from '@/components/layout/SiteFooter';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -31,7 +32,7 @@ export function AdminShell() {
   };
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="flex min-h-screen flex-col bg-surface">
       <header className="border-b border-surface-border">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-8">
@@ -104,9 +105,10 @@ export function AdminShell() {
           </nav>
         )}
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <Outlet />
       </main>
+      <SiteFooter />
     </div>
   );
 }

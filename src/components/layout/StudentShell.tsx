@@ -10,6 +10,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatShortDate } from '@/utils/formatDate';
 import { useExamCountdowns, featuredExamCountdown } from '@/features/students/hooks/useExamCountdowns';
+import { SiteFooter } from '@/components/layout/SiteFooter';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -235,15 +236,7 @@ export function StudentShell() {
           <main className="p-4 lg:p-8">
             <Outlet />
           </main>
-          <footer className="border-t border-surface-border px-4 py-6 lg:px-8">
-            <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-faint">
-              <a href="/terms" target="_blank" rel="noopener" className="hover:text-ink-muted">Terms of Service</a>
-              <a href="/refund" target="_blank" rel="noopener" className="hover:text-ink-muted">Refund &amp; Cancellation Policy</a>
-              <a href="/privacy" target="_blank" rel="noopener" className="hover:text-ink-muted">Privacy Policy</a>
-              <a href="/support" target="_blank" rel="noopener" className="hover:text-ink-muted">Support Policy</a>
-              <a href="/contact" target="_blank" rel="noopener" className="hover:text-ink-muted">Contact</a>
-            </nav>
-          </footer>
+          <SiteFooter />
         </div>
       </div>
     </div>

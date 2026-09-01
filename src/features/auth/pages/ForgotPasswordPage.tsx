@@ -44,7 +44,7 @@ export function ForgotPasswordPage() {
   });
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+    <div className="flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm rounded-xl border border-surface-border bg-surface-raised p-8">
         <div className="mb-6 flex justify-center">
           <Logo />
