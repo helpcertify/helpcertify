@@ -100,8 +100,6 @@ export function StudentHomePage() {
   });
 
   const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
-  const quizById = new Map((quizzes ?? []).map((q) => [q.id, q]));
-  const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
   // All three buckets, not just "available" — a plan set on a test whose
   // window has since lapsed should still resolve to real data instead of
@@ -199,47 +197,6 @@ export function StudentHomePage() {
   for (const a of myAttempts ?? []) {
     attemptCountByQuizId.set(a.quizId, (attemptCountByQuizId.get(a.quizId) ?? 0) + 1);
   }
-
-  // Continue where you left off — the single most-recently-touched
-  // in-progress item across both quizzes and practice tests.
-  interface ContinueCandidate {
-    title: string;
-    category: string;
-    answeredCount: number;
-    totalQuestions: number;
-    lastActivityMs: number;
-    href: string;
-  }
-  const continueCandidates: ContinueCandidate[] = [];
-  for (const a of myAttempts ?? []) {
-    if (a.status !== 'in_progress') continue;
-    const quiz = quizById.get(a.quizId);
-    if (!quiz) continue;
-    continueCandidates.push({
-      title: quiz.title,
-      category: quiz.category ?? 'Other',
-      answeredCount: a.answeredCount,
-      totalQuestions: a.totalQuestions || quiz.totalQuestions,
-      lastActivityMs: a.startedAt?.toMillis?.() ?? 0,
-      href: `/quizzes/${a.quizId}/take`,
-    });
-  }
-  for (const p of practiceProgressDocs ?? []) {
-    const test = practiceTestById.get(p.testId);
-    if (!test) continue;
-    const answered = p.answeredQuestionIds.length;
-    if (answered === 0 || answered >= test.totalQuestions) continue;
-    continueCandidates.push({
-      title: test.title,
-      category: test.category ?? 'Other',
-      answeredCount: answered,
-      totalQuestions: test.totalQuestions,
-      lastActivityMs: p.updatedAt?.toMillis?.() ?? 0,
-      href: `/practice-tests/${p.testId}/take`,
-    });
-  }
-  continueCandidates.sort((a, b) => b.lastActivityMs - a.lastActivityMs);
-  const continueItem = continueCandidates[0] ?? null;
 
   // Upcoming Mock Exams — owned quizzes not yet attempted at all.
   const upcomingMockExams = (quizzes ?? [])
@@ -376,34 +333,6 @@ export function StudentHomePage() {
               </div>
             )}
           </Link>
-        </div>
-      )}
-
-      {/* Continue where you left off — only shown while something is
-          actually in progress (continueItem is null otherwise), so this
-          heading never appears for a learner who hasn't started anything
-          yet. HelpCertify Electric Blue theme: soft blue gradient instead of
-          the app's general brand-blue tint, matching the Recommended for
-          You cards' own header gradient. */}
-      {continueItem && (
-        <div className="mb-8 rounded-xl border border-[#B9CEFF] bg-gradient-to-r from-[#EFF6FF] to-[#F8FAFF] p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[#64748B]">Continue where you left off</h2>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="font-semibold text-[#0F172A]">{continueItem.title}</div>
-              <div className="text-xs text-[#64748B]">{continueItem.category}</div>
-              <div className="mt-1 text-sm text-[#334155]">
-                {Math.round((continueItem.answeredCount / (continueItem.totalQuestions || 1)) * 100)}% complete ·{' '}
-                {continueItem.answeredCount}/{continueItem.totalQuestions} questions
-              </div>
-            </div>
-            <Link
-              to={continueItem.href}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
-            >
-              Continue →
-            </Link>
-          </div>
         </div>
       )}
 
