@@ -21,6 +21,12 @@ function makePackage(overrides: Partial<CatalogPackage> = {}): CatalogPackage {
     aggregateTotalQuestions: 0,
     accessValidityDays: 180,
     includedItems: [],
+    practiceAccessEnabled: false,
+    mockAccessEnabled: false,
+    accessibleQuestionCount: 0,
+    fullMockAttempts: 0,
+    questionsPerMock: 0,
+    includedFeatures: [],
     ...overrides,
   };
 }

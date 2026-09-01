@@ -418,7 +418,7 @@ export function StudentHomePage() {
         <p className="mb-4 text-sm text-ink-faint">All prices are visible. Select the plan you want and purchase directly.</p>
 
         {catalogLoading && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="space-y-4">
             <CertificationCardSkeleton />
             <CertificationCardSkeleton />
           </div>
@@ -435,7 +435,7 @@ export function StudentHomePage() {
           <p className="text-sm text-ink-faint">No certification packages are available right now.</p>
         )}
         {!catalogLoading && !catalogError && catalog && catalog.certifications.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="space-y-4">
             {catalog.certifications.map((cert) => (
               <CertificationCard key={cert.id} certification={cert} />
             ))}
@@ -453,7 +453,7 @@ export function StudentHomePage() {
         catalog.certifications.filter(hasActivePackage).length > 0 && (
           <div className="mb-8">
             <h2 className="mb-4 text-lg font-bold text-ink">My Active Certifications</h2>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
               {catalog.certifications.filter(hasActivePackage).map((cert) => (
                 <CertificationCard key={cert.id} certification={cert} />
               ))}

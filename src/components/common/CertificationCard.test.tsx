@@ -49,6 +49,12 @@ function makePackage(overrides: Partial<CatalogPackage> = {}): CatalogPackage {
     aggregateTotalQuestions: 150,
     accessValidityDays: 180,
     includedItems: [{ itemType: 'quiz', itemId: 'quiz1', title: 'CISM Mock Exam' }],
+    practiceAccessEnabled: false,
+    mockAccessEnabled: true,
+    accessibleQuestionCount: 0,
+    fullMockAttempts: 5,
+    questionsPerMock: 150,
+    includedFeatures: [],
     ...overrides,
   };
 }

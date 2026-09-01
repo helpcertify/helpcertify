@@ -35,6 +35,16 @@ export interface CatalogPackage {
   // Access period in days for this bundle (see PackageDoc.accessValidityDays).
   accessValidityDays: number;
   includedItems: IncludedCatalogItem[];
+  // Entitlement summary — api/cart.ts's getLearnerCatalog spreads the whole
+  // PackageDoc into the response, so these ride along already; declared here
+  // so the certification card can show "N questions · M mock exams" without
+  // parsing the admin's free-text description.
+  practiceAccessEnabled: boolean;
+  mockAccessEnabled: boolean;
+  accessibleQuestionCount: number;
+  fullMockAttempts: number;
+  questionsPerMock: number;
+  includedFeatures: string[];
 }
 
 export interface CatalogCertification {
