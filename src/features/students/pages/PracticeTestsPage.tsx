@@ -77,10 +77,6 @@ export function PracticeTestsPage() {
   const purchasedExpired = rawExpired.filter((t) => purchasedSet.has(`practiceTest_${t.id}`));
   const trulyExpired = rawExpired.filter((t) => !purchasedSet.has(`practiceTest_${t.id}`));
   const available = [...(buckets?.available ?? []), ...purchasedExpired];
-  const startedCount = available.filter((t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) > 0).length;
-  const completedCount = available.filter(
-    (t) => (progressByTestId.get(t.id)?.answeredQuestionIds.length ?? 0) >= t.totalQuestions
-  ).length;
 
   const filteredAvailable = available.filter((test) => {
     const answered = progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0;
@@ -107,12 +103,6 @@ export function PracticeTestsPage() {
       <p className="mb-6 text-sm text-ink-faint">Resume where you left off. Each session pulls only unanswered questions.</p>
 
       <PrimaryGoalStatRow />
-
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Available" value={available.length} color="text-brand-ink" />
-        <StatCard label="Started" value={startedCount} color="text-[#d87f1d]" />
-        <StatCard label="Completed" value={completedCount} color="text-emerald-700 dark:text-emerald-400" />
-      </div>
 
       <ExamFilterBar filters={filters} onChange={setFilters} />
 
@@ -194,15 +184,6 @@ export function PracticeTestsPage() {
         />
       )}
       {confirmation}
-    </div>
-  );
-}
-
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-      <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
-      <div className={`mt-2 text-2xl font-bold ${color}`}>{value}</div>
     </div>
   );
 }
