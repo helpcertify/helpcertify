@@ -6,6 +6,11 @@ import { useThemeStore } from '@/store/useThemeStore';
 export function ThemeToggle({ className = '' }: { className?: string }) {
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const darkModeAllowed = useThemeStore((s) => s.darkModeAllowed);
+
+  // Dark mode is an admin-gated feature — with it off, the app is light
+  // only and there is nothing to toggle.
+  if (!darkModeAllowed) return null;
 
   return (
     <button

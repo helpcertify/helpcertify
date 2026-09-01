@@ -17,6 +17,10 @@ export type RewardType = 'flat' | 'percent';
 
 export interface AppSettings {
   emailOtpEnabled: boolean;
+  // Global feature flag: when true, students and admins get a light/dark
+  // toggle; when false the whole app is light-only. Stored on the
+  // publicly-readable appSettings/appearance doc, not appSettings/general.
+  darkModeEnabled: boolean;
   // Always false until an SMS provider is wired up server-side — the
   // checkbox for it stays disabled in AdminSettingsPage regardless.
   mobileOtpEnabled: boolean;
@@ -102,6 +106,7 @@ export const adminApi = {
   updateAppSettings: (payload: AppSettings) =>
     callAction<{ success: true }>('admin', 'updateAppSettings', {
       emailOtpEnabled: payload.emailOtpEnabled,
+      darkModeEnabled: payload.darkModeEnabled,
       mobileOtpEnabled: payload.mobileOtpEnabled,
       referralCreditAmountMinor: payload.referralCreditAmountMinor,
       referralValidationPeriodDays: payload.referralValidationPeriodDays,

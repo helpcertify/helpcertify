@@ -116,15 +116,21 @@
       }
     </script>
     <script>
-      // Runs synchronously before any CSS/JS bundle loads, so the correct
-      // theme class is already on <html> by first paint — without this, a
-      // dark-mode visitor would see a flash of the light background before
-      // src/store/useThemeStore.ts's module-load logic (which does the same
-      // check) gets a chance to run.
+      // The app is light by default. Dark mode only applies when an admin
+      // has enabled the feature (mirrored to localStorage as
+      // hc_dark_allowed by src/store/useThemeStore.ts) AND the visitor
+      // picked dark on this device. Running it here — before any CSS/JS
+      // bundle — keeps a returning dark-mode visitor from seeing a flash of
+      // light first.
       (function () {
-        var stored = localStorage.getItem('theme');
-        var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (dark) document.documentElement.classList.add('dark');
+        try {
+          if (
+            localStorage.getItem('theme') === 'dark' &&
+            localStorage.getItem('hc_dark_allowed') === '1'
+          ) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
       })();
     </script>
   </head>

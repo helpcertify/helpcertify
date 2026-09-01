@@ -17,6 +17,7 @@ export function AdminSettingsPage() {
   const { data: quizzesData } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
   const { data: practiceTestsData } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const [emailOtpEnabled, setEmailOtpEnabled] = useState(false);
+  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
   // Refer & Earn — every amount is typed in rupees (converted to/from
   // paise only at the load/save boundary, never stored as a raw
@@ -37,6 +38,7 @@ export function AdminSettingsPage() {
   useEffect(() => {
     if (!data) return;
     setEmailOtpEnabled(data.emailOtpEnabled);
+    setDarkModeEnabled(data.darkModeEnabled);
     setCreditAmount(String(minorToMajor(data.referralCreditAmountMinor)));
     setValidationDays(String(data.referralValidationPeriodDays));
     setCreditExpiryDays(String(data.referralCreditExpiryDays));
@@ -49,6 +51,7 @@ export function AdminSettingsPage() {
 
   const buildPayload = (): AppSettings => ({
     emailOtpEnabled,
+    darkModeEnabled,
     mobileOtpEnabled: false,
     referralCreditAmountMinor: majorToMinor(Number(creditAmount) || 0),
     referralValidationPeriodDays: Math.round(Number(validationDays) || 0),
@@ -73,6 +76,7 @@ export function AdminSettingsPage() {
   const dirty =
     data !== undefined &&
     (payload.emailOtpEnabled !== data.emailOtpEnabled ||
+      payload.darkModeEnabled !== data.darkModeEnabled ||
       payload.referralCreditAmountMinor !== data.referralCreditAmountMinor ||
       payload.referralValidationPeriodDays !== data.referralValidationPeriodDays ||
       payload.referralCreditExpiryDays !== data.referralCreditExpiryDays ||
@@ -100,6 +104,28 @@ export function AdminSettingsPage() {
 
       <div className="max-w-xl space-y-6">
         <CompanyDetailsCard />
+
+        <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">Appearance</h2>
+
+          <label className="flex items-start gap-3 rounded-lg border border-surface-border p-4">
+            <input
+              type="checkbox"
+              checked={darkModeEnabled}
+              onChange={(e) => setDarkModeEnabled(e.target.checked)}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              <span className="block font-medium text-ink">Enable dark mode</span>
+              <span className="block text-sm text-ink-faint">
+                When on, every student and admin gets a light/dark switch (in Settings, and in the
+                admin header) and their choice is remembered per device. When off, the whole app is
+                light only and no switch is shown anywhere. Takes effect on each person's next page
+                load.
+              </span>
+            </span>
+          </label>
+        </div>
 
         <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">OTP Verification</h2>

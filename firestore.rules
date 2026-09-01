@@ -204,6 +204,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- appSettings/appearance --- global dark-mode feature flag
+    // ({ darkModeEnabled: bool }). Publicly readable so the SPA can decide
+    // at boot whether to honor a saved dark preference (see
+    // src/features/appearance/loadAppearance.ts); nothing on it is
+    // sensitive. Written only by api/admin.ts's updateAppSettings
+    // (Admin SDK, admin-gated).
+    match /appSettings/appearance {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // --- appSettings/{id} --- e.g. appSettings/general: emailOtpEnabled,
     // mobileOtpEnabled. Read/written only via api/admin.ts's
     // getAppSettings/updateAppSettings actions (admin-gated there) — never

@@ -16,6 +16,7 @@ import { friendlyAuthError } from '@/lib/errorMessages';
 export function SettingsPage() {
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
+  const darkModeAllowed = useThemeStore((s) => s.darkModeAllowed);
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const pushToast = useUiStore((s) => s.pushToast);
 
@@ -57,6 +58,7 @@ export function SettingsPage() {
       <h1 className="mb-1 text-2xl font-bold text-ink">Settings</h1>
       <p className="mb-6 text-sm text-ink-faint">Manage how Helpcertify looks and behaves for you.</p>
 
+      {darkModeAllowed && (
       <section className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-5">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Appearance</h2>
         <p className="mb-4 mt-1 text-sm text-ink-faint">Choose how the app looks on this device.</p>
@@ -87,6 +89,7 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+      )}
 
       <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Security</h2>

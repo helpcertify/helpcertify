@@ -180,10 +180,17 @@ const REFERRAL_DEFAULTS = {
 };
 
 async function getAppSettings() {
-  const snap = await db.collection('appSettings').doc('general').get();
+  const [snap, appearanceSnap] = await Promise.all([
+    db.collection('appSettings').doc('general').get(),
+    db.collection('appSettings').doc('appearance').get(),
+  ]);
   const data = snap.data();
   return {
     emailOtpEnabled: data?.emailOtpEnabled === true,
+    // Global dark-mode feature flag. Kept on its own publicly-readable doc
+    // (appSettings/appearance) so the SPA can read it without an admin
+    // call — see src/features/appearance/loadAppearance.ts.
+    darkModeEnabled: appearanceSnap.data()?.darkModeEnabled === true,
     // Always false in the response regardless of what's stored — there's
     // no SMS provider wired up yet (see updateAppSettings), so this can
     // never actually be true no matter what a stale doc might say.
@@ -213,6 +220,8 @@ const refereeRewardSchema = z
 
 const updateAppSettingsSchema = z.object({
   emailOtpEnabled: z.boolean(),
+  // Global dark-mode feature flag — persisted to appSettings/appearance.
+  darkModeEnabled: z.boolean(),
   // Accepted but ignored below — mobile OTP has no SMS provider wired up
   // yet, so this can't actually be turned on. Still typed/validated here
   // (rather than omitted) so the Settings page's checkbox has somewhere
@@ -249,12 +258,19 @@ async function updateAppSettings(uid: string, body: unknown) {
     { merge: true }
   );
 
+  // Dark-mode flag lives on its own publicly-readable doc so the SPA can
+  // read it without an admin call.
+  await db.collection('appSettings').doc('appearance').set(
+    { darkModeEnabled: d.darkModeEnabled, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+
   await writeAdminLog({
     performedBy: uid,
     action: 'updateAppSettings',
     targetType: 'appSettings',
     targetId: 'general',
-    description: `Set email OTP verification to ${d.emailOtpEnabled ? 'on' : 'off'}; referrer credit ₹${d.referralCreditAmountMinor / 100} (${d.referralValidationPeriodDays}d validation, ${d.referralCreditExpiryDays}d expiry, max ${d.referralMonthlyLimit}/month, up to ${d.referralCreditMaxPercent}% of a purchase); referee reward ${d.refereeReward.type === 'flat' ? `₹${d.refereeReward.value / 100}` : `${d.refereeReward.value}%`}`,
+    description: `Set email OTP verification to ${d.emailOtpEnabled ? 'on' : 'off'}; dark mode ${d.darkModeEnabled ? 'enabled' : 'disabled'}; referrer credit ₹${d.referralCreditAmountMinor / 100} (${d.referralValidationPeriodDays}d validation, ${d.referralCreditExpiryDays}d expiry, max ${d.referralMonthlyLimit}/month, up to ${d.referralCreditMaxPercent}% of a purchase); referee reward ${d.refereeReward.type === 'flat' ? `₹${d.refereeReward.value / 100}` : `${d.refereeReward.value}%`}`,
   });
 
   return { success: true };
