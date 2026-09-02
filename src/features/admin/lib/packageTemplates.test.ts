@@ -5,14 +5,30 @@ import {
   emptyTemplateValues,
   detectTemplate,
   visibleBenefits,
+  applyComboDiscount,
   type TemplateContext,
   type TemplateValues,
 } from './packageTemplates';
 
+describe('applyComboDiscount', () => {
+  it('returns the parts total when there is no discount', () => {
+    expect(applyComboDiscount(150000, null)).toBe(150000);
+    expect(applyComboDiscount(150000, { mode: 'percent', value: 0 })).toBe(150000);
+  });
+  it('takes a percent off, capped at 95%', () => {
+    expect(applyComboDiscount(200000, { mode: 'percent', value: 25 })).toBe(150000);
+    expect(applyComboDiscount(200000, { mode: 'percent', value: 99 })).toBe(10000);
+  });
+  it('takes a fixed amount off, never below 100 minor units', () => {
+    expect(applyComboDiscount(200000, { mode: 'amount', value: 50000 })).toBe(150000);
+    expect(applyComboDiscount(200000, { mode: 'amount', value: 999999 })).toBe(100);
+  });
+});
+
 const ctx: TemplateContext = {
   certificationId: 'cert1',
-  practiceBankId: 'ptBank',
-  mockBankId: 'quizBank',
+  practiceBankIds: ['ptBank'],
+  mockBankIds: ['quizBank'],
   eligiblePracticeQuestions: 1482,
   defaultValidityDays: 180,
   currency: 'INR',

@@ -90,11 +90,19 @@ export function MockExamsPage() {
           const attempt = attemptByQuizId.get(quiz.id);
           const notYetOpen = quiz.scheduledStart && quiz.scheduledStart.toMillis() > Date.now();
           const price = quiz.price ?? 0;
-          const owned = price === 0 || purchasedSet.has(`quiz_${quiz.id}`);
+          const owned = purchasedSet.has(`quiz_${quiz.id}`) || (price === 0 && !quiz.requiresEntitlement);
+          const entitlementLocked = !!quiz.requiresEntitlement && !purchasedSet.has(`quiz_${quiz.id}`);
           const inCart = inCartSet.has(`quiz_${quiz.id}`);
           const href = `/home/quizzes/${quiz.id}`;
 
-          const footer = !owned ? (
+          const footer = entitlementLocked ? (
+            <Link
+              to="/home"
+              className="block w-full rounded-lg border border-[#155EEF] py-1.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#F8FAFF]"
+            >
+              Unlock with a package
+            </Link>
+          ) : !owned ? (
             inCart ? (
               <Link to="/home/cart" className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]">
                 ✓ In Cart · View Cart

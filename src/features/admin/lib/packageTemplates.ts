@@ -70,6 +70,25 @@ export interface TemplateValues {
   /** null = use the generated benefit list. */
   benefitsOverride: string[] | null;
   badgeText: string | null;
+  /** Complete-only: the combo saving off (Practice + Mock). null = none. */
+  comboDiscount: ComboDiscount | null;
+}
+
+export interface ComboDiscount {
+  mode: 'percent' | 'amount';
+  /** percent 1-95, or amount in minor units. */
+  value: number;
+}
+
+/** The Complete selling price = (Practice + Mock) minus the combo saving,
+ *  floored at 100 minor units so Razorpay always has a positive amount. */
+export function applyComboDiscount(partsSelling: number, discount: ComboDiscount | null): number {
+  if (!discount || discount.value <= 0) return partsSelling;
+  const off =
+    discount.mode === 'percent'
+      ? Math.round((partsSelling * Math.min(discount.value, 95)) / 100)
+      : Math.min(discount.value, partsSelling);
+  return Math.max(100, partsSelling - off);
 }
 
 export function emptyTemplateValues(defaultValidityDays: number): TemplateValues {
@@ -88,14 +107,17 @@ export function emptyTemplateValues(defaultValidityDays: number): TemplateValues
     isRecommended: false,
     benefitsOverride: null,
     badgeText: null,
+    comboDiscount: null,
   };
 }
 
 export interface TemplateContext {
   certificationId: string;
-  practiceBankId: string | null;
-  mockBankId: string | null;
-  /** Published questions in the practice bank - the hard cap on any promised count. */
+  /** Every practice-batch bank id (one entry for a single linked bank). */
+  practiceBankIds: string[];
+  /** Every mock-batch bank id (one entry for a single linked bank). */
+  mockBankIds: string[];
+  /** Published questions across the practice bank(s) - the hard cap on any promised count. */
   eligiblePracticeQuestions: number;
   defaultValidityDays: number;
   currency: 'INR' | 'USD';
@@ -165,8 +187,9 @@ export function templateToCreatePayload(id: TemplateId, v: TemplateValues, ctx: 
     description: '',
     shortDescription: PACKAGE_TEMPLATES[id].blurb,
     includedFeatures: v.benefitsOverride ?? buildPackageBenefits(id, v, ctx.eligiblePracticeQuestions),
-    includedQuizIds: mock && ctx.mockBankId ? [ctx.mockBankId] : [],
-    includedPracticeTestIds: practice && ctx.practiceBankId ? [ctx.practiceBankId] : [],
+    includedQuizIds: mock ? ctx.mockBankIds.filter(Boolean) : [],
+    includedPracticeTestIds: practice ? ctx.practiceBankIds.filter(Boolean) : [],
+    comboDiscount: id === 'complete' ? v.comboDiscount : null,
     displayOrder: ctx.displayOrder,
 
     practiceAccessEnabled: practice,

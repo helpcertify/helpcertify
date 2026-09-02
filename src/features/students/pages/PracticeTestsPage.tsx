@@ -126,7 +126,11 @@ export function PracticeTestsPage() {
               key={test.id}
               test={test}
               answered={progressByTestId.get(test.id)?.answeredQuestionIds.length ?? 0}
-              owned={(test.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${test.id}`)}
+              owned={
+                purchasedSet.has(`practiceTest_${test.id}`) ||
+                ((test.price ?? 0) === 0 && !test.requiresEntitlement)
+              }
+              entitlementLocked={!!test.requiresEntitlement && !purchasedSet.has(`practiceTest_${test.id}`)}
               inCart={inCartSet.has(`practiceTest_${test.id}`)}
               addingToCart={addToCartMutation.isPending}
               paying={paying}
@@ -193,6 +197,7 @@ interface PracticeTestCardProps {
   test: PracticeTestDoc & { id: string };
   answered: number;
   owned: boolean;
+  entitlementLocked?: boolean;
   inCart: boolean;
   addingToCart: boolean;
   paying: boolean;
@@ -206,6 +211,7 @@ function PracticeTestCard({
   test,
   answered,
   owned,
+  entitlementLocked,
   inCart,
   addingToCart,
   paying,
@@ -243,7 +249,14 @@ function PracticeTestCard({
     </Link>
   );
 
-  const footer = !owned ? (
+  const footer = entitlementLocked ? (
+    <Link
+      to="/home"
+      className="block w-full rounded-lg border border-[#155EEF] py-1.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#F8FAFF]"
+    >
+      Unlock with a package
+    </Link>
+  ) : !owned ? (
     inCart ? (
       <Link to="/home/cart" className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]">
         ✓ In Cart · View Cart

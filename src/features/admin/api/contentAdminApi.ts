@@ -183,6 +183,9 @@ export interface CertificationAdminRow {
   independentPrepDisclaimer: string;
   practiceBankId: string | null;
   mockBankId: string | null;
+  practiceBankIds: string[];
+  mockBankIds: string[];
+  seriesId: string | null;
   contentVersions: ContentVersionDoc[];
   mockBlueprints: MockBlueprintDoc[];
   isPublished: boolean;
@@ -229,6 +232,7 @@ export interface PackageAdminRow {
   renewalPrice: number | null;
   taxTreatment: 'inclusive' | 'exclusive' | 'exempt';
   isFree: boolean;
+  comboDiscount: { mode: 'percent' | 'amount'; value: number } | null;
   status: PackageStatus;
   isPublished: boolean;
   displayOrder: number;
@@ -252,6 +256,21 @@ export interface CreateCertificationPayload {
   displayOrder: number;
   practiceBankId?: string | null;
   mockBankId?: string | null;
+}
+
+export interface CreateBatchedSeriesPayload {
+  certificationId: string;
+  fileUrl: string;
+  sourceFormat: QuestionSourceFormat;
+  examName: string;
+  category: string;
+  practiceBatchSize: number;
+  mockCount: number;
+  mockBatchSize: number;
+  mockDurationMinutes: number;
+  passMarkPercent: number;
+  previewQuestionCount: number;
+  durationPerSessionMinutes: number | null;
 }
 
 export interface CreatePackagePayload {
@@ -292,6 +311,7 @@ export interface CreatePackagePayload {
   taxTreatment: 'inclusive' | 'exclusive' | 'exempt';
   isFree: boolean;
   currency: 'INR' | 'USD';
+  comboDiscount?: { mode: 'percent' | 'amount'; value: number } | null;
 }
 
 export interface AuditLogEntry {
@@ -362,6 +382,15 @@ export const contentAdminApi = {
   }) => callAction<{ success: true }>('content-admin', 'updatePracticeTestQuestion', { ...payload }),
 
   // --- Products & Pricing ---
+  createBatchedSeries: (payload: CreateBatchedSeriesPayload) =>
+    callAction<{
+      seriesId: string;
+      practiceTestIds: string[];
+      mockQuizIds: string[];
+      totalQuestions: number;
+      parseErrors: ParseErrorEntry[];
+      parseWarnings: string[];
+    }>('content-admin', 'createBatchedSeries', { ...payload }),
   createCertification: (payload: CreateCertificationPayload) =>
     callAction<{ certificationId: string }>('content-admin', 'createCertification', { ...payload }),
   updateCertification: (payload: { certificationId: string } & Partial<CreateCertificationPayload>) =>

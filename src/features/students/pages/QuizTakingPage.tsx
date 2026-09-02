@@ -96,7 +96,24 @@ export function QuizTakingPage() {
     };
   }, [attemptId, finalResult]);
 
-  const questions = useMemo(() => data?.questions ?? [], [data]);
+  // For a shuffled mock attempt the server sends the question + option
+  // order to use; otherwise fall back to the natural `order` from the
+  // content read.
+  const questions = useMemo(() => {
+    const raw = data?.questions ?? [];
+    const qOrder = attempt?.questionOrder;
+    const oOrder = attempt?.optionOrder;
+    if (!qOrder && !oOrder) return raw;
+    const byId = new Map(raw.map((q) => [q.id, q]));
+    const ordered = qOrder ? qOrder.map((id) => byId.get(id)).filter((q): q is (typeof raw)[number] => !!q) : raw;
+    if (!oOrder) return ordered;
+    return ordered.map((q) => {
+      const ids = oOrder[q.id];
+      if (!ids) return q;
+      const optById = new Map(q.options.map((o) => [o.id, o]));
+      return { ...q, options: ids.map((id) => optById.get(id)).filter((o): o is (typeof q.options)[number] => !!o) };
+    });
+  }, [data, attempt?.questionOrder, attempt?.optionOrder]);
   const quiz = data?.quiz;
   const current = questions[currentIndex];
 

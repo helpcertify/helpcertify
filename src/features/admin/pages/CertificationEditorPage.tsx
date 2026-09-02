@@ -6,6 +6,7 @@ import {
   type CertificationAdminRow,
   type PackageAdminRow,
   type AuditLogEntry,
+  type ParseErrorEntry,
 } from '../api/contentAdminApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
@@ -21,11 +22,16 @@ import {
   templateToCreatePayload,
   buildPackageBenefits,
   visibleBenefits,
+  applyComboDiscount,
+  type ComboDiscount,
   detectTemplate,
   type TemplateId,
   type TemplateValues,
 } from '../lib/packageTemplates';
 import { deriveMockBlueprint, mockConfigStatus } from '../lib/deriveMockBlueprint';
+import { VALIDITY_PRESETS, presetForDays } from '../lib/validityPresets';
+import { uploadContentFile } from '../api/uploadApi';
+import { UploadReport } from '@/components/common/UploadReport';
 import { CERTIFICATION_ICON_KEYS, type CertificationIconKey, type DomainAllocation } from '@/types/models';
 
 type Step = 1 | 2 | 3;
@@ -282,6 +288,204 @@ function Disclosure({ label, children }: { label: string; children: React.ReactN
   );
 }
 
+function ValiditySelect({ days, onChange }: { days: number; onChange: (d: number) => void }) {
+  const preset = presetForDays(days);
+  const isCustom = days > 0 && !preset;
+  const [custom, setCustom] = useState(isCustom);
+  const selectValue = custom || isCustom ? 'custom' : String(days);
+  return (
+    <div className="space-y-2">
+      <select
+        value={selectValue}
+        onChange={(e) => {
+          if (e.target.value === 'custom') {
+            setCustom(true);
+            return;
+          }
+          setCustom(false);
+          onChange(Number(e.target.value));
+        }}
+        className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink"
+      >
+        {VALIDITY_PRESETS.map((p) => (
+          <option key={p.days} value={p.days}>
+            {p.label}
+          </option>
+        ))}
+        <option value="custom">Custom...</option>
+      </select>
+      {(custom || isCustom) && (
+        <input
+          type="number"
+          min={1}
+          value={days || ''}
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
+          placeholder="Days of access"
+          className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink"
+        />
+      )}
+    </div>
+  );
+}
+
+function ComboSavingField({ value, onChange }: { value: ComboDiscount | null; onChange: (d: ComboDiscount | null) => void }) {
+  const mode = value?.mode ?? 'percent';
+  const amount = value?.value ?? 0;
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={mode}
+        onChange={(e) => onChange(amount > 0 ? { mode: e.target.value as ComboDiscount['mode'], value: 0 } : null)}
+        className="rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-xs text-ink"
+      >
+        <option value="percent">Percent %</option>
+        <option value="amount">Amount off (₹)</option>
+      </select>
+      <input
+        type="number"
+        min={0}
+        value={(mode === 'amount' ? minorToMajor(amount) : amount) || ''}
+        onChange={(e) => {
+          const v = Math.max(0, Number(e.target.value));
+          onChange(v <= 0 ? null : { mode, value: mode === 'amount' ? majorToMinor(v) : v });
+        }}
+        placeholder={mode === 'percent' ? '% off the combined price' : '₹ waived'}
+        className="w-40 rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-xs text-ink"
+      />
+    </div>
+  );
+}
+
+function BatchedSeriesPanel({
+  certificationId,
+  examName,
+  category,
+  currentSeriesId,
+  onGenerated,
+}: {
+  certificationId: string;
+  examName: string;
+  category: string;
+  currentSeriesId: string | null;
+  onGenerated: () => void;
+}) {
+  const pushToast = useUiStore((s) => s.pushToast);
+  const [file, setFile] = useState<File | null>(null);
+  const [sourceFormat, setSourceFormat] = useState<'standard' | 'cisa_qa'>('standard');
+  const [practiceBatchSize, setPracticeBatchSize] = useState('150');
+  const [mockCount, setMockCount] = useState('5');
+  const [mockBatchSize, setMockBatchSize] = useState('150');
+  const [mockDurationMinutes, setMockDurationMinutes] = useState('240');
+  const [passMarkPercent, setPassMarkPercent] = useState('60');
+  const [uploading, setUploading] = useState(false);
+  const [report, setReport] = useState<{ totalQuestions: number; errors: ParseErrorEntry[]; warnings: string[] } | null>(null);
+
+  const gen = useMutation({
+    mutationFn: async () => {
+      if (!file) throw new Error('Choose a question document to upload');
+      setUploading(true);
+      try {
+        const fileUrl = await uploadContentFile(file);
+        return await contentAdminApi.createBatchedSeries({
+          certificationId,
+          fileUrl,
+          sourceFormat,
+          examName: examName.trim(),
+          category: category.trim() || 'Other',
+          practiceBatchSize: Number(practiceBatchSize) || 150,
+          mockCount: Number(mockCount) || 5,
+          mockBatchSize: Number(mockBatchSize) || 150,
+          mockDurationMinutes: Number(mockDurationMinutes) || 240,
+          passMarkPercent: Number(passMarkPercent) || 60,
+          previewQuestionCount: 5,
+          durationPerSessionMinutes: null,
+        });
+      } finally {
+        setUploading(false);
+      }
+    },
+    onSuccess: (r) => {
+      pushToast(
+        `Generated ${r.practiceTestIds.length} practice batches and ${r.mockQuizIds.length} mock exams from ${r.totalQuestions} questions`,
+        'success',
+      );
+      setReport({ totalQuestions: r.totalQuestions, errors: r.parseErrors, warnings: r.parseWarnings });
+      setFile(null);
+      onGenerated();
+    },
+    onError: (err) => pushToast(cleanError(err, 'Could not generate the batched question set'), 'error'),
+  });
+
+  return (
+    <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 dark:bg-[#155EEF]/10">
+      <h3 className="text-sm font-bold text-ink">Generate batched question set</h3>
+      <p className="mt-1 text-xs text-ink-muted">
+        Upload one large question document. It is split into practice exam batches (no question repeats across batches, every
+        question covered) plus fixed mock exams that shuffle question and option order on every attempt. Learners unlock these
+        by buying a package.
+      </p>
+      {currentSeriesId && (
+        <p className="mt-2 rounded-lg bg-surface-raised px-3 py-2 text-xs text-ink-muted">
+          A series is already linked to this certification. Generating again creates a new set of batches.
+        </p>
+      )}
+      <div className="mt-3 space-y-3">
+        <Field label="Question document">
+          <input
+            type="file"
+            accept=".docx,.txt,.md"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-ink"
+          />
+        </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Source format">
+            <select
+              value={sourceFormat}
+              onChange={(e) => setSourceFormat(e.target.value as 'standard' | 'cisa_qa')}
+              className="input-dark"
+            >
+              <option value="standard">Standard</option>
+              <option value="cisa_qa">CISA Q&amp;A</option>
+            </select>
+          </Field>
+          <Field label="Questions per practice batch">
+            <input type="number" min={1} value={practiceBatchSize} onChange={(e) => setPracticeBatchSize(e.target.value)} className="input-dark" />
+          </Field>
+          <Field label="Number of mock exams">
+            <input type="number" min={1} value={mockCount} onChange={(e) => setMockCount(e.target.value)} className="input-dark" />
+          </Field>
+          <Field label="Questions per mock exam">
+            <input type="number" min={1} value={mockBatchSize} onChange={(e) => setMockBatchSize(e.target.value)} className="input-dark" />
+          </Field>
+          <Field label="Mock exam duration (minutes)">
+            <input type="number" min={1} value={mockDurationMinutes} onChange={(e) => setMockDurationMinutes(e.target.value)} className="input-dark" />
+          </Field>
+          <Field label="Pass mark (%)">
+            <input type="number" min={0} max={100} value={passMarkPercent} onChange={(e) => setPassMarkPercent(e.target.value)} className="input-dark" />
+          </Field>
+        </div>
+        <button
+          type="button"
+          disabled={!file || gen.isPending || uploading}
+          onClick={() => gen.mutate()}
+          className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {uploading ? 'Uploading...' : gen.isPending ? 'Generating...' : 'Generate batches'}
+        </button>
+      </div>
+      {report && (
+        <UploadReport
+          totalQuestions={report.totalQuestions}
+          errors={report.errors}
+          warnings={report.warnings}
+          onDismiss={() => setReport(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 function SummaryHeader({ certification, packages }: { certification: CertificationAdminRow; packages: PackageAdminRow[] }) {
   const activePackages = packages.filter((p) => p.status === 'published' || p.status === 'draft').length;
   return (
@@ -314,6 +518,7 @@ function StepProductDetails({
   onSaved: (id: string) => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
+  const queryClient = useQueryClient();
   const { data: tests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const { data: quizzes } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
 
@@ -454,6 +659,25 @@ function StepProductDetails({
           ))}
         </select>
       </Field>
+
+      {certification ? (
+        <BatchedSeriesPanel
+          certificationId={certification.id}
+          examName={shortName || name}
+          category={effectiveCategory}
+          currentSeriesId={certification.seriesId ?? null}
+          onGenerated={() => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
+            queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
+            queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
+            onDirty();
+          }}
+        />
+      ) : (
+        <p className="rounded-xl border border-surface-border bg-surface-raised px-4 py-3 text-xs text-ink-faint">
+          Save this certification as a draft first to upload a batched question set.
+        </p>
+      )}
 
       <Field label="Short description">
         <textarea
@@ -624,6 +848,7 @@ function packageToValues(pkg: PackageAdminRow): TemplateValues {
     isRecommended: pkg.isRecommended,
     benefitsOverride: pkg.includedFeatures.length ? pkg.includedFeatures : null,
     badgeText: pkg.badgeText,
+    comboDiscount: pkg.comboDiscount ?? null,
   };
 }
 
@@ -684,15 +909,17 @@ function StepPackages({
     const m = templatePackages.mock?.sellingPrice ?? 0;
     return p + m > 0 && c.sellingPrice !== p + m;
   });
+  const comboDiscount = cards.complete.values.comboDiscount;
   useEffect(() => {
     if (completePriceTouched || partsSelling <= 0) return;
     setCards((c) => {
       const v = c.complete.values;
-      const nextRegular = partsRegular > partsSelling ? partsRegular : null;
-      if (v.sellingPrice === partsSelling && v.regularPrice === nextRegular) return c;
-      return { ...c, complete: { ...c.complete, values: { ...v, sellingPrice: partsSelling, regularPrice: nextRegular } } };
+      const nextSelling = applyComboDiscount(partsSelling, v.comboDiscount);
+      const nextRegular = partsRegular > nextSelling ? partsRegular : null;
+      if (v.sellingPrice === nextSelling && v.regularPrice === nextRegular) return c;
+      return { ...c, complete: { ...c.complete, values: { ...v, sellingPrice: nextSelling, regularPrice: nextRegular } } };
     });
-  }, [partsSelling, partsRegular, completePriceTouched]);
+  }, [partsSelling, partsRegular, completePriceTouched, comboDiscount]);
 
   const saveMutation = useMutation({
     mutationFn: async (id: TemplateId) => {
@@ -701,8 +928,16 @@ function StepPackages({
       const existing = templatePackages[id];
       const payload = templateToCreatePayload(id, v, {
         certificationId: certification.id,
-        practiceBankId: certification.practiceBankId,
-        mockBankId: certification.mockBankId,
+        practiceBankIds: certification.practiceBankIds?.length
+          ? certification.practiceBankIds
+          : certification.practiceBankId
+            ? [certification.practiceBankId]
+            : [],
+        mockBankIds: certification.mockBankIds?.length
+          ? certification.mockBankIds
+          : certification.mockBankId
+            ? [certification.mockBankId]
+            : [],
         eligiblePracticeQuestions,
         defaultValidityDays: certification.defaultValidityDays,
         currency: existing?.currency ?? 'INR',
@@ -731,6 +966,7 @@ function StepPackages({
           existing={templatePackages[id] ?? null}
           certification={certification}
           eligiblePracticeQuestions={eligiblePracticeQuestions === Number.MAX_SAFE_INTEGER ? 0 : eligiblePracticeQuestions}
+          partsSellingMinor={partsSelling}
           onToggle={(enabled) => setCard(id, { enabled })}
           onValue={(k, val) => setValue(id, k, val)}
           onSave={() => saveMutation.mutate(id)}
@@ -753,6 +989,7 @@ function TemplateCard({
   existing,
   certification,
   eligiblePracticeQuestions,
+  partsSellingMinor,
   onToggle,
   onValue,
   onSave,
@@ -763,6 +1000,7 @@ function TemplateCard({
   existing: PackageAdminRow | null;
   certification: CertificationAdminRow;
   eligiblePracticeQuestions: number;
+  partsSellingMinor: number;
   onToggle: (enabled: boolean) => void;
   onValue: <K extends keyof TemplateValues>(key: K, value: TemplateValues[K]) => void;
   onSave: () => void;
@@ -799,9 +1037,13 @@ function TemplateCard({
             </p>
           )}
           {id === 'complete' && (
-            <p className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-xs text-[#155EEF] dark:bg-[#155EEF]/10">
-              The price is kept as Practice Questions + Mock Exams automatically. Edit it below to override.
-            </p>
+            <div className="space-y-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-xs text-[#155EEF] dark:bg-[#155EEF]/10">
+              <p>
+                The price is kept as Practice Questions + Mock Exams (₹{minorToMajor(partsSellingMinor)}) minus the combo
+                saving below, until you type a price by hand.
+              </p>
+              <ComboSavingField value={v.comboDiscount} onChange={(d) => onValue('comboDiscount', d)} />
+            </div>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Selling price (₹)">
@@ -810,8 +1052,8 @@ function TemplateCard({
             <Field label="Regular price (₹, optional)" hint="Shown struck-through as the 'was' price.">
               <input type="number" min={0} value={money(v.regularPrice)} onChange={(e) => setMoney('regularPrice', e.target.value)} className="input-dark" />
             </Field>
-            <Field label="Validity (days)">
-              <input type="number" min={1} value={v.validityDays} onChange={(e) => onValue('validityDays', Number(e.target.value) || 0)} className="input-dark" />
+            <Field label="Access validity">
+              <ValiditySelect days={v.validityDays} onChange={(d) => onValue('validityDays', d)} />
             </Field>
             {def.fields.numberOfQuestions && (
               <Field label="Number of questions" hint={eligiblePracticeQuestions ? `Bank has ${eligiblePracticeQuestions.toLocaleString()} eligible` : undefined}>

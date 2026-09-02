@@ -269,6 +269,24 @@ export interface QuizDoc {
   // this field (api/quiz-session.ts's previewCheckAnswer falls back the
   // same way).
   previewQuestionCount: number;
+  // Set on quizzes generated as one of a certification's mock-exam batches
+  // (see ContentSeriesDoc / api/content-admin.ts's createBatchedSeries).
+  // `isMock` is display-only; `shufflePerAttempt` makes api/quiz-session.ts's
+  // startAttempt randomise question + option order for that attempt and
+  // snapshot the order onto the quizAttempts doc. Absent on every
+  // single-upload quiz.
+  isMock?: boolean;
+  shufflePerAttempt?: boolean;
+  // Series batches are `price: 0` (they are sold only inside a
+  // certification package, never individually), so this flag - not the
+  // price - is what makes the paywall in api/quiz-session.ts require a
+  // purchases/ record. Listing pages show "Unlock with a package" instead
+  // of a Buy button for a non-owned entitlement-gated item.
+  requiresEntitlement?: boolean;
+  // The content series this doc belongs to, and its 1-based position within
+  // that series' mock list. Absent on single-upload quizzes.
+  seriesId?: string;
+  batchIndex?: number;
   // How many separate attempts a student may start for this quiz - real
   // field replacing what used to be a hardcoded "1 attempt" assumption on
   // the student home page and an "any prior attempt blocks a new one" gate
@@ -335,6 +353,34 @@ export interface PracticeTestDoc {
   // See QuizDoc.accessPeriodDays - same convention (0 = Lifetime access,
   // display/audit only, defaults to 0 on older docs).
   accessPeriodDays?: number;
+  // Set on practice tests generated as one of a certification's practice
+  // batches (see ContentSeriesDoc). `batchIndex` is the 1-based position;
+  // the learner picks "Practice Exam <batchIndex>" from the list. Absent on
+  // single-upload practice tests. `requiresEntitlement` - see QuizDoc.
+  seriesId?: string;
+  batchIndex?: number;
+  requiresEntitlement?: boolean;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** contentSeries/{seriesId} - the manifest for one uploaded question doc
+ *  that api/content-admin.ts's createBatchedSeries split into several
+ *  practice-test batches and several mock-exam batches. Lets the admin
+ *  editor show "10 practice batches, 5 mock exams" and re-generate/replace
+ *  the set. The questions themselves live only on the individual
+ *  practiceTests/{id} and quizzes/{id} docs this manifest points at. */
+export interface ContentSeriesDoc {
+  certificationId: string;
+  examName: string;
+  category: string;
+  sourceFileUrl: string;
+  sourceFormat: QuestionSourceFormat;
+  totalQuestions: number;
+  practiceBatchSize: number;
+  practiceTestIds: string[];
+  mockQuizIds: string[];
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -447,6 +493,13 @@ export interface CertificationDoc {
   // for what a purchase actually grants - these are a convenience pointer.
   practiceBankId: string | null;
   mockBankId: string | null;
+  // The full set of practice-batch / mock-batch bank ids when this
+  // certification's content came from a batched upload (ContentSeriesDoc).
+  // `practiceBankId` / `mockBankId` stay populated with the first id for
+  // any older reader. Empty on certifications that link a single bank.
+  practiceBankIds?: string[];
+  mockBankIds?: string[];
+  seriesId?: string | null;
   contentVersions: ContentVersionDoc[];
   mockBlueprints: MockBlueprintDoc[];
   // Derived from `status` at write time - never the field the admin portal
@@ -706,10 +759,17 @@ export interface PurchaseDoc {
   purchasedAt: Timestamp;
   // Set only when this purchase doc was written as part of a Package's
   // fan-out (see PackageDoc) rather than a direct individual purchase -
-  // purely for audit/display ("unlocked via the CISA Complete package"),
-  // never read by any entitlement gate. Absent on every purchase made
-  // before packages existed, and on every direct (non-package) purchase.
+  // used for audit/display ("unlocked via the CISA Complete package") and
+  // to distinguish package-derived access (which can expire) from a direct
+  // purchase (lifetime). Absent on every purchase made before packages
+  // existed, and on every direct (non-package) purchase.
   sourcePackageId?: string;
+  // When package-derived access lapses: purchasedAt + the package's
+  // accessValidityDays. null / absent = no expiry (a direct purchase, or a
+  // package with validity 0). Every entitlement gate treats
+  // `expiresAt && expiresAt < now` as not-owned; buying the package again
+  // overwrites this doc with a fresh window.
+  expiresAt?: Timestamp | null;
 }
 
 /** reviews/{uid}_{itemType}_{itemId} - one student's rating/review of one

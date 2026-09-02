@@ -43,6 +43,24 @@ const Err = {
   paymentRequired: (m = 'This quiz must be purchased first') => new HttpError(402, m),
 };
 
+// A package-derived purchase carries an expiresAt (purchasedAt + the
+// package's accessValidityDays); a direct purchase has none (lifetime).
+// Mirrors validateCoupon's expiry check in api/cart.ts.
+function isPurchaseExpired(data: FirebaseFirestore.DocumentData | undefined): boolean {
+  const exp = data?.expiresAt as Timestamp | undefined | null;
+  return !!exp && exp.toMillis() < Date.now();
+}
+
+// Fisher-Yates - see src/utils/shuffle.ts for the tested reference.
+function shuffleArray<T>(input: T[]): T[] {
+  const a = [...input];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 async function requireStudent(req: VercelRequest): Promise<{ uid: string; name: string }> {
   const authHeader = req.headers.authorization ?? '';
   const token = (Array.isArray(authHeader) ? authHeader[0] : authHeader).replace(/^Bearer\s+/i, '');
@@ -78,9 +96,11 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
   // is the actual enforcement point. The client-side "Start Quiz" gate is
   // just UX; someone could hit this endpoint directly, so it's re-checked
   // here regardless of what the client claims.
-  if ((quiz.price ?? 0) > 0) {
+  if ((quiz.price ?? 0) > 0 || quiz.requiresEntitlement) {
     const purchaseSnap = await db.collection('purchases').doc(`${uid}_quiz_${quizId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
+    if (!purchaseSnap.exists || isPurchaseExpired(purchaseSnap.data())) {
+      throw Err.paymentRequired(quiz.requiresEntitlement ? 'Unlock this mock exam with a certification package' : undefined);
+    }
   }
 
   const now = Timestamp.now();
@@ -115,6 +135,23 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
   const totalMinutes =
     quiz.durationType === 'per_question' ? quiz.durationMinutes * quiz.totalQuestions : quiz.durationMinutes;
 
+  // Mock exams shuffle every attempt: a randomised question order plus a
+  // randomised option order per question, snapshotted onto the attempt so a
+  // refresh is stable. Grading (saveAnswer / finalizeAttempt) is by id, so
+  // the answer key still matches. Non-mock quizzes keep the natural
+  // `order`-based sequence (questionOrder stays null).
+  let questionOrder: string[] | null = null;
+  let optionOrder: Record<string, string[]> | null = null;
+  if (quiz.shufflePerAttempt) {
+    const qSnap = await db.collection('quizzes').doc(quizId).collection('questions').get();
+    questionOrder = shuffleArray(qSnap.docs.map((d) => d.id));
+    optionOrder = {};
+    for (const d of qSnap.docs) {
+      const opts = (d.data().options ?? []) as { id: string }[];
+      optionOrder[d.id] = shuffleArray(opts.map((o) => o.id));
+    }
+  }
+
   const attemptRef = db.collection('quizAttempts').doc();
   const attempt = {
     userId: uid,
@@ -133,6 +170,8 @@ async function startAttempt(uid: string, userName: string, body: unknown) {
     marks: 0,
     durationSeconds: 0,
     exitCount: 0,
+    questionOrder,
+    optionOrder,
   };
   await attemptRef.set(attempt);
 

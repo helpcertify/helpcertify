@@ -18,6 +18,11 @@ export interface QuizAttemptState {
   marks: number;
   durationSeconds: number;
   exitCount: number;
+  // Set only for a shuffled mock attempt: the question ids in the order to
+  // present them, and per question the option ids in shuffled order. null
+  // for a normal quiz (present by natural `order`).
+  questionOrder?: string[] | null;
+  optionOrder?: Record<string, string[]> | null;
 }
 
 export const quizSessionApi = {

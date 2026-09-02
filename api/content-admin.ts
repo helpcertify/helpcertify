@@ -932,6 +932,185 @@ const mockBlueprintSchema = z.object({
   status: z.enum(['draft', 'active']).default('draft'),
 });
 
+// --- Batched question-set upload -----------------------------------------
+// One uploaded doc -> N practice-test batches + M mock-exam batches, all
+// separate practiceTests/quizzes docs so every existing session/paywall/
+// certificate path keeps working. Partition logic mirrors the tested
+// src/features/admin/lib/seriesPartition.ts (no cross-imports across
+// api/*.ts).
+
+const createBatchedSeriesSchema = z.object({
+  certificationId: z.string().min(1),
+  fileUrl: z.string().url(),
+  sourceFormat: z.enum(['standard', 'cisa_qa']).default('standard'),
+  examName: z.string().trim().max(100).default(''),
+  category: z.string().trim().min(1).max(100).default('Other'),
+  practiceBatchSize: z.number().int().min(1).max(500).default(150),
+  mockCount: z.number().int().min(1).max(20).default(5),
+  mockBatchSize: z.number().int().min(1).max(500).default(150),
+  mockDurationMinutes: z.number().int().min(1).max(600).default(240),
+  passMarkPercent: z.number().int().min(0).max(100).default(60),
+  previewQuestionCount: z.number().int().min(0).max(200).default(5),
+  durationPerSessionMinutes: z.number().int().min(1).max(600).nullable().default(null),
+});
+
+function contiguousRanges(total: number, size: number): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (let start = 0; start < total; start += size) out.push({ start, end: Math.min(start + size, total) });
+  return out;
+}
+
+async function createBatchedSeries(uid: string, body: unknown) {
+  const parsed = createBatchedSeriesSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const certRef = db.collection('certifications').doc(d.certificationId);
+  const certSnap = await certRef.get();
+  if (!certSnap.exists) throw Err.notFound('Certification not found');
+
+  const {
+    result: { valid, errors, warnings },
+    detectedFormat,
+  } = await fetchAndParse(d.fileUrl);
+  if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
+
+  const now = FieldValue.serverTimestamp();
+  const farFuture = Timestamp.fromMillis(Date.now() + 3650 * 24 * 60 * 60 * 1000);
+  const name = d.examName || (certSnap.data()!.shortName as string) || 'Exam';
+  const seriesRef = db.collection('contentSeries').doc();
+
+  // Practice batches: every question, contiguous, 150 each (last may be short).
+  const practiceTestIds: string[] = [];
+  const practiceRanges = contiguousRanges(valid.length, d.practiceBatchSize);
+  for (let i = 0; i < practiceRanges.length; i++) {
+    const { start, end } = practiceRanges[i];
+    const slice = valid.slice(start, end).map((q, k) => ({ ...q, order: k + 1 }));
+    const ref = db.collection('practiceTests').doc();
+    await ref.set({
+      title: `${name} - Practice Exam ${i + 1}`,
+      availableFrom: Timestamp.now(),
+      availableUntil: farFuture,
+      durationPerSessionMinutes: d.durationPerSessionMinutes,
+      defaultInitialBatchSize: Math.min(25, slice.length),
+      sourceFormat: detectedFormat,
+      totalQuestions: slice.length,
+      price: 0,
+      originalPrice: null,
+      currency: 'INR',
+      category: d.category,
+      skillLevel: 'Foundation',
+      description: `Practice Exam ${i + 1} of ${practiceRanges.length} for ${name}.`,
+      examName: name,
+      ratingAvg: 0,
+      ratingCount: 0,
+      previewQuestionCount: d.previewQuestionCount,
+      revisionBufferDays: 3,
+      defaultMinutesPerQuestion: 1.8,
+      studyPlannerEnabled: true,
+      accessPeriodDays: 0,
+      requiresEntitlement: true,
+      seriesId: seriesRef.id,
+      batchIndex: i + 1,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeQuestionsBatch(ref, slice);
+    practiceTestIds.push(ref.id);
+  }
+
+  // Mock batches: the first mockCount * mockBatchSize questions, split into
+  // non-overlapping fixed sets; shuffled per attempt (api/quiz-session.ts).
+  const mockQuizIds: string[] = [];
+  const mockRanges = contiguousRanges(Math.min(valid.length, d.mockCount * d.mockBatchSize), d.mockBatchSize).slice(
+    0,
+    d.mockCount,
+  );
+  for (let i = 0; i < mockRanges.length; i++) {
+    const { start, end } = mockRanges[i];
+    const slice = valid.slice(start, end).map((q, k) => ({ ...q, order: k + 1 }));
+    const ref = db.collection('quizzes').doc();
+    await ref.set({
+      title: `${name} - Mock Exam ${i + 1}`,
+      code: generateCode(),
+      sourceFormat: detectedFormat,
+      totalQuestions: slice.length,
+      enforceSequentialNav: false,
+      showImmediateResult: false,
+      showFinalScore: true,
+      durationType: 'overall',
+      durationMinutes: d.mockDurationMinutes,
+      scheduledStart: null,
+      isPublished: true,
+      antiCheat: { blockAltTab: true },
+      price: 0,
+      originalPrice: null,
+      currency: 'INR',
+      category: d.category,
+      skillLevel: 'Foundation',
+      description: `Full-length timed mock exam ${i + 1} of ${mockRanges.length} for ${name}. Questions and options are shuffled each attempt.`,
+      ratingAvg: 0,
+      ratingCount: 0,
+      passMarkPercent: d.passMarkPercent,
+      previewQuestionCount: d.previewQuestionCount,
+      maxAttempts: 3,
+      accessPeriodDays: 0,
+      isMock: true,
+      shufflePerAttempt: true,
+      requiresEntitlement: true,
+      seriesId: seriesRef.id,
+      batchIndex: i + 1,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeQuestionsBatch(ref, slice);
+    mockQuizIds.push(ref.id);
+  }
+
+  await seriesRef.set({
+    certificationId: d.certificationId,
+    examName: name,
+    category: d.category,
+    sourceFileUrl: d.fileUrl,
+    sourceFormat: detectedFormat,
+    totalQuestions: valid.length,
+    practiceBatchSize: d.practiceBatchSize,
+    practiceTestIds,
+    mockQuizIds,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await certRef.update({
+    seriesId: seriesRef.id,
+    practiceBankIds: practiceTestIds,
+    mockBankIds: mockQuizIds,
+    practiceBankId: practiceTestIds[0] ?? null,
+    mockBankId: mockQuizIds[0] ?? null,
+    updatedAt: now,
+  });
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'createBatchedSeries',
+    targetType: 'certification',
+    targetId: d.certificationId,
+    description: `Uploaded ${valid.length} questions for "${name}" - ${practiceTestIds.length} practice batches, ${mockQuizIds.length} mock exams`,
+  });
+
+  return {
+    seriesId: seriesRef.id,
+    practiceTestIds,
+    mockQuizIds,
+    totalQuestions: valid.length,
+    parseErrors: errors,
+    parseWarnings: warnings,
+  };
+}
+
 const createCertificationSchema = z.object({
   shortName: z.string().trim().min(1).max(50),
   name: z.string().trim().min(2).max(200),
@@ -1261,7 +1440,19 @@ async function duplicateCertification(uid: string, body: unknown) {
 async function listCertificationsAdmin() {
   const snap = await db.collection('certifications').orderBy('displayOrder').get();
   await resolveScheduledCertifications(snap.docs);
-  return { certifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+  return {
+    certifications: snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        // Normalise the batched-series fields so the client type is always satisfied.
+        practiceBankIds: (data.practiceBankIds as string[] | undefined) ?? (data.practiceBankId ? [data.practiceBankId] : []),
+        mockBankIds: (data.mockBankIds as string[] | undefined) ?? (data.mockBankId ? [data.mockBankId] : []),
+        seriesId: (data.seriesId as string | undefined) ?? null,
+      };
+    }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1481,6 +1672,10 @@ const packageAccessSchema = {
   taxTreatment: z.enum(['inclusive', 'exclusive', 'exempt']).default('inclusive'),
   isFree: z.boolean().default(false),
   currency: z.enum(['INR', 'USD']).default('INR'),
+  // Complete-only: what the admin waived off (Practice + Mock) when pricing
+  // the combo. Display/round-trip only - `sellingPrice` already carries the
+  // final figure. null on every other package.
+  comboDiscount: z.object({ mode: z.enum(['percent', 'amount']), value: z.number().int().min(0) }).nullable().default(null),
 };
 
 const createPackageSchema = z.object({
@@ -1629,6 +1824,7 @@ async function createPackage(uid: string, body: unknown) {
     renewalPrice: d.renewalPrice ?? null,
     taxTreatment: d.taxTreatment,
     isFree: d.isFree,
+    comboDiscount: d.comboDiscount ?? null,
     status: 'draft' as const,
     isPublished: false,
     // Bridge fields - see PackageDoc's own comment. Kept in sync with
@@ -1695,6 +1891,7 @@ const updatePackageSchema = z.object({
   taxTreatment: z.enum(['inclusive', 'exclusive', 'exempt']).optional(),
   isFree: z.boolean().optional(),
   currency: z.enum(['INR', 'USD']).optional(),
+  comboDiscount: z.object({ mode: z.enum(['percent', 'amount']), value: z.number().int().min(0) }).nullable().optional(),
 });
 
 async function updatePackage(uid: string, body: unknown) {
@@ -2043,6 +2240,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updatePracticeTestQuestion':
         res.status(200).json(await updatePracticeTestQuestion(uid, data));
+        return;
+      case 'createBatchedSeries':
+        res.status(200).json(await createBatchedSeries(uid, data));
         return;
       case 'createCertification':
         res.status(200).json(await createCertification(uid, data));
