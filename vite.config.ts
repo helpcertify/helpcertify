@@ -1,8 +1,30 @@
 /// <reference types="vitest/config" />
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+
+// Stamps every client build with an id and drops a /version.json next to
+// index.html. The running app polls that file and reloads itself when the
+// id changes, so an already-open tab picks up a new deploy without the
+// visitor pressing refresh (see src/lib/autoUpdate.ts). No service worker
+// is involved - that path caused a reload loop before (see the note below
+// and public/sw.js).
+function buildVersionPlugin(): Plugin {
+  const buildId = (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 12) || String(Date.now());
+  let isSsrBuild = false;
+  return {
+    name: 'hc-build-version',
+    config: () => ({ define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId) } }),
+    configResolved: (c) => {
+      isSsrBuild = !!c.build.ssr;
+    },
+    generateBundle() {
+      if (isSsrBuild) return; // only the real client build, not the prerender SSR pass
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ v: buildId }) });
+    },
+  };
+}
 
 // __dirname isn't a native global in an ESM module (this package is
 // "type": "module") — computing it explicitly from import.meta.url is safe
@@ -18,6 +40,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    buildVersionPlugin(),
     // vite-plugin-pwa (VitePWA) used to run here, most recently as a
     // selfDestroying:true kill switch for a past incident (a broken build
     // got precached by the old autoUpdate service worker and stranded

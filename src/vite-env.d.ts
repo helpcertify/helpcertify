@@ -8,6 +8,9 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_USE_FIREBASE_EMULATORS: string;
+  // Injected at build time by buildVersionPlugin in vite.config.ts.
+  // undefined under `vite dev`.
+  readonly VITE_BUILD_ID?: string;
 }
 
 interface ImportMeta {

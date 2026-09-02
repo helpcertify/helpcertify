@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import { App } from './app/App';
+import { startAutoUpdate } from '@/lib/autoUpdate';
 import '@/styles/globals.css';
 
 const rootElement = document.getElementById('root');
@@ -20,3 +21,5 @@ if (rootElement.firstElementChild) {
 } else {
   createRoot(rootElement).render(app);
 }
+
+startAutoUpdate();

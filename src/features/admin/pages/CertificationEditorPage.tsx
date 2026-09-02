@@ -78,6 +78,15 @@ export function CertificationEditorPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  // Hold off the auto-update reload (src/lib/autoUpdate.ts) while this
+  // multi-step form has unsaved edits so a mid-deploy poll can't discard them.
+  useEffect(() => {
+    (window as unknown as { __hcUnsaved?: boolean }).__hcUnsaved = dirty;
+    return () => {
+      (window as unknown as { __hcUnsaved?: boolean }).__hcUnsaved = false;
+    };
+  }, [dirty]);
+
   const { data: certData } = useQuery({ queryKey: ['admin', 'certifications'], queryFn: contentAdminApi.listCertificationsAdmin });
   const allCerts = certData?.certifications ?? [];
   const certification = certificationId ? allCerts.find((c) => c.id === certificationId) ?? null : null;
