@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { useCertificationCatalog } from '../api/certificationCatalogApi';
@@ -97,7 +98,7 @@ export function StudentHomePage() {
     enabled: !!uid,
   });
 
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
   // All three buckets, not just "available" - a plan set on a test whose
   // window has since lapsed should still resolve to real data instead of
@@ -185,7 +186,11 @@ export function StudentHomePage() {
 
   // Upcoming Mock Exams - owned quizzes not yet attempted at all.
   const upcomingMockExams = (quizzes ?? [])
-    .filter((q) => ((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`)) && !attemptByQuizId.get(q.id))
+    .filter(
+      (q) =>
+        (purchasedSet.has(`quiz_${q.id}`) || ((q.price ?? 0) === 0 && !q.requiresEntitlement)) &&
+        !attemptByQuizId.get(q.id),
+    )
     .slice(0, 4);
 
   const hasMissionData = !!(primaryPlan && primaryTest && dailyTarget > 0);

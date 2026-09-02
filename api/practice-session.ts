@@ -42,6 +42,29 @@ const Err = {
   paymentRequired: (m = 'This practice test must be purchased first') => new HttpError(402, m),
 };
 
+// Central practice-test paywall. A test is gated when it has a price OR
+// carries requiresEntitlement (batched series batches are price 0 and rely
+// on a package purchase). A package purchase doc can also carry expiresAt;
+// once past, access is gone. Returns whether a live purchase exists,
+// throws paymentRequired otherwise.
+async function assertPracticeAccess(
+  uid: string,
+  testId: string,
+  test: FirebaseFirestore.DocumentData,
+): Promise<boolean> {
+  const entitlementOnly = (test.price ?? 0) <= 0 && !!test.requiresEntitlement;
+  if ((test.price ?? 0) <= 0 && !test.requiresEntitlement) return false;
+  const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
+  const exp = purchaseSnap.data()?.expiresAt as Timestamp | undefined | null;
+  const expired = !!exp && exp.toMillis() < Date.now();
+  if (!purchaseSnap.exists || expired) {
+    throw Err.paymentRequired(
+      entitlementOnly ? 'Unlock this practice exam with a certification package' : undefined,
+    );
+  }
+  return true;
+}
+
 async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
   const authHeader = req.headers.authorization ?? '';
   const token = (Array.isArray(authHeader) ? authHeader[0] : authHeader).replace(/^Bearer\s+/i, '');
@@ -103,14 +126,10 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
   const test = testSnap.data()!;
 
-  // Paid tests need a purchases/ record before a batch can start - the
-  // actual enforcement point (the client-side gate is just UX).
-  let alreadyPurchased = false;
-  if ((test.price ?? 0) > 0) {
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
-    alreadyPurchased = purchaseSnap.exists;
-    if (!alreadyPurchased) throw Err.paymentRequired();
-  }
+  // Paid / entitlement-gated tests need a live purchases/ record before a
+  // batch can start - the actual enforcement point (the client-side gate
+  // is just UX).
+  const alreadyPurchased = await assertPracticeAccess(uid, testId, test);
 
   const now = Timestamp.now();
   if ((test.availableFrom as Timestamp).toMillis() > now.toMillis()) {
@@ -198,10 +217,7 @@ async function reattemptLastBatch(uid: string, body: unknown) {
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
 
-  if ((testSnap.data()!.price ?? 0) > 0) {
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
-  }
+  await assertPracticeAccess(uid, testId, testSnap.data()!);
 
   const { progress } = await getOrCreateProgress(uid, testId);
   if (progress.lastBatchQuestionIds.length === 0) throw Err.failedPrecondition('No previous batch to reattempt');
@@ -244,10 +260,7 @@ async function startMasteryBatch(uid: string, body: unknown) {
 
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
-  if ((testSnap.data()!.price ?? 0) > 0) {
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
-  }
+  await assertPracticeAccess(uid, testId, testSnap.data()!);
 
   const { progress } = await getOrCreateProgress(uid, testId);
   const incorrectQuestionIds = (progress.incorrectQuestionIds as string[] | undefined) ?? [];
@@ -295,10 +308,7 @@ async function startWeakAreasBatch(uid: string, body: unknown) {
 
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
-  if ((testSnap.data()!.price ?? 0) > 0) {
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
-  }
+  await assertPracticeAccess(uid, testId, testSnap.data()!);
 
   const { progress } = await getOrCreateProgress(uid, testId);
   const questionStats = (progress.questionStats ?? {}) as Record<string, { attempts: number; correct: number }>;
@@ -343,10 +353,7 @@ async function startRevisionCycle(uid: string, body: unknown) {
   const testSnap = await db.collection('practiceTests').doc(testId).get();
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
   const test = testSnap.data()!;
-  if ((test.price ?? 0) > 0) {
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${testId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
-  }
+  await assertPracticeAccess(uid, testId, test);
 
   const { progress } = await getOrCreateProgress(uid, testId);
   const answeredCount = (progress.answeredQuestionIds as string[] | undefined)?.length ?? 0;
@@ -600,10 +607,7 @@ async function saveStudyPlan(uid: string, body: unknown) {
   if (!testSnap.exists) throw Err.notFound('Practice test not found');
   const test = testSnap.data()!;
 
-  if ((test.price ?? 0) > 0) {
-    const purchaseSnap = await db.collection('purchases').doc(`${uid}_practiceTest_${d.testId}`).get();
-    if (!purchaseSnap.exists) throw Err.paymentRequired();
-  }
+  await assertPracticeAccess(uid, d.testId, test);
 
   const { progress } = await getOrCreateProgress(uid, d.testId);
   // A progress doc can exist (created by startOrResumeBatch's merge-set)

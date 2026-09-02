@@ -15,6 +15,7 @@ import { Spinner } from '@/components/common/Spinner';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import { PrimaryGoalStatRow } from '../components/PrimaryGoalStatRow';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 import type { PracticeTestDoc } from '@/types/models';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
@@ -66,7 +67,7 @@ export function PracticeTestsPage() {
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
   const progressByTestId = new Map((progressDocs ?? []).map((p) => [p.testId, p]));
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
 
   // A purchase is permanent access - the admin's availability window can't

@@ -8,6 +8,7 @@ import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
@@ -44,7 +45,7 @@ export function MockExamsPage() {
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
 
   const filtered = (quizzes ?? []).filter((quiz) => {

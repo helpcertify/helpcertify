@@ -309,6 +309,9 @@ async function listMyPurchases(uid: string) {
       // Added for Billing & Orders' fuller product cards (purchase date) -
       // was already stored on every purchase doc, just never returned here.
       purchasedAt: d.data().purchasedAt as unknown,
+      // Set on package-sourced purchases with a validity window. Absent /
+      // null = lifetime. Client treats a past expiresAt as not-owned.
+      expiresAt: (d.data().expiresAt ?? null) as unknown,
     })),
   };
 }
@@ -339,7 +342,17 @@ async function getLearnerCatalog(uid: string) {
     db.collection('carts').doc(uid).get(),
   ]);
 
-  const ownedSet = new Set(purchasesSnap.docs.map((d) => `${d.data().itemType}_${d.data().itemId}`));
+  // An expired package purchase (expiresAt in the past) no longer counts as
+  // owned - the package shows as re-buyable and its content re-locks.
+  const now = Date.now();
+  const ownedSet = new Set(
+    purchasesSnap.docs
+      .filter((d) => {
+        const exp = d.data().expiresAt as Timestamp | undefined | null;
+        return !exp || exp.toMillis() >= now;
+      })
+      .map((d) => `${d.data().itemType}_${d.data().itemId}`),
+  );
   const cartItems = (cartSnap.exists ? (cartSnap.data()!.items as { itemType: ItemType; itemId: string }[]) : []);
   const cartPackageIds = new Set(cartItems.filter((i) => i.itemType === 'package').map((i) => i.itemId));
 

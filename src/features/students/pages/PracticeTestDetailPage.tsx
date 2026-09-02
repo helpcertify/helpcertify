@@ -20,6 +20,7 @@ import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes, calendarDaysBetween } from '../lib/studyPlan';
 import type { PracticeConfidence } from '@/types/models';
 
@@ -153,10 +154,11 @@ export function PracticeTestDetailPage() {
   }
 
   const price = test.price ?? 0;
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
   const purchased = purchasedSet.has(`practiceTest_${test.id}`);
-  const owned = price === 0 || purchased;
+  const entitlementLocked = !!test.requiresEntitlement && !purchased;
+  const owned = purchased || (price === 0 && !test.requiresEntitlement);
   const inCart = inCartSet.has(`practiceTest_${test.id}`);
 
   const now = Date.now();
@@ -346,6 +348,7 @@ export function PracticeTestDetailPage() {
             price={price}
             state={state}
             owned={owned}
+            entitlementLocked={entitlementLocked}
             inCart={inCart}
             paying={paying}
             addingToCart={addToCartMutation.isPending}
@@ -650,6 +653,7 @@ function CourseAccessCard({
   price,
   state,
   owned,
+  entitlementLocked,
   inCart,
   paying,
   addingToCart,
@@ -660,6 +664,7 @@ function CourseAccessCard({
   price: number;
   state: 'available' | 'upcoming' | 'expired';
   owned: boolean;
+  entitlementLocked?: boolean;
   inCart: boolean;
   paying: boolean;
   addingToCart: boolean;
@@ -682,7 +687,14 @@ function CourseAccessCard({
         </div>
       )}
 
-      {state !== 'available' ? (
+      {entitlementLocked ? (
+        <Link
+          to="/home"
+          className="block rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+        >
+          Unlock with a package
+        </Link>
+      ) : state !== 'available' ? (
         <div className="rounded-lg bg-[#FFF7ED] px-3 py-2.5 text-center text-sm text-[#C2410C]">
           🔒 {state === 'expired' ? 'Expired' : 'Upcoming'}. Available {formatDate(test.availableFrom)} → {formatDate(test.availableUntil)}
         </div>

@@ -158,6 +158,11 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
       if (!pkgData) continue; // package deleted between order creation and payment - nothing to grant
       const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
       const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
+      // Time-boxed package access: purchasedAt + accessValidityDays, null
+      // for a package with no validity set. Mirrors api/checkout.ts.
+      const validityDays: number = pkgData.accessValidityDays ?? 0;
+      const pkgExpiresAt =
+        validityDays > 0 ? Timestamp.fromMillis(Date.now() + validityDays * 24 * 60 * 60 * 1000) : null;
       for (const quizId of includedQuizIds) {
         batch.set(db.collection('purchases').doc(`${order.userId}_quiz_${quizId}`), {
           userId: order.userId,
@@ -166,6 +171,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
           orderId,
           purchasedAt: Timestamp.now(),
           sourcePackageId: item.itemId,
+          expiresAt: pkgExpiresAt,
         });
       }
       for (const testId of includedPracticeTestIds) {
@@ -176,6 +182,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
           orderId,
           purchasedAt: Timestamp.now(),
           sourcePackageId: item.itemId,
+          expiresAt: pkgExpiresAt,
         });
       }
       continue;

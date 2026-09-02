@@ -27,6 +27,8 @@ interface PurchasedItem {
   price: number;
   currency: 'INR' | 'USD';
   purchasedAt: unknown;
+  // Set for package-sourced purchases with a validity window. null = lifetime.
+  expiresAt: unknown;
   answered: number;
 }
 
@@ -82,6 +84,7 @@ export function MyPurchasesPage() {
             price: (data.price as number) ?? 0,
             currency: (data.currency as 'INR' | 'USD') ?? 'INR',
             purchasedAt: p.purchasedAt,
+            expiresAt: (p.expiresAt ?? null) as unknown,
             answered,
           };
         })
@@ -123,8 +126,17 @@ export function MyPurchasesPage() {
           {items.map((item) => {
             const detailHref = item.itemType === 'quiz' ? `/home/quizzes/${item.id}` : `/home/practice-tests/${item.id}`;
             const done = item.totalQuestions > 0 && item.answered >= item.totalQuestions;
+            const expired = !!item.expiresAt && toDate(item.expiresAt).getTime() < Date.now();
             const extra = (
               <div className="mb-3 space-y-1 text-xs text-[#64748B]">
+                {item.expiresAt != null &&
+                  (expired ? (
+                    <div className="font-semibold text-[#C2410C]">
+                      Expired on {toDate(item.expiresAt).toLocaleDateString()} · buy the package again to renew
+                    </div>
+                  ) : (
+                    <div>Access until {toDate(item.expiresAt).toLocaleDateString()}</div>
+                  ))}
                 <div>
                   📄 {item.totalQuestions} questions ·{' '}
                   {item.itemType === 'quiz'

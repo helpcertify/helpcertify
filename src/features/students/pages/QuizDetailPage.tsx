@@ -17,6 +17,7 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 
 // A fixed 10-question free sample regardless of the admin's own
 // previewQuestionCount setting - same convention as PracticeTestDetailPage,
@@ -78,9 +79,9 @@ export function QuizDetailPage() {
   }
 
   const price = quiz.price ?? 0;
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
-  const owned = price === 0 || purchasedSet.has(`quiz_${quiz.id}`);
+  const owned = purchasedSet.has(`quiz_${quiz.id}`) || (price === 0 && !quiz.requiresEntitlement);
   const inCart = inCartSet.has(`quiz_${quiz.id}`);
   const notYetOpen = quiz.scheduledStart && quiz.scheduledStart.toMillis() > Date.now();
   const previewCount = quiz.previewQuestionCount === 0 ? 0 : SAMPLE_PREVIEW_COUNT;
@@ -151,7 +152,14 @@ export function QuizDetailPage() {
               </div>
             )}
 
-            {!owned ? (
+            {!owned && quiz.requiresEntitlement ? (
+              <Link
+                to="/home"
+                className="block rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+              >
+                Unlock with a package
+              </Link>
+            ) : !owned ? (
               inCart ? (
                 <Link
                   to="/home/cart"

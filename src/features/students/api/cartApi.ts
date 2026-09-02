@@ -33,7 +33,9 @@ export const cartApi = {
   applyCoupon: (code: string) => callAction<CartSummary>('cart', 'applyCoupon', { code }),
   removeCoupon: () => callAction<CartSummary>('cart', 'removeCoupon'),
   listMyPurchases: () =>
-    callAction<{ purchases: { itemType: PurchasableItemType; itemId: string; purchasedAt: unknown }[] }>(
+    callAction<{
+      purchases: { itemType: PurchasableItemType; itemId: string; purchasedAt: unknown; expiresAt?: unknown }[];
+    }>(
       'cart',
       'listMyPurchases'
     ),

@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cartApi } from '@/features/students/api/cartApi';
+import { activePurchaseKeys } from '@/features/students/lib/purchaseAccess';
 import { useCheckout } from '@/features/students/hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
@@ -49,7 +50,7 @@ export function CourseCarousel({ title, items }: CourseCarouselProps) {
 
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const inCartSet = new Set((cart?.items ?? []).map((i) => `${i.itemType}_${i.itemId}`));
 
   useEffect(() => {

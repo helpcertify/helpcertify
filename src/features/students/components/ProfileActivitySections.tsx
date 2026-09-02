@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { toDate } from '@/utils/formatDate';
 import { calendarDaysBetween } from '../lib/studyPlan';
@@ -66,7 +67,7 @@ export function ProfileActivitySections() {
     enabled: !!uid,
   });
 
-  const purchasedSet = new Set((purchases?.purchases ?? []).map((p) => `${p.itemType}_${p.itemId}`));
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const practiceTestById = new Map((practiceBuckets?.available ?? []).map((t) => [t.id, t]));
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
 

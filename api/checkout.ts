@@ -77,7 +77,14 @@ async function isPackageFullyOwned(uid: string, pkg: FirebaseFirestore.DocumentD
     ...includedPracticeTestIds.map((id) => db.collection('purchases').doc(`${uid}_practiceTest_${id}`)),
   ];
   const snaps = await db.getAll(...refs);
-  return snaps.every((s) => s.exists);
+  // An expired package purchase (expiresAt in the past) counts as not owned
+  // so the package shows as re-buyable / "Renew".
+  return snaps.every((s) => s.exists && !isPurchaseExpired(s.data()));
+}
+
+function isPurchaseExpired(data: FirebaseFirestore.DocumentData | undefined): boolean {
+  const exp = data?.expiresAt as Timestamp | undefined | null;
+  return !!exp && exp.toMillis() < Date.now();
 }
 
 function getRazorpayCreds() {
@@ -289,7 +296,7 @@ async function createOrder(uid: string, body: unknown) {
       });
     } else {
       const purchaseSnap = await db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get();
-      if (purchaseSnap.exists) continue; // already owned - don't charge twice
+      if (purchaseSnap.exists && !isPurchaseExpired(purchaseSnap.data())) continue; // already owned - don't charge twice
       orderItems.push({
         itemType: entry.itemType,
         itemId: entry.itemId,
@@ -538,6 +545,12 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
       if (!pkgData) continue; // package deleted between order creation and payment - nothing to grant
       const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
       const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
+      // Package access is time-boxed: purchasedAt + accessValidityDays.
+      // null when the package has no validity set (lifetime). Every
+      // entitlement gate treats `expiresAt && expiresAt < now` as not-owned.
+      const validityDays: number = pkgData.accessValidityDays ?? 0;
+      const pkgExpiresAt =
+        validityDays > 0 ? Timestamp.fromMillis(Date.now() + validityDays * 24 * 60 * 60 * 1000) : null;
       for (const quizId of includedQuizIds) {
         batch.set(db.collection('purchases').doc(`${order.userId}_quiz_${quizId}`), {
           userId: order.userId,
@@ -546,6 +559,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
           orderId,
           purchasedAt: Timestamp.now(),
           sourcePackageId: item.itemId,
+          expiresAt: pkgExpiresAt,
         });
       }
       for (const testId of includedPracticeTestIds) {
@@ -556,6 +570,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
           orderId,
           purchasedAt: Timestamp.now(),
           sourcePackageId: item.itemId,
+          expiresAt: pkgExpiresAt,
         });
       }
       continue;
