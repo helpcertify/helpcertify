@@ -42,6 +42,20 @@ describe('ExamSeriesGroup', () => {
     expect(labels).toEqual(['CISM Practice Exam 01', 'CISM Practice Exam 02', 'CISM Practice Exam 10']);
   });
 
+  it('practice: shows a feedback-mode toggle once expanded', async () => {
+    renderGroup();
+    await userEvent.click(screen.getByRole('button', { name: /CISM.*Practice Exams/ }));
+    expect(screen.getByText('How would you like to practice?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /learn as you go/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review at end/i })).toBeInTheDocument();
+  });
+
+  it('mock: no feedback-mode toggle', async () => {
+    renderGroup({ kind: 'mock' });
+    await userEvent.click(screen.getByRole('button', { name: /CISM.*Mock Exams/ }));
+    expect(screen.queryByText('How would you like to practice?')).not.toBeInTheDocument();
+  });
+
   it('locked state shows only an unlock link', () => {
     renderGroup({ owned: false, entitlementLocked: true });
     expect(screen.getByRole('link', { name: /unlock with a package/i })).toHaveAttribute('href', '/home');
