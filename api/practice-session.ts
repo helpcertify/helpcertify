@@ -586,7 +586,10 @@ const studyDaySchema = z.object({
 });
 
 const saveStudyPlanSchema = z.object({
-  testId: z.string().min(1),
+  // Exactly one of testId / seriesId. seriesId = one goal for the whole
+  // generated series (every batch), stored at studyPlans/{uid}_series_{id}.
+  testId: z.string().min(1).optional(),
+  seriesId: z.string().min(1).optional(),
   planningMode: z.enum(['examDate', 'pace']),
   targetExamDate: z.string().datetime().nullable(),
   paceQuestionsPerDay: z.number().int().min(1).max(2000).nullable(),
@@ -598,43 +601,91 @@ const saveStudyPlanSchema = z.object({
   baselineDailyTarget: z.number().int().min(0).max(5000),
 });
 
+async function sumAnswered(uid: string, testIds: string[]): Promise<number> {
+  if (testIds.length === 0) return 0;
+  const snaps = await db.getAll(...testIds.map((id) => db.collection('practiceProgress').doc(`${uid}_${id}`)));
+  return snaps.reduce((total, s) => total + ((s.data()?.answeredQuestionIds as string[] | undefined)?.length ?? 0), 0);
+}
+
 async function saveStudyPlan(uid: string, body: unknown) {
   const parsed = saveStudyPlanSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
+  if (!d.testId && !d.seriesId) throw Err.invalidArgument('A testId or seriesId is required');
 
-  const testSnap = await db.collection('practiceTests').doc(d.testId).get();
-  if (!testSnap.exists) throw Err.notFound('Practice test not found');
-  const test = testSnap.data()!;
-
-  await assertPracticeAccess(uid, d.testId, test);
-
-  const { progress } = await getOrCreateProgress(uid, d.testId);
-  // A progress doc can exist (created by startOrResumeBatch's merge-set)
-  // before answeredQuestionIds is ever written (that field is only added by
-  // saveAnswer, on the first answered question) - so it can be undefined
-  // here even though the doc itself exists.
-  const baselineAnsweredCount = progress.answeredQuestionIds?.length ?? 0;
-  const revisionBufferDays = test.revisionBufferDays ?? 3;
-
-  const planRef = db.collection('studyPlans').doc(`${uid}_${d.testId}`);
-  const existing = await planRef.get();
   const now = Timestamp.now();
-
-  await planRef.set({
+  const commonFields = {
     userId: uid,
-    testId: d.testId,
     planningMode: d.planningMode,
     targetExamDate: d.targetExamDate ? Timestamp.fromDate(new Date(d.targetExamDate)) : null,
     paceQuestionsPerDay: d.paceQuestionsPerDay,
     paceMinutesPerDay: d.paceMinutesPerDay,
     studyDays: d.studyDays,
-    revisionBufferDays,
     baselineDailyTarget: d.baselineDailyTarget,
-    baselineAnsweredCount,
     baselineDate: now,
-    createdAt: existing.exists ? existing.data()!.createdAt : now,
     updatedAt: now,
+  };
+
+  if (d.seriesId) {
+    const seriesSnap = await db.collection('contentSeries').doc(d.seriesId).get();
+    if (!seriesSnap.exists) throw Err.notFound('Question series not found');
+    const series = seriesSnap.data()!;
+    const batchIds: string[] = series.practiceTestIds ?? [];
+    if (batchIds.length === 0) throw Err.failedPrecondition('This series has no practice batches yet');
+
+    const firstBatchSnap = await db.collection('practiceTests').doc(batchIds[0]).get();
+    if (!firstBatchSnap.exists) throw Err.notFound('Practice batch not found');
+    await assertPracticeAccess(uid, batchIds[0], firstBatchSnap.data()!);
+
+    const certificationId: string | null = series.certificationId ?? null;
+    let certificationName: string | null = null;
+    if (certificationId) {
+      const certSnap = await db.collection('certifications').doc(certificationId).get();
+      certificationName = (certSnap.data()?.name as string | undefined) ?? null;
+    }
+
+    const planRef = db.collection('studyPlans').doc(`${uid}_series_${d.seriesId}`);
+    const existing = await planRef.get();
+    await planRef.set({
+      ...commonFields,
+      testId: batchIds[0],
+      scope: 'series',
+      seriesId: d.seriesId,
+      certificationId,
+      certificationName,
+      seriesBatchIds: batchIds,
+      seriesTotalQuestions: (series.totalQuestions as number | undefined) ?? 0,
+      revisionBufferDays: (firstBatchSnap.data()!.revisionBufferDays as number | undefined) ?? 3,
+      baselineAnsweredCount: await sumAnswered(uid, batchIds),
+      createdAt: existing.exists ? existing.data()!.createdAt : now,
+    });
+    return { success: true };
+  }
+
+  const testId = d.testId!;
+  const testSnap = await db.collection('practiceTests').doc(testId).get();
+  if (!testSnap.exists) throw Err.notFound('Practice test not found');
+  const test = testSnap.data()!;
+
+  await assertPracticeAccess(uid, testId, test);
+
+  const { progress } = await getOrCreateProgress(uid, testId);
+  // A progress doc can exist (created by startOrResumeBatch's merge-set)
+  // before answeredQuestionIds is ever written (that field is only added by
+  // saveAnswer, on the first answered question) - so it can be undefined
+  // here even though the doc itself exists.
+  const baselineAnsweredCount = progress.answeredQuestionIds?.length ?? 0;
+
+  const planRef = db.collection('studyPlans').doc(`${uid}_${testId}`);
+  const existing = await planRef.get();
+
+  await planRef.set({
+    ...commonFields,
+    testId,
+    scope: 'test',
+    revisionBufferDays: test.revisionBufferDays ?? 3,
+    baselineAnsweredCount,
+    createdAt: existing.exists ? existing.data()!.createdAt : now,
   });
 
   return { success: true };

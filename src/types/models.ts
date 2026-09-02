@@ -936,7 +936,21 @@ export type StudyPlanningMode = 'examDate' | 'pace';
  * fixed reference point to compare today's live numbers against. */
 export interface StudyPlanDoc {
   userId: string;
+  // For a legacy per-test plan this is the practice test. For a series plan
+  // (scope: 'series') it is the first batch id, kept populated only so
+  // readers that key off testId still resolve a doc.
   testId: string;
+  // Absent = 'test' (a per-practice-test plan). 'series' = one goal covering
+  // every batch of a generated series (studyPlans/{uid}_series_{seriesId}),
+  // with progress aggregated across seriesBatchIds. See api/practice-session.ts.
+  scope?: 'test' | 'series';
+  seriesId?: string | null;
+  certificationId?: string | null;
+  certificationName?: string | null;
+  // Every practiceTests batch in the series, so home/stat-row readers can
+  // aggregate practiceProgress without a contentSeries fetch.
+  seriesBatchIds?: string[];
+  seriesTotalQuestions?: number;
   planningMode: StudyPlanningMode;
   // Option A only.
   targetExamDate: Timestamp | null;

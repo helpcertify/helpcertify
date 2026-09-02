@@ -19,3 +19,19 @@ export async function getStudyPlan(uid: string, testId: string): Promise<(StudyP
     throw err;
   }
 }
+
+// The one goal covering a whole generated series - studyPlans/{uid}_series_{seriesId}
+// (see api/practice-session.ts's saveStudyPlan series branch).
+export async function getSeriesStudyPlan(
+  uid: string,
+  seriesId: string,
+): Promise<(StudyPlanDoc & { id: string }) | null> {
+  try {
+    const snap = await getDoc(doc(db, 'studyPlans', `${uid}_series_${seriesId}`));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...(snap.data() as StudyPlanDoc) };
+  } catch (err) {
+    console.error('getSeriesStudyPlan failed', err);
+    throw err;
+  }
+}

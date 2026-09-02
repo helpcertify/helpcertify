@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getStudyPlan } from '../api/studyPlanApi';
+import { getStudyPlan, getSeriesStudyPlan } from '../api/studyPlanApi';
 import { practiceSessionApi } from '../api/practiceSessionApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
@@ -39,13 +39,26 @@ function formatDisplayDate(d: Date): string {
 // lived at its own /study-plan route (StudyPlanSetupPage.tsx, now removed);
 // this is that same UI and calculation logic, just embedded and driven by
 // an onSaved callback instead of its own navigate() call.
+// One goal covering every batch of a generated series - passed instead of
+// testId/test. totalQuestions / revisionBufferDays / defaultMinutesPerQuestion
+// are the series-level figures (see api/practice-session.ts).
+export interface SeriesGoalContext {
+  seriesId: string;
+  batchIds: string[];
+  totalQuestions: number;
+  revisionBufferDays: number;
+  defaultMinutesPerQuestion: number;
+}
+
 export function StudyGoalPanel({
   testId,
   test,
+  series,
   onSaved,
 }: {
-  testId: string;
-  test: PracticeTestDoc & { id: string };
+  testId?: string;
+  test?: PracticeTestDoc & { id: string };
+  series?: SeriesGoalContext;
   onSaved: () => void;
 }) {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
@@ -53,17 +66,30 @@ export function StudyGoalPanel({
   const pushToast = useUiStore((s) => s.pushToast);
 
   const { data: existingPlan } = useQuery({
-    queryKey: ['student', 'studyPlan', uid, testId],
-    queryFn: () => getStudyPlan(uid!, testId!),
-    enabled: !!uid && !!testId,
+    queryKey: series
+      ? ['student', 'seriesStudyPlan', uid, series.seriesId]
+      : ['student', 'studyPlan', uid, testId],
+    queryFn: () => (series ? getSeriesStudyPlan(uid!, series.seriesId) : getStudyPlan(uid!, testId!)),
+    enabled: !!uid && (series ? true : !!testId),
   });
   const { data: progress } = useQuery({
-    queryKey: ['student', 'practiceProgressOne', uid, testId],
+    queryKey: series
+      ? ['student', 'seriesAnswered', uid, series.seriesId]
+      : ['student', 'practiceProgressOne', uid, testId],
     queryFn: async () => {
+      if (series) {
+        const snaps = await Promise.all(
+          series.batchIds.map((id) => getDoc(doc(db, 'practiceProgress', `${uid}_${id}`))),
+        );
+        return snaps.reduce(
+          (sum, s) => sum + (s.exists() ? ((s.data().answeredQuestionIds as string[] | undefined)?.length ?? 0) : 0),
+          0,
+        );
+      }
       const snap = await getDoc(doc(db, 'practiceProgress', `${uid}_${testId}`));
       return snap.exists() ? (snap.data().answeredQuestionIds as string[]).length : 0;
     },
-    enabled: !!uid && !!testId,
+    enabled: !!uid && (series ? series.batchIds.length > 0 : !!testId),
   });
 
   type Step = 'choose' | 'examDate' | 'pace';
@@ -76,10 +102,10 @@ export function StudyGoalPanel({
   const [minutesPerDay, setMinutesPerDay] = useState(60);
   const [customMinutes, setCustomMinutes] = useState('');
 
-  const totalQuestions = test.totalQuestions ?? 0;
+  const totalQuestions = series ? series.totalQuestions : test?.totalQuestions ?? 0;
   const uniqueAnsweredCount = progress ?? 0;
-  const revisionBufferDays = test.revisionBufferDays ?? 3;
-  const minutesPerQuestion = test.defaultMinutesPerQuestion ?? 1.8;
+  const revisionBufferDays = series ? series.revisionBufferDays : test?.revisionBufferDays ?? 3;
+  const minutesPerQuestion = series ? series.defaultMinutesPerQuestion : test?.defaultMinutesPerQuestion ?? 1.8;
   const today = useMemo(() => new Date(), []);
 
   const examDatePreview = useMemo(() => {
@@ -119,7 +145,7 @@ export function StudyGoalPanel({
     mutationFn: async (mode: StudyPlanningMode) => {
       const baselineDailyTarget = mode === 'examDate' ? (examDatePreview?.dailyTarget ?? 0) : resolvedQuestionsPerDay;
       return practiceSessionApi.saveStudyPlan({
-        testId,
+        ...(series ? { seriesId: series.seriesId } : { testId }),
         planningMode: mode,
         targetExamDate: mode === 'examDate' ? new Date(examDate).toISOString() : null,
         paceQuestionsPerDay: mode === 'pace' ? resolvedQuestionsPerDay : null,
@@ -131,6 +157,10 @@ export function StudyGoalPanel({
     onSuccess: () => {
       pushToast('Study plan saved', 'success');
       queryClient.invalidateQueries({ queryKey: ['student', 'studyPlan', uid, testId] });
+      if (series) {
+        queryClient.invalidateQueries({ queryKey: ['student', 'seriesStudyPlan', uid, series.seriesId] });
+        queryClient.invalidateQueries({ queryKey: ['student', 'seriesAnswered', uid, series.seriesId] });
+      }
       // StudentShell's sidebar countdown and StudentHomePage's dashboard
       // cards both read their own separate studyPlans query, and both live
       // outside this panel in the component tree, so without invalidating
@@ -157,7 +187,7 @@ export function StudyGoalPanel({
         <h2 className="mb-1 text-lg font-bold">🎯 Set My Study Goal</h2>
         <p className="text-sm text-white/80">
           {existingPlan
-            ? 'You already have a plan for this practice test. Choosing an option below replaces it.'
+            ? `You already have a plan for ${series ? 'this certification' : 'this practice test'}. Choosing an option below replaces it.`
             : "You don't need to know your exam date to get started."}
         </p>
       </div>

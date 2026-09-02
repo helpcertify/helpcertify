@@ -109,7 +109,9 @@ export const practiceSessionApi = {
   // along to be stored (see api/practice-session.ts's saveStudyPlan for why
   // that's fine to trust: it's a UX reference point, not a security value).
   saveStudyPlan: (payload: {
-    testId: string;
+    // one of testId (per-practice-test plan) / seriesId (whole-series plan)
+    testId?: string;
+    seriesId?: string;
     planningMode: StudyPlanningMode;
     targetExamDate: string | null;
     paceQuestionsPerDay: number | null;
