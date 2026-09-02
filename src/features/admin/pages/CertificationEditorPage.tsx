@@ -32,6 +32,7 @@ import { deriveMockBlueprint, mockConfigStatus } from '../lib/deriveMockBlueprin
 import { VALIDITY_PRESETS, presetForDays } from '../lib/validityPresets';
 import { uploadContentFile } from '../api/uploadApi';
 import { UploadReport } from '@/components/common/UploadReport';
+import { downloadTemplate } from '@/lib/downloadTemplate';
 import { errorText, friendlyApiError } from '@/lib/errorMessages';
 import { CERTIFICATION_ICON_KEYS, type CertificationIconKey, type DomainAllocation } from '@/types/models';
 
@@ -436,11 +437,21 @@ function BatchedSeriesPanel({
 
   return (
     <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 dark:bg-[#155EEF]/10">
-      <h3 className="text-sm font-bold text-ink">Generate batched question set</h3>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-bold text-ink">Generate batched question set</h3>
+        <button
+          type="button"
+          onClick={() => downloadTemplate(sourceFormat)}
+          className="shrink-0 rounded-lg border border-[#155EEF] px-2.5 py-1 text-xs text-[#155EEF] hover:opacity-80"
+        >
+          ↓ Template
+        </button>
+      </div>
       <p className="mt-1 text-xs text-ink-muted">
-        Upload one large question document. It is split into practice exam batches (no question repeats across batches, every
-        question covered) plus fixed mock exams that shuffle question and option order on every attempt. Learners unlock these
-        by buying a package.
+        Upload one large question document (.docx). It is split into practice exam batches (no question repeats across
+        batches, every question covered) plus fixed mock exams that shuffle question and option order on every attempt.
+        Learners unlock these by buying a package. The document must match the template - use the button above for the exact
+        format.
       </p>
       {currentSeriesId && (
         <p className="mt-2 rounded-lg bg-surface-raised px-3 py-2 text-xs text-ink-muted">

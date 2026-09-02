@@ -109,8 +109,13 @@ export function friendlyApiError(err: unknown, fallback: string): string {
   if (!(err instanceof VercelApiError)) {
     return err instanceof Error && err.message ? err.message : fallback;
   }
-  const issues = expandValidationIssues(err.details);
-  if (issues) return `Please fix - ${issues}`;
+  // Only expand the issue list for the generic "Validation failed" - a
+  // handler that threw its own sentence ("No questions could be parsed from
+  // this file") already says what's wrong; its details are debug noise.
+  if (/^validation failed\b/i.test(err.message)) {
+    const issues = expandValidationIssues(err.details);
+    if (issues) return `Please fix - ${issues}`;
+  }
   switch (err.status) {
     case 401:
       return 'Your session has expired. Sign in again and retry.';
