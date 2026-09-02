@@ -35,13 +35,6 @@ function formatDate(ts: unknown): string {
 // the secondary "approximately N minutes" estimate below, never a gate on
 // starting or how long a session lasts - see api/practice-session.ts's
 // header comment on SESSION_STALE_HOURS).
-const SESSION_SIZE_PRESETS = [
-  { size: 10, label: 'Quick Practice' },
-  { size: 25, label: 'Focus Session', recommended: true },
-  { size: 50, label: 'Deep Practice' },
-] as const;
-const DEFAULT_SESSION_SIZE = 25;
-const MAX_CUSTOM_SESSION_SIZE = 200;
 
 // A fixed 10-question free sample regardless of the admin's own
 // previewQuestionCount setting (which still governs the free-preview limit
@@ -65,8 +58,6 @@ export function PracticeTestDetailPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
-  const [sessionSize, setSessionSize] = useState<number>(DEFAULT_SESSION_SIZE);
-  const [customSize, setCustomSize] = useState('');
   const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_of_session'>('immediate');
   // Inline goal-setup, not a separate page/route - every other entry point
   // (the Practice Exams card, its hover popover, the dashboard nudge, the
@@ -305,17 +296,6 @@ export function PracticeTestDetailPage() {
             test={test}
             done={done}
             answered={answered}
-            sessionSize={sessionSize}
-            onChooseSessionSize={(s) => {
-              setSessionSize(s);
-              setCustomSize('');
-            }}
-            customSize={customSize}
-            onCustomSizeChange={(v) => {
-              setCustomSize(v);
-              const n = Number(v);
-              if (n > 0) setSessionSize(Math.min(n, MAX_CUSTOM_SESSION_SIZE));
-            }}
             feedbackMode={feedbackMode}
             onChooseFeedbackMode={setFeedbackMode}
             unfinishedSession={unfinishedSession ?? null}
@@ -323,7 +303,19 @@ export function PracticeTestDetailPage() {
             weakAreasCount={weakAreasCount}
             accuracy={overallAccuracy}
           />
-          {test.studyPlannerEnabled !== false ? (
+          {test.seriesId ? (
+            <div className="flex h-full flex-col justify-center rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+              <p className="mb-4 text-sm text-[#64748B]">
+                Your study goal covers every exam in this set. Set it once on the Practice Exams page.
+              </p>
+              <Link
+                to="/home/practice-tests"
+                className="rounded-lg border border-[#155EEF] bg-white px-4 py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] dark:bg-transparent"
+              >
+                🎯 Set My Study Goal
+              </Link>
+            </div>
+          ) : test.studyPlannerEnabled !== false ? (
             <div>
               {existingPlan ? (
                 <PlanSummaryCard test={test} answered={answered} plan={existingPlan} onEdit={() => setShowGoalPanel(true)} />
@@ -379,7 +371,7 @@ export function PracticeTestDetailPage() {
           click-to-open panel rather than always-expanded (the underlying
           interaction, not just its skin) - same behavior as before this
           restyle. */}
-      {owned && test.studyPlannerEnabled !== false && showGoalPanel && (
+      {owned && !test.seriesId && test.studyPlannerEnabled !== false && showGoalPanel && (
         <div className="mb-6">
           <StudyGoalPanel
             testId={test.id}
@@ -437,10 +429,6 @@ function PracticeSetupCard({
   test,
   done,
   answered,
-  sessionSize,
-  onChooseSessionSize,
-  customSize,
-  onCustomSizeChange,
   feedbackMode,
   onChooseFeedbackMode,
   unfinishedSession,
@@ -451,10 +439,6 @@ function PracticeSetupCard({
   test: { id: string; totalQuestions: number; defaultMinutesPerQuestion?: number };
   done: boolean;
   answered: number;
-  sessionSize: number;
-  onChooseSessionSize: (size: number) => void;
-  customSize: string;
-  onCustomSizeChange: (value: string) => void;
   feedbackMode: 'immediate' | 'end_of_session';
   onChooseFeedbackMode: (mode: 'immediate' | 'end_of_session') => void;
   unfinishedSession: UnfinishedSession | null;
@@ -464,9 +448,6 @@ function PracticeSetupCard({
 }) {
   const remainingNew = Math.max(0, test.totalQuestions - answered);
   const percentComplete = test.totalQuestions > 0 ? Math.round((answered / test.totalQuestions) * 100) : 0;
-  const minutesPerQuestion = test.defaultMinutesPerQuestion ?? 1.8;
-  const estLow = Math.round(sessionSize * minutesPerQuestion * 0.85);
-  const estHigh = Math.round(sessionSize * minutesPerQuestion * 1.15);
 
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
@@ -545,53 +526,6 @@ function PracticeSetupCard({
         </div>
       ) : (
         <>
-          <div className="mb-4">
-            <label className="mb-2 block text-xs font-medium text-[#64748B]">How much would you like to practice?</label>
-            <div className="space-y-2">
-              {SESSION_SIZE_PRESETS.map((preset) => (
-                <button
-                  key={preset.size}
-                  type="button"
-                  onClick={() => onChooseSessionSize(preset.size)}
-                  className={`flex w-full items-center justify-between rounded-lg border px-4 py-2.5 text-left ${
-                    sessionSize === preset.size && !customSize
-                      ? 'border-[#155EEF] bg-[#EFF6FF]'
-                      : 'border-[#E2E8F0] hover:border-[#155EEF]'
-                  }`}
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-[#0F172A]">{preset.size} Questions</span>
-                    <span className="block text-xs text-[#64748B]">{preset.label}</span>
-                  </span>
-                  {'recommended' in preset && preset.recommended && (
-                    <span className="rounded-full bg-[#155EEF]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#155EEF]">
-                      Recommended
-                    </span>
-                  )}
-                </button>
-              ))}
-              <div
-                className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${
-                  customSize ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0]'
-                }`}
-              >
-                <span className="text-sm font-semibold text-[#0F172A]">Custom</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={Math.min(MAX_CUSTOM_SESSION_SIZE, remainingNew)}
-                  value={customSize}
-                  onChange={(e) => onCustomSizeChange(e.target.value)}
-                  placeholder="e.g. 40"
-                  className="w-24 rounded-md border border-[#CBD5E1] bg-white px-2 py-1 text-sm text-[#1E293B] outline-none focus:border-[#155EEF] dark:bg-transparent"
-                />
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-[#64748B]">
-              {sessionSize} Questions · approximately {estLow}-{estHigh} minutes
-            </div>
-          </div>
-
           <div className="mb-5">
             <label className="mb-2 block text-xs font-medium text-[#64748B]">How would you like to practice?</label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -619,7 +553,7 @@ function PracticeSetupCard({
           </div>
 
           <Link
-            to={`/practice-tests/${test.id}/take?sessionSize=${sessionSize}&feedbackMode=${feedbackMode}`}
+            to={`/practice-tests/${test.id}/take?feedbackMode=${feedbackMode}`}
             className="block w-full rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
           >
             Start Practice →
