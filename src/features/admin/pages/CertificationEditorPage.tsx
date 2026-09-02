@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -114,13 +114,13 @@ export function CertificationEditorPage() {
       certification={certification}
       otherCerts={allCerts.filter((c) => c.id !== certificationId)}
       onDirty={() => setDirty(true)}
-      onSaved={(id) => {
+      onSaved={(id, opts) => {
         setCertificationId(id);
         setDirty(false);
         invalidate();
         if (!params.certificationId) navigate(`/admin/products/${id}`, { replace: true });
         pushToast('Draft saved', 'success');
-        if (wizardMode) setStep(2);
+        if (wizardMode && !opts?.stayOnStep) setStep(2);
       }}
     />
   );
@@ -367,12 +367,19 @@ function ComboSavingField({ value, onChange }: { value: ComboDiscount | null; on
 
 function BatchedSeriesPanel({
   certificationId,
+  resolveCertificationId,
+  canCreate,
   examName,
   category,
   currentSeriesId,
   onGenerated,
 }: {
-  certificationId: string;
+  certificationId: string | null;
+  // Saves the draft (if needed) and resolves to its id. Called on Generate
+  // when the exam preparation has not been saved yet.
+  resolveCertificationId: () => Promise<string>;
+  // Whether the draft has enough to be created (exam code + name).
+  canCreate: boolean;
   examName: string;
   category: string;
   currentSeriesId: string | null;
@@ -392,11 +399,12 @@ function BatchedSeriesPanel({
   const gen = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('Choose a question document to upload');
+      const certId = certificationId ?? (await resolveCertificationId());
       setUploading(true);
       try {
         const fileUrl = await uploadContentFile(file);
         return await contentAdminApi.createBatchedSeries({
-          certificationId,
+          certificationId: certId,
           fileUrl,
           sourceFormat,
           examName: examName.trim(),
@@ -476,12 +484,15 @@ function BatchedSeriesPanel({
         </div>
         <button
           type="button"
-          disabled={!file || gen.isPending || uploading}
+          disabled={!file || !canCreate || gen.isPending || uploading}
           onClick={() => gen.mutate()}
           className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {uploading ? 'Uploading...' : gen.isPending ? 'Generating...' : 'Generate batches'}
         </button>
+        {!canCreate && (
+          <p className="text-xs text-ink-faint">Enter an exam code and name above first - the draft saves automatically.</p>
+        )}
       </div>
       {report && (
         <UploadReport
@@ -524,10 +535,11 @@ function StepProductDetails({
   certification: CertificationAdminRow | null;
   otherCerts: CertificationAdminRow[];
   onDirty: () => void;
-  onSaved: (id: string) => void;
+  onSaved: (id: string, opts?: { stayOnStep?: boolean }) => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
+  const savingForUploadRef = useRef(false);
   const { data: tests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const { data: quizzes } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
 
@@ -621,11 +633,28 @@ function StepProductDetails({
       }
       return id;
     },
-    onSuccess: (id) => onSaved(id),
+    onSuccess: (id) => onSaved(id, { stayOnStep: savingForUploadRef.current }),
     onError: (err) => pushToast(cleanError(err, 'Could not save the exam preparation'), 'error'),
   });
 
-  const canSave = shortName.trim().length > 0 && name.trim().length >= 2 && !!practiceBankId;
+  // An exam code and name are enough to save a draft. The practice content
+  // can come either from linking an existing bank below or from generating
+  // batches from an uploaded doc (which needs the draft to exist first).
+  const canSave = shortName.trim().length > 0 && name.trim().length >= 2;
+
+  // Returns the id of the saved exam preparation, creating the draft first
+  // if it does not exist yet - lets the batch uploader work straight from
+  // the "new" screen without a separate "Save Draft" click. The ref keeps
+  // that auto-save from bouncing the wizard to step 2 mid-upload.
+  const ensureSavedId = async (): Promise<string> => {
+    if (certification) return certification.id;
+    savingForUploadRef.current = true;
+    try {
+      return await saveMutation.mutateAsync();
+    } finally {
+      savingForUploadRef.current = false;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -672,24 +701,20 @@ function StepProductDetails({
         </select>
       </Field>
 
-      {certification ? (
-        <BatchedSeriesPanel
-          certificationId={certification.id}
-          examName={shortName || name}
-          category={effectiveCategory}
-          currentSeriesId={certification.seriesId ?? null}
-          onGenerated={() => {
-            queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
-            queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
-            queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
-            onDirty();
-          }}
-        />
-      ) : (
-        <p className="rounded-xl border border-surface-border bg-surface-raised px-4 py-3 text-xs text-ink-faint">
-          Save this exam preparation as a draft first to upload a batched question set.
-        </p>
-      )}
+      <BatchedSeriesPanel
+        certificationId={certification?.id ?? null}
+        resolveCertificationId={ensureSavedId}
+        canCreate={canSave}
+        examName={shortName || name}
+        category={effectiveCategory}
+        currentSeriesId={certification?.seriesId ?? null}
+        onGenerated={() => {
+          queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
+          queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
+          queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
+          onDirty();
+        }}
+      />
 
       <Field label="Short description">
         <textarea
@@ -772,7 +797,11 @@ function StepProductDetails({
       >
         {saveMutation.isPending ? 'Saving…' : 'Save Draft'}
       </button>
-      {!practiceBankId && <p className="text-xs text-ink-faint">Select a practice question bank to continue.</p>}
+      {!practiceBankId && !certification?.seriesId && !certification?.practiceBankIds?.length && (
+        <p className="text-xs text-ink-faint">
+          Link a practice question bank above, or upload a document to generate batches. One is required before publishing.
+        </p>
+      )}
     </div>
   );
 }
@@ -1259,7 +1288,9 @@ function StepReview({
   const recommended = sorted.find((p) => p.isRecommended) ?? sorted[0] ?? null;
 
   const blockers: string[] = [];
-  if (!certification.practiceBankId) blockers.push('Select a question bank.');
+  const hasPracticeContent =
+    !!certification.practiceBankId || !!certification.seriesId || (certification.practiceBankIds?.length ?? 0) > 0;
+  if (!hasPracticeContent) blockers.push('Link a question bank or generate batches from an uploaded document.');
   for (const p of sorted) {
     const t = detectTemplate(p);
     const label = p.name;
