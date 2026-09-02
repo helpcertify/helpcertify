@@ -462,7 +462,7 @@ function BatchedSeriesPanel({
         <Field label="Question document">
           <input
             type="file"
-            accept=".docx,.txt,.md"
+            accept=".docx"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-ink"
           />

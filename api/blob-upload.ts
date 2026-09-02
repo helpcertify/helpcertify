@@ -38,7 +38,7 @@ async function verifyFirebaseIdToken(idToken: string): Promise<FirebaseIdTokenCl
 const ALLOWED_CONTENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
 ];
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB - matches the old Multer limit
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // keep in step with src/features/admin/api/uploadApi.ts
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
