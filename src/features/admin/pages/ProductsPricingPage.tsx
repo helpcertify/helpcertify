@@ -100,26 +100,26 @@ export function ProductsPricingPage() {
   const archiveMutation = useMutation({
     mutationFn: (id: string) => contentAdminApi.archiveCertification(id),
     onSuccess: () => {
-      pushToast('Certification archived', 'success');
+      pushToast('Exam preparation archived', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not archive certification', 'error'),
+    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not archive exam preparation', 'error'),
   });
   const restoreMutation = useMutation({
     mutationFn: (id: string) => contentAdminApi.restoreCertification(id),
     onSuccess: () => {
-      pushToast('Certification restored to Draft', 'success');
+      pushToast('Exam preparation restored to Draft', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not restore certification', 'error'),
+    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not restore exam preparation', 'error'),
   });
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => contentAdminApi.duplicateCertification(id),
     onSuccess: () => {
-      pushToast('Certification duplicated as a new draft', 'success');
+      pushToast('Exam preparation duplicated as a new draft', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not duplicate certification', 'error'),
+    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not duplicate exam preparation', 'error'),
   });
   const cancelOfferMutation = useMutation({
     mutationFn: (packageId: string) => contentAdminApi.cancelOffer(packageId),
@@ -136,7 +136,7 @@ export function ProductsPricingPage() {
   return (
     <div>
       <h1 className="mb-1 text-2xl font-bold text-ink">Products & Pricing</h1>
-      <p className="mb-6 text-sm text-ink-faint">Create each certification once, then configure its packages, pricing and exam rules.</p>
+      <p className="mb-6 text-sm text-ink-faint">Create each exam preparation once, then configure its packages, pricing and exam rules.</p>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Published" value={publishedCount} />
@@ -151,7 +151,7 @@ export function ProductsPricingPage() {
           onClick={() => setTab('certifications')}
           className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === 'certifications' ? 'border-[#155EEF] text-[#155EEF]' : 'border-transparent text-ink-faint hover:text-ink'}`}
         >
-          Certifications
+          Exam Preparations
         </button>
         <button
           type="button"
@@ -169,12 +169,12 @@ export function ProductsPricingPage() {
               to="/admin/products/new"
               className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB]"
             >
-              + Add Certification
+              + Add Exam Preparation
             </Link>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search certifications…"
+              placeholder="Search exam preparations…"
               className="input-dark w-56"
             />
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="input-dark w-40">
@@ -216,9 +216,9 @@ export function ProductsPricingPage() {
           )}
           {!isLoading && !hasError && filtered.length === 0 && (
             <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
-              <p className="mb-4 text-ink-faint">No certifications have been configured.</p>
+              <p className="mb-4 text-ink-faint">No exam preparations have been configured.</p>
               <Link to="/admin/products/new" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB]">
-                + Add Certification
+                + Add Exam Preparation
               </Link>
             </div>
           )}
@@ -406,7 +406,7 @@ function ScheduledOffersTab({
       <table className="w-full text-left text-sm">
         <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
           <tr>
-            <th className="px-4 py-3">Certification</th>
+            <th className="px-4 py-3">Exam Preparation</th>
             <th className="px-4 py-3">Package</th>
             <th className="px-4 py-3">Regular</th>
             <th className="px-4 py-3">Offer</th>

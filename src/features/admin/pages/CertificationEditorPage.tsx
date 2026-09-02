@@ -121,7 +121,7 @@ export function CertificationEditorPage() {
   if (!wizardMode && !certification) {
     return (
       <div>
-        <PageHeader title="Edit certification" onCancel={cancelSafely} />
+        <PageHeader title="Edit Exam Preparation" onCancel={cancelSafely} />
         <p className="mt-6 text-sm text-ink-faint">Loading…</p>
       </div>
     );
@@ -151,7 +151,7 @@ export function CertificationEditorPage() {
           <Section title="Review & Publish" defaultOpen={previewRequested}>
             <StepReview certification={certification} packages={packages} onChanged={invalidate} />
           </Section>
-          <Section title="Mock Configuration">
+          <Section title="Mock Exam Settings">
             <MockConfigSection certification={certification} onChanged={invalidate} />
           </Section>
           <Section title="Certificate Settings">
@@ -168,10 +168,10 @@ export function CertificationEditorPage() {
   // --- New-product wizard ---
   return (
     <div>
-      <PageHeader title={isNew ? 'Add a certification' : certification?.name ?? 'Edit certification'} onCancel={cancelSafely} />
+      <PageHeader title={isNew ? 'Create Exam Preparation' : certification?.name ?? 'Edit Exam Preparation'} onCancel={cancelSafely} />
       <p className="mb-6 text-sm text-ink-faint">
         {step === 1
-          ? 'Name the certification and connect its question bank. Everything technical is filled in for you.'
+          ? 'Name the exam preparation and connect its question bank. Everything technical is filled in for you.'
           : STEP_LABELS[step]}
       </p>
 
@@ -426,7 +426,7 @@ function BatchedSeriesPanel({
       </p>
       {currentSeriesId && (
         <p className="mt-2 rounded-lg bg-surface-raised px-3 py-2 text-xs text-ink-muted">
-          A series is already linked to this certification. Generating again creates a new set of batches.
+          A series is already linked to this exam preparation. Generating again creates a new set of batches.
         </p>
       )}
       <div className="mt-3 space-y-3">
@@ -596,7 +596,7 @@ function StepProductDetails({
         if (!alreadyLinked) {
           try {
             await contentAdminApi.saveContentVersion(id, {
-              versionName: `${shortName.trim() || 'Certification'} - current outline`,
+              versionName: `${shortName.trim() || 'Exam'} - current outline`,
               versionCode: `${effectiveSlug}-v1`.slice(0, 50),
               associatedBankType: 'quiz',
               associatedBankId: mockBankId,
@@ -613,7 +613,7 @@ function StepProductDetails({
       return id;
     },
     onSuccess: (id) => onSaved(id),
-    onError: (err) => pushToast(cleanError(err, 'Could not save the certification'), 'error'),
+    onError: (err) => pushToast(cleanError(err, 'Could not save the exam preparation'), 'error'),
   });
 
   const canSave = shortName.trim().length > 0 && name.trim().length >= 2 && !!practiceBankId;
@@ -621,13 +621,13 @@ function StepProductDetails({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Certification short name" hint="e.g. CISM">
+        <Field label="Exam code" hint="e.g. CISM">
           <input value={shortName} onChange={(e) => { setShortName(e.target.value); touched(); }} className="input-dark" />
         </Field>
-        <Field label="Product display name" hint="e.g. CISM Exam Preparation">
+        <Field label="Exam preparation name" hint="e.g. CISM Exam Preparation">
           <input value={name} onChange={(e) => { setName(e.target.value); touched(); }} className="input-dark" />
         </Field>
-        <Field label="Certification provider" hint="e.g. ISACA">
+        <Field label="Certification body" hint="e.g. ISACA">
           <CategorySelect value={provider} onChange={(v) => { setProvider(v); touched(); }} />
         </Field>
         <Field label="Default access validity (days)" hint="e.g. 180">
@@ -675,7 +675,7 @@ function StepProductDetails({
         />
       ) : (
         <p className="rounded-xl border border-surface-border bg-surface-raised px-4 py-3 text-xs text-ink-faint">
-          Save this certification as a draft first to upload a batched question set.
+          Save this exam preparation as a draft first to upload a batched question set.
         </p>
       )}
 
@@ -694,7 +694,7 @@ function StepProductDetails({
           <Field label="Full description">
             <textarea value={description} onChange={(e) => { setDescription(e.target.value); touched(); }} rows={4} className="input-dark" />
           </Field>
-          <Field label="Product icon" hint="Shown on the certification card. Defaults to a match for the provider.">
+          <Field label="Product icon" hint="Shown on the exam preparation card. Defaults to a match for the provider.">
             <select
               value={effectiveIcon}
               onChange={(e) => { setIconKey(e.target.value as CertificationIconKey); setIconTouched(true); touched(); }}
@@ -816,7 +816,7 @@ function QuestionBankSummary({ certification }: { certification: CertificationAd
 
       {versions.length > 1 && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
-          This certification has multiple outline versions. Mock rules are configured per version under Mock Configuration.
+          This exam preparation has multiple outline versions. Mock rules are configured per version under Mock Exam Settings.
         </p>
       )}
     </div>
@@ -1168,7 +1168,7 @@ function MockConfigStatusChip({
     <div className={`rounded-lg border p-3 text-sm ${status === 'ready' ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300'}`}>
       {status === 'ready'
         ? 'Mock exam configuration ready - domain allocation derived from the question bank.'
-        : 'Mock exam configuration needs attention - add domain tags to the mock question bank, or set the allocation under Mock Configuration.'}
+        : 'Mock exam configuration needs attention - add domain tags to the mock question bank, or set the allocation under Mock Exam Settings.'}
     </div>
   );
 }
@@ -1272,7 +1272,7 @@ function StepReview({
         }
       }
     },
-    onSuccess: () => { pushToast(scheduledFor ? 'Publication scheduled' : 'Certification and packages published', 'success'); onChanged(); },
+    onSuccess: () => { pushToast(scheduledFor ? 'Publication scheduled' : 'Exam preparation and packages published', 'success'); onChanged(); },
     onError: (err) => pushToast(cleanError(err, 'Could not publish'), 'error'),
   });
 
@@ -1347,7 +1347,7 @@ function StepReview({
           <button
             type="button"
             disabled={blockers.length > 0 || publishMutation.isPending}
-            onClick={() => window.confirm('Publish this certification and its packages now?') && publishMutation.mutate()}
+            onClick={() => window.confirm('Publish this exam preparation and its packages now?') && publishMutation.mutate()}
             className="rounded-lg bg-[#155EEF] px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {publishMutation.isPending ? 'Publishing…' : 'Publish'}
@@ -1376,7 +1376,7 @@ function StepReview({
               {certification.status === 'archived' ? (
                 <button type="button" onClick={() => lifecycle(() => contentAdminApi.restoreCertification(certification.id), 'Restored to Draft')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Restore</button>
               ) : (
-                <button type="button" onClick={() => window.confirm('Archive this certification?') && lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
+                <button type="button" onClick={() => window.confirm('Archive this exam preparation?') && lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
               )}
               <button type="button" onClick={() => setShowHistory((v) => !v)} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">{showHistory ? 'Hide' : 'View'} history</button>
             </div>
@@ -1417,7 +1417,7 @@ function MockConfigSection({ certification, onChanged }: { certification: Certif
         Mock rules are derived from the question bank. Use the controls below only to override the domain allocation,
         timing or release behaviour.
       </p>
-      <Disclosure label="Customize Mock Rules">
+      <Disclosure label="Mock Exam Settings">
         <StepMockRules certificationId={certification.id} certification={certification} onChanged={onChanged} />
       </Disclosure>
     </div>
@@ -1903,10 +1903,10 @@ function cleanError(err: unknown, fallback: string): string {
   const msg = err instanceof Error ? err.message : '';
   if (!msg) return fallback;
   if (/slug/i.test(msg)) return 'That web address is already taken by another product - change the short name or set a different slug in Advanced Settings.';
-  if (/unpublished certification cannot expose/i.test(msg)) return 'Publish the certification before publishing its packages.';
+  if (/unpublished certification cannot expose/i.test(msg)) return 'Publish the exam preparation before publishing its packages.';
   if (/no included quiz\/practice test|at least one quiz or practice test|valid entitlement/i.test(msg)) return 'Connect this package to a question bank first.';
   if (/selling price/i.test(msg)) return 'Enter a selling price greater than zero, or mark the package Free.';
   if (/accessible question count|eligible/i.test(msg)) return msg.replace(/^[a-z]+: /i, '');
-  if (/domain/i.test(msg)) return 'Mock domain allocation needs attention - open Customize Mock Rules.';
+  if (/domain/i.test(msg)) return 'Mock domain allocation needs attention - open Mock Exam Settings.';
   return msg;
 }

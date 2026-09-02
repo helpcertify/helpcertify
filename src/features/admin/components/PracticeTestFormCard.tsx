@@ -246,7 +246,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
           />
         </Field>
 
-        <Field label="Exam / Certification Name (shown on the learner's exam countdown, e.g. 'CISA')">
+        <Field label="Exam name (shown on the learner's exam countdown, e.g. 'CISA')">
           {/* Distinct from the title above - this is what groups multiple
               practice tests together as "the same exam goal" on the
               student dashboard (see StudentShell.tsx's exam countdown),

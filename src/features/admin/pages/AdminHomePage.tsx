@@ -8,8 +8,8 @@ import { toDate } from '@/utils/formatDate';
 const ACTIONS = [
   {
     to: '/admin/products/new',
-    title: 'Create Certification',
-    body: 'Add a new certification, connect a question bank, and configure its packages.',
+    title: 'Create Exam Preparation',
+    body: 'Add a new exam preparation, connect a question bank, and configure its packages.',
   },
   {
     to: '/admin/quizzes',
@@ -65,7 +65,7 @@ export function AdminHomePage() {
           "manage" link, not a second dashboard, per request not to
           overcrowd this page. */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <StatCard label="Certifications" value={certifications.length} />
+        <StatCard label="Exam Preparations" value={certifications.length} />
         <StatCard label="Active Packages" value={packages.filter((p) => p.status === 'published').length} />
         <StatCard label="Scheduled Offers" value={activeOfferCount} />
         <Link
