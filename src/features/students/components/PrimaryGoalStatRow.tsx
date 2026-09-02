@@ -1,114 +1,26 @@
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { listPracticeTestsBucketed } from '../api/studentContentApi';
-import { useAuthStore } from '@/features/auth/store/useAuthStore';
-import { toDate } from '@/utils/formatDate';
 import {
-  computeExamDatePlan,
-  questionsPerDayFromMinutes,
-  calendarDaysBetween,
   computeStudyStreak,
   buildDailyAnsweredMap,
   buildDailyCorrectMap,
   sumTrailingDays,
 } from '../lib/studyPlan';
-import type { StudyPlanDoc } from '@/types/models';
+import { usePrimaryGoal } from '../lib/usePrimaryGoal';
 
 // The single-focus progress strip (Practiced / Accuracy / Study Streak /
-// Today's Target + This Week's Progress) that used to sit on the home page.
-// Moved to the top of the Practice Exams page. Self-contained: it runs its
-// own queries - react-query dedupes the shared ones (study plans, practice
-// progress, the practice-test buckets) with the host page. Renders nothing
-// until the learner has an active study plan with a real daily target.
+// Today's Target + This Week's Progress) at the top of the Practice Exams
+// page. Renders nothing until the learner has an active study plan (per-test
+// or whole-series) with a real daily target - see usePrimaryGoal.
 export function PrimaryGoalStatRow() {
-  const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const today = new Date();
+  const { goal } = usePrimaryGoal();
 
-  const { data: buckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
+  const uniqueAnsweredCount = goal?.uniqueAnsweredCount ?? 0;
+  const totalQuestions = goal?.totalQuestions ?? 0;
+  const dailyTarget = goal?.dailyTarget ?? 0;
 
-  const { data: progressDocs } = useQuery({
-    queryKey: ['student', 'practiceProgress', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'practiceProgress'), where('userId', '==', uid)));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return { testId: data.testId as string, answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [] };
-      });
-    },
-    enabled: !!uid,
-  });
-
-  const { data: studyPlans } = useQuery({
-    queryKey: ['student', 'studyPlans', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
-      return snap.docs.map((d) => d.data() as StudyPlanDoc);
-    },
-    enabled: !!uid,
-  });
-
-  const anyTestById = new Map(
-    [...(buckets?.available ?? []), ...(buckets?.upcoming ?? []), ...(buckets?.expired ?? [])].map((t) => [t.id, t]),
-  );
-
-  const plansWithTest = (studyPlans ?? []).filter((p) => anyTestById.has(p.testId));
-  const examDatePlans = plansWithTest
-    .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
-    .map((p) => ({ plan: p, daysToExam: calendarDaysBetween(today, toDate(p.targetExamDate)) }))
-    .filter((p) => p.daysToExam >= 0)
-    .sort((a, b) => a.daysToExam - b.daysToExam);
-  const primaryPlan = examDatePlans[0]?.plan ?? plansWithTest[0] ?? null;
-  const primaryTest = primaryPlan ? anyTestById.get(primaryPlan.testId) ?? null : null;
-
-  const primaryProgress = primaryTest ? (progressDocs ?? []).find((p) => p.testId === primaryTest.id) : undefined;
-  const uniqueAnsweredCount = primaryProgress?.answeredQuestionIds.length ?? 0;
-
-  const { data: primarySessions } = useQuery({
-    queryKey: ['student', 'primaryGoalSessions', uid, primaryTest?.id],
-    queryFn: async () => {
-      const snap = await getDocs(
-        query(
-          collection(db, 'practiceSessions'),
-          where('userId', '==', uid),
-          where('testId', '==', primaryTest!.id),
-          where('isReattempt', '==', false),
-        ),
-      );
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          startedAt: toDate(data.startedAt),
-          answeredCount: (data.answeredCount as number) ?? 0,
-          correctCount: (data.correctCount as number) ?? 0,
-        };
-      });
-    },
-    enabled: !!uid && !!primaryTest,
-  });
-
-  const minutesPerQuestion = primaryTest?.defaultMinutesPerQuestion ?? 1.8;
-  let dailyTarget = 0;
-  if (primaryPlan && primaryTest) {
-    if (primaryPlan.planningMode === 'examDate' && primaryPlan.targetExamDate) {
-      dailyTarget = computeExamDatePlan({
-        today,
-        targetExamDate: toDate(primaryPlan.targetExamDate),
-        totalQuestions: primaryTest.totalQuestions,
-        uniqueAnsweredCount,
-        studyDays: primaryPlan.studyDays,
-        revisionBufferDays: primaryPlan.revisionBufferDays,
-        minutesPerQuestion,
-      }).dailyTarget;
-    } else {
-      dailyTarget =
-        primaryPlan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(primaryPlan.paceMinutesPerDay ?? 0, minutesPerQuestion);
-    }
-  }
-
-  const dailyAnsweredMap = buildDailyAnsweredMap(primarySessions ?? []);
-  const dailyCorrectMap = buildDailyCorrectMap(primarySessions ?? []);
+  const dailyAnsweredMap = buildDailyAnsweredMap(goal?.sessions ?? []);
+  const dailyCorrectMap = buildDailyCorrectMap(goal?.sessions ?? []);
   const thisWeekAnswered = sumTrailingDays(dailyAnsweredMap, today, 7);
   const thisWeekCorrect = sumTrailingDays(dailyCorrectMap, today, 7);
   const lastWeekAnswered = sumTrailingDays(dailyAnsweredMap, today, 7, 7);
@@ -118,21 +30,21 @@ export function PrimaryGoalStatRow() {
   const accuracyDelta = weeklyAccuracy !== null && lastWeekAccuracy !== null ? weeklyAccuracy - lastWeekAccuracy : null;
   const weeklyQuestionsDelta =
     lastWeekAnswered > 0 ? Math.round(((thisWeekAnswered - lastWeekAnswered) / lastWeekAnswered) * 100) : null;
-  const studyStreak = primaryPlan
-    ? computeStudyStreak({ today, studyDays: primaryPlan.studyDays, dailyTarget, dailyAnsweredMap })
+  const studyStreak = goal
+    ? computeStudyStreak({ today, studyDays: goal.plan.studyDays, dailyTarget, dailyAnsweredMap })
     : 0;
 
-  if (!(primaryPlan && primaryTest && dailyTarget > 0)) return null;
+  if (!goal) return null;
 
   return (
     <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
           icon="📚"
-          value={`${uniqueAnsweredCount} / ${primaryTest.totalQuestions}`}
+          value={`${uniqueAnsweredCount} / ${totalQuestions}`}
           valueColor="#0F172A"
           label="Practiced"
-          sub={`${Math.max(0, primaryTest.totalQuestions - uniqueAnsweredCount)} questions remaining`}
+          sub={`${Math.max(0, totalQuestions - uniqueAnsweredCount)} questions remaining`}
         />
         <StatCard
           icon="📈"

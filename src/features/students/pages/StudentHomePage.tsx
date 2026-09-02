@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
+import { listAvailableQuizzes } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -11,15 +11,8 @@ import { useCertificationCatalog } from '../api/certificationCatalogApi';
 import { hasActivePackage } from '../lib/certificationCatalog';
 import { CertificationCard, CertificationCardSkeleton } from '@/components/common/CertificationCard';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
-import { toDate } from '@/utils/formatDate';
-import {
-  computeExamDatePlan,
-  questionsPerDayFromMinutes,
-  calendarDaysBetween,
-  buildDailyAnsweredMap,
-  sumTrailingDays,
-} from '../lib/studyPlan';
-import type { StudyPlanDoc } from '@/types/models';
+import { buildDailyAnsweredMap, sumTrailingDays } from '../lib/studyPlan';
+import { usePrimaryGoal } from '../lib/usePrimaryGoal';
 
 // A time-of-day greeting reads as personal without needing any extra data
 // collection: `new Date()` in the browser already reflects the learner's own
@@ -46,7 +39,6 @@ export function StudentHomePage() {
   const today = new Date();
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
-  const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: examCountdowns } = useExamCountdowns();
   const { data: catalog, isLoading: catalogLoading, error: catalogError, refetch: refetchCatalog } = useCertificationCatalog();
@@ -69,111 +61,15 @@ export function StudentHomePage() {
     enabled: !!uid,
   });
 
-  const { data: practiceProgressDocs } = useQuery({
-    queryKey: ['student', 'practiceProgressFull', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'practiceProgress'), where('userId', '==', uid)));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          testId: data.testId as string,
-          answeredQuestionIds: (data.answeredQuestionIds as string[]) ?? [],
-          updatedAt: data.updatedAt as { toMillis?: () => number } | undefined,
-          bestStreak: (data.bestStreak as number) ?? 0,
-        };
-      });
-    },
-    enabled: !!uid,
-  });
-
-  // Every study plan the learner has, one per practice test - same query
-  // (and cache key) ProfileActivitySections already populates, reused here
-  // rather than re-fetched.
-  const { data: studyPlans } = useQuery({
-    queryKey: ['student', 'studyPlans', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'studyPlans'), where('userId', '==', uid)));
-      return snap.docs.map((d) => d.data() as StudyPlanDoc);
-    },
-    enabled: !!uid,
-  });
+  // The learner's single primary study goal (per-test or whole-series) and
+  // everything Today's Mission needs off it - see usePrimaryGoal.
+  const { goal } = usePrimaryGoal();
 
   const purchasedSet = activePurchaseKeys(purchases?.purchases);
   const attemptByQuizId = new Map((myAttempts ?? []).map((a) => [a.quizId, a]));
-  // All three buckets, not just "available" - a plan set on a test whose
-  // window has since lapsed should still resolve to real data instead of
-  // silently disappearing from this "primary goal" pick.
-  const anyTestById = new Map(
-    [...(practiceBuckets?.available ?? []), ...(practiceBuckets?.upcoming ?? []), ...(practiceBuckets?.expired ?? [])].map((t) => [
-      t.id,
-      t,
-    ])
-  );
 
-  // The "primary" exam goal driving Today's Mission/the stat row/This
-  // Week's Progress below - a single focus, matching the single "CISA
-  // Exam" badge next to the greeting, not one strip per test (that's what
-  // My Profile's "Your Learning Journey" is for). Prefers whichever
-  // committed exam date is soonest; falls back to any other active plan
-  // (pace-mode) if there's no exam-date plan at all.
-  const plansWithTest = (studyPlans ?? []).filter((p) => anyTestById.has(p.testId));
-  const examDatePlans = plansWithTest
-    .filter((p) => p.planningMode === 'examDate' && p.targetExamDate)
-    .map((p) => ({ plan: p, daysToExam: calendarDaysBetween(today, toDate(p.targetExamDate)) }))
-    .filter((p) => p.daysToExam >= 0)
-    .sort((a, b) => a.daysToExam - b.daysToExam);
-  const primaryPlan = examDatePlans[0]?.plan ?? plansWithTest[0] ?? null;
-  const primaryTest = primaryPlan ? (anyTestById.get(primaryPlan.testId) ?? null) : null;
-
-  const primaryProgress = primaryTest ? (practiceProgressDocs ?? []).find((p) => p.testId === primaryTest.id) : undefined;
-  const uniqueAnsweredCount = primaryProgress?.answeredQuestionIds.length ?? 0;
-
-  // Non-reattempt sessions for just the primary test - same convention as
-  // StudyPlanSection's own streak query (a reattempt re-answers already-
-  // completed questions, so it isn't "new questions today/this week").
-  const { data: primarySessions } = useQuery({
-    queryKey: ['student', 'primaryGoalSessions', uid, primaryTest?.id],
-    queryFn: async () => {
-      const snap = await getDocs(
-        query(
-          collection(db, 'practiceSessions'),
-          where('userId', '==', uid),
-          where('testId', '==', primaryTest!.id),
-          where('isReattempt', '==', false)
-        )
-      );
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          startedAt: toDate(data.startedAt),
-          answeredCount: (data.answeredCount as number) ?? 0,
-          correctCount: (data.correctCount as number) ?? 0,
-        };
-      });
-    },
-    enabled: !!uid && !!primaryTest,
-  });
-
-  const minutesPerQuestion = primaryTest?.defaultMinutesPerQuestion ?? 1.8;
-  let dailyTarget = 0;
-  if (primaryPlan && primaryTest) {
-    if (primaryPlan.planningMode === 'examDate' && primaryPlan.targetExamDate) {
-      dailyTarget = computeExamDatePlan({
-        today,
-        targetExamDate: toDate(primaryPlan.targetExamDate),
-        totalQuestions: primaryTest.totalQuestions,
-        uniqueAnsweredCount,
-        studyDays: primaryPlan.studyDays,
-        revisionBufferDays: primaryPlan.revisionBufferDays,
-        minutesPerQuestion,
-      }).dailyTarget;
-    } else {
-      dailyTarget =
-        primaryPlan.paceQuestionsPerDay ?? questionsPerDayFromMinutes(primaryPlan.paceMinutesPerDay ?? 0, minutesPerQuestion);
-    }
-  }
-
-  const dailyAnsweredMap = buildDailyAnsweredMap(primarySessions ?? []);
+  const dailyTarget = goal?.dailyTarget ?? 0;
+  const dailyAnsweredMap = buildDailyAnsweredMap(goal?.sessions ?? []);
   const todayAnswered = sumTrailingDays(dailyAnsweredMap, today, 1);
   const nearestExam = examCountdowns?.[0] ?? null;
 
@@ -193,7 +89,7 @@ export function StudentHomePage() {
     )
     .slice(0, 4);
 
-  const hasMissionData = !!(primaryPlan && primaryTest && dailyTarget > 0);
+  const hasMissionData = !!goal;
   const todayPercent = hasMissionData ? Math.min(100, Math.round((todayAnswered / dailyTarget) * 100)) : 0;
   const questionsRemainingToday = hasMissionData ? Math.max(0, dailyTarget - todayAnswered) : 0;
 
@@ -262,7 +158,7 @@ export function StudentHomePage() {
             </div>
           </div>
           <Link
-            to={`/home/practice-tests/${primaryTest!.id}`}
+            to={goal!.practiceHref}
             className="shrink-0 rounded-lg bg-[#155EEF] px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
           >
             Start Practicing →
