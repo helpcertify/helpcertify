@@ -5,6 +5,7 @@ import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { SiteFooter } from '@/components/layout/SiteFooter';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -106,7 +107,9 @@ export function AdminShell() {
         )}
       </header>
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
-        <Outlet />
+        <ErrorBoundary title="This admin page hit an error">
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <SiteFooter />
     </div>

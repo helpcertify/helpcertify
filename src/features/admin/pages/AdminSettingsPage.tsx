@@ -5,6 +5,7 @@ import { contentAdminApi } from '../api/contentAdminApi';
 import { useUiStore } from '@/store/useUiStore';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { COMPANY } from '@/features/marketing/companyInfo';
+import { errorText } from '@/lib/errorMessages';
 
 // The admin portal's one settings screen - OTP toggles, plus (below) the
 // Refer & Earn reward/eligibility controls. One combined Save Changes
@@ -69,7 +70,7 @@ export function AdminSettingsPage() {
       queryClient.setQueryData(['admin', 'appSettings'], buildPayload());
       pushToast('Settings saved', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not save settings', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not save settings'), 'error'),
   });
 
   const payload = buildPayload();
@@ -338,7 +339,7 @@ function CompanyDetailsCard() {
       queryClient.setQueryData(['admin', 'companyInfo'], form);
       pushToast('Company details saved. Public pages update immediately; prerendered pages update on the next deploy.', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not save company details', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not save company details'), 'error'),
   });
 
   const dirty = data !== undefined && COMPANY_FIELDS.some((f) => (form[f.key] ?? '') !== (data[f.key] ?? ''));

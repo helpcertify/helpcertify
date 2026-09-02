@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../api/adminApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
+import { errorText } from '@/lib/errorMessages';
 
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -42,7 +43,7 @@ export function AdminReferralAuditPage() {
       setRefundReason('');
       queryClient.invalidateQueries({ queryKey: ['admin', 'referrals'] });
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not refund that order', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not refund that order'), 'error'),
   });
 
   return (

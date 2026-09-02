@@ -14,6 +14,7 @@ import { Spinner } from '@/components/common/Spinner';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
 import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/components/common/ExamFilterBar';
 import type { QuizDoc } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 // Full-length, timed exam simulations - this is the content that used to
 // sit directly on the Home page ("Quiz Library"/"Available Quizzes"); moved
@@ -64,7 +65,7 @@ export function MockExamsPage() {
       queryClient.setQueryData(['student', 'cart'], data);
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   return (

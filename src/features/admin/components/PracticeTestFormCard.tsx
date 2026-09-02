@@ -11,6 +11,7 @@ import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
 import { SKILL_LEVELS } from '@/types/models';
 import type { QuestionSourceFormat, SkillLevel } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 // Quick availability-window shortcuts - 1 Day/5 Days/1 Week/1 Month/3
 // Months/6 Months/1 Year, on request, since manually picking both From and
@@ -176,7 +177,7 @@ export function PracticeTestFormCard({ editingTest, onDoneEditing }: PracticeTes
     },
     onError: (err) => {
       setUploading(false);
-      pushToast(err instanceof Error ? err.message : 'Could not create practice test', 'error');
+      pushToast(errorText(err, 'Could not create practice test'), 'error');
     },
   });
 

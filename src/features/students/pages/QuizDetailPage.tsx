@@ -18,6 +18,7 @@ import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
+import { errorText } from '@/lib/errorMessages';
 
 // A fixed 10-question free sample regardless of the admin's own
 // previewQuestionCount setting - same convention as PracticeTestDetailPage,
@@ -61,7 +62,7 @@ export function QuizDetailPage() {
       queryClient.setQueryData(['student', 'cart'], data);
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   if (isLoading) {

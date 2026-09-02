@@ -11,6 +11,7 @@ import { formatMoney } from '@/utils/currency';
 import { pickDefaultPackage } from '@/features/students/lib/certificationCatalog';
 import type { CatalogCertification, CatalogPackage } from '@/features/students/api/certificationCatalogApi';
 import type { CertificationIconKey } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 const ICON_PATHS: Record<CertificationIconKey, ReactNode> = {
   shield: <path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3Z" />,
@@ -115,7 +116,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
       queryClient.invalidateQueries({ queryKey: ['student', 'certificationCatalog'] });
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   // Nothing published to sell yet - a compact "Coming Soon" card, no

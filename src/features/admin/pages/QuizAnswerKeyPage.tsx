@@ -4,6 +4,7 @@ import { contentAdminApi } from '../api/contentAdminApi';
 import { QuestionEditorList } from '../components/QuestionEditorList';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
+import { errorText } from '@/lib/errorMessages';
 
 // Answer-key preview with the correct option highlighted - matches the
 // reference screenshots' "quiz-details view" (reached via a quiz's View
@@ -44,7 +45,7 @@ export function QuizAnswerKeyPage() {
               pushToast('Question updated', 'success');
               queryClient.invalidateQueries({ queryKey: ['admin', 'quizAnswerKey', quizId] });
             } catch (err) {
-              pushToast(err instanceof Error ? err.message : 'Could not update question', 'error');
+              pushToast(errorText(err, 'Could not update question'), 'error');
             }
           }}
         />

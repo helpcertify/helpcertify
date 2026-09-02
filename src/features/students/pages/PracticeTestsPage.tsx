@@ -17,6 +17,7 @@ import { ExamFilterBar, DEFAULT_EXAM_FILTERS, matchesExamFilters } from '@/compo
 import { PrimaryGoalStatRow } from '../components/PrimaryGoalStatRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import type { PracticeTestDoc } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 // availableFrom/Until arrive over JSON as a serialized Firestore Timestamp
 // ({ _seconds, _nanoseconds }, not { seconds }) - toDate() handles that
@@ -45,7 +46,7 @@ export function PracticeTestsPage() {
       const { certificate } = await certificatesApi.issueOrGetCertificate('practiceTest', testId);
       await certificatesApi.downloadCertificatePdf(certificate.id);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not download the certificate', 'error');
+      pushToast(errorText(err, 'Could not download the certificate'), 'error');
     } finally {
       setDownloadingCertId(null);
     }
@@ -96,7 +97,7 @@ export function PracticeTestsPage() {
       queryClient.setQueryData(['student', 'cart'], data);
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   return (

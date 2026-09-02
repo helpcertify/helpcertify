@@ -11,6 +11,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { formatShortDate } from '@/utils/formatDate';
 import { useExamCountdowns, featuredExamCountdown } from '@/features/students/hooks/useExamCountdowns';
 import { SiteFooter } from '@/components/layout/SiteFooter';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -234,7 +235,9 @@ export function StudentShell() {
 
         <div className="flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-1 flex-col">
           <main className="flex-1 p-4 lg:p-8">
-            <Outlet />
+            <ErrorBoundary title="This page hit an error">
+              <Outlet />
+            </ErrorBoundary>
           </main>
           <SiteFooter />
         </div>

@@ -14,6 +14,7 @@ import {
 } from '../lib/studyPlan';
 import { ALL_STUDY_DAYS } from '@/types/models';
 import type { StudyDaySelection, StudyPlanningMode, PracticeTestDoc } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 const STUDY_DAY_LABELS: { key: keyof StudyDaySelection; label: string }[] = [
   { key: 'mon', label: 'Mon' },
@@ -141,7 +142,7 @@ export function StudyGoalPanel({
       queryClient.invalidateQueries({ queryKey: ['student', 'studyPlans', uid] });
       onSaved();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not save your plan', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not save your plan'), 'error'),
   });
 
   const toggleDay = (key: keyof StudyDaySelection) => setStudyDays((prev) => ({ ...prev, [key]: !prev[key] }));

@@ -32,6 +32,7 @@ import { deriveMockBlueprint, mockConfigStatus } from '../lib/deriveMockBlueprin
 import { VALIDITY_PRESETS, presetForDays } from '../lib/validityPresets';
 import { uploadContentFile } from '../api/uploadApi';
 import { UploadReport } from '@/components/common/UploadReport';
+import { errorText, friendlyApiError } from '@/lib/errorMessages';
 import { CERTIFICATION_ICON_KEYS, type CertificationIconKey, type DomainAllocation } from '@/types/models';
 
 type Step = 1 | 2 | 3;
@@ -627,7 +628,7 @@ function StepProductDetails({
               notes: 'Auto-created from the simplified product form',
             });
           } catch (e) {
-            pushToast(e instanceof Error ? e.message : 'Saved, but the mock question bank could not be linked', 'error');
+            pushToast(errorText(e, 'Saved, but the mock question bank could not be linked'), 'error');
           }
         }
       }
@@ -1944,45 +1945,16 @@ function CustomPackageForm({ certificationId, onChanged }: { certificationId: st
 // ---------------------------------------------------------------------------
 
 // Backend errors are worded for developers ("associatedBankId does not
-// reference…"); surface something an admin can act on, falling back to the
-// raw message only when we don't recognise it.
-const FIELD_LABELS: Record<string, string> = {
-  shortName: 'Exam code',
-  name: 'Exam preparation name',
-  shortDescription: 'Short description',
-  description: 'Full description',
-  slug: 'Slug',
-  displayOrder: 'Display order',
-  defaultValidityDays: 'Default access validity',
-  practiceBatchSize: 'Questions per practice batch',
-  mockCount: 'Number of mock exams',
-  mockBatchSize: 'Questions per mock exam',
-  mockDurationMinutes: 'Mock exam duration',
-  passMarkPercent: 'Pass mark',
-  fileUrl: 'Question document',
-};
-
+// reference…"); surface something an admin can act on. The generic status /
+// validation handling lives in friendlyApiError; this only adds the
+// domain-specific rewrites for this screen.
 function cleanError(err: unknown, fallback: string): string {
   const msg = err instanceof Error ? err.message : '';
-
-  // Surface which field a "Validation failed" actually tripped on, instead
-  // of the opaque generic. `details` is the zod issue list from the API.
-  const details = (err as { details?: unknown })?.details;
-  if (/^validation failed/i.test(msg) && Array.isArray(details) && details.length > 0) {
-    const parts = (details as Array<{ path?: unknown[]; message?: string }>).slice(0, 3).map((issue) => {
-      const key = Array.isArray(issue.path) && issue.path.length > 0 ? String(issue.path[issue.path.length - 1]) : '';
-      const label = FIELD_LABELS[key] ?? key ?? 'a field';
-      return `${label}: ${issue.message ?? 'invalid value'}`;
-    });
-    return `Please fix - ${parts.join('; ')}`;
-  }
-
-  if (!msg) return fallback;
   if (/slug/i.test(msg)) return 'That web address is already taken by another product - change the short name or set a different slug in Advanced Settings.';
   if (/unpublished certification cannot expose/i.test(msg)) return 'Publish the exam preparation before publishing its packages.';
   if (/no included quiz\/practice test|at least one quiz or practice test|valid entitlement/i.test(msg)) return 'Connect this package to a question bank first.';
   if (/selling price/i.test(msg)) return 'Enter a selling price greater than zero, or mark the package Free.';
   if (/accessible question count|eligible/i.test(msg)) return msg.replace(/^[a-z]+: /i, '');
   if (/domain/i.test(msg)) return 'Mock domain allocation needs attention - open Mock Exam Settings.';
-  return msg;
+  return friendlyApiError(err, fallback);
 }

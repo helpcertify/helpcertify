@@ -12,6 +12,7 @@ import { OrderSummary } from '../components/OrderSummary';
 import { CheckoutConsent } from '../components/CheckoutConsent';
 import { EMPTY_CONSENT, allConsentsGiven, type CheckoutConsentState } from '../lib/checkoutConsent';
 import { Spinner } from '@/components/common/Spinner';
+import { errorText } from '@/lib/errorMessages';
 
 export function CartPage() {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -39,7 +40,7 @@ export function CartPage() {
       setCouponInput('');
       pushToast('Coupon applied', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not apply that coupon', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not apply that coupon'), 'error'),
   });
 
   const removeCouponMutation = useMutation({

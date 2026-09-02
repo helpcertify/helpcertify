@@ -23,6 +23,7 @@ import { StudyGoalPanel } from '../components/StudyGoalPanel';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes, calendarDaysBetween } from '../lib/studyPlan';
 import type { PracticeConfidence } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -133,7 +134,7 @@ export function PracticeTestDetailPage() {
       queryClient.setQueryData(['student', 'cart'], data);
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   if (isLoading) {

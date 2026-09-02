@@ -4,6 +4,7 @@ import { certificatesApi, type Certificate } from '@/features/admin/api/resultsA
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { CertificateViewModal } from '@/components/common/CertificateViewModal';
+import { errorText } from '@/lib/errorMessages';
 
 type TypeFilter = 'all' | 'quiz' | 'practiceTest';
 
@@ -47,7 +48,7 @@ export function MyCertificatesPage() {
     try {
       await certificatesApi.downloadCertificatePdf(cert.id);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not download the certificate', 'error');
+      pushToast(errorText(err, 'Could not download the certificate'), 'error');
     } finally {
       setDownloadingId(null);
     }
@@ -57,7 +58,7 @@ export function MyCertificatesPage() {
     try {
       await certificatesApi.printCertificatePdf(cert.id);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not open the certificate for printing', 'error');
+      pushToast(errorText(err, 'Could not open the certificate for printing'), 'error');
     }
   };
 

@@ -5,6 +5,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { StarRating } from './StarRating';
 import type { PurchasableItemType } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 interface ReviewsSectionProps {
   itemType: PurchasableItemType;
@@ -65,7 +66,7 @@ export function ReviewsSection({ itemType, itemId, owned }: ReviewsSectionProps)
       invalidateAll();
       setEditing(false);
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not submit review', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not submit review'), 'error'),
   });
 
   const deleteMutation = useMutation({

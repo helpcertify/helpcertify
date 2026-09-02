@@ -10,15 +10,9 @@ import { auth } from './firebase';
 // behind one POST endpoint - this helper is the client-side half: it
 // attaches the caller's ID token and dispatches by `action`, mirroring how
 // httpsCallable(functions, 'actionName') used to work.
-export class VercelApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public details?: unknown
-  ) {
-    super(message);
-  }
-}
+import { VercelApiError } from './apiError';
+
+export { VercelApiError };
 
 export async function callAction<T = unknown>(
   endpoint: string,

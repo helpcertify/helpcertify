@@ -11,6 +11,7 @@ import { majorToMinor, minorToMajor } from '@/utils/currency';
 import { DateTime12hInput } from '@/components/common/DateTime12hInput';
 import { SKILL_LEVELS } from '@/types/models';
 import type { QuestionSourceFormat, DurationType, SkillLevel } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 interface QuizFormCardProps {
   editingQuiz?: QuizSummary | null;
@@ -139,7 +140,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
     },
     onError: (err) => {
       setUploading(false);
-      pushToast(err instanceof Error ? err.message : 'Could not publish quiz', 'error');
+      pushToast(errorText(err, 'Could not publish quiz'), 'error');
     },
   });
 
@@ -170,7 +171,7 @@ export function QuizFormCard({ editingQuiz, onDoneEditing }: QuizFormCardProps) 
       queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
       onDoneEditing?.();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not update quiz', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not update quiz'), 'error'),
   });
 
   const pending = createMutation.isPending || updateMutation.isPending || uploading;

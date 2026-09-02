@@ -4,6 +4,7 @@ import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { ProfileActivitySections } from '../components/ProfileActivitySections';
 import { ReferAndEarnSection } from '../components/ReferAndEarnSection';
+import { errorText } from '@/lib/errorMessages';
 
 // Was a modal (ProfileModal) triggered from the sidebar's "My Profile"
 // button; moved to a real page/route on request, same content, just laid
@@ -45,7 +46,7 @@ export function ProfilePage() {
       pushToast('Profile updated', 'success');
       setEditing(false);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not update profile', 'error');
+      pushToast(errorText(err, 'Could not update profile'), 'error');
     } finally {
       setSavingProfile(false);
     }

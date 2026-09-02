@@ -7,6 +7,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VercelApiError } from '@/lib/vercelApi';
+import { errorText } from '@/lib/errorMessages';
 
 interface AnswerFeedback {
   isCorrect: boolean | null;
@@ -53,7 +54,7 @@ export function QuizTakingPage() {
         setAttempt(res.attempt);
       })
       .catch((err) => {
-        pushToast(err instanceof Error ? err.message : 'Could not start this quiz', 'error');
+        pushToast(errorText(err, 'Could not start this quiz'), 'error');
         // The client-side gate (see StudentHomePage) already hides "Start"
         // behind "Add to Cart" for an unpurchased quiz - this 402 is a
         // backstop for a stale cache or a direct URL, so send them
@@ -154,7 +155,7 @@ export function QuizTakingPage() {
         setFinalResult(res.attempt);
         if (auto) pushToast('Time is up. Your quiz was submitted automatically.', 'info');
       } catch (err) {
-        pushToast(err instanceof Error ? err.message : 'Could not submit', 'error');
+        pushToast(errorText(err, 'Could not submit'), 'error');
       } finally {
         setSubmitting(false);
       }

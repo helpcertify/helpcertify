@@ -6,6 +6,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { computeOfferStatus, type OfferStatus } from '../lib/offerStatus';
+import { errorText } from '@/lib/errorMessages';
 
 type StatusFilter = 'all' | CertificationAdminRow['status'];
 type SortKey = 'displayOrder' | 'name' | 'updated';
@@ -103,7 +104,7 @@ export function ProductsPricingPage() {
       pushToast('Exam preparation archived', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not archive exam preparation', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not archive exam preparation'), 'error'),
   });
   const restoreMutation = useMutation({
     mutationFn: (id: string) => contentAdminApi.restoreCertification(id),
@@ -111,7 +112,7 @@ export function ProductsPricingPage() {
       pushToast('Exam preparation restored to Draft', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not restore exam preparation', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not restore exam preparation'), 'error'),
   });
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => contentAdminApi.duplicateCertification(id),
@@ -119,7 +120,7 @@ export function ProductsPricingPage() {
       pushToast('Exam preparation duplicated as a new draft', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not duplicate exam preparation', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not duplicate exam preparation'), 'error'),
   });
   const cancelOfferMutation = useMutation({
     mutationFn: (packageId: string) => contentAdminApi.cancelOffer(packageId),
@@ -127,7 +128,7 @@ export function ProductsPricingPage() {
       pushToast('Offer cancelled', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not cancel the offer', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not cancel the offer'), 'error'),
   });
 
   const isLoading = certLoading || pkgLoading;

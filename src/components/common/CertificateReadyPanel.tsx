@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { certificatesApi, type Certificate } from '@/features/admin/api/resultsApi';
 import { useUiStore } from '@/store/useUiStore';
 import { CertificateViewModal } from './CertificateViewModal';
+import { errorText } from '@/lib/errorMessages';
 
 interface Props {
   certificate: Certificate;
@@ -22,7 +23,7 @@ export function CertificateReadyPanel({ certificate, dashboardHref }: Props) {
     try {
       await certificatesApi.downloadCertificatePdf(certificate.id);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not download the certificate', 'error');
+      pushToast(errorText(err, 'Could not download the certificate'), 'error');
     } finally {
       setDownloading(false);
     }
@@ -32,7 +33,7 @@ export function CertificateReadyPanel({ certificate, dashboardHref }: Props) {
     try {
       await certificatesApi.printCertificatePdf(certificate.id);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not open the certificate for printing', 'error');
+      pushToast(errorText(err, 'Could not open the certificate for printing'), 'error');
     }
   };
 

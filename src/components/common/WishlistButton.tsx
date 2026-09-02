@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { wishlistApi } from '@/features/students/api/wishlistApi';
 import { useUiStore } from '@/store/useUiStore';
 import { HeartIcon } from './icons';
+import { errorText } from '@/lib/errorMessages';
 
 interface WishlistButtonProps {
   // Never 'package' - a certification/package card has no wishlist heart
@@ -39,7 +40,7 @@ export function WishlistButton({ itemType, itemId, className = '', variant = 'ov
       queryClient.setQueryData(['student', 'wishlist'], result);
       pushToast(inWishlist ? 'Removed from wishlist' : 'Added to wishlist', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not update wishlist', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not update wishlist'), 'error'),
   });
 
   const toneClass = inWishlist ? 'text-red-500' : variant === 'overlay' ? 'text-white/90 hover:text-white' : 'text-ink-muted hover:text-ink';

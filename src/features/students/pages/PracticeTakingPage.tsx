@@ -15,6 +15,7 @@ import { VercelApiError } from '@/lib/vercelApi';
 import { toDate } from '@/utils/formatDate';
 import { computeExamDatePlan, questionsPerDayFromMinutes, buildDailyAnsweredMap, dateKey } from '../lib/studyPlan';
 import type { PracticeFeedbackMode, QuestionDoc } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 interface AnswerFeedback {
   isCorrect: boolean | null;
@@ -95,7 +96,7 @@ export function PracticeTakingPage() {
         setQuestions(res.session.batchQuestionIds.map((id) => byId.get(id)).filter((q): q is QuestionDoc & { id: string } => !!q));
       })
       .catch((err) => {
-        pushToast(err instanceof Error ? err.message : 'Could not start this practice session', 'error');
+        pushToast(errorText(err, 'Could not start this practice session'), 'error');
         navigate(err instanceof VercelApiError && err.status === 402 ? '/home/cart' : '/home/practice-tests');
       });
   }, [testId, isReattempt, isMastery, isWeakAreas, isRevision, sessionSize, requestedFeedbackMode, navigate, pushToast]);

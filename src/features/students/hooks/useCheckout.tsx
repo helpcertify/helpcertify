@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { openRazorpayCheckout } from '@/lib/razorpay';
 import { VercelApiError } from '@/lib/vercelApi';
+import { errorText } from '@/lib/errorMessages';
 import { PurchaseConfirmationModal } from '@/components/common/PurchaseConfirmationModal';
 import type { PurchasableItemType } from '@/types/models';
 import type { CheckoutConsentState } from '../lib/checkoutConsent';
@@ -72,12 +73,9 @@ export function useCheckout() {
     } catch (err) {
       setPaying(false);
       const raw = err instanceof VercelApiError ? err.message : '';
-      const friendly = /validation failed/i.test(raw)
-        ? 'Something in this order looks off. Refresh the page and try again.'
-        : /coupon/i.test(raw)
-          ? raw
-          : raw || 'Could not start checkout';
-      pushToast(friendly, 'error');
+      // A coupon complaint is already learner-worded by the API - pass it
+      // straight through; everything else goes through the shared mapper.
+      pushToast(/coupon/i.test(raw) ? raw : errorText(err, 'Could not start checkout'), 'error');
     }
   };
 

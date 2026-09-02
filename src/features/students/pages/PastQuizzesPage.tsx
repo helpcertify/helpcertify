@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { resultsApi, certificatesApi } from '@/features/admin/api/resultsApi';
 import { getQuizById } from '../api/studentContentApi';
 import { useUiStore } from '@/store/useUiStore';
+import { errorText } from '@/lib/errorMessages';
 
 const SUBMITTED_STATUSES = ['submitted', 'auto_submitted'];
 
@@ -37,7 +38,7 @@ export function PastQuizzesPage() {
       const { certificate } = await certificatesApi.issueOrGetCertificate('quiz', quizId, attemptId);
       await certificatesApi.downloadCertificatePdf(certificate.id);
     } catch (err) {
-      pushToast(err instanceof Error ? err.message : 'Could not download the certificate', 'error');
+      pushToast(errorText(err, 'Could not download the certificate'), 'error');
     } finally {
       setDownloadingId(null);
     }

@@ -7,6 +7,7 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
+import { errorText } from '@/lib/errorMessages';
 
 export function WishlistPage() {
   const queryClient = useQueryClient();
@@ -24,7 +25,7 @@ export function WishlistPage() {
       queryClient.setQueryData(['student', 'cart'], data);
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   const items = wishlist?.items ?? [];

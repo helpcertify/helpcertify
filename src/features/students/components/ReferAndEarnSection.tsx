@@ -10,6 +10,7 @@ import { useMyCredits } from '../hooks/useMyCredits';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import type { ReferralDoc, ReferralStatus } from '@/types/models';
+import { errorText } from '@/lib/errorMessages';
 
 // One label + color per lifecycle stage (see ReferralDoc's own comment for
 // what each status means). 'invited' has no real trigger in this app
@@ -84,7 +85,7 @@ export function ReferAndEarnSection() {
         pushToast(result.reason, 'error');
       }
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not apply that code', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not apply that code'), 'error'),
   });
 
   if (!profile) return null;

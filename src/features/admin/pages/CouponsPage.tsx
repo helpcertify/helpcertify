@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { couponsApi, type CreateCouponPayload } from '../api/couponsApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
+import { errorText } from '@/lib/errorMessages';
 
 export function CouponsPage() {
   const queryClient = useQueryClient();
@@ -36,7 +37,7 @@ export function CouponsPage() {
       setMaxUses('');
       invalidate();
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not create coupon', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not create coupon'), 'error'),
   });
 
   const toggleActiveMutation = useMutation({

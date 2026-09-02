@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { contentAdminApi } from '../api/contentAdminApi';
 import { QuestionEditorList } from '../components/QuestionEditorList';
 import { useUiStore } from '@/store/useUiStore';
+import { errorText } from '@/lib/errorMessages';
 
 // Practice Manager had no "View" page at all before this - the answer key
 // was only reachable for quizzes. Same treatment as QuizAnswerKeyPage:
@@ -44,7 +45,7 @@ export function PracticeTestAnswerKeyPage() {
               pushToast('Question updated', 'success');
               queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTestAnswerKey', testId] });
             } catch (err) {
-              pushToast(err instanceof Error ? err.message : 'Could not update question', 'error');
+              pushToast(errorText(err, 'Could not update question'), 'error');
             }
           }}
         />

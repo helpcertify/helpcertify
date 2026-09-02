@@ -8,6 +8,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
 import { ProductCardShell } from './ProductCardShell';
 import { Spinner } from './Spinner';
+import { errorText } from '@/lib/errorMessages';
 export interface CarouselItem {
   // Never 'package' - a carousel item is always one flat quiz/practiceTest;
   // packages render via CertificationCard instead.
@@ -157,7 +158,7 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
       queryClient.setQueryData(['student', 'cart'], data);
       pushToast('Added to cart', 'success');
     },
-    onError: (err) => pushToast(err instanceof Error ? err.message : 'Could not add to cart', 'error'),
+    onError: (err) => pushToast(errorText(err, 'Could not add to cart'), 'error'),
   });
 
   // Context-aware label instead of a generic "Go start it" for an owned
