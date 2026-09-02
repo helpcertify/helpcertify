@@ -319,7 +319,10 @@ async function createOrder(uid: string, body: unknown) {
     const coupon = await validateCoupon(couponCode, uid);
     if (coupon) {
       discount = computeDiscount(coupon, subtotal);
-      appliedCoupon = couponCode;
+      // Store the normalized id (coupon docs are keyed by the upper-cased
+      // code, see validateCoupon) so finalizeOrder's usedCount bump hits
+      // the right document.
+      appliedCoupon = couponCode.toUpperCase();
     } else if (isExplicitBuyNowCoupon) {
       throw Err.invalidArgument('This coupon code is invalid or has expired');
     }
@@ -530,7 +533,11 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   const batch = db.batch();
   await processReferralOnPurchase(order.userId, orderId, order.items as { itemType: ItemType; itemId: string }[], batch);
 
-  await ref.update({ status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
+  // The status flip goes IN the batch alongside the entitlement writes, so
+  // finalizeOrder is all-or-nothing: a failure here (previously a bad
+  // coupon-doc update) can no longer leave an order marked paid with no
+  // purchase records. A retry (client or webhook) then re-runs cleanly.
+  batch.update(ref, { status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
     if (item.itemType === 'package') {
@@ -584,7 +591,14 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
     });
   }
   if (order.couponCode) {
-    batch.update(db.collection('coupons').doc(order.couponCode), { usedCount: FieldValue.increment(1) });
+    // set+merge, not update: a coupon that was renamed or deleted between
+    // order and payment must not fail the whole batch (and strand the
+    // buyer's access). Upper-case defensively for pre-normalization orders.
+    batch.set(
+      db.collection('coupons').doc(String(order.couponCode).toUpperCase()),
+      { usedCount: FieldValue.increment(1) },
+      { merge: true },
+    );
   }
   // Only clear the cart for an order that actually came from it - a Buy Now
   // order (fromCart: false) must never wipe out unrelated items the

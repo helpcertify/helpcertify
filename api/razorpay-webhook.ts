@@ -145,7 +145,9 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   const batch = db.batch();
   await processReferralOnPurchase(order.userId, orderId, order.items as { itemType: ItemType; itemId: string }[], batch);
 
-  await ref.update({ status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
+  // In the batch with the entitlement writes so finalize is all-or-nothing
+  // (mirrors api/checkout.ts).
+  batch.update(ref, { status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
   for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
     if (item.itemType === 'package') {
@@ -196,7 +198,11 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
     });
   }
   if (order.couponCode) {
-    batch.update(db.collection('coupons').doc(order.couponCode), { usedCount: FieldValue.increment(1) });
+    batch.set(
+      db.collection('coupons').doc(String(order.couponCode).toUpperCase()),
+      { usedCount: FieldValue.increment(1) },
+      { merge: true },
+    );
   }
   // Only clear the cart for an order that actually came from it - see
   // api/checkout.ts's finalizeOrder (same logic, duplicated here) for why.
