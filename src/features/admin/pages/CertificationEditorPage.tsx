@@ -818,7 +818,14 @@ function StepProductDetails({
 function QuestionBankSummary({ certification }: { certification: CertificationAdminRow }) {
   const { data: tests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const { data: quizzes } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
-  const practiceBank = tests?.practiceTests.find((t) => t.id === certification.practiceBankId) ?? null;
+  const practiceBankIds = certification.practiceBankIds?.length
+    ? certification.practiceBankIds
+    : certification.practiceBankId
+      ? [certification.practiceBankId]
+      : [];
+  const practiceBankList = (tests?.practiceTests ?? []).filter((t) => practiceBankIds.includes(t.id));
+  const practiceBank = practiceBankList[0] ?? null;
+  const seriesPracticeQuestions = practiceBankList.reduce((sum, t) => sum + (t.totalQuestions ?? 0), 0);
   const mockBank = quizzes?.quizzes.find((q) => q.id === certification.mockBankId) ?? null;
 
   const { data: practiceDomains } = useQuery({
@@ -832,12 +839,16 @@ function QuestionBankSummary({ certification }: { certification: CertificationAd
   return (
     <div className="space-y-4 text-sm">
       {!practiceBank ? (
-        <p className="text-ink-faint">No practice question bank linked yet - set one in Product Details.</p>
+        <p className="text-ink-faint">
+          No practice content yet - link a question bank or generate batches from an uploaded document in Product Details.
+        </p>
       ) : (
         <div className="rounded-lg border border-surface-border p-4">
-          <div className="font-medium text-ink">{practiceBank.title}</div>
+          <div className="font-medium text-ink">
+            {certification.seriesId ? `${practiceBankList.length} practice batches` : practiceBank.title}
+          </div>
           <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-ink-faint sm:grid-cols-2">
-            <div>Published questions: <span className="text-ink">{practiceBank.totalQuestions.toLocaleString()}</span></div>
+            <div>Published questions: <span className="text-ink">{(certification.seriesId ? seriesPracticeQuestions : practiceBank.totalQuestions).toLocaleString()}</span></div>
             <div>Domains available: <span className="text-ink">{practiceDomains ? Object.keys(practiceDomains.byDomain).length : '…'}</span></div>
             <div>Eligible for Practice: <span className="text-ink">Yes</span></div>
             <div>Eligible for Mock: <span className="text-ink">{mockBank ? 'Yes' : 'No'}</span></div>
@@ -908,12 +919,20 @@ function StepPackages({
   onChanged: () => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
+  const { data: allTests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const { data: practiceDomains } = useQuery({
     queryKey: ['admin', 'bankDomainCounts', 'practiceTest', certification.practiceBankId],
     queryFn: () => contentAdminApi.getBankDomainCounts('practiceTest', certification.practiceBankId!),
-    enabled: !!certification.practiceBankId,
+    enabled: !!certification.practiceBankId && !certification.seriesId,
   });
-  const eligiblePracticeQuestions = practiceDomains?.totalQuestions ?? Number.MAX_SAFE_INTEGER;
+  // A generated series spreads its questions across many practiceTests docs;
+  // sum them. A single linked bank uses the domain-count total.
+  const seriesQuestionTotal = (allTests?.practiceTests ?? [])
+    .filter((t) => (certification.practiceBankIds ?? []).includes(t.id))
+    .reduce((sum, t) => sum + (t.totalQuestions ?? 0), 0);
+  const eligiblePracticeQuestions = certification.seriesId
+    ? seriesQuestionTotal || Number.MAX_SAFE_INTEGER
+    : practiceDomains?.totalQuestions ?? Number.MAX_SAFE_INTEGER;
 
   const templatePackages = useMemo(() => {
     const map: Partial<Record<TemplateId, PackageAdminRow>> = {};
@@ -998,9 +1017,10 @@ function StepPackages({
 
   return (
     <div className="space-y-4">
-      {!certification.practiceBankId && (
+      {!certification.practiceBankId && !certification.seriesId && !certification.practiceBankIds?.length && (
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
-          Select a practice question bank in Product Details before configuring packages.
+          Add practice content in Product Details first - link a question bank, or upload a document and click "Generate
+          batches".
         </p>
       )}
 
