@@ -630,8 +630,11 @@ function StepProductDetails({
         <Field label="Certification body" hint="e.g. ISACA">
           <CategorySelect value={provider} onChange={(v) => { setProvider(v); touched(); }} />
         </Field>
-        <Field label="Default access validity (days)" hint="e.g. 180">
-          <input type="number" min={1} value={defaultValidityDays} onChange={(e) => { setDefaultValidityDays(e.target.value); touched(); }} className="input-dark" />
+        <Field label="Default access validity" hint="Default for new packages. Each package can override it.">
+          <ValiditySelect
+            days={Number(defaultValidityDays) || 0}
+            onChange={(d) => { setDefaultValidityDays(String(d)); touched(); }}
+          />
         </Field>
       </div>
 
