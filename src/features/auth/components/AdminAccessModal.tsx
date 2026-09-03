@@ -53,7 +53,7 @@ export function AdminAccessModal({ onClose }: AdminAccessModalProps) {
     if (!awaitingRoleCheck.current || !profile) return;
     awaitingRoleCheck.current = false;
 
-    if (profile.role !== 'admin') {
+    if (profile.role !== 'admin' && profile.role !== 'finance_admin') {
       authApi.logout();
       pushToast('This account does not have admin access.', 'error');
       return;

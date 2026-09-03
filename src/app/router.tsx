@@ -103,9 +103,18 @@ export function AppRouter() {
         <Route path="/practice-tests/:testId/take" element={<PracticeTakingPage />} />
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+      {/* finance_admin is a limited staff role: it reaches the admin shell
+          but only the Partner Payouts screen (AdminHomePage itself bounces
+          it straight there). Everything else stays admin-only below. */}
+      <Route element={<ProtectedRoute allowedRoles={['admin', 'finance_admin']} />}>
         <Route element={<AdminShell />}>
           <Route path="/admin" element={<AdminHomePage />} />
+          <Route path="/admin/payouts" element={<PayoutsPage />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+        <Route element={<AdminShell />}>
           <Route path="/admin/products" element={<ProductsPricingPage />} />
           <Route path="/admin/products/new" element={<CertificationEditorPage />} />
           <Route path="/admin/products/:certificationId" element={<CertificationEditorPage />} />
@@ -118,7 +127,6 @@ export function AppRouter() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/referrals" element={<AdminReferralAuditPage />} />
           <Route path="/admin/partners" element={<PartnerApplicationsPage />} />
-          <Route path="/admin/payouts" element={<PayoutsPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

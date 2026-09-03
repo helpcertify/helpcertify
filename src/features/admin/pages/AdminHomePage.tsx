@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { adminApi } from '../api/adminApi';
 import { contentAdminApi } from '../api/contentAdminApi';
 import { computeOfferStatus } from '../lib/offerStatus';
@@ -29,9 +30,11 @@ const ACTIONS = [
 ];
 
 export function AdminHomePage() {
-  const { data: stats } = useQuery({ queryKey: ['admin', 'dashboardStats'], queryFn: adminApi.getDashboardStats });
-  const { data: certData } = useQuery({ queryKey: ['admin', 'certifications'], queryFn: contentAdminApi.listCertificationsAdmin });
-  const { data: pkgData } = useQuery({ queryKey: ['admin', 'packages'], queryFn: () => contentAdminApi.listPackagesAdmin() });
+  const role = useAuthStore((s) => s.profile?.role);
+  const isFinance = role === 'finance_admin';
+  const { data: stats } = useQuery({ queryKey: ['admin', 'dashboardStats'], queryFn: adminApi.getDashboardStats, enabled: !isFinance });
+  const { data: certData } = useQuery({ queryKey: ['admin', 'certifications'], queryFn: contentAdminApi.listCertificationsAdmin, enabled: !isFinance });
+  const { data: pkgData } = useQuery({ queryKey: ['admin', 'packages'], queryFn: () => contentAdminApi.listPackagesAdmin(), enabled: !isFinance });
 
   const certifications = certData?.certifications ?? [];
   const packages = pkgData?.packages ?? [];
@@ -48,6 +51,9 @@ export function AdminHomePage() {
         now
       ) === 'active'
   ).length;
+
+  // finance_admin has no dashboard - its only screen is Partner Payouts.
+  if (isFinance) return <Navigate to="/admin/payouts" replace />;
 
   return (
     <div>
