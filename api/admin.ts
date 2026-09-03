@@ -1379,7 +1379,34 @@ async function releaseCommissionHolds(): Promise<{ released: number }> {
     });
   }
   await batch.commit();
-  return { released: due.size };
+
+  // Creator/reviewer earnings (Phase 4b-3) share the hold-release job.
+  const dueEarnings = await db
+    .collection('earnings')
+    .where('status', '==', 'PENDING_HOLD')
+    .where('holdUntil', '<=', now)
+    .limit(400)
+    .get();
+  if (!dueEarnings.empty) {
+    const eb = db.batch();
+    for (const doc of dueEarnings.docs) {
+      eb.update(doc.ref, { status: 'PAYABLE', updatedAt: now });
+      eb.set(db.collection('earningsLedger').doc(), {
+        earningId: doc.id,
+        partnerId: doc.data().partnerId,
+        fromStatus: 'PENDING_HOLD',
+        toStatus: 'PAYABLE',
+        amountMinor: Number(doc.data().netMinor) || 0,
+        reason: 'Correction window elapsed; released for payout',
+        actorId: 'system',
+        actorType: 'system',
+        createdAt: now,
+      });
+    }
+    await eb.commit();
+  }
+
+  return { released: due.size + dueEarnings.size };
 }
 
 // --- Partner payouts (Phase 3, MANUAL - no money moves here) --------------
@@ -1400,24 +1427,69 @@ async function minPayoutMinor(): Promise<number> {
   }
 }
 
-async function listPayableCommissions() {
-  const snap = await db.collection('commissions').where('status', '==', 'PAYABLE').limit(1000).get();
-  const min = await minPayoutMinor();
-  type PGroup = { partnerId: string; currency: string; commissionIds: string[]; grossMinor: number };
-  const byPartner = new Map<string, PGroup>();
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    const key = `${d.partnerId}::${d.currency ?? 'INR'}`;
-    const g: PGroup = byPartner.get(key) ?? { partnerId: d.partnerId, currency: (d.currency as string) ?? 'INR', commissionIds: [], grossMinor: 0 };
-    g.commissionIds.push(doc.id);
-    g.grossMinor += Math.max(0, Number(d.netPayableMinor) || 0);
+// Shared by listPayableCommissions + createPayoutBatch: gathers every
+// PAYABLE line item - sales commissions AND creator/reviewer earnings
+// (Phase 4b-3) - grouped per partner+currency. Sales commission and creator
+// earnings are separate liabilities but share one payout run (PRD 9A).
+type PayGroup = {
+  partnerId: string;
+  currency: string;
+  commissionIds: string[];
+  earningIds: string[];
+  commissionMinor: number;
+  earningMinor: number;
+  grossMinor: number;
+};
+
+async function gatherPayable(partnerIds?: string[]): Promise<Map<string, PayGroup>> {
+  const [commSnap, earnSnap] = await Promise.all([
+    db.collection('commissions').where('status', '==', 'PAYABLE').limit(1000).get(),
+    db.collection('earnings').where('status', '==', 'PAYABLE').limit(1000).get(),
+  ]);
+  const byPartner = new Map<string, PayGroup>();
+  const grp = (partnerId: string, currency: string): PayGroup => {
+    const key = `${partnerId}::${currency}`;
+    const g =
+      byPartner.get(key) ??
+      { partnerId, currency, commissionIds: [], earningIds: [], commissionMinor: 0, earningMinor: 0, grossMinor: 0 };
     byPartner.set(key, g);
+    return g;
+  };
+  for (const doc of commSnap.docs) {
+    const d = doc.data();
+    if (partnerIds && !partnerIds.includes(d.partnerId)) continue;
+    const g = grp(d.partnerId, (d.currency as string) ?? 'INR');
+    g.commissionIds.push(doc.id);
+    const m = Math.max(0, Number(d.netPayableMinor) || 0);
+    g.commissionMinor += m;
+    g.grossMinor += m;
   }
+  for (const doc of earnSnap.docs) {
+    const d = doc.data();
+    if (partnerIds && !partnerIds.includes(d.partnerId)) continue;
+    const g = grp(d.partnerId, (d.currency as string) ?? 'INR');
+    g.earningIds.push(doc.id);
+    const m = Math.max(0, Number(d.netMinor) || 0);
+    g.earningMinor += m;
+    g.grossMinor += m;
+  }
+  return byPartner;
+}
+
+async function listPayableCommissions() {
+  const min = await minPayoutMinor();
+  const byPartner = await gatherPayable();
   const groups = await Promise.all(
     [...byPartner.values()].map(async (g) => {
       const p = (await db.collection('partners').doc(g.partnerId).get()).data();
       return {
-        ...g,
+        partnerId: g.partnerId,
+        currency: g.currency,
+        commissionIds: g.commissionIds,
+        earningIds: g.earningIds,
+        commissionMinor: g.commissionMinor,
+        earningMinor: g.earningMinor,
+        grossMinor: g.grossMinor,
         meetsMinimum: g.grossMinor >= min,
         displayName: (p?.displayName as string) ?? g.partnerId,
         hasPayoutDetails: !!p?.payout?.method,
@@ -1441,18 +1513,8 @@ async function createPayoutBatch(uid: string, body: unknown) {
   const { periodLabel, partnerIds } = parsed.data;
   const min = await minPayoutMinor();
 
-  const snap = await db.collection('commissions').where('status', '==', 'PAYABLE').limit(1000).get();
-  type BGroup = { partnerId: string; currency: string; ids: string[]; gross: number };
-  const byPartner = new Map<string, BGroup>();
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    if (partnerIds && !partnerIds.includes(d.partnerId)) continue;
-    const key = `${d.partnerId}::${d.currency ?? 'INR'}`;
-    const g: BGroup = byPartner.get(key) ?? { partnerId: d.partnerId, currency: (d.currency as string) ?? 'INR', ids: [], gross: 0 };
-    g.ids.push(doc.id);
-    g.gross += Math.max(0, Number(d.netPayableMinor) || 0);
-    byPartner.set(key, g);
-  }
+  const byPartner = await gatherPayable(partnerIds);
+
   // A partner is only includable when they clear the minimum AND their KYC
   // payout status is OK (PRD 6: KYC_ACTION_REQUIRED / PAYOUT_BLOCKED hold).
   const statusByPartner = new Map<string, string>();
@@ -1462,13 +1524,13 @@ async function createPayoutBatch(uid: string, body: unknown) {
       statusByPartner.set(pid, (p?.payoutStatus as string) ?? 'OK');
     }),
   );
-  const blocked = [...byPartner.values()].filter((g) => g.gross >= min && statusByPartner.get(g.partnerId) !== 'OK');
-  const eligible = [...byPartner.values()].filter((g) => g.gross >= min && statusByPartner.get(g.partnerId) === 'OK');
+  const blocked = [...byPartner.values()].filter((g) => g.grossMinor >= min && statusByPartner.get(g.partnerId) !== 'OK');
+  const eligible = [...byPartner.values()].filter((g) => g.grossMinor >= min && statusByPartner.get(g.partnerId) === 'OK');
   if (eligible.length === 0) {
     throw Err.conflict(
       blocked.length
         ? `${blocked.length} partner(s) meet the minimum but are held for KYC. Clear their payout status first.`
-        : 'No partner has enough PAYABLE commission to meet the minimum payout.',
+        : 'No partner has enough PAYABLE earnings to meet the minimum payout.',
     );
   }
 
@@ -1478,8 +1540,8 @@ async function createPayoutBatch(uid: string, body: unknown) {
   }
 
   const batchRef = db.collection('payoutBatches').doc();
-  const grossMinor = eligible.reduce((t, g) => t + g.gross, 0);
-  const commissionCount = eligible.reduce((t, g) => t + g.ids.length, 0);
+  const grossMinor = eligible.reduce((t, g) => t + g.grossMinor, 0);
+  const commissionCount = eligible.reduce((t, g) => t + g.commissionIds.length + g.earningIds.length, 0);
   const now = Timestamp.now();
 
   const wb = db.batch();
@@ -1505,17 +1567,20 @@ async function createPayoutBatch(uid: string, body: unknown) {
       productId: 'HELPCERTIFY',
       periodLabel,
       currency: g.currency,
-      commissionIds: g.ids,
-      grossMinor: g.gross,
+      commissionIds: g.commissionIds,
+      earningIds: g.earningIds,
+      commissionMinor: g.commissionMinor,
+      earningMinor: g.earningMinor,
+      grossMinor: g.grossMinor,
       deductionsMinor: 0,
-      netMinor: g.gross,
+      netMinor: g.grossMinor,
       status: 'PENDING',
       externalReference: null,
       paidAt: null,
       createdAt: now,
       updatedAt: now,
     });
-    for (const cid of g.ids) {
+    for (const cid of g.commissionIds) {
       wb.update(db.collection('commissions').doc(cid), { status: 'PROCESSING', payoutBatchId: batchRef.id, updatedAt: now });
       wb.set(db.collection('commissionLedger').doc(), {
         commissionId: cid,
@@ -1530,9 +1595,23 @@ async function createPayoutBatch(uid: string, body: unknown) {
         createdAt: now,
       });
     }
+    for (const eid of g.earningIds) {
+      wb.update(db.collection('earnings').doc(eid), { status: 'PROCESSING', payoutBatchId: batchRef.id, updatedAt: now });
+      wb.set(db.collection('earningsLedger').doc(), {
+        earningId: eid,
+        partnerId: g.partnerId,
+        fromStatus: 'PAYABLE',
+        toStatus: 'PROCESSING',
+        amountMinor: 0,
+        reason: `Added to payout batch ${batchRef.id}`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: now,
+      });
+    }
   }
   await wb.commit();
-  await writePartnerAudit({ entityType: 'payoutBatch', entityId: batchRef.id, action: 'create', actorId: uid, after: { periodLabel, grossMinor, commissionCount } });
+  await writePartnerAudit({ entityType: 'payoutBatch', entityId: batchRef.id, action: 'create', actorId: uid, after: { periodLabel, grossMinor, lineItems: commissionCount } });
   return { batchId: batchRef.id, grossMinor, commissionCount, partnerCount: eligible.length };
 }
 
@@ -1581,7 +1660,21 @@ async function recordPayoutBatchPaid(uid: string, body: unknown) {
         partnerId: p.data().partnerId,
         fromStatus: 'PROCESSING',
         toStatus: 'PAID',
-        amountMinor: Number(p.data().netMinor) || 0,
+        amountMinor: 0,
+        reason: `Payout batch ${batchId} paid (ref ${externalReference})`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: now,
+      });
+    }
+    for (const eid of (p.data().earningIds as string[]) ?? []) {
+      wb.update(db.collection('earnings').doc(eid), { status: 'PAID', updatedAt: now });
+      wb.set(db.collection('earningsLedger').doc(), {
+        earningId: eid,
+        partnerId: p.data().partnerId,
+        fromStatus: 'PROCESSING',
+        toStatus: 'PAID',
+        amountMinor: 0,
         reason: `Payout batch ${batchId} paid (ref ${externalReference})`,
         actorId: uid,
         actorType: 'staff',
@@ -1619,7 +1712,21 @@ async function cancelPayoutBatch(uid: string, body: unknown) {
         fromStatus: 'PROCESSING',
         toStatus: 'PAYABLE',
         amountMinor: 0,
-        reason: `Payout batch ${parsed.data.batchId} cancelled; commission returned to payable`,
+        reason: `Payout batch ${parsed.data.batchId} cancelled; returned to payable`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: now,
+      });
+    }
+    for (const eid of (p.data().earningIds as string[]) ?? []) {
+      wb.update(db.collection('earnings').doc(eid), { status: 'PAYABLE', payoutBatchId: null, updatedAt: now });
+      wb.set(db.collection('earningsLedger').doc(), {
+        earningId: eid,
+        partnerId: p.data().partnerId,
+        fromStatus: 'PROCESSING',
+        toStatus: 'PAYABLE',
+        amountMinor: 0,
+        reason: `Payout batch ${parsed.data.batchId} cancelled; returned to payable`,
         actorId: uid,
         actorType: 'staff',
         createdAt: now,

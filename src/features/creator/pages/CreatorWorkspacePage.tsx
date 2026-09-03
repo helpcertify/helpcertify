@@ -6,6 +6,7 @@ import { CREATOR_ROLES, type CreatorRole } from '../lib/creatorRole';
 import { parseQaText } from '../lib/parseQa';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { formatMoney } from '@/utils/currency';
 
 const ROLE_LABEL: Record<string, string> = {
   course_creator: 'Course Creator',
@@ -23,6 +24,7 @@ export function CreatorWorkspacePage() {
   const roles = useQuery({ queryKey: ['creator', 'myRoles'], queryFn: creatorApi.getMyRoles });
   const assignments = useQuery({ queryKey: ['creator', 'myAssignments'], queryFn: creatorApi.listMyAssignments });
   const submissions = useQuery({ queryKey: ['creator', 'mySubmissions'], queryFn: creatorApi.listMySubmissions });
+  const earnings = useQuery({ queryKey: ['creator', 'myEarnings'], queryFn: creatorApi.listMyEarnings });
 
   // --- Content Studio ---
   const [studioAssignment, setStudioAssignment] = useState('');
@@ -308,6 +310,45 @@ export function CreatorWorkspacePage() {
                         withdraw
                       </button>
                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Creator earnings</h2>
+        <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'In hold', v: earnings.data?.totals.pendingMinor },
+            { label: 'Payable', v: earnings.data?.totals.payableMinor },
+            { label: 'Paid', v: earnings.data?.totals.paidMinor },
+            { label: 'Reversed', v: earnings.data?.totals.reversedMinor },
+          ].map((s) => (
+            <div key={s.label} className="rounded-lg border border-surface-border px-3 py-2">
+              <p className="text-xs uppercase tracking-wide text-ink-faint">{s.label}</p>
+              <p className="mt-0.5 text-sm font-bold text-ink">{formatMoney(s.v ?? 0, 'INR')}</p>
+            </div>
+          ))}
+        </div>
+        {(earnings.data?.earnings ?? []).length === 0 ? (
+          <p className="text-sm text-ink-faint">
+            No earnings yet. They are generated when your accepted content is published, then held for a correction
+            window before becoming payable.
+          </p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <tbody className="divide-y divide-surface-border/60">
+              {(earnings.data?.earnings ?? []).map((e) => (
+                <tr key={e.id}>
+                  <td className="py-2 text-ink">{e.type.replace(/_/g, ' ').toLowerCase()}</td>
+                  <td className="py-2 text-ink-faint">{e.qty > 1 ? `${e.qty} items` : ''}</td>
+                  <td className="py-2 font-semibold text-ink">{formatMoney(e.netMinor, 'INR')}</td>
+                  <td className="py-2 text-ink-faint">{e.holdUntil ? new Date(e.holdUntil).toLocaleDateString() : '-'}</td>
+                  <td className="py-2">
+                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{e.status}</span>
                   </td>
                 </tr>
               ))}

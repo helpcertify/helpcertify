@@ -193,6 +193,9 @@ export interface PayableGroup {
   displayName: string;
   currency: string;
   commissionIds: string[];
+  earningIds: string[];
+  commissionMinor: number;
+  earningMinor: number;
   grossMinor: number;
   meetsMinimum: boolean;
   hasPayoutDetails: boolean;

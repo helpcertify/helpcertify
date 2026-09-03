@@ -1379,6 +1379,40 @@ async function withdrawContentSubmission(req: VercelRequest, body: unknown) {
   return { status: 'WITHDRAWN' as const };
 }
 
+async function listMyCreatorEarnings(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const snap = await db
+    .collection('earnings')
+    .where('partnerId', '==', partnerId)
+    .orderBy('createdAt', 'desc')
+    .limit(200)
+    .get();
+  const rows = snap.docs.map((d) => {
+    const e = d.data();
+    return {
+      id: d.id,
+      type: e.type as string,
+      qty: Number(e.qty) || 0,
+      grossMinor: Number(e.grossMinor) || 0,
+      netMinor: Number(e.netMinor) || 0,
+      status: e.status as string,
+      holdUntil: e.holdUntil ? (e.holdUntil as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+      createdAt: e.createdAt ? (e.createdAt as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+    };
+  });
+  const sum = (pred: (s: string) => boolean) =>
+    rows.filter((r) => pred(r.status)).reduce((t, r) => t + r.netMinor, 0);
+  return {
+    earnings: rows,
+    totals: {
+      pendingMinor: sum((s) => s === 'PENDING_HOLD' || s === 'APPROVED'),
+      payableMinor: sum((s) => s === 'PAYABLE' || s === 'PROCESSING'),
+      paidMinor: sum((s) => s === 'PAID'),
+      reversedMinor: sum((s) => s === 'REVERSED' || s === 'RECOVERABLE'),
+    },
+  };
+}
+
 async function listMyContentSubmissions(req: VercelRequest) {
   const { uid } = await requirePartner(req);
   const snap = await db
@@ -1489,6 +1523,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyContentSubmissions':
         res.status(200).json(await listMyContentSubmissions(req));
+        return;
+      case 'listMyCreatorEarnings':
+        res.status(200).json(await listMyCreatorEarnings(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

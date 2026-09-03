@@ -2579,6 +2579,108 @@ async function publishContentSubmission(uid: string, body: unknown) {
     acceptedItemCount: FieldValue.increment(toPublish.length),
     updatedAt: now,
   });
+
+  // --- Earnings (Phase 4b-3). Separate liability from sales commission;
+  // shares the payout batches. Held for a correction window, then released
+  // by the same daily cron. Tested spec:
+  // src/features/creator/lib/creatorEarnings.ts.
+  const guardSnap = await db.collection('appSettings').doc('creatorEarnings').get();
+  const holdDays = Number(guardSnap.data()?.holdDays) > 0 ? Math.floor(Number(guardSnap.data()!.holdDays)) : 14;
+  const holdUntil = Timestamp.fromMillis(Date.now() + holdDays * 24 * 60 * 60 * 1000);
+  const contract = contractId ? (await db.collection('creatorContracts').doc(contractId).get()).data() : null;
+
+  const mkEarning = (
+    id: string,
+    partnerId: string,
+    type: string,
+    sourceType: string,
+    sourceRef: string,
+    qty: number,
+    rateMinor: number,
+  ) => {
+    const gross = Math.max(0, Math.floor(rateMinor)) * Math.max(0, Math.floor(qty));
+    if (gross <= 0) return;
+    batch.set(
+      db.collection('earnings').doc(id),
+      {
+        partnerId,
+        productId: 'HELPCERTIFY',
+        type,
+        sourceType,
+        sourceRef,
+        contractId: contractId ?? null,
+        qty,
+        rateMinor: Math.floor(rateMinor),
+        grossMinor: gross,
+        deductionsMinor: 0,
+        netMinor: gross,
+        currency: 'INR',
+        status: 'PENDING_HOLD',
+        holdUntil,
+        reversedMinor: 0,
+        payoutBatchId: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      { merge: false },
+    );
+    batch.set(db.collection('earningsLedger').doc(), {
+      earningId: id,
+      partnerId,
+      fromStatus: null,
+      toStatus: 'PENDING_HOLD',
+      amountMinor: gross,
+      reason: `${type} on publish of submission ${parsed.data.submissionId}`,
+      actorId: uid,
+      actorType: 'staff',
+      createdAt: now,
+    });
+  };
+
+  if (contract) {
+    const model = contract.compensationModel as string;
+    const rate = Number(contract.rateMinor) || 0;
+    if (model === 'FIXED') {
+      const fid = `assignment_${s.assignmentId}_${s.partnerId}`;
+      if (!(await db.collection('earnings').doc(fid).get()).exists) {
+        mkEarning(fid, s.partnerId as string, 'CREATOR_FIXED_FEE', 'assignment', s.assignmentId as string, 1, rate);
+      }
+    } else if (model === 'PER_ITEM') {
+      mkEarning(
+        `submission_${parsed.data.submissionId}_${s.partnerId}`,
+        s.partnerId as string,
+        'CREATOR_ITEM_FEE',
+        'submission',
+        parsed.data.submissionId,
+        toPublish.length,
+        rate,
+      );
+    }
+  }
+
+  // Reviewer fee - if the reviewer is a partner with an active REVIEW contract.
+  if (s.reviewerUid) {
+    const reviewerPartnerId = (await db.collection('users').doc(s.reviewerUid as string).get()).data()?.partnerId as
+      | string
+      | undefined;
+    if (reviewerPartnerId) {
+      const revContract = (await db.collection('creatorContracts').where('partnerId', '==', reviewerPartnerId).limit(20).get()).docs
+        .map((d) => d.data())
+        .find((c) => c.compensationModel === 'REVIEW' && c.status === 'ACTIVE');
+      if (revContract) {
+        mkEarning(
+          `review_${parsed.data.submissionId}_${reviewerPartnerId}`,
+          reviewerPartnerId,
+          'REVIEWER_FEE',
+          'review',
+          parsed.data.submissionId,
+          toPublish.length,
+          Number(revContract.rateMinor) || 0,
+        );
+      }
+    }
+  }
+
   await batch.commit();
 
   await writeAdminLog({
@@ -2588,11 +2690,9 @@ async function publishContentSubmission(uid: string, body: unknown) {
     targetId: parsed.data.submissionId,
     description: `Published ${toPublish.length} item(s) from ${s.partnerId}`,
   });
-  // NOTE: the accepted items are recorded as immutable contentItems here.
-  // Wiring them into a live quiz / practice test / question bank is done
-  // through the existing admin import (createBatchedSeries / question
-  // editor) - deliberately reused, not forked. Earnings are generated in
-  // Phase 4b-3.
+  // Wiring the accepted items into a live quiz / practice test / question
+  // bank is done through the existing admin import (createBatchedSeries /
+  // question editor) - deliberately reused, not forked.
   return { status: 'PUBLISHED' as const, itemsPublished: toPublish.length };
 }
 
@@ -2620,7 +2720,51 @@ async function resolveComplianceCase(uid: string, body: unknown) {
     resolvedAt: now,
   });
   if (parsed.data.quarantine && c.contentItemId) {
-    batch.update(db.collection('contentItems').doc(c.contentItemId as string), { status: 'QUARANTINED', updatedAt: now });
+    const ciSnap = await db.collection('contentItems').doc(c.contentItemId as string).get();
+    const ci = ciSnap.data();
+    batch.update(ciSnap.ref, { status: 'QUARANTINED', updatedAt: now });
+
+    // Reverse the creator earning tied to the quarantined content. Not yet
+    // paid -> REVERSED; already paid -> a RECOVERABLE ledger row (history
+    // preserved). Reviewer fee is left intact.
+    if (ci) {
+      const candidates = [
+        `submission_${ci.submissionId}_${ci.partnerId}`,
+        `assignment_${ci.assignmentId}_${ci.partnerId}`,
+      ];
+      for (const eid of candidates) {
+        const eSnap = await db.collection('earnings').doc(eid).get();
+        if (!eSnap.exists) continue;
+        const cur = eSnap.data()!.status as string;
+        const net = Number(eSnap.data()!.netMinor) || 0;
+        if (['PENDING_HOLD', 'APPROVED', 'PAYABLE'].includes(cur)) {
+          batch.update(eSnap.ref, { status: 'REVERSED', reversedMinor: net, updatedAt: now });
+          batch.set(db.collection('earningsLedger').doc(), {
+            earningId: eid,
+            partnerId: ci.partnerId,
+            fromStatus: cur,
+            toStatus: 'REVERSED',
+            amountMinor: -net,
+            reason: `Content quarantined (case ${parsed.data.caseId})`,
+            actorId: uid,
+            actorType: 'staff',
+            createdAt: now,
+          });
+        } else if (['PROCESSING', 'PAID'].includes(cur)) {
+          batch.set(db.collection('earningsLedger').doc(), {
+            earningId: eid,
+            partnerId: ci.partnerId,
+            fromStatus: cur,
+            toStatus: 'RECOVERABLE',
+            amountMinor: -net,
+            reason: `Content quarantined after payout (case ${parsed.data.caseId})`,
+            actorId: uid,
+            actorType: 'staff',
+            createdAt: now,
+          });
+        }
+      }
+    }
   }
   await batch.commit();
   await writeAdminLog({
