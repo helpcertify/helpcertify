@@ -8,10 +8,11 @@ import QRCode from 'qrcode';
 
 // Ranked results (admin) + a student's own history/dashboard, plus learner
 // completion certificates (issuance, listing, PDF download, public
-// verification) - folded in here rather than a 13th api/*.ts file (Vercel's
-// Hobby plan caps a deployment at 12 Serverless Functions, and this repo is
-// already at that limit), and this file already owns "a student's own
-// attempt history," which a certificate is directly derived from.
+// verification) - folded in here rather than a separate api/certificates.ts.
+// Originally forced by the pre-Fluid Hobby 12-Serverless-Function cap (no
+// longer enforced under Fluid Compute), but the merge fits anyway: this
+// file already owns "a student's own attempt history," which a certificate
+// is directly derived from.
 // Self-contained - see api/auth.ts's header comment for why.
 
 function getAdminApp() {

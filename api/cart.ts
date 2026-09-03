@@ -424,14 +424,16 @@ async function getLearnerCatalog(uid: string) {
 
 // ---------------------------------------------------------------------------
 // Wishlist actions - folded into this file rather than a separate
-// api/wishlist.ts. Vercel's Hobby plan caps a deployment at 12 Serverless
-// Functions; this repo was already at exactly 12, and a 13th file failed
-// the deployment (build succeeded, "Deploying outputs" step rejected it).
-// Wishlist and cart are the same conceptual domain anyway (a student's
-// saved-item list, same shape/never-trust-stored-price reasoning), so this
-// is a natural consolidation, not just a workaround. Reuses this file's own
-// getAdminApp/db/Err/requireStudent/ItemType/collectionFor - no duplication
-// needed within one file, unlike the no-shared-code rule across files.
+// api/wishlist.ts. This was originally forced: the pre-Fluid Hobby plan
+// capped a deployment at 12 Serverless Functions, the repo was at exactly
+// 12, and a 13th file failed the deploy ("Deploying outputs" step rejected
+// it). That hard cap no longer applies now the project runs on Fluid
+// Compute (limits are usage-based, not a file count) - but the merge still
+// stands on its own: wishlist and cart are one conceptual domain (a
+// student's saved-item list, same shape / never-trust-stored-price
+// reasoning). Reuses this file's own getAdminApp/db/Err/requireStudent/
+// ItemType/collectionFor - no duplication needed within one file, unlike
+// the no-shared-code rule across files.
 // ---------------------------------------------------------------------------
 
 interface HydratedWishlistItem {

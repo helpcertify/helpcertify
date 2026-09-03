@@ -19,9 +19,9 @@ export interface WishlistItemView {
 }
 
 // Routed through the 'cart' endpoint (api/cart.ts), not a separate
-// 'wishlist' one - Vercel's Hobby plan caps a deployment at 12 Serverless
-// Functions, and this repo was already at that limit, so wishlist's backend
-// logic was folded into cart.ts instead of shipping a 13th file. The action
+// 'wishlist' one - originally forced by the pre-Fluid Hobby cap of 12
+// Serverless Functions (no longer enforced now the project runs on Fluid
+// Compute), but wishlist and cart are one domain regardless. The action
 // names are namespaced (getWishlist/addWishlistItem/removeWishlistItem) to
 // stay distinct from cart's own getCart/addItem/removeItem in that same
 // switch statement.
