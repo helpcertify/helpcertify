@@ -127,6 +127,8 @@ export const adminApi = {
 
   // Item 11/15 - the minimal admin refund action and the Referral Audit
   // list (see api/admin.ts's refundOrder/listReferralsAdmin).
-  refundOrder: (orderId: string, reason: string) => callAction<{ success: true }>('admin', 'refundOrder', { orderId, reason }),
+  // amountMinor omitted = full refund of whatever is still refundable.
+  refundOrder: (orderId: string, reason: string, amountMinor?: number) =>
+    callAction<{ success: true }>('admin', 'refundOrder', { orderId, reason, ...(amountMinor ? { amountMinor } : {}) }),
   listReferralsAdmin: () => callAction<{ referrals: AdminReferralRow[] }>('admin', 'listReferralsAdmin'),
 };

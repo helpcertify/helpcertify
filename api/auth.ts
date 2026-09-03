@@ -670,13 +670,29 @@ async function resolvePartnerReferral(req: VercelRequest, body: unknown) {
 }
 
 // --- authed user: submit a partner application ---
+// PAN (PRD 6): AAAAA9999A. GSTIN carries the PAN in positions 3-12.
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+const normPan = (v: string) => v.trim().toUpperCase().replace(/\s+/g, '');
+const maskPanFull = (p: string) => (PAN_RE.test(p) ? `${p.slice(0, 5)}****${p.slice(9)}` : '****');
+
 const submitPartnerApplicationSchema = z.object({
   legalName: z.string().trim().min(2).max(120),
   displayName: z.string().trim().min(2).max(60),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use yyyy-mm-dd'),
   phone: z.string().trim().min(6).max(20),
   partnerType: z.enum(['referral', 'sales', 'implementation', 'agency']),
+  country: z.string().trim().length(2).toUpperCase().default('IN'),
+  addressLine: z.string().trim().min(4).max(200),
+  city: z.string().trim().min(2).max(80),
+  state: z.string().trim().min(2).max(80),
+  postalCode: z.string().trim().min(3).max(12),
+  pan: z.string().trim().max(12).optional(),
+  panName: z.string().trim().max(120).optional(),
+  gstin: z.string().trim().max(20).optional(),
   acceptAgreement: z.literal(true),
+  // A distinct acknowledgement for PAN processing (PRD 6.PAN legal position).
+  panConsent: z.boolean().optional(),
 });
 
 function ageInYears(dob: string, now: Date): number {
@@ -707,6 +723,25 @@ async function submitPartnerApplication(req: VercelRequest, body: unknown) {
     throw Err.invalidArgument('You must be at least 18 to become a payout partner.');
   }
 
+  // PAN is mandatory for an India-based earning partner (PRD 6 + 23).
+  const requiresPan = d.country === 'IN';
+  const pan = d.pan ? normPan(d.pan) : '';
+  if (requiresPan) {
+    if (!pan) throw Err.invalidArgument('PAN is required for an India-based partner.');
+    if (!PAN_RE.test(pan)) throw Err.invalidArgument('That PAN is not in a valid format (AAAAA9999A).');
+    if (d.panConsent !== true) {
+      throw Err.invalidArgument('Please acknowledge how your PAN will be used before submitting.');
+    }
+  }
+  let gstin = '';
+  if (d.gstin) {
+    gstin = d.gstin.trim().toUpperCase().replace(/\s+/g, '');
+    if (!GSTIN_RE.test(gstin)) throw Err.invalidArgument('That GSTIN is not in a valid format.');
+    if (pan && gstin.slice(2, 12) !== pan) {
+      throw Err.invalidArgument('The GSTIN and PAN do not match.');
+    }
+  }
+
   const existing = await db
     .collection('partnerApplications')
     .where('userId', '==', uid)
@@ -717,8 +752,24 @@ async function submitPartnerApplication(req: VercelRequest, body: unknown) {
     throw new HttpError(409, 'You already have a partner application in progress.');
   }
 
+  // Duplicate-PAN detection across live applications + approved partners.
+  // Not a hard block (PRD 6: "cannot be silently accepted" - flag for review).
+  let duplicatePanFlag = false;
+  let panHash = '';
+  if (pan) {
+    panHash = createHash('sha256').update(pan).digest('hex');
+    // This user has no in-flight KYC doc yet (checked existing.empty above),
+    // so any hit here is a genuine other account.
+    const [dupKyc, dupApp] = await Promise.all([
+      db.collection('partnerKyc').where('panHash', '==', panHash).limit(1).get(),
+      db.collection('partnerApplicationKyc').where('panHash', '==', panHash).limit(1).get(),
+    ]);
+    duplicatePanFlag = !dupKyc.empty || !dupApp.empty;
+  }
+
   const now = FieldValue.serverTimestamp();
-  const ref = await db.collection('partnerApplications').add({
+  const ref = db.collection('partnerApplications').doc();
+  await ref.set({
     userId: uid,
     productId: 'HELPCERTIFY',
     legalName: d.legalName,
@@ -726,7 +777,14 @@ async function submitPartnerApplication(req: VercelRequest, body: unknown) {
     dateOfBirth: d.dateOfBirth,
     phone: d.phone,
     partnerType: d.partnerType,
+    country: d.country,
     agreementVersion: PARTNER_AGREEMENT_VERSION,
+    panConsentVersion: requiresPan ? PARTNER_AGREEMENT_VERSION : null,
+    panMasked: pan ? maskPanFull(pan) : null,
+    panLast4: pan ? pan.slice(-4) : null,
+    panStatus: pan ? 'FORMAT_VALID' : null,
+    gstinMasked: gstin ? `${gstin.slice(0, 2)}****${gstin.slice(-4)}` : null,
+    duplicatePanFlag,
     status: 'SUBMITTED',
     reviewedBy: null,
     reviewNote: null,
@@ -734,13 +792,37 @@ async function submitPartnerApplication(req: VercelRequest, body: unknown) {
     submittedAt: now,
     updatedAt: now,
   });
+
+  // Full PAN / GSTIN / address -> separate deny-all collection so the
+  // applicant's own read-back of their application never exposes it.
+  if (pan || gstin) {
+    await db
+      .collection('partnerApplicationKyc')
+      .doc(ref.id)
+      .set({
+        appId: ref.id,
+        userId: uid,
+        panFull: pan || null,
+        panHash: panHash || null,
+        panName: d.panName ?? null,
+        gstin: gstin || null,
+        addressLine: d.addressLine,
+        city: d.city,
+        state: d.state,
+        postalCode: d.postalCode,
+        country: d.country,
+        createdAt: now,
+      });
+  }
+
   await writePartnerAudit({
     entityType: 'partnerApplication',
     entityId: ref.id,
     action: 'submit',
     actorId: uid,
     actorType: 'customer',
-    after: { partnerType: d.partnerType, displayName: d.displayName },
+    // redactForAudit strips pan* / gstin keys; masked mirror is safe.
+    after: { partnerType: d.partnerType, displayName: d.displayName, country: d.country, panMasked: pan ? maskPanFull(pan) : null, duplicatePanFlag },
   });
   return { applicationId: ref.id, status: 'SUBMITTED' as const };
 }

@@ -338,6 +338,7 @@ function addCommissionToBatch(
     status: 'PENDING_HOLD',
     holdUntil,
     onHoldReason: null,
+    reversedMinor: 0,
     commissionPolicyId: a.commissionPolicyId,
     commissionPolicyVersion: a.commissionPolicyVersion,
     payoutBatchId: null,
@@ -746,7 +747,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // Also skips an already-refunded order - same
   // shouldSkipAlreadyProcessedOrder guard as referralRules.ts's tested
   // version (see api/admin.ts's refundOrder for the other side of this).
-  if (order.status === 'paid' || order.status === 'refunded') return 'already_paid';
+  if (['paid', 'refunded', 'partially_refunded'].includes(order.status)) return 'already_paid';
 
   // Read before marking paid - processReferralOnPurchase's "is this their
   // first purchase" check needs to see the world as it was before this
@@ -875,7 +876,20 @@ async function verifyPayment(uid: string, body: unknown) {
   const valid = expectedBuf.length === actualBuf.length && timingSafeEqual(expectedBuf, actualBuf);
   if (!valid) throw Err.invalidArgument('Payment signature could not be verified');
 
+  // Idempotency (PRD 15): dedup on the payment id so a double client submit
+  // (and a race with the webhook, which uses the same key format) is a no-op.
+  const evtRef = db.collection('paymentEvents').doc(`pay_${razorpay_payment_id}`);
+  if ((await evtRef.get()).exists) return { success: true };
+
   await finalizeOrder(orderId, razorpay_payment_id);
+  await evtRef.set({
+    provider: 'RAZORPAY',
+    eventId: `pay_${razorpay_payment_id}`,
+    source: 'client',
+    orderId,
+    type: 'payment.captured',
+    receivedAt: Timestamp.now(),
+  });
   return { success: true };
 }
 

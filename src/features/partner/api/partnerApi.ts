@@ -21,6 +21,12 @@ export interface PartnerApplicationRow {
   dateOfBirth: string;
   phone: string;
   partnerType: string;
+  country?: string;
+  panMasked?: string | null;
+  panLast4?: string | null;
+  panStatus?: string | null;
+  gstinMasked?: string | null;
+  duplicatePanFlag?: boolean;
   status: 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
   reviewNote: string | null;
   partnerId: string | null;
@@ -33,7 +39,23 @@ export interface PartnerRow {
   displayName: string;
   partnerType: string;
   status: 'ACTIVE' | 'SUSPENDED' | 'TERMINATED';
+  country: string;
+  panMasked: string | null;
+  panLast4: string | null;
+  payoutStatus: 'OK' | 'KYC_ACTION_REQUIRED' | 'PAYOUT_BLOCKED';
   createdAt: unknown;
+}
+
+export interface PartnerKycMasked {
+  partnerId: string;
+  country: string;
+  payoutStatus: string;
+  panMasked: string | null;
+  panStatus: string | null;
+  panName: string | null;
+  gstinMasked: string | null;
+  address: string | null;
+  verifiedAt: unknown;
 }
 
 export interface PartnerReferralCode {
@@ -53,7 +75,16 @@ export const partnerApi = {
     dateOfBirth: string;
     phone: string;
     partnerType: PartnerType;
+    country: string;
+    addressLine: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    pan?: string;
+    panName?: string;
+    gstin?: string;
     acceptAgreement: true;
+    panConsent?: boolean;
   }) => callAction<{ applicationId: string; status: 'SUBMITTED' }>('auth', 'submitPartnerApplication', payload),
 
   getMyApplication: () =>
@@ -109,6 +140,8 @@ export interface PayableGroup {
   grossMinor: number;
   meetsMinimum: boolean;
   hasPayoutDetails: boolean;
+  payoutStatus: string;
+  payoutEligible: boolean;
 }
 
 export interface PayoutBatchRow {
@@ -170,6 +203,15 @@ export const partnerAdminApi = {
     callAction<{ status: string; codesAffected: number }>('admin', 'suspendPartner', payload),
   reactivatePartner: (payload: { partnerId: string; reason?: string }) =>
     callAction<{ status: string; codesAffected: number }>('admin', 'reactivatePartner', payload),
+  getPartnerKyc: (payload: { partnerId: string }) =>
+    callAction<PartnerKycMasked>('admin', 'getPartnerKycMasked', payload),
+  revealPartnerPan: (payload: { partnerId: string; reason: string }) =>
+    callAction<{ pan: string }>('admin', 'revealPartnerPan', payload),
+  setPartnerPayoutStatus: (payload: {
+    partnerId: string;
+    payoutStatus: 'OK' | 'KYC_ACTION_REQUIRED' | 'PAYOUT_BLOCKED';
+    reason?: string;
+  }) => callAction<{ payoutStatus: string }>('admin', 'setPartnerPayoutStatus', payload),
   listPartners: () => callAction<{ partners: PartnerRow[] }>('admin', 'listPartnersAdmin'),
   getFrameworkSettings: () =>
     callAction<{ enabled: boolean; applicationsOpen: boolean }>('admin', 'getPartnerFrameworkSettings'),

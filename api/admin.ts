@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { z } from 'zod';
 
 // New file for the v2 (Quiz + Practice Test) platform - different actions
@@ -417,7 +417,20 @@ function getRazorpayCreds() {
   return { keyId, keySecret };
 }
 
-const refundOrderSchema = z.object({ orderId: z.string().min(1), reason: z.string().trim().min(1).max(500) });
+const refundOrderSchema = z.object({
+  orderId: z.string().min(1),
+  reason: z.string().trim().min(1).max(500),
+  // Minor units (paise). Omit for a full refund of whatever is left.
+  amountMinor: z.number().int().positive().optional(),
+});
+
+// PRD 11: reverse commission proportionally against the refunded amount,
+// rounded half-up, clamped so cumulative reversals never exceed the gross.
+function proportionalReversal(grossMinor: number, refundedMinor: number, orderTotalMinor: number, alreadyReversedMinor: number): number {
+  if (orderTotalMinor <= 0 || refundedMinor <= 0 || grossMinor <= 0) return 0;
+  const want = Math.floor(grossMinor * Math.min(1, refundedMinor / orderTotalMinor) + 0.5);
+  return Math.min(want, Math.max(0, grossMinor - alreadyReversedMinor));
+}
 
 // Item 11 - refunds an order via Razorpay's own refund API, then reverses
 // any referral benefit tied to it: mirrors
@@ -430,13 +443,25 @@ const refundOrderSchema = z.object({ orderId: z.string().min(1), reason: z.strin
 async function refundOrder(uid: string, body: unknown) {
   const parsed = refundOrderSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { orderId, reason } = parsed.data;
+  const { orderId, reason, amountMinor } = parsed.data;
 
   const orderRef = db.collection('orders').doc(orderId);
   const orderSnap = await orderRef.get();
   if (!orderSnap.exists) throw Err.invalidArgument('Order not found');
   const order = orderSnap.data()!;
-  if (order.status !== 'paid') throw Err.conflict(`Only a paid order can be refunded (this one is "${order.status}")`);
+  if (order.status !== 'paid' && order.status !== 'partially_refunded') {
+    throw Err.conflict(`Only a paid order can be refunded (this one is "${order.status}")`);
+  }
+
+  const orderTotal = Number(order.total) || 0;
+  const alreadyRefunded = Number(order.refundedMinor) || 0;
+  const remaining = orderTotal - alreadyRefunded;
+  if (remaining <= 0) throw Err.conflict('This order is already fully refunded.');
+  const refundAmount = amountMinor ?? remaining;
+  if (refundAmount > remaining) {
+    throw Err.invalidArgument(`Refund amount exceeds the ${remaining} paise still refundable on this order.`);
+  }
+  const fullyRefundedNow = alreadyRefunded + refundAmount >= orderTotal;
 
   const { keyId, keySecret } = getRazorpayCreds();
   const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${order.razorpayPaymentId}/refund`, {
@@ -445,7 +470,8 @@ async function refundOrder(uid: string, body: unknown) {
       'Content-Type': 'application/json',
       Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
     },
-    body: JSON.stringify({}),
+    // Razorpay expects paise; omitting amount = full remaining refund.
+    body: JSON.stringify(fullyRefundedNow && !amountMinor ? {} : { amount: refundAmount }),
   });
   if (!rzpRes.ok) {
     const errBody = await rzpRes.text();
@@ -454,14 +480,23 @@ async function refundOrder(uid: string, body: unknown) {
   }
 
   const batch = db.batch();
-  batch.update(orderRef, { status: 'refunded', refundedAt: Timestamp.now(), refundReason: reason });
+  batch.update(orderRef, {
+    status: fullyRefundedNow ? 'refunded' : 'partially_refunded',
+    refundedMinor: alreadyRefunded + refundAmount,
+    refundedAt: Timestamp.now(),
+    refundReason: reason,
+  });
 
   // Reverse a referral benefit tied to this order, if this was the
   // referee's own qualifying purchase (a referrer's credit was granted,
   // or about to be) - nextStatusOnRefund only reverses 'pending'/
   // 'rewarded', leaving every other status (already rejected/reversed/
   // expired, or one that never reached a reward at all) untouched.
-  const referralsSnap = await db.collection('referrals').where('qualifyingOrderId', '==', orderId).limit(1).get();
+  // Learner Refer & Earn credit is reversed all-or-nothing, and only once
+  // the order is fully refunded - a partial refund leaves it intact.
+  const referralsSnap = fullyRefundedNow
+    ? await db.collection('referrals').where('qualifyingOrderId', '==', orderId).limit(1).get()
+    : { empty: true, docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] };
   if (!referralsSnap.empty) {
     const referralDoc = referralsSnap.docs[0];
     const referral = referralDoc.data();
@@ -478,36 +513,73 @@ async function refundOrder(uid: string, body: unknown) {
     }
   }
 
-  // Reverse the partner commission tied to this order (Phase 2). Not yet
-  // paid out -> REVERSED; already paid to the partner -> RECOVERABLE (offset
-  // against future earnings). Tested spec:
-  // src/features/partner/lib/commission.ts nextCommissionStatusOnRefund.
+  // Reverse the partner commission proportionally to this refund (PRD 11).
+  // Tested spec: src/features/partner/lib/commission.ts proportionalReversalMinor.
   const commissionSnap = await db.collection('commissions').doc(orderId).get();
   if (commissionSnap.exists) {
     const c = commissionSnap.data()!;
     const cur = c.status as string;
-    const next =
-      ['PENDING_HOLD', 'ON_HOLD', 'APPROVED', 'PAYABLE'].includes(cur)
-        ? 'REVERSED'
-        : ['PROCESSING', 'PAID'].includes(cur)
-          ? 'RECOVERABLE'
-          : null;
-    if (next) {
-      batch.update(commissionSnap.ref, { status: next, updatedAt: Timestamp.now() });
-      batch.set(db.collection('commissionLedger').doc(), {
-        commissionId: orderId,
-        orderId,
-        partnerId: c.partnerId,
-        fromStatus: cur,
-        toStatus: next,
-        amountMinor: -(Number(c.netPayableMinor) || 0),
-        reason: `Order ${orderId} refunded: ${reason}`,
-        actorId: uid,
-        actorType: 'staff',
-        createdAt: Timestamp.now(),
-      });
+    const gross = Number(c.grossCommissionMinor) || 0;
+    const alreadyReversed = Number(c.reversedMinor) || 0;
+    const reverseMinor = proportionalReversal(gross, refundAmount, orderTotal, alreadyReversed);
+
+    if (reverseMinor > 0 && !['REVERSED', 'REJECTED'].includes(cur)) {
+      const totalReversed = alreadyReversed + reverseMinor;
+      const fullyReversed = totalReversed >= gross;
+      const paidOut = ['PROCESSING', 'PAID'].includes(cur);
+
+      if (paidOut) {
+        // History is preserved - the paid commission stays PAID; a negative
+        // RECOVERABLE row offsets against the partner's future earnings.
+        batch.update(commissionSnap.ref, {
+          reversedMinor: totalReversed,
+          updatedAt: Timestamp.now(),
+        });
+        batch.set(db.collection('commissionLedger').doc(), {
+          commissionId: orderId,
+          orderId,
+          partnerId: c.partnerId,
+          fromStatus: cur,
+          toStatus: 'RECOVERABLE',
+          amountMinor: -reverseMinor,
+          reason: `Order ${orderId} refunded ${refundAmount} paise (paid commission -> recoverable): ${reason}`,
+          actorId: uid,
+          actorType: 'staff',
+          createdAt: Timestamp.now(),
+        });
+      } else {
+        const nextStatus = fullyReversed ? 'REVERSED' : cur;
+        batch.update(commissionSnap.ref, {
+          status: nextStatus,
+          reversedMinor: totalReversed,
+          netPayableMinor: Math.max(0, (Number(c.netPayableMinor) || 0) - reverseMinor),
+          updatedAt: Timestamp.now(),
+        });
+        batch.set(db.collection('commissionLedger').doc(), {
+          commissionId: orderId,
+          orderId,
+          partnerId: c.partnerId,
+          fromStatus: cur,
+          toStatus: fullyReversed ? 'REVERSED' : cur,
+          amountMinor: -reverseMinor,
+          reason: `Order ${orderId} refunded ${refundAmount} paise${fullyReversed ? ' (full)' : ' (partial)'}: ${reason}`,
+          actorId: uid,
+          actorType: 'staff',
+          createdAt: Timestamp.now(),
+        });
+      }
     }
   }
+
+  // Record a refund event for reconciliation (PRD 17).
+  batch.set(db.collection('refunds').doc(), {
+    orderId,
+    amountMinor: refundAmount,
+    reason,
+    fullyRefunded: fullyRefundedNow,
+    refundedBy: uid,
+    createdAt: Timestamp.now(),
+  });
 
   await batch.commit();
 
@@ -637,6 +709,12 @@ async function listPartnerApplications(data: unknown) {
         dateOfBirth: a.dateOfBirth as string,
         phone: a.phone as string,
         partnerType: a.partnerType as string,
+        country: (a.country as string) ?? null,
+        panMasked: (a.panMasked as string | null) ?? null,
+        panLast4: (a.panLast4 as string | null) ?? null,
+        panStatus: (a.panStatus as string | null) ?? null,
+        gstinMasked: (a.gstinMasked as string | null) ?? null,
+        duplicatePanFlag: a.duplicatePanFlag === true,
         status: a.status as string,
         reviewNote: (a.reviewNote as string | null) ?? null,
         partnerId: (a.partnerId as string | null) ?? null,
@@ -669,6 +747,8 @@ async function reviewPartnerApplication(uid: string, body: unknown) {
 
   if (decision === 'reject') {
     await appRef.update({ status: 'REJECTED', reviewedBy: uid, reviewNote: note ?? null, updatedAt: now });
+    // Sensitive KYC has no purpose once rejected - drop it.
+    await db.collection('partnerApplicationKyc').doc(applicationId).delete().catch(() => {});
     await writePartnerAudit({
       entityType: 'partnerApplication',
       entityId: applicationId,
@@ -687,6 +767,15 @@ async function reviewPartnerApplication(uid: string, body: unknown) {
   if ((await db.collection('referralCodes').doc(code).get()).exists) code = generatePartnerCode();
   const productId = (app.productId as string) ?? 'HELPCERTIFY';
 
+  // Promote the application's sensitive KYC to the partner-scoped deny-all
+  // collection, then remove the application copy.
+  const appKycSnap = await db.collection('partnerApplicationKyc').doc(applicationId).get();
+  const appKyc = appKycSnap.data();
+  const hasPan = !!appKyc?.panFull;
+  // PAN captured but not yet verified against a provider -> payouts on hold
+  // until a finance user clears it (or the country needs no PAN).
+  const payoutStatus = app.country === 'IN' || hasPan ? 'KYC_ACTION_REQUIRED' : 'OK';
+
   const batch = db.batch();
   batch.set(db.collection('partners').doc(partnerId), {
     linkedUserId: app.userId,
@@ -697,9 +786,35 @@ async function reviewPartnerApplication(uid: string, body: unknown) {
     agreementVersion: app.agreementVersion ?? PARTNER_AGREEMENT_VERSION,
     suspendedReason: null,
     createdBy: uid,
+    country: (app.country as string) ?? 'IN',
+    panMasked: (app.panMasked as string | null) ?? null,
+    panLast4: (app.panLast4 as string | null) ?? null,
+    panStatus: (app.panStatus as string | null) ?? null,
+    payoutStatus,
     createdAt: now,
     updatedAt: now,
   });
+  if (appKyc) {
+    batch.set(db.collection('partnerKyc').doc(partnerId), {
+      partnerId,
+      panFull: appKyc.panFull ?? null,
+      panHash: appKyc.panHash ?? null,
+      panName: appKyc.panName ?? null,
+      gstin: appKyc.gstin ?? null,
+      addressLine: appKyc.addressLine ?? null,
+      city: appKyc.city ?? null,
+      state: appKyc.state ?? null,
+      postalCode: appKyc.postalCode ?? null,
+      country: appKyc.country ?? 'IN',
+      panStatus: hasPan ? 'FORMAT_VALID' : 'INVALID',
+      verificationProvider: null,
+      verificationRef: null,
+      verifiedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    batch.delete(db.collection('partnerApplicationKyc').doc(applicationId));
+  }
   batch.update(db.collection('users').doc(app.userId as string), { partnerId, updatedAt: now });
   batch.set(db.collection('partnerAgreements').doc(), {
     partnerId,
@@ -769,10 +884,104 @@ async function listPartnersAdmin() {
         displayName: p.displayName as string,
         partnerType: p.partnerType as string,
         status: p.status as string,
+        country: (p.country as string) ?? 'IN',
+        panMasked: (p.panMasked as string | null) ?? null,
+        panLast4: (p.panLast4 as string | null) ?? null,
+        payoutStatus: (p.payoutStatus as string) ?? 'OK',
         createdAt: p.createdAt ?? null,
       };
     }),
   };
+}
+
+// --- Partner KYC (PRD 6 + 15) -------------------------------------------
+// Staff see a masked view. A full-PAN reveal is a separate action gated on
+// users/{uid}.canRevealPan, needs a reason, and writes an audit event.
+
+async function getPartnerKycMasked(body: unknown) {
+  const parsed = z.object({ partnerId: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const [pSnap, kSnap] = await Promise.all([
+    db.collection('partners').doc(parsed.data.partnerId).get(),
+    db.collection('partnerKyc').doc(parsed.data.partnerId).get(),
+  ]);
+  if (!pSnap.exists) throw Err.invalidArgument('Partner not found');
+  const p = pSnap.data()!;
+  const k = kSnap.data();
+  return {
+    partnerId: parsed.data.partnerId,
+    country: (p.country as string) ?? 'IN',
+    payoutStatus: (p.payoutStatus as string) ?? 'OK',
+    panMasked: (p.panMasked as string | null) ?? null,
+    panStatus: (k?.panStatus as string | null) ?? (p.panStatus as string | null) ?? null,
+    panName: (k?.panName as string | null) ?? null,
+    gstinMasked: k?.gstin ? `${String(k.gstin).slice(0, 2)}****${String(k.gstin).slice(-4)}` : null,
+    address: k
+      ? [k.addressLine, k.city, k.state, k.postalCode, k.country].filter(Boolean).join(', ')
+      : null,
+    verifiedAt: k?.verifiedAt ?? null,
+  };
+}
+
+const revealPanSchema = z.object({
+  partnerId: z.string().trim().min(1),
+  reason: z.string().trim().min(5).max(300),
+});
+
+async function revealPartnerPan(uid: string, body: unknown) {
+  const parsed = revealPanSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  // Field-level permission, NOT role-wide (PRD 15).
+  const me = (await db.collection('users').doc(uid).get()).data();
+  if (me?.canRevealPan !== true) {
+    throw Err.permissionDenied('You do not have permission to reveal full PAN.');
+  }
+  const kSnap = await db.collection('partnerKyc').doc(parsed.data.partnerId).get();
+  if (!kSnap.exists || !kSnap.data()?.panFull) throw Err.invalidArgument('No PAN on file for this partner');
+
+  await writePartnerAudit({
+    entityType: 'partnerKyc',
+    entityId: parsed.data.partnerId,
+    action: 'revealPan',
+    actorId: uid,
+    reason: parsed.data.reason,
+    after: { revealed: true },
+  });
+  return { pan: kSnap.data()!.panFull as string };
+}
+
+const setPayoutStatusSchema = z.object({
+  partnerId: z.string().trim().min(1),
+  payoutStatus: z.enum(['OK', 'KYC_ACTION_REQUIRED', 'PAYOUT_BLOCKED']),
+  reason: z.string().trim().max(300).optional(),
+});
+
+async function setPartnerPayoutStatus(uid: string, body: unknown) {
+  const parsed = setPayoutStatusSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('partners').doc(parsed.data.partnerId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Partner not found');
+  const before = (snap.data()!.payoutStatus as string) ?? 'OK';
+  await ref.update({ payoutStatus: parsed.data.payoutStatus, updatedAt: FieldValue.serverTimestamp() });
+  if (parsed.data.payoutStatus === 'OK') {
+    await db
+      .collection('partnerKyc')
+      .doc(parsed.data.partnerId)
+      .set({ panStatus: 'VERIFIED', verifiedAt: FieldValue.serverTimestamp() }, { merge: true })
+      .catch(() => {});
+    await db.collection('partners').doc(parsed.data.partnerId).set({ panStatus: 'VERIFIED' }, { merge: true }).catch(() => {});
+  }
+  await writePartnerAudit({
+    entityType: 'partner',
+    entityId: parsed.data.partnerId,
+    action: 'setPayoutStatus',
+    actorId: uid,
+    before: { payoutStatus: before },
+    after: { payoutStatus: parsed.data.payoutStatus },
+    reason: parsed.data.reason ?? null,
+  });
+  return { payoutStatus: parsed.data.payoutStatus };
 }
 
 const savePartnerProductSchema = z.object({
@@ -1103,6 +1312,8 @@ async function listPayableCommissions() {
         meetsMinimum: g.grossMinor >= min,
         displayName: (p?.displayName as string) ?? g.partnerId,
         hasPayoutDetails: !!p?.payout?.method,
+        payoutStatus: (p?.payoutStatus as string) ?? 'OK',
+        payoutEligible: ((p?.payoutStatus as string) ?? 'OK') === 'OK',
       };
     }),
   );
@@ -1133,8 +1344,24 @@ async function createPayoutBatch(uid: string, body: unknown) {
     g.gross += Math.max(0, Number(d.netPayableMinor) || 0);
     byPartner.set(key, g);
   }
-  const eligible = [...byPartner.values()].filter((g) => g.gross >= min);
-  if (eligible.length === 0) throw Err.conflict('No partner has enough PAYABLE commission to meet the minimum payout.');
+  // A partner is only includable when they clear the minimum AND their KYC
+  // payout status is OK (PRD 6: KYC_ACTION_REQUIRED / PAYOUT_BLOCKED hold).
+  const statusByPartner = new Map<string, string>();
+  await Promise.all(
+    [...new Set([...byPartner.values()].map((g) => g.partnerId))].map(async (pid) => {
+      const p = (await db.collection('partners').doc(pid).get()).data();
+      statusByPartner.set(pid, (p?.payoutStatus as string) ?? 'OK');
+    }),
+  );
+  const blocked = [...byPartner.values()].filter((g) => g.gross >= min && statusByPartner.get(g.partnerId) !== 'OK');
+  const eligible = [...byPartner.values()].filter((g) => g.gross >= min && statusByPartner.get(g.partnerId) === 'OK');
+  if (eligible.length === 0) {
+    throw Err.conflict(
+      blocked.length
+        ? `${blocked.length} partner(s) meet the minimum but are held for KYC. Clear their payout status first.`
+        : 'No partner has enough PAYABLE commission to meet the minimum payout.',
+    );
+  }
 
   const currency = eligible[0].currency;
   if (eligible.some((g) => g.currency !== currency)) {
@@ -1368,6 +1595,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'listPayoutBatches',
       'getPayoutBatch',
       'listPartnersAdmin',
+      'getPartnerKycMasked',
+      'setPartnerPayoutStatus',
+      'revealPartnerPan', // still gated on users/{uid}.canRevealPan inside
     ]);
     if (role === 'finance_admin' && !FINANCE_ADMIN_ACTIONS.has(String(action))) {
       throw Err.permissionDenied();
@@ -1425,6 +1655,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listPartnersAdmin':
         res.status(200).json(await listPartnersAdmin());
+        return;
+      case 'getPartnerKycMasked':
+        res.status(200).json(await getPartnerKycMasked(data));
+        return;
+      case 'revealPartnerPan':
+        res.status(200).json(await revealPartnerPan(uid, data));
+        return;
+      case 'setPartnerPayoutStatus':
+        res.status(200).json(await setPartnerPayoutStatus(uid, data));
         return;
       case 'savePartnerProduct':
         res.status(200).json(await savePartnerProduct(uid, data));

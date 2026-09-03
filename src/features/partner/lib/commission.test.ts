@@ -6,6 +6,8 @@ import {
   holdUntilMs,
   nextCommissionStatusOnRefund,
   isAutoReleasable,
+  proportionalReversalMinor,
+  isFullyReversed,
 } from './commission';
 
 describe('roundMinor', () => {
@@ -105,5 +107,39 @@ describe('isAutoReleasable', () => {
     expect(isAutoReleasable('PENDING_HOLD')).toBe(true);
     expect(isAutoReleasable('ON_HOLD')).toBe(false);
     expect(isAutoReleasable('PAYABLE')).toBe(false);
+  });
+});
+
+describe('proportionalReversalMinor', () => {
+  it('a full refund reverses the whole commission', () => {
+    expect(proportionalReversalMinor(300_000, 1_500_000, 1_500_000)).toBe(300_000);
+  });
+  it('a half refund reverses half the commission', () => {
+    expect(proportionalReversalMinor(300_000, 750_000, 1_500_000)).toBe(150_000);
+  });
+  it('rounds half up', () => {
+    // 300000 * (500000/1500000) = 100000.0 -> 100000; use an odd split
+    expect(proportionalReversalMinor(300_001, 500_000, 1_500_000)).toBe(100_000);
+    expect(proportionalReversalMinor(100_000, 333_333, 1_000_000)).toBe(33_333);
+  });
+  it('clamps cumulative reversals to the gross commission', () => {
+    expect(proportionalReversalMinor(300_000, 900_000, 1_500_000, 200_000)).toBe(100_000);
+    expect(proportionalReversalMinor(300_000, 1_500_000, 1_500_000, 300_000)).toBe(0);
+  });
+  it('a refund larger than the order still caps at 100%', () => {
+    expect(proportionalReversalMinor(300_000, 9_999_999, 1_500_000)).toBe(300_000);
+  });
+  it('degenerate inputs return 0', () => {
+    expect(proportionalReversalMinor(0, 100, 100)).toBe(0);
+    expect(proportionalReversalMinor(300_000, 0, 100)).toBe(0);
+    expect(proportionalReversalMinor(300_000, 100, 0)).toBe(0);
+  });
+});
+
+describe('isFullyReversed', () => {
+  it('true once cumulative reversals reach the gross', () => {
+    expect(isFullyReversed(300_000, 299_999)).toBe(false);
+    expect(isFullyReversed(300_000, 300_000)).toBe(true);
+    expect(isFullyReversed(300_000, 300_001)).toBe(true);
   });
 });

@@ -215,6 +215,24 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
+    // Full PAN / GSTIN / address. Admin-SDK only - no client, not even the
+    // owning partner or staff, reads these directly. Staff see a masked
+    // view through api/admin.ts; a full-PAN reveal is a dedicated audited
+    // action gated on users/{uid}.canRevealPan (PRD 15).
+    match /partnerApplicationKyc/{appId} {
+      allow read, write: if false;
+    }
+    match /partnerKyc/{partnerId} {
+      allow read, write: if false;
+    }
+    // One doc per processed Razorpay event - webhook idempotency.
+    match /paymentEvents/{eventId} {
+      allow read, write: if false;
+    }
+    match /refunds/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
     // products / offers are shown on the "become a partner" page.
     match /products/{productId} {
       allow read: if isSignedIn();

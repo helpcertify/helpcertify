@@ -38,7 +38,19 @@ export function BecomePartnerPage() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState('');
   const [partnerType, setPartnerType] = useState<PartnerType>('referral');
+  const [country, setCountry] = useState('IN');
+  const [addressLine, setAddressLine] = useState('');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [pan, setPan] = useState('');
+  const [panName, setPanName] = useState('');
+  const [gstin, setGstin] = useState('');
+  const [panConsent, setPanConsent] = useState(false);
   const [accept, setAccept] = useState(false);
+
+  const needsPan = country === 'IN';
+  const panOk = !needsPan || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan.trim().toUpperCase());
 
   const submit = useMutation({
     mutationFn: () =>
@@ -48,7 +60,16 @@ export function BecomePartnerPage() {
         dateOfBirth,
         phone: phone.trim(),
         partnerType,
+        country,
+        addressLine: addressLine.trim(),
+        city: city.trim(),
+        state: stateName.trim(),
+        postalCode: postalCode.trim(),
+        pan: pan.trim() ? pan.trim().toUpperCase() : undefined,
+        panName: panName.trim() || undefined,
+        gstin: gstin.trim() ? gstin.trim().toUpperCase() : undefined,
         acceptAgreement: true,
+        panConsent: needsPan ? panConsent : undefined,
       }),
     onSuccess: () => {
       pushToast('Application submitted', 'success');
@@ -64,6 +85,12 @@ export function BecomePartnerPage() {
     !!dateOfBirth &&
     adultOk &&
     phone.trim().length >= 6 &&
+    addressLine.trim().length >= 4 &&
+    city.trim().length >= 2 &&
+    stateName.trim().length >= 2 &&
+    postalCode.trim().length >= 3 &&
+    panOk &&
+    (!needsPan || panConsent) &&
     accept &&
     !submit.isPending;
 
@@ -113,6 +140,73 @@ export function BecomePartnerPage() {
               <input className={field} value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} placeholder="+91 …" />
             </div>
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Address</label>
+              <input className={field} value={addressLine} onChange={(e) => setAddressLine(e.target.value)} maxLength={200} placeholder="House / street / area" />
+            </div>
+            <div>
+              <label className={labelCls}>City</label>
+              <input className={field} value={city} onChange={(e) => setCity(e.target.value)} maxLength={80} />
+            </div>
+            <div>
+              <label className={labelCls}>State</label>
+              <input className={field} value={stateName} onChange={(e) => setStateName(e.target.value)} maxLength={80} />
+            </div>
+            <div>
+              <label className={labelCls}>Postal code</label>
+              <input className={field} value={postalCode} onChange={(e) => setPostalCode(e.target.value)} maxLength={12} />
+            </div>
+            <div>
+              <label className={labelCls}>Country</label>
+              <select className={field} value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())}>
+                <option value="IN">India</option>
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="SG">Singapore</option>
+              </select>
+            </div>
+          </div>
+
+          {needsPan && (
+            <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-surface-border dark:bg-transparent">
+              <p className="mb-3 text-xs text-ink-faint">
+                PAN is required to pay commission to an India-based partner (tax identity, TDS compliance and payout
+                reconciliation). It is stored securely, shown masked to staff, and never used for anything else.
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls}>PAN</label>
+                  <input
+                    className={field}
+                    value={pan}
+                    onChange={(e) => setPan(e.target.value.toUpperCase())}
+                    maxLength={10}
+                    placeholder="AAAAA9999A"
+                  />
+                  {pan && !panOk && <p className="mt-1 text-xs text-[#B32D1A]">That PAN is not in a valid format.</p>}
+                </div>
+                <div>
+                  <label className={labelCls}>Name on PAN (optional)</label>
+                  <input className={field} value={panName} onChange={(e) => setPanName(e.target.value)} maxLength={120} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>GSTIN (optional)</label>
+                  <input className={field} value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} maxLength={15} placeholder="22AAAAA0000A1Z5" />
+                </div>
+              </div>
+              <label className="mt-3 flex items-start gap-2 text-xs text-ink">
+                <input type="checkbox" className="mt-0.5" checked={panConsent} onChange={(e) => setPanConsent(e.target.checked)} />
+                <span>
+                  I understand my PAN is collected for partner identity and tax validation, TDS compliance, payout
+                  processing and legally required records, as described in the{' '}
+                  <Link to="/privacy" className="text-[#155EEF] hover:underline">privacy notice</Link>.
+                </span>
+              </label>
+            </div>
+          )}
 
           <div>
             <label className={labelCls}>Partner type</label>
