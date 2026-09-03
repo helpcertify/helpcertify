@@ -42,6 +42,40 @@ describe('groupPayableByPartner', () => {
   });
 });
 
+describe('groupPayableByPartner - edge cases', () => {
+  it('returns nothing for an empty list', () => {
+    expect(groupPayableByPartner([])).toEqual([]);
+  });
+
+  it('clamps negative commission amounts to zero in the sum', () => {
+    const [g] = groupPayableByPartner(
+      [
+        { id: 'a', partnerId: 'p1', netPayableMinor: 60000, currency: 'INR' },
+        { id: 'b', partnerId: 'p1', netPayableMinor: -100, currency: 'INR' },
+      ],
+      10000,
+    );
+    expect(g.grossMinor).toBe(60000);
+  });
+
+  it('orders groups by amount descending', () => {
+    const groups = groupPayableByPartner([
+      { id: 'a', partnerId: 'small', netPayableMinor: 10000, currency: 'INR' },
+      { id: 'b', partnerId: 'big', netPayableMinor: 90000, currency: 'INR' },
+      { id: 'c', partnerId: 'mid', netPayableMinor: 50000, currency: 'INR' },
+    ]);
+    expect(groups.map((g) => g.partnerId)).toEqual(['big', 'mid', 'small']);
+  });
+
+  it('everyone below the minimum is carried (none meets minimum)', () => {
+    const groups = groupPayableByPartner([
+      { id: 'a', partnerId: 'p1', netPayableMinor: 40000, currency: 'INR' },
+      { id: 'b', partnerId: 'p2', netPayableMinor: 30000, currency: 'INR' },
+    ]);
+    expect(groups.every((g) => !g.meetsMinimum)).toBe(true);
+  });
+});
+
 describe('canApproveBatch', () => {
   it('blocks self-approval', () => {
     expect(canApproveBatch('DRAFT', 'u1', 'u1').ok).toBe(false);
