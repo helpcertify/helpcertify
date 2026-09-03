@@ -20,6 +20,7 @@ async function loadProfile(firebaseUser: FirebaseUser): Promise<SafeUser> {
     // treated as verified rather than retroactively locking anyone out.
     emailVerified: profileData?.emailVerified !== false,
     referralCode: profileData?.referralCode ?? null,
+    partnerId: profileData?.partnerId ?? null,
   };
 }
 

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 // New file for the v2 (Quiz + Practice Test) platform - different actions
@@ -519,6 +520,402 @@ async function listReferralsAdmin() {
   };
 }
 
+// ===========================================================================
+// Partner Commission Framework - Phase 1 (staff actions). Folded in here,
+// not a new api/partner.ts, because Vercel Hobby caps this project at 12
+// function files and a 13th fails to deploy (re-confirmed 2026-09-03 under
+// Fluid Compute - see the vercel-hobby-function-cap memory). User / partner /
+// public actions live in api/auth.ts. Every action here is requireAdmin for
+// the pilot; finance_admin gets its own actions in Phase 4.
+// ===========================================================================
+
+const PARTNER_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const PARTNER_AGREEMENT_VERSION = '2026-09-03';
+
+function randomPartnerAlphabet(n: number): string {
+  const bytes = randomBytes(n);
+  let s = '';
+  for (const b of bytes) s += PARTNER_CODE_ALPHABET[b % PARTNER_CODE_ALPHABET.length];
+  return s;
+}
+const generatePartnerId = () => `HCP${randomPartnerAlphabet(10)}`;
+const generatePartnerCode = () => `HCP${randomPartnerAlphabet(6)}`;
+
+function redactForAudit(input: unknown): unknown {
+  const SENSITIVE = ['pan', 'aadhaar', 'aadhar', 'bank', 'account', 'ifsc', 'upi', 'vpa', 'password', 'secret', 'token', 'otp', 'signature'];
+  const maskEmail = (v: string) => {
+    const at = v.indexOf('@');
+    return at > 0 ? `${v[0]}***${v.slice(at)}` : '***';
+  };
+  if (input === null || typeof input !== 'object') {
+    if (typeof input === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input)) return maskEmail(input);
+    return input;
+  }
+  if (Array.isArray(input)) return input.map(redactForAudit);
+  const out: Record<string, unknown> = {};
+  for (const [k, val] of Object.entries(input as Record<string, unknown>)) {
+    const lk = k.toLowerCase();
+    if (SENSITIVE.some((s) => lk.includes(s))) out[k] = '[redacted]';
+    else if (/email/i.test(k) && typeof val === 'string') out[k] = maskEmail(val);
+    else out[k] = redactForAudit(val);
+  }
+  return out;
+}
+
+async function writePartnerAudit(args: {
+  entityType: string;
+  entityId: string;
+  action: string;
+  actorId: string;
+  before?: unknown;
+  after?: unknown;
+  reason?: string | null;
+}) {
+  await db.collection('auditEvents').add({
+    entityType: args.entityType,
+    entityId: args.entityId,
+    action: args.action,
+    actorId: args.actorId,
+    actorType: 'staff',
+    before: args.before === undefined ? null : redactForAudit(args.before),
+    after: args.after === undefined ? null : redactForAudit(args.after),
+    reason: args.reason ?? null,
+    correlationId: null,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+async function listPartnerApplications(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q: FirebaseFirestore.Query = db.collection('partnerApplications');
+  if (status && ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].includes(status)) {
+    q = q.where('status', '==', status);
+  }
+  const snap = await q.orderBy('submittedAt', 'desc').limit(200).get();
+  return {
+    applications: snap.docs.map((d) => {
+      const a = d.data();
+      return {
+        id: d.id,
+        userId: a.userId as string,
+        legalName: a.legalName as string,
+        displayName: a.displayName as string,
+        dateOfBirth: a.dateOfBirth as string,
+        phone: a.phone as string,
+        partnerType: a.partnerType as string,
+        status: a.status as string,
+        reviewNote: (a.reviewNote as string | null) ?? null,
+        partnerId: (a.partnerId as string | null) ?? null,
+        submittedAt: a.submittedAt ?? null,
+      };
+    }),
+  };
+}
+
+const reviewPartnerApplicationSchema = z.object({
+  applicationId: z.string().min(1),
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().max(500).optional(),
+});
+
+async function reviewPartnerApplication(uid: string, body: unknown) {
+  const parsed = reviewPartnerApplicationSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { applicationId, decision, note } = parsed.data;
+
+  const appRef = db.collection('partnerApplications').doc(applicationId);
+  const appSnap = await appRef.get();
+  if (!appSnap.exists) throw Err.invalidArgument('Application not found');
+  const app = appSnap.data()!;
+  if (app.status !== 'SUBMITTED' && app.status !== 'UNDER_REVIEW') {
+    throw Err.conflict(`This application is already ${String(app.status).toLowerCase()}.`);
+  }
+
+  const now = FieldValue.serverTimestamp();
+
+  if (decision === 'reject') {
+    await appRef.update({ status: 'REJECTED', reviewedBy: uid, reviewNote: note ?? null, updatedAt: now });
+    await writePartnerAudit({
+      entityType: 'partnerApplication',
+      entityId: applicationId,
+      action: 'reject',
+      actorId: uid,
+      before: { status: app.status },
+      after: { status: 'REJECTED' },
+      reason: note ?? null,
+    });
+    return { status: 'REJECTED' as const };
+  }
+
+  // approve
+  const partnerId = generatePartnerId();
+  let code = generatePartnerCode();
+  if ((await db.collection('referralCodes').doc(code).get()).exists) code = generatePartnerCode();
+  const productId = (app.productId as string) ?? 'HELPCERTIFY';
+
+  const batch = db.batch();
+  batch.set(db.collection('partners').doc(partnerId), {
+    linkedUserId: app.userId,
+    productId,
+    displayName: app.displayName,
+    partnerType: app.partnerType,
+    status: 'ACTIVE',
+    agreementVersion: app.agreementVersion ?? PARTNER_AGREEMENT_VERSION,
+    suspendedReason: null,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  batch.update(db.collection('users').doc(app.userId as string), { partnerId, updatedAt: now });
+  batch.set(db.collection('partnerAgreements').doc(), {
+    partnerId,
+    version: app.agreementVersion ?? PARTNER_AGREEMENT_VERSION,
+    acceptedAt: app.submittedAt ?? now,
+    ip: null,
+  });
+  batch.set(db.collection('referralCodes').doc(code), {
+    partnerId,
+    productId,
+    offerId: null,
+    active: true,
+    createdAt: now,
+  });
+  batch.update(appRef, { status: 'APPROVED', reviewedBy: uid, reviewNote: note ?? null, partnerId, updatedAt: now });
+  await batch.commit();
+
+  await writePartnerAudit({
+    entityType: 'partner',
+    entityId: partnerId,
+    action: 'approve',
+    actorId: uid,
+    before: { applicationStatus: app.status },
+    after: { partnerId, linkedUserId: app.userId, firstCode: code },
+    reason: note ?? null,
+  });
+  return { status: 'APPROVED' as const, partnerId, referralCode: code };
+}
+
+const partnerStatusChangeSchema = z.object({ partnerId: z.string().min(1), reason: z.string().trim().max(500).optional() });
+
+async function setPartnerStatus(uid: string, body: unknown, next: 'ACTIVE' | 'SUSPENDED') {
+  const parsed = partnerStatusChangeSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { partnerId, reason } = parsed.data;
+  const ref = db.collection('partners').doc(partnerId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Partner not found');
+  const prev = snap.data()!.status as string;
+
+  const codesSnap = await db.collection('referralCodes').where('partnerId', '==', partnerId).get();
+  const batch = db.batch();
+  batch.update(ref, { status: next, suspendedReason: next === 'SUSPENDED' ? reason ?? null : null, updatedAt: FieldValue.serverTimestamp() });
+  for (const c of codesSnap.docs) batch.update(c.ref, { active: next === 'ACTIVE' });
+  await batch.commit();
+
+  await writePartnerAudit({
+    entityType: 'partner',
+    entityId: partnerId,
+    action: next === 'SUSPENDED' ? 'suspend' : 'reactivate',
+    actorId: uid,
+    before: { status: prev },
+    after: { status: next, codesAffected: codesSnap.size },
+    reason: reason ?? null,
+  });
+  return { status: next, codesAffected: codesSnap.size };
+}
+
+async function listPartnersAdmin() {
+  const snap = await db.collection('partners').orderBy('createdAt', 'desc').limit(200).get();
+  return {
+    partners: snap.docs.map((d) => {
+      const p = d.data();
+      return {
+        partnerId: d.id,
+        linkedUserId: p.linkedUserId as string,
+        displayName: p.displayName as string,
+        partnerType: p.partnerType as string,
+        status: p.status as string,
+        createdAt: p.createdAt ?? null,
+      };
+    }),
+  };
+}
+
+const savePartnerProductSchema = z.object({
+  productId: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(80),
+  status: z.enum(['ACTIVE', 'PAUSED']).default('ACTIVE'),
+  baseUrl: z.string().trim().url(),
+  currency: z.enum(['INR', 'USD']).default('INR'),
+  defaultAttributionDays: z.number().int().min(1).max(365).default(30),
+  defaultHoldDays: z.number().int().min(0).max(180).default(7),
+  allowReferralCode: z.boolean().default(true),
+  allowLeadRegistration: z.boolean().default(false),
+});
+
+async function savePartnerProduct(uid: string, body: unknown) {
+  const parsed = savePartnerProductSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const ref = db.collection('products').doc(d.productId);
+  const existing = await ref.get();
+  const now = FieldValue.serverTimestamp();
+  await ref.set(
+    {
+      name: d.name,
+      status: d.status,
+      baseUrl: d.baseUrl,
+      currency: d.currency,
+      defaultAttributionDays: d.defaultAttributionDays,
+      defaultHoldDays: d.defaultHoldDays,
+      allowReferralCode: d.allowReferralCode,
+      allowLeadRegistration: d.allowLeadRegistration,
+      createdAt: existing.exists ? existing.data()!.createdAt : now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+  await writePartnerAudit({
+    entityType: 'product',
+    entityId: d.productId,
+    action: existing.exists ? 'update' : 'create',
+    actorId: uid,
+    after: { name: d.name, status: d.status },
+  });
+  return { productId: d.productId };
+}
+
+const savePartnerOfferSchema = z.object({
+  offerId: z.string().trim().min(1).max(60),
+  productId: z.string().trim().min(1).max(40),
+  externalRef: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(120),
+  eligiblePartnerTypes: z.array(z.enum(['referral', 'sales', 'implementation', 'agency'])).min(1),
+  commissionPolicyId: z.string().trim().min(1),
+  holdDays: z.number().int().min(0).max(180).default(7),
+  combineWithDiscount: z.boolean().default(false),
+  active: z.boolean().default(true),
+});
+
+async function savePartnerOffer(uid: string, body: unknown) {
+  const parsed = savePartnerOfferSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const policySnap = await db.collection('commissionPolicies').doc(d.commissionPolicyId).get();
+  if (!policySnap.exists) throw Err.invalidArgument('That commission policy does not exist.');
+  const ref = db.collection('offers').doc(d.offerId);
+  const existing = await ref.get();
+  const now = FieldValue.serverTimestamp();
+  await ref.set(
+    {
+      productId: d.productId,
+      externalRef: d.externalRef,
+      name: d.name,
+      eligiblePartnerTypes: d.eligiblePartnerTypes,
+      commissionPolicyId: d.commissionPolicyId,
+      holdDays: d.holdDays,
+      combineWithDiscount: d.combineWithDiscount,
+      validFrom: null,
+      validTo: null,
+      active: d.active,
+      createdAt: existing.exists ? existing.data()!.createdAt : now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+  await writePartnerAudit({
+    entityType: 'offer',
+    entityId: d.offerId,
+    action: existing.exists ? 'update' : 'create',
+    actorId: uid,
+    after: { name: d.name, policy: d.commissionPolicyId },
+  });
+  return { offerId: d.offerId };
+}
+
+const savePartnerPolicyVersionSchema = z.object({
+  policyId: z.string().trim().min(1).optional(),
+  productId: z.string().trim().min(1).max(40).default('HELPCERTIFY'),
+  name: z.string().trim().min(1).max(80),
+  ruleType: z.enum(['percent', 'fixed', 'tiered']),
+  rateBasisPoints: z.number().int().min(0).max(10000).default(0),
+  fixedAmountMinor: z.number().int().min(0).nullable().default(null),
+  tiers: z.array(z.object({ minMonthlySales: z.number().int().min(0), rateBasisPoints: z.number().int().min(0).max(10000) })).nullable().default(null),
+  maxCommissionMinor: z.number().int().min(0).nullable().default(null),
+  firstPurchaseOnly: z.boolean().default(false),
+});
+
+async function savePartnerPolicyVersion(uid: string, body: unknown) {
+  const parsed = savePartnerPolicyVersionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const now = FieldValue.serverTimestamp();
+
+  const policyRef = d.policyId ? db.collection('commissionPolicies').doc(d.policyId) : db.collection('commissionPolicies').doc();
+  const policySnap = await policyRef.get();
+  const versionsSnap = await policyRef.collection('versions').orderBy('version', 'desc').limit(1).get();
+  const nextVersion = versionsSnap.empty ? 1 : (versionsSnap.docs[0].data().version as number) + 1;
+
+  const batch = db.batch();
+  batch.set(
+    policyRef,
+    {
+      productId: d.productId,
+      name: d.name,
+      activeVersion: nextVersion,
+      createdAt: policySnap.exists ? policySnap.data()!.createdAt : now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+  batch.set(policyRef.collection('versions').doc(String(nextVersion)), {
+    version: nextVersion,
+    ruleType: d.ruleType,
+    rateBasisPoints: d.rateBasisPoints,
+    fixedAmountMinor: d.fixedAmountMinor,
+    tiers: d.tiers,
+    maxCommissionMinor: d.maxCommissionMinor,
+    firstPurchaseOnly: d.firstPurchaseOnly,
+    createdBy: uid,
+    createdAt: now,
+  });
+  await batch.commit();
+
+  await writePartnerAudit({
+    entityType: 'commissionPolicy',
+    entityId: policyRef.id,
+    action: 'saveVersion',
+    actorId: uid,
+    after: { version: nextVersion, ruleType: d.ruleType, rateBasisPoints: d.rateBasisPoints },
+  });
+  return { policyId: policyRef.id, version: nextVersion };
+}
+
+async function getPartnerFrameworkSettings() {
+  const snap = await db.collection('appSettings').doc('partnerFramework').get();
+  const d = snap.data();
+  return { enabled: d?.enabled === true, applicationsOpen: d?.applicationsOpen === true };
+}
+
+const savePartnerFrameworkFlagsSchema = z.object({ enabled: z.boolean(), applicationsOpen: z.boolean() });
+
+async function savePartnerFrameworkFlags(uid: string, body: unknown) {
+  const parsed = savePartnerFrameworkFlagsSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  await db
+    .collection('appSettings')
+    .doc('partnerFramework')
+    .set({ ...parsed.data, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await writePartnerAudit({
+    entityType: 'appSettings',
+    entityId: 'partnerFramework',
+    action: 'update',
+    actorId: uid,
+    after: parsed.data,
+  });
+  return parsed.data;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -565,6 +962,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listReferralsAdmin':
         res.status(200).json(await listReferralsAdmin());
+        return;
+      // --- Partner Commission Framework (Phase 1, staff) ---
+      case 'listPartnerApplications':
+        res.status(200).json(await listPartnerApplications(data));
+        return;
+      case 'reviewPartnerApplication':
+        res.status(200).json(await reviewPartnerApplication(uid, data));
+        return;
+      case 'suspendPartner':
+        res.status(200).json(await setPartnerStatus(uid, data, 'SUSPENDED'));
+        return;
+      case 'reactivatePartner':
+        res.status(200).json(await setPartnerStatus(uid, data, 'ACTIVE'));
+        return;
+      case 'listPartnersAdmin':
+        res.status(200).json(await listPartnersAdmin());
+        return;
+      case 'savePartnerProduct':
+        res.status(200).json(await savePartnerProduct(uid, data));
+        return;
+      case 'savePartnerOffer':
+        res.status(200).json(await savePartnerOffer(uid, data));
+        return;
+      case 'savePartnerPolicyVersion':
+        res.status(200).json(await savePartnerPolicyVersion(uid, data));
+        return;
+      case 'getPartnerFrameworkSettings':
+        res.status(200).json(await getPartnerFrameworkSettings());
+        return;
+      case 'savePartnerFrameworkFlags':
+        res.status(200).json(await savePartnerFrameworkFlags(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

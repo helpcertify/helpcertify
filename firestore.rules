@@ -27,6 +27,11 @@ service cloud.firestore {
     }
     function isAdmin() { return isSignedIn() && role() == 'admin'; }
     function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    // Partner Commission Framework staff roles. isFinance() is the only
+    // sub-role added in Phase 1 (payout maker/checker in Phase 4); admin is
+    // always a superset. isStaff() = "may read partner/commission data".
+    function isFinance() { return isSignedIn() && role() == 'finance_admin'; }
+    function isStaff() { return isAdmin() || isFinance(); }
 
     // --- users/{uid} ---
     match /users/{uid} {
@@ -190,6 +195,77 @@ service cloud.firestore {
       allow read, write: if false; // read via api/admin.ts's listAdminLogs action only
     }
 
+    // === Partner Commission Framework ===
+    // Same design as everything above: every write goes through the Admin
+    // SDK (api/admin.ts staff actions, api/auth.ts user/public actions), so
+    // writes are denied here and these rules only gate reads.
+
+    // A partner reads their own partners/{id} doc (the portal, Phase 3);
+    // staff read any.
+    match /partners/{partnerId} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    // An applicant reads back their own application to see its status.
+    match /partnerApplications/{appId} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+    match /partnerAgreements/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    // products / offers are shown on the "become a partner" page.
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /offers/{offerId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /commissionPolicies/{policyId} {
+      allow read: if isStaff();
+      allow write: if false;
+      match /versions/{versionId} {
+        allow read: if isStaff();
+        allow write: if false;
+      }
+    }
+    // A partner reads their own codes (Promote page, Phase 3).
+    match /referralCodes/{code} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/partners/$(resource.data.partnerId)).data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /referralEvents/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /auditEvents/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    // Written from Phase 2 onward; deny-all read for now except staff.
+    match /commissions/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/partners/$(resource.data.partnerId)).data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /commissionLedger/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /payoutBatches/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /payouts/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/partners/$(resource.data.partnerId)).data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+
     // --- appSettings/company --- admin-editable public contact / legal
     // facts (entity, address, jurisdiction, support + grievance email,
     // phone) shown on the marketing/legal pages and the checkout consent
@@ -212,6 +288,16 @@ service cloud.firestore {
     // (Admin SDK, admin-gated).
     match /appSettings/appearance {
       allow read: if true;
+      allow write: if false;
+    }
+
+    // --- appSettings/partnerFramework --- { enabled, applicationsOpen }.
+    // Signed-in read so the SPA can decide whether to show the "become a
+    // partner" entry / route. Written only by api/admin.ts's
+    // updateAppSettings (Admin SDK, admin-gated). Unioned with the
+    // catch-all below, same pattern as /appSettings/appearance.
+    match /appSettings/partnerFramework {
+      allow read: if isSignedIn();
       allow write: if false;
     }
 
