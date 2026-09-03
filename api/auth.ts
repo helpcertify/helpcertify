@@ -867,6 +867,101 @@ async function listMyPartnerCommissions(req: VercelRequest) {
   return { commissions, totals };
 }
 
+// --- approved partner: payout details (Phase 3). Finance needs the real
+// values to pay by hand (no RazorpayX in the MVP); stored on partners/{id}
+// .payout, denied to other clients by rules, and stripped from every audit
+// doc by redactForAudit. ---
+const savePartnerPayoutSchema = z
+  .object({
+    method: z.enum(['BANK', 'UPI']),
+    accountName: z.string().trim().min(2).max(120),
+    bankAccountNumber: z.string().trim().regex(/^\d{6,20}$/).optional(),
+    bankIfsc: z.string().trim().regex(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/).optional(),
+    upiVpa: z.string().trim().regex(/^[\w.\-]{2,64}@[\w.\-]{2,32}$/).optional(),
+    pan: z.string().trim().regex(/^[A-Za-z]{5}\d{4}[A-Za-z]$/).optional(),
+  })
+  .refine((d) => (d.method === 'BANK' ? !!d.bankAccountNumber && !!d.bankIfsc : !!d.upiVpa), {
+    message: 'Bank payouts need an account number and IFSC; UPI payouts need a VPA.',
+  });
+
+function maskTail(v: string | null | undefined, keep = 4): string | null {
+  if (!v) return null;
+  const t = v.replace(/\s+/g, '');
+  if (t.length <= keep) return '•'.repeat(t.length);
+  return '•'.repeat(Math.min(6, t.length - keep)) + t.slice(-keep);
+}
+
+async function savePartnerPayoutDetails(req: VercelRequest, body: unknown) {
+  const { uid, partnerId } = await requirePartner(req);
+  const parsed = savePartnerPayoutSchema.safeParse(body);
+  if (!parsed.success) {
+    throw Err.invalidArgument(parsed.error.issues[0]?.message ?? 'Validation failed', parsed.error.issues);
+  }
+  const d = parsed.data;
+  const payout = {
+    method: d.method,
+    accountName: d.accountName,
+    bankAccountNumber: d.method === 'BANK' ? d.bankAccountNumber! : null,
+    bankIfsc: d.method === 'BANK' ? d.bankIfsc!.toUpperCase() : null,
+    upiVpa: d.method === 'UPI' ? d.upiVpa! : null,
+    panLast4: d.pan ? d.pan.toUpperCase().slice(-4) : null,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  await db.collection('partners').doc(partnerId).set({ payout }, { merge: true });
+  await writePartnerAudit({
+    entityType: 'partner',
+    entityId: partnerId,
+    action: 'updatePayoutDetails',
+    actorId: uid,
+    actorType: 'partner',
+    after: { method: d.method },
+  });
+  return { ok: true as const };
+}
+
+async function getMyPartnerPayoutDetails(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const p = (await db.collection('partners').doc(partnerId).get()).data();
+  const pd = p?.payout;
+  if (!pd?.method) return { payout: null };
+  return {
+    payout: {
+      method: pd.method as string,
+      accountName: (pd.accountName as string) ?? '',
+      bankAccountLast4: maskTail(pd.bankAccountNumber as string | null),
+      bankIfsc: (pd.bankIfsc as string | null) ?? null,
+      upiVpa: pd.upiVpa ? maskTail(pd.upiVpa as string, 6) : null,
+      panLast4: (pd.panLast4 as string | null) ?? null,
+    },
+  };
+}
+
+async function listMyPartnerPayouts(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const snap = await db
+    .collection('payouts')
+    .where('partnerId', '==', partnerId)
+    .orderBy('createdAt', 'desc')
+    .limit(60)
+    .get();
+  return {
+    payouts: snap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        periodLabel: d.periodLabel as string,
+        currency: (d.currency as string) ?? 'INR',
+        grossMinor: Number(d.grossMinor) || 0,
+        netMinor: Number(d.netMinor) || 0,
+        commissionCount: ((d.commissionIds as string[]) ?? []).length,
+        status: d.status as string,
+        externalReference: (d.externalReference as string | null) ?? null,
+        paidAt: d.paidAt ? (d.paidAt as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+      };
+    }),
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -916,6 +1011,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyPartnerCommissions':
         res.status(200).json(await listMyPartnerCommissions(req));
+        return;
+      case 'savePartnerPayoutDetails':
+        res.status(200).json(await savePartnerPayoutDetails(req, data));
+        return;
+      case 'getMyPartnerPayoutDetails':
+        res.status(200).json(await getMyPartnerPayoutDetails(req));
+        return;
+      case 'listMyPartnerPayouts':
+        res.status(200).json(await listMyPartnerPayouts(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

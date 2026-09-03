@@ -1297,3 +1297,61 @@ export interface CommissionLedgerDoc {
   actorType: AuditActorType;
   createdAt: Timestamp;
 }
+
+export type PartnerPayoutMethod = 'BANK' | 'UPI';
+
+/** partners/{id}.payout - the destination for a MANUAL payout. Finance needs
+ * the real values to pay by hand in the MVP (there is no RazorpayX
+ * automation); rules deny client reads except the owning partner + staff,
+ * and auditEvent redaction strips these keys from every audit doc. */
+export interface PartnerPayoutDetails {
+  method: PartnerPayoutMethod;
+  accountName: string;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  upiVpa: string | null;
+  panLast4: string | null;
+  updatedAt: Timestamp;
+}
+
+export type PayoutBatchStatus = 'DRAFT' | 'APPROVED' | 'PAID' | 'CANCELLED';
+
+/** payoutBatches/{batchId} - a monthly run. Maker/checker: approvedBy must
+ * differ from createdBy. Money never moves automatically - a human records
+ * the external transfer reference and marks it PAID. */
+export interface PayoutBatchDoc {
+  productId: ProductId;
+  periodLabel: string; // e.g. "2026-08"
+  status: PayoutBatchStatus;
+  commissionCount: number;
+  grossMinor: number;
+  currency: string;
+  createdBy: string;
+  approvedBy: string | null;
+  paidBy: string | null;
+  externalReference: string | null; // bank UTR / RazorpayX id, entered by hand
+  note: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type PayoutStatus = 'PENDING' | 'PAID' | 'FAILED';
+
+/** payouts/{payoutId} - one partner's slice of a batch, and the partner
+ * statement row. Doc id = `${batchId}_${partnerId}`. */
+export interface PayoutDoc {
+  batchId: string;
+  partnerId: string;
+  productId: ProductId;
+  periodLabel: string;
+  currency: string;
+  commissionIds: string[];
+  grossMinor: number;
+  deductionsMinor: number;
+  netMinor: number;
+  status: PayoutStatus;
+  externalReference: string | null;
+  paidAt: Timestamp | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
