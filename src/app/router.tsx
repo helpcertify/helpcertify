@@ -48,6 +48,7 @@ import { ProductsPricingPage } from '@/features/admin/pages/ProductsPricingPage'
 import { CertificationEditorPage } from '@/features/admin/pages/CertificationEditorPage';
 import { PartnerApplicationsPage } from '@/features/admin/pages/PartnerApplicationsPage';
 import { BecomePartnerPage } from '@/features/partner/pages/BecomePartnerPage';
+import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
 // course/exam/certificate routes on 2026-08-22 - see
@@ -94,6 +95,7 @@ export function AppRouter() {
           <Route path="/home/search" element={<SearchResultsPage />} />
           <Route path="/home/help" element={<HelpPage />} />
           <Route path="/home/become-a-partner" element={<BecomePartnerPage />} />
+          <Route path="/home/partner" element={<PartnerDashboardPage />} />
           <Route path="/home/cart" element={<CartPage />} />
         </Route>
         <Route path="/quizzes/:quizId/take" element={<QuizTakingPage />} />

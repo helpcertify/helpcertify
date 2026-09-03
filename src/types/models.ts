@@ -1136,6 +1136,9 @@ export interface PartnerProductDoc {
   currency: 'INR' | 'USD';
   defaultAttributionDays: number;
   defaultHoldDays: number;
+  /** Product-default commission policy (PRD precedence level 5). Used when no
+   * more specific offer policy matches the order. null = no commission. */
+  defaultCommissionPolicyId: string | null;
   allowReferralCode: boolean;
   allowLeadRegistration: boolean;
   createdAt: Timestamp;
@@ -1222,5 +1225,75 @@ export interface AuditEventDoc {
   after: Record<string, unknown> | null;
   reason: string | null;
   correlationId: string | null;
+  createdAt: Timestamp;
+}
+
+export type AttributionMethod = 'REFERRAL_LINK' | 'REFERRAL_CODE';
+
+/** The attribution + policy snapshot frozen onto orders/{orderId} at
+ * createOrder time (Phase 2). Null on every non-attributed order. Never
+ * rewritten after the payment order exists except by an audited admin
+ * correction. */
+export interface OrderPartnerAttribution {
+  partnerId: string;
+  attributionMethod: AttributionMethod;
+  referralCodeSnapshot: string;
+  commissionable: boolean; // false = attributed but no commission (e.g. repeat customer, no policy)
+  ineligibleReason: string | null;
+  commissionPolicyId: string | null;
+  commissionPolicyVersion: number | null;
+  commissionRateBasisPoints: number | null;
+  commissionBaseMinor: number | null; // eligible base, frozen
+  maxCommissionMinor: number | null;
+  frozenAt: Timestamp;
+}
+
+export type CommissionStatus =
+  | 'PENDING_HOLD'
+  | 'APPROVED'
+  | 'PAYABLE'
+  | 'PROCESSING'
+  | 'PAID'
+  | 'ON_HOLD'
+  | 'REJECTED'
+  | 'REVERSED'
+  | 'RECOVERABLE';
+
+/** commissions/{orderId} - doc id IS the internal order id, so creation is
+ * idempotent against a webhook + client double-finalize. One order has at
+ * most one primary commission owner in the MVP. */
+export interface CommissionDoc {
+  orderId: string;
+  partnerId: string;
+  productId: ProductId;
+  customerId: string;
+  currency: string;
+  eligibleBaseMinor: number;
+  rateBasisPoints: number;
+  grossCommissionMinor: number;
+  deductionsMinor: number;
+  netPayableMinor: number;
+  status: CommissionStatus;
+  holdUntil: Timestamp | null;
+  onHoldReason: string | null;
+  commissionPolicyId: string;
+  commissionPolicyVersion: number;
+  payoutBatchId: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** commissionLedger/{id} - append-only. Every commission status change
+ * writes one row here; financial history is never overwritten. */
+export interface CommissionLedgerDoc {
+  commissionId: string; // = orderId
+  orderId: string;
+  partnerId: string;
+  fromStatus: CommissionStatus | null;
+  toStatus: CommissionStatus;
+  amountMinor: number; // signed: negative on REVERSED / RECOVERABLE
+  reason: string;
+  actorId: string;
+  actorType: AuditActorType;
   createdAt: Timestamp;
 }

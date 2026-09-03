@@ -28,7 +28,6 @@ const NAV_ITEMS = [
   { to: '/home/certificates', label: 'My Certificates' },
   { to: '/home/purchases', label: 'Billing & Orders' },
   { to: '/home/wishlist', label: 'Saved Items' },
-  { to: '/home/become-a-partner', label: 'Become a Partner' },
 ];
 
 // My Profile and Settings are account-level, not content tabs, so they're
@@ -104,6 +103,15 @@ export function StudentShell() {
           {item.label}
         </NavLink>
       ))}
+      {profile?.partnerId ? (
+        <NavLink to="/home/partner" onClick={onNavigate} className={navLinkClass}>
+          Partner Dashboard
+        </NavLink>
+      ) : (
+        <NavLink to="/home/become-a-partner" onClick={onNavigate} className={navLinkClass}>
+          Become a Partner
+        </NavLink>
+      )}
       <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>
         My Profile
       </NavLink>

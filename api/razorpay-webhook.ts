@@ -129,6 +129,73 @@ async function processReferralOnPurchase(
   });
 }
 
+// Partner commission (Phase 2). The attribution + policy were frozen onto
+// order.partnerAttribution at createOrder time; here we just materialise the
+// commission from that snapshot. Duplicated verbatim from api/checkout.ts,
+// same no-shared-code convention. Tested spec:
+// src/features/partner/lib/commission.ts.
+const PARTNER_PRODUCT_ID = 'HELPCERTIFY';
+
+async function holdDaysForOrder(): Promise<number> {
+  try {
+    const snap = await db.collection('appSettings').doc('general').get();
+    const w = Number(snap.data()?.refundWindowDays);
+    return Math.max(7, Number.isFinite(w) && w > 0 ? w : 0);
+  } catch {
+    return 7;
+  }
+}
+
+function addCommissionToBatch(
+  batch: FirebaseFirestore.WriteBatch,
+  orderId: string,
+  order: FirebaseFirestore.DocumentData,
+  holdDays: number,
+): void {
+  const a = order.partnerAttribution;
+  if (!a || a.commissionable !== true) return;
+
+  const baseMinor = Math.max(0, Number(a.commissionBaseMinor) || 0);
+  const bp = Number(a.commissionRateBasisPoints) || 0;
+  const uncapped = Math.floor((baseMinor * bp) / 10000 + 0.5); // round half up
+  const cap = typeof a.maxCommissionMinor === 'number' ? a.maxCommissionMinor : null;
+  const gross = cap != null && uncapped > cap ? cap : uncapped;
+  const holdUntil = Timestamp.fromMillis(Date.now() + holdDays * 24 * 60 * 60 * 1000);
+
+  batch.set(db.collection('commissions').doc(orderId), {
+    orderId,
+    partnerId: a.partnerId,
+    productId: PARTNER_PRODUCT_ID,
+    customerId: order.userId,
+    currency: order.currency ?? 'INR',
+    eligibleBaseMinor: baseMinor,
+    rateBasisPoints: bp,
+    grossCommissionMinor: gross,
+    deductionsMinor: 0,
+    netPayableMinor: gross,
+    status: 'PENDING_HOLD',
+    holdUntil,
+    onHoldReason: null,
+    commissionPolicyId: a.commissionPolicyId,
+    commissionPolicyVersion: a.commissionPolicyVersion,
+    payoutBatchId: null,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  batch.set(db.collection('commissionLedger').doc(), {
+    commissionId: orderId,
+    orderId,
+    partnerId: a.partnerId,
+    fromStatus: null,
+    toStatus: 'PENDING_HOLD',
+    amountMinor: gross,
+    reason: 'Order paid; refund hold started',
+    actorId: 'system',
+    actorType: 'system',
+    createdAt: Timestamp.now(),
+  });
+}
+
 async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promise<'paid' | 'already_paid' | 'not_found'> {
   const ref = db.collection('orders').doc(orderId);
   const snap = await ref.get();
@@ -144,6 +211,11 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // order counted as paid.
   const batch = db.batch();
   await processReferralOnPurchase(order.userId, orderId, order.items as { itemType: ItemType; itemId: string }[], batch);
+
+  if (order.partnerAttribution?.commissionable === true) {
+    const commissionExists = (await db.collection('commissions').doc(orderId).get()).exists;
+    if (!commissionExists) addCommissionToBatch(batch, orderId, order, await holdDaysForOrder());
+  }
 
   // In the batch with the entitlement writes so finalize is all-or-nothing
   // (mirrors api/checkout.ts).

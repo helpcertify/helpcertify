@@ -475,6 +475,37 @@ async function refundOrder(uid: string, body: unknown) {
     }
   }
 
+  // Reverse the partner commission tied to this order (Phase 2). Not yet
+  // paid out -> REVERSED; already paid to the partner -> RECOVERABLE (offset
+  // against future earnings). Tested spec:
+  // src/features/partner/lib/commission.ts nextCommissionStatusOnRefund.
+  const commissionSnap = await db.collection('commissions').doc(orderId).get();
+  if (commissionSnap.exists) {
+    const c = commissionSnap.data()!;
+    const cur = c.status as string;
+    const next =
+      ['PENDING_HOLD', 'ON_HOLD', 'APPROVED', 'PAYABLE'].includes(cur)
+        ? 'REVERSED'
+        : ['PROCESSING', 'PAID'].includes(cur)
+          ? 'RECOVERABLE'
+          : null;
+    if (next) {
+      batch.update(commissionSnap.ref, { status: next, updatedAt: Timestamp.now() });
+      batch.set(db.collection('commissionLedger').doc(), {
+        commissionId: orderId,
+        orderId,
+        partnerId: c.partnerId,
+        fromStatus: cur,
+        toStatus: next,
+        amountMinor: -(Number(c.netPayableMinor) || 0),
+        reason: `Order ${orderId} refunded: ${reason}`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: Timestamp.now(),
+      });
+    }
+  }
+
   await batch.commit();
 
   await writeAdminLog({
@@ -749,6 +780,7 @@ const savePartnerProductSchema = z.object({
   currency: z.enum(['INR', 'USD']).default('INR'),
   defaultAttributionDays: z.number().int().min(1).max(365).default(30),
   defaultHoldDays: z.number().int().min(0).max(180).default(7),
+  defaultCommissionPolicyId: z.string().trim().min(1).max(60).nullable().default(null),
   allowReferralCode: z.boolean().default(true),
   allowLeadRegistration: z.boolean().default(false),
 });
@@ -768,6 +800,7 @@ async function savePartnerProduct(uid: string, body: unknown) {
       currency: d.currency,
       defaultAttributionDays: d.defaultAttributionDays,
       defaultHoldDays: d.defaultHoldDays,
+      defaultCommissionPolicyId: d.defaultCommissionPolicyId,
       allowReferralCode: d.allowReferralCode,
       allowLeadRegistration: d.allowLeadRegistration,
       createdAt: existing.exists ? existing.data()!.createdAt : now,
@@ -916,7 +949,136 @@ async function savePartnerFrameworkFlags(uid: string, body: unknown) {
   return parsed.data;
 }
 
+// --- Partner Commission Framework (Phase 2, staff) ---
+
+const listPartnerCommissionsSchema = z.object({
+  status: z.string().trim().max(20).optional(),
+  partnerId: z.string().trim().max(40).optional(),
+});
+
+async function listPartnerCommissions(body: unknown) {
+  const parsed = listPartnerCommissionsSchema.safeParse(body ?? {});
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  // Indexed single-filter queries only (see firestore.indexes.json). A
+  // partnerId filter sorts in memory so status+partner together needs no
+  // extra composite index.
+  let q: FirebaseFirestore.Query = db.collection('commissions');
+  if (parsed.data.partnerId) {
+    q = q.where('partnerId', '==', parsed.data.partnerId);
+    if (parsed.data.status) q = q.where('status', '==', parsed.data.status);
+    const snap = await q.limit(300).get();
+    const ms = (v: unknown) => (v && typeof (v as { toMillis?: () => number }).toMillis === 'function' ? (v as { toMillis: () => number }).toMillis() : 0);
+    const rows = snap.docs
+      .map((d) => ({ id: d.id, data: d.data() }))
+      .sort((a, b) => ms(b.data.createdAt) - ms(a.data.createdAt))
+      .map((r) => ({ id: r.id, ...r.data }));
+    return { commissions: rows };
+  }
+  if (parsed.data.status) q = q.where('status', '==', parsed.data.status);
+  const snap = await q.orderBy('createdAt', 'desc').limit(300).get();
+  return { commissions: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+const setCommissionHoldSchema = z.object({
+  commissionId: z.string().trim().min(1),
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+
+// Manual finance override: force a commission ON_HOLD (needs review) or lift
+// the hold back to PENDING_HOLD so the daily job can pick it up again.
+async function setCommissionHold(uid: string, body: unknown, hold: boolean) {
+  const parsed = setCommissionHoldSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { commissionId, reason } = parsed.data;
+  const ref = db.collection('commissions').doc(commissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Commission not found');
+  const cur = snap.data()!.status as string;
+  if (hold && !['PENDING_HOLD', 'APPROVED', 'PAYABLE'].includes(cur)) {
+    throw Err.conflict(`Cannot hold a commission that is "${cur}"`);
+  }
+  if (!hold && cur !== 'ON_HOLD') {
+    throw Err.conflict(`Commission is not on hold (it is "${cur}")`);
+  }
+  const next = hold ? 'ON_HOLD' : 'PENDING_HOLD';
+  const batch = db.batch();
+  batch.update(ref, { status: next, onHoldReason: hold ? (reason ?? 'Manual review') : null, updatedAt: Timestamp.now() });
+  batch.set(db.collection('commissionLedger').doc(), {
+    commissionId,
+    orderId: commissionId,
+    partnerId: snap.data()!.partnerId,
+    fromStatus: cur,
+    toStatus: next,
+    amountMinor: 0,
+    reason: reason ?? (hold ? 'Placed on hold for review' : 'Hold lifted'),
+    actorId: uid,
+    actorType: 'staff',
+    createdAt: Timestamp.now(),
+  });
+  await batch.commit();
+  await writePartnerAudit({
+    entityType: 'commission',
+    entityId: commissionId,
+    action: hold ? 'hold' : 'unhold',
+    actorId: uid,
+    before: { status: cur },
+    after: { status: next },
+    reason: reason ?? null,
+  });
+  return { status: next };
+}
+
+// Daily hold-release job (Vercel Cron -> GET /api/admin). Moves every
+// PENDING_HOLD commission whose holdUntil has passed to PAYABLE. ON_HOLD is
+// deliberately skipped - it needs a human. Batched in chunks of 400.
+async function releaseCommissionHolds(): Promise<{ released: number }> {
+  const now = Timestamp.now();
+  const due = await db
+    .collection('commissions')
+    .where('status', '==', 'PENDING_HOLD')
+    .where('holdUntil', '<=', now)
+    .limit(400)
+    .get();
+  if (due.empty) return { released: 0 };
+
+  const batch = db.batch();
+  for (const doc of due.docs) {
+    batch.update(doc.ref, { status: 'PAYABLE', updatedAt: now });
+    batch.set(db.collection('commissionLedger').doc(), {
+      commissionId: doc.id,
+      orderId: doc.id,
+      partnerId: doc.data().partnerId,
+      fromStatus: 'PENDING_HOLD',
+      toStatus: 'PAYABLE',
+      amountMinor: Number(doc.data().netPayableMinor) || 0,
+      reason: 'Hold period elapsed; released for payout',
+      actorId: 'system',
+      actorType: 'system',
+      createdAt: now,
+    });
+  }
+  await batch.commit();
+  return { released: due.size };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // Vercel Cron hits this endpoint with a GET and an Authorization: Bearer
+  // <CRON_SECRET> header (see vercel.json "crons"). No Firebase auth here.
+  if (req.method === 'GET') {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    try {
+      res.status(200).json(await releaseCommissionHolds());
+    } catch (err) {
+      console.error('releaseCommissionHolds failed:', err);
+      res.status(500).json({ error: 'Internal error' });
+    }
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -993,6 +1155,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'savePartnerFrameworkFlags':
         res.status(200).json(await savePartnerFrameworkFlags(uid, data));
+        return;
+      // --- Partner Commission Framework (Phase 2, staff) ---
+      case 'listPartnerCommissions':
+        res.status(200).json(await listPartnerCommissions(data));
+        return;
+      case 'holdPartnerCommission':
+        res.status(200).json(await setCommissionHold(uid, data, true));
+        return;
+      case 'releasePartnerCommission':
+        res.status(200).json(await setCommissionHold(uid, data, false));
+        return;
+      case 'releaseCommissionHoldsNow':
+        res.status(200).json(await releaseCommissionHolds());
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

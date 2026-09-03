@@ -63,7 +63,36 @@ export const partnerApi = {
   createReferralCode: () => callAction<{ code: string }>('auth', 'createPartnerReferralCode'),
   listMyReferralCodes: () =>
     callAction<{ codes: PartnerReferralCode[] }>('auth', 'listMyPartnerReferralCodes'),
+  listMyCommissions: () =>
+    callAction<{ commissions: PartnerCommissionRow[]; totals: PartnerCommissionTotals }>(
+      'auth',
+      'listMyPartnerCommissions',
+    ),
 };
+
+export interface PartnerCommissionRow {
+  id: string;
+  orderId: string;
+  status: string;
+  currency: string;
+  eligibleBaseMinor: number;
+  grossCommissionMinor: number;
+  netPayableMinor: number;
+  holdUntil: string | null;
+  createdAt: string | null;
+}
+
+export interface PartnerCommissionTotals {
+  pendingMinor: number;
+  payableMinor: number;
+  paidMinor: number;
+  reversedMinor: number;
+}
+
+export interface AdminCommissionRow extends PartnerCommissionRow {
+  partnerId: string;
+  onHoldReason: string | null;
+}
 
 export const partnerAdminApi = {
   listApplications: (status?: string) =>
@@ -79,4 +108,11 @@ export const partnerAdminApi = {
     callAction<{ enabled: boolean; applicationsOpen: boolean }>('admin', 'getPartnerFrameworkSettings'),
   saveFrameworkFlags: (payload: { enabled: boolean; applicationsOpen: boolean }) =>
     callAction<{ enabled: boolean; applicationsOpen: boolean }>('admin', 'savePartnerFrameworkFlags', payload),
+  listCommissions: (params?: { status?: string; partnerId?: string }) =>
+    callAction<{ commissions: AdminCommissionRow[] }>('admin', 'listPartnerCommissions', params ?? {}),
+  holdCommission: (payload: { commissionId: string; reason?: string }) =>
+    callAction<{ status: string }>('admin', 'holdPartnerCommission', payload),
+  releaseCommission: (payload: { commissionId: string; reason?: string }) =>
+    callAction<{ status: string }>('admin', 'releasePartnerCommission', payload),
+  releaseHoldsNow: () => callAction<{ released: number }>('admin', 'releaseCommissionHoldsNow'),
 };

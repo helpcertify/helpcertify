@@ -35,6 +35,7 @@ export function useCheckout() {
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
     couponCode?: string;
     useCredit?: boolean;
+    referralCode?: string;
   }) => {
     setPaying(true);
     try {
@@ -43,6 +44,7 @@ export function useCheckout() {
         buyNowItem: opts.buyNowItem,
         couponCode: opts.couponCode,
         useCredit: opts.useCredit,
+        referralCode: opts.referralCode,
       });
       await openRazorpayCheckout({
         keyId: order.keyId,

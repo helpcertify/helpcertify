@@ -2,6 +2,15 @@ import { callAction } from '@/lib/vercelApi';
 import type { PurchasableItemType } from '@/types/models';
 import { POLICY_VERSIONS } from '@/features/marketing/policyVersions';
 import type { CheckoutConsentState } from '../lib/checkoutConsent';
+import { REF_TOKEN_KEY } from '@/features/partner/hooks/useCaptureReferral';
+
+function readRefToken(): string | undefined {
+  try {
+    return sessionStorage.getItem(REF_TOKEN_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export interface CartItemView {
   itemType: PurchasableItemType;
@@ -56,11 +65,17 @@ export const checkoutApi = {
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
     couponCode?: string;
     useCredit?: boolean;
+    referralCode?: string;
   }) =>
     callAction<CreateOrderResult>('checkout', 'createOrder', {
       ...(opts.buyNowItem ? { buyNowItem: opts.buyNowItem } : {}),
       ...(opts.couponCode ? { couponCode: opts.couponCode } : {}),
       ...(opts.useCredit ? { useCredit: opts.useCredit } : {}),
+      // Partner Commission Framework: forward the opaque signed token
+      // captured from a ?ref= link (sessionStorage 'hc:ref') and any code
+      // the buyer typed at checkout. Both are re-validated server-side.
+      ...(readRefToken() ? { referralToken: readRefToken() } : {}),
+      ...(opts.referralCode ? { referralCode: opts.referralCode } : {}),
       consent: {
         ...opts.consent,
         acceptedAt: new Date().toISOString(),
