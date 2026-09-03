@@ -42,24 +42,29 @@ export function ExamSeriesGroup({
     kind === 'practice' ? `${takeBase}/${id}/take?feedbackMode=${feedbackMode}` : `${takeBase}/${id}/take`;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:border-surface-border dark:bg-surface-raised">
+    <div className="mb-4 overflow-hidden rounded-xl border border-[#BFDBFE] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:border-surface-border dark:bg-surface-raised">
       <button
         type="button"
         onClick={() => owned && setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+        aria-expanded={owned ? open : undefined}
+        className={`flex w-full items-center justify-between gap-4 border-l-4 border-[#155EEF] bg-[#F5F9FF] px-5 py-4 text-left dark:bg-[#155EEF]/10 ${
+          owned ? 'cursor-pointer hover:bg-[#EBF3FF] dark:hover:bg-[#155EEF]/20' : 'cursor-default'
+        }`}
       >
         <div>
-          <h2 className="text-[15px] font-bold text-ink">
+          <h2 className="text-base font-bold text-[#155EEF]">
             {certName} {noun}
           </h2>
           <p className="mt-0.5 text-xs text-ink-faint">
-            {sorted.length} {kind === 'practice' ? 'exam' : 'exam'}
-            {sorted.length === 1 ? '' : 's'}
+            {sorted.length} exam{sorted.length === 1 ? '' : 's'}
             {totalQuestions > 0 && ` · ${totalQuestions.toLocaleString()} questions`}
           </p>
         </div>
         {owned && (
-          <span className={`shrink-0 text-ink-faint transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#155EEF] px-3 py-1 text-xs font-semibold text-white">
+            {open ? 'Hide exams' : 'View exams'}
+            <span className={`transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+          </span>
         )}
       </button>
 

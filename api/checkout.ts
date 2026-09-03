@@ -650,6 +650,32 @@ async function verifyPayment(uid: string, body: unknown) {
   return { success: true };
 }
 
+// Billing & Orders - the learner's own paid/refunded orders as receipts.
+// Read server-side (orders is not client-readable); the doc already carries
+// item titles and the access-period label from createOrder.
+async function listMyOrders(uid: string) {
+  const snap = await db.collection('orders').where('userId', '==', uid).get();
+  const orders = snap.docs
+    .map((d) => {
+      const o = d.data();
+      return {
+        id: d.id,
+        status: o.status as string,
+        amount: (o.amount as number) ?? 0,
+        currency: (o.currency as string) ?? 'INR',
+        couponCode: (o.couponCode as string | null) ?? null,
+        razorpayPaymentId: (o.razorpayPaymentId as string | null) ?? null,
+        paidAt: (o.paidAt as unknown) ?? null,
+        createdAt: (o.createdAt as unknown) ?? null,
+        items: ((o.items as { itemType: string; title?: string; itemId: string; accessPeriodLabel?: string }[]) ?? []).map(
+          (i) => ({ itemType: i.itemType, title: i.title ?? i.itemId, accessPeriodLabel: i.accessPeriodLabel ?? null }),
+        ),
+      };
+    })
+    .filter((o) => o.status === 'paid' || o.status === 'refunded');
+  return { orders };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -665,6 +691,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'verifyPayment':
         res.status(200).json(await verifyPayment(uid, data));
+        return;
+      case 'listMyOrders':
+        res.status(200).json(await listMyOrders(uid));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

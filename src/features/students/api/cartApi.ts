@@ -39,6 +39,7 @@ export const cartApi = {
       'cart',
       'listMyPurchases'
     ),
+  listMyOrders: () => callAction<{ orders: MyOrder[] }>('checkout', 'listMyOrders'),
 };
 
 export interface CreateOrderResult {
@@ -73,3 +74,15 @@ export const checkoutApi = {
     razorpay_signature: string;
   }) => callAction<{ success: true }>('checkout', 'verifyPayment', payload),
 };
+
+export interface MyOrder {
+  id: string;
+  status: 'paid' | 'refunded';
+  amount: number;
+  currency: string;
+  couponCode: string | null;
+  razorpayPaymentId: string | null;
+  paidAt: unknown;
+  createdAt: unknown;
+  items: { itemType: string; title: string; accessPeriodLabel: string | null }[];
+}
