@@ -20,6 +20,7 @@ export function CartPage() {
   const { checkout, paying: payingNow, confirmation } = useCheckout();
 
   const [couponInput, setCouponInput] = useState('');
+  const [referralInput, setReferralInput] = useState('');
   const [useCredit, setUseCredit] = useState(false);
   const [consent, setConsent] = useState<CheckoutConsentState>(EMPTY_CONSENT);
 
@@ -54,6 +55,7 @@ export function CartPage() {
       items: cart.items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title })),
       consent,
       useCredit,
+      referralCode: referralInput.trim() || undefined,
     });
   };
 
@@ -177,6 +179,18 @@ export function CartPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-1 block text-xs font-semibold text-ink-faint">Referral code (optional)</label>
+              <input
+                value={referralInput}
+                onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                placeholder="e.g. HCPXXXXXX"
+                maxLength={12}
+                className="input-dark w-full"
+              />
+              <p className="mt-1 text-xs text-ink-faint">If a HelpCertify partner referred you, enter their code here.</p>
             </div>
 
             {credits && credits.spendableMinor > 0 && (

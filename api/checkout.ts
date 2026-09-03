@@ -159,7 +159,214 @@ const createOrderSchema = z.object({
   // Refer & Earn credit - a separate lever from a coupon code (both can
   // apply to the same order); see applyMyCredit below.
   useCredit: z.boolean().optional(),
+  // Partner Commission Framework (Phase 2). referralToken is the opaque
+  // signed token captured from a ?ref= link (sessionStorage 'hc:ref');
+  // referralCode is a code the buyer typed into checkout. An explicit
+  // code wins over the stored token. Both optional, both untrusted -
+  // resolveOrderAttribution re-validates server-side.
+  referralToken: z.string().trim().max(500).optional(),
+  referralCode: z.string().trim().max(20).optional(),
 });
+
+// --- Partner attribution (Phase 2) ---------------------------------------
+// Self-contained here per the no-shared-code-across-api/*.ts convention;
+// the tested spec is src/features/partner/lib/{attributionToken,commission}.ts.
+const PARTNER_CODE_RE = /^HCP[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
+const PARTNER_PRODUCT_ID = 'HELPCERTIFY';
+
+function verifyRefToken(token: string): { code: string; partnerId: string; productId: string } | null {
+  const secret = process.env.PARTNER_TOKEN_SECRET;
+  if (!secret) return null;
+  const dot = token.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const body = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = createHmac('sha256', secret).update(body).digest('base64url');
+  if (expected.length !== sig.length) return null;
+  try {
+    if (!timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return null;
+  } catch {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (typeof payload.exp !== 'number' || Date.now() / 1000 >= payload.exp) return null;
+    if (!payload.code || !payload.partnerId || !payload.productId) return null;
+    return { code: payload.code, partnerId: payload.partnerId, productId: payload.productId };
+  } catch {
+    return null;
+  }
+}
+
+// Resolves who (if anyone) earns commission for this order and freezes the
+// commission policy. Returns null when there is no valid attribution.
+// Never throws - a broken referral must never block a real purchase.
+async function resolveOrderAttribution(
+  uid: string,
+  userEmail: string | null,
+  referralToken: string | undefined,
+  referralCode: string | undefined,
+  commissionableBaseMinor: number,
+): Promise<Record<string, unknown> | null> {
+  try {
+    let code: string | null = null;
+    let method: 'REFERRAL_CODE' | 'REFERRAL_LINK' | null = null;
+
+    const typed = referralCode?.trim().toUpperCase();
+    if (typed && PARTNER_CODE_RE.test(typed)) {
+      code = typed;
+      method = 'REFERRAL_CODE';
+    } else if (referralToken) {
+      const payload = verifyRefToken(referralToken);
+      if (payload && PARTNER_CODE_RE.test(payload.code) && payload.productId === PARTNER_PRODUCT_ID) {
+        code = payload.code;
+        method = 'REFERRAL_LINK';
+      }
+    }
+    if (!code || !method) return null;
+
+    const codeSnap = await db.collection('referralCodes').doc(code).get();
+    const codeData = codeSnap.data();
+    if (!codeSnap.exists || codeData?.active !== true || codeData.productId !== PARTNER_PRODUCT_ID) return null;
+    const partnerId = codeData.partnerId as string;
+
+    const partnerSnap = await db.collection('partners').doc(partnerId).get();
+    const partner = partnerSnap.data();
+    if (!partnerSnap.exists || partner?.status !== 'ACTIVE') return null;
+
+    const base: Record<string, unknown> = {
+      partnerId,
+      attributionMethod: method,
+      referralCodeSnapshot: code,
+      commissionable: false,
+      ineligibleReason: null,
+      commissionPolicyId: null,
+      commissionPolicyVersion: null,
+      commissionRateBasisPoints: null,
+      commissionBaseMinor: null,
+      maxCommissionMinor: null,
+      frozenAt: Timestamp.now(),
+    };
+
+    // Self-referral: the partner buying through their own (or a linked)
+    // account. Recorded, never commissionable.
+    if (partner?.linkedUserId === uid) {
+      return { ...base, ineligibleReason: 'self_referral' };
+    }
+
+    // New-customer only in the MVP: an existing paying customer earns the
+    // partner nothing (PRD section 8.2).
+    const priorPaid = await db
+      .collection('orders')
+      .where('userId', '==', uid)
+      .where('status', '==', 'paid')
+      .limit(1)
+      .get();
+    if (!priorPaid.empty) {
+      return { ...base, ineligibleReason: 'existing_customer' };
+    }
+
+    // Resolve the commission policy: product-default in the pilot (PRD
+    // precedence level 5). A specific offer policy is Phase 3.
+    const productSnap = await db.collection('products').doc(PARTNER_PRODUCT_ID).get();
+    const policyId = productSnap.data()?.defaultCommissionPolicyId as string | undefined;
+    if (!policyId) return { ...base, ineligibleReason: 'no_policy' };
+
+    const policySnap = await db.collection('commissionPolicies').doc(policyId).get();
+    const policy = policySnap.data();
+    if (!policySnap.exists || typeof policy?.activeVersion !== 'number') {
+      return { ...base, ineligibleReason: 'no_policy' };
+    }
+    const versionSnap = await db
+      .collection('commissionPolicies')
+      .doc(policyId)
+      .collection('versions')
+      .doc(String(policy.activeVersion))
+      .get();
+    const version = versionSnap.data();
+    if (!versionSnap.exists || version?.ruleType !== 'percent' || typeof version?.rateBasisPoints !== 'number') {
+      // Only 'percent' is supported in the pilot commission engine.
+      return { ...base, ineligibleReason: 'no_policy' };
+    }
+
+    return {
+      ...base,
+      commissionable: true,
+      commissionPolicyId: policyId,
+      commissionPolicyVersion: policy.activeVersion,
+      commissionRateBasisPoints: version.rateBasisPoints,
+      commissionBaseMinor: Math.max(0, commissionableBaseMinor),
+      maxCommissionMinor: typeof version.maxCommissionMinor === 'number' ? version.maxCommissionMinor : null,
+    };
+  } catch (e) {
+    console.error('resolveOrderAttribution failed (order will have no attribution):', e);
+    return null;
+  }
+}
+
+// Creates commissions/{orderId} + its first commissionLedger row inside the
+// finalize batch. Idempotent via the caller's existence check. Duplicated
+// verbatim in api/razorpay-webhook.ts.
+function addCommissionToBatch(
+  batch: FirebaseFirestore.WriteBatch,
+  orderId: string,
+  order: FirebaseFirestore.DocumentData,
+  holdDays: number,
+): void {
+  const a = order.partnerAttribution;
+  if (!a || a.commissionable !== true) return;
+
+  const baseMinor = Math.max(0, Number(a.commissionBaseMinor) || 0);
+  const bp = Number(a.commissionRateBasisPoints) || 0;
+  const uncapped = Math.floor((baseMinor * bp) / 10000 + 0.5); // round half up
+  const cap = typeof a.maxCommissionMinor === 'number' ? a.maxCommissionMinor : null;
+  const gross = cap != null && uncapped > cap ? cap : uncapped;
+
+  const holdUntil = Timestamp.fromMillis(Date.now() + holdDays * 24 * 60 * 60 * 1000);
+
+  batch.set(db.collection('commissions').doc(orderId), {
+    orderId,
+    partnerId: a.partnerId,
+    productId: PARTNER_PRODUCT_ID,
+    customerId: order.userId,
+    currency: order.currency ?? 'INR',
+    eligibleBaseMinor: baseMinor,
+    rateBasisPoints: bp,
+    grossCommissionMinor: gross,
+    deductionsMinor: 0,
+    netPayableMinor: gross,
+    status: 'PENDING_HOLD',
+    holdUntil,
+    onHoldReason: null,
+    commissionPolicyId: a.commissionPolicyId,
+    commissionPolicyVersion: a.commissionPolicyVersion,
+    payoutBatchId: null,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  batch.set(db.collection('commissionLedger').doc(), {
+    commissionId: orderId,
+    orderId,
+    partnerId: a.partnerId,
+    fromStatus: null,
+    toStatus: 'PENDING_HOLD',
+    amountMinor: gross,
+    reason: 'Order paid; refund hold started',
+    actorId: 'system',
+    actorType: 'system',
+    createdAt: Timestamp.now(),
+  });
+}
+
+async function holdDaysForOrder(): Promise<number> {
+  try {
+    const snap = await db.collection('appSettings').doc('general').get();
+    const w = Number(snap.data()?.refundWindowDays);
+    return Math.max(7, Number.isFinite(w) && w > 0 ? w : 0);
+  } catch {
+    return 7;
+  }
+}
 
 const REFERRAL_CREDIT_MAX_PERCENT_DEFAULT = 25;
 
@@ -336,6 +543,19 @@ async function createOrder(uid: string, body: unknown) {
   const total = subtotal - discount;
   if (total <= 0) throw Err.failedPrecondition('Order total must be greater than zero');
 
+  // Partner attribution (Phase 2): frozen onto the order now, at payment-order
+  // creation time, and never changed afterwards except by an audited admin
+  // correction (PRD section 8.2). Commission base = net revenue (subtotal
+  // minus every discount; coupons and Refer & Earn credit are treated as
+  // non-commissionable). null when there is no valid partner referral.
+  const partnerAttribution = await resolveOrderAttribution(
+    uid,
+    null,
+    parsed.data.referralToken,
+    parsed.data.referralCode,
+    total,
+  );
+
   const { keyId, keySecret } = getRazorpayCreds();
   const orderRef = db.collection('orders').doc();
 
@@ -384,6 +604,7 @@ async function createOrder(uid: string, body: unknown) {
     status: 'created',
     refundedAt: null,
     refundReason: null,
+    partnerAttribution,
     fromCart,
     consent: consentRecord,
     policyVersions: POLICY_VERSIONS,
@@ -532,6 +753,14 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // order counted as paid.
   const batch = db.batch();
   await processReferralOnPurchase(order.userId, orderId, order.items as { itemType: ItemType; itemId: string }[], batch);
+
+  // Partner commission (Phase 2): only when this order froze a commissionable
+  // attribution at creation time, and only once (commissions/{orderId} is
+  // keyed by the order id, so a client + webhook double-finalize is a no-op).
+  if (order.partnerAttribution?.commissionable === true) {
+    const commissionExists = (await db.collection('commissions').doc(orderId).get()).exists;
+    if (!commissionExists) addCommissionToBatch(batch, orderId, order, await holdDaysForOrder());
+  }
 
   // The status flip goes IN the batch alongside the entitlement writes, so
   // finalizeOrder is all-or-nothing: a failure here (previously a bad

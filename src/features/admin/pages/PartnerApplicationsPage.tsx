@@ -4,6 +4,7 @@ import { partnerAdminApi } from '@/features/partner/api/partnerApi';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { toDate } from '@/utils/formatDate';
+import { formatMoney } from '@/utils/currency';
 
 function fmt(ts: unknown): string {
   return ts ? toDate(ts).toLocaleDateString() : '-';
@@ -16,6 +17,28 @@ export function PartnerApplicationsPage() {
   const flags = useQuery({ queryKey: ['admin', 'partnerFlags'], queryFn: partnerAdminApi.getFrameworkSettings });
   const apps = useQuery({ queryKey: ['admin', 'partnerApplications'], queryFn: () => partnerAdminApi.listApplications() });
   const partners = useQuery({ queryKey: ['admin', 'partners'], queryFn: partnerAdminApi.listPartners });
+  const commissions = useQuery({ queryKey: ['admin', 'partnerCommissions'], queryFn: () => partnerAdminApi.listCommissions() });
+
+  const commissionAction = useMutation({
+    mutationFn: (v: { commissionId: string; hold: boolean }) =>
+      v.hold
+        ? partnerAdminApi.holdCommission({ commissionId: v.commissionId })
+        : partnerAdminApi.releaseCommission({ commissionId: v.commissionId }),
+    onSuccess: () => {
+      pushToast('Commission updated', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'partnerCommissions'] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not update the commission'), 'error'),
+  });
+
+  const releaseHolds = useMutation({
+    mutationFn: partnerAdminApi.releaseHoldsNow,
+    onSuccess: (r) => {
+      pushToast(`${r.released} commission(s) released`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'partnerCommissions'] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not run the release job'), 'error'),
+  });
 
   const [reviewFor, setReviewFor] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -202,6 +225,65 @@ export function PartnerApplicationsPage() {
                   >
                     {p.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
                   </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mb-3 mt-10 flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Commissions</h2>
+        <button
+          type="button"
+          disabled={releaseHolds.isPending}
+          onClick={() => releaseHolds.mutate()}
+          className="rounded border border-surface-border px-3 py-1 text-xs text-ink-muted disabled:opacity-50"
+        >
+          Run hold-release now
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-surface-border">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <tr>
+              <th className="px-4 py-3">Order</th>
+              <th className="px-4 py-3">Partner</th>
+              <th className="px-4 py-3">Base</th>
+              <th className="px-4 py-3">Commission</th>
+              <th className="px-4 py-3">Hold until</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-border">
+            {(commissions.data?.commissions ?? []).length === 0 && (
+              <tr>
+                <td className="px-4 py-6 text-center text-ink-faint" colSpan={7}>
+                  No commissions yet.
+                </td>
+              </tr>
+            )}
+            {(commissions.data?.commissions ?? []).map((c) => (
+              <tr key={c.id}>
+                <td className="px-4 py-3 font-mono text-xs text-ink-faint">{c.orderId.slice(0, 10)}…</td>
+                <td className="px-4 py-3 font-mono text-xs text-ink-faint">{c.partnerId}</td>
+                <td className="px-4 py-3 text-ink-faint">{formatMoney(c.eligibleBaseMinor, c.currency as 'INR' | 'USD')}</td>
+                <td className="px-4 py-3 font-semibold text-ink">{formatMoney(c.netPayableMinor, c.currency as 'INR' | 'USD')}</td>
+                <td className="px-4 py-3 text-ink-faint">{c.holdUntil ? new Date(c.holdUntil).toLocaleDateString() : '-'}</td>
+                <td className="px-4 py-3">
+                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{c.status}</span>
+                </td>
+                <td className="px-4 py-3">
+                  {c.status === 'ON_HOLD' ? (
+                    <button type="button" disabled={commissionAction.isPending} onClick={() => commissionAction.mutate({ commissionId: c.id, hold: false })} className="rounded border border-surface-border px-3 py-1 text-xs text-ink-muted disabled:opacity-50">
+                      Lift hold
+                    </button>
+                  ) : ['PENDING_HOLD', 'APPROVED', 'PAYABLE'].includes(c.status) ? (
+                    <button type="button" disabled={commissionAction.isPending} onClick={() => commissionAction.mutate({ commissionId: c.id, hold: true })} className="rounded border border-surface-border px-3 py-1 text-xs text-ink-muted disabled:opacity-50">
+                      Hold
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             ))}

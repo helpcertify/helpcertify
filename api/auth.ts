@@ -830,6 +830,43 @@ async function listMyPartnerReferralCodes(req: VercelRequest) {
   };
 }
 
+// --- approved partner: my commissions (Phase 2, read-only dashboard) ---
+async function listMyPartnerCommissions(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const snap = await db
+    .collection('commissions')
+    .where('partnerId', '==', partnerId)
+    .orderBy('createdAt', 'desc')
+    .limit(200)
+    .get();
+
+  const commissions = snap.docs.map((doc) => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      orderId: d.orderId as string,
+      status: d.status as string,
+      currency: (d.currency as string) ?? 'INR',
+      eligibleBaseMinor: Number(d.eligibleBaseMinor) || 0,
+      grossCommissionMinor: Number(d.grossCommissionMinor) || 0,
+      netPayableMinor: Number(d.netPayableMinor) || 0,
+      holdUntil: d.holdUntil ? (d.holdUntil as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+      createdAt: d.createdAt ? (d.createdAt as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+    };
+  });
+
+  // Money summary the dashboard shows at the top.
+  const sum = (pred: (s: string) => boolean) =>
+    commissions.filter((c) => pred(c.status)).reduce((t, c) => t + c.netPayableMinor, 0);
+  const totals = {
+    pendingMinor: sum((s) => s === 'PENDING_HOLD' || s === 'ON_HOLD' || s === 'APPROVED'),
+    payableMinor: sum((s) => s === 'PAYABLE' || s === 'PROCESSING'),
+    paidMinor: sum((s) => s === 'PAID'),
+    reversedMinor: sum((s) => s === 'REVERSED' || s === 'RECOVERABLE'),
+  };
+  return { commissions, totals };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -876,6 +913,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyPartnerReferralCodes':
         res.status(200).json(await listMyPartnerReferralCodes(req));
+        return;
+      case 'listMyPartnerCommissions':
+        res.status(200).json(await listMyPartnerCommissions(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);
