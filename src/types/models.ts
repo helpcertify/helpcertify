@@ -1083,7 +1083,15 @@ export type PartnerType = 'referral' | 'sales' | 'implementation' | 'agency';
 
 export type PartnerApplicationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
 
-/** partnerApplications/{id} - one per submission by a signed-in user. */
+export type PartnerPayoutStatus = 'OK' | 'KYC_ACTION_REQUIRED' | 'PAYOUT_BLOCKED';
+export type PanStatus = 'CAPTURED' | 'FORMAT_VALID' | 'VERIFIED' | 'MISMATCH' | 'INVALID';
+
+/** partnerApplications/{id} - one per submission by a signed-in user.
+ * The full PAN / GSTIN / address live in a SEPARATE deny-all collection
+ * partnerApplicationKyc/{appId} - never here, because an applicant can read
+ * their own application doc back. Only non-sensitive mirrors (panMasked,
+ * panLast4) stay on this doc. On approval the KYC is promoted to
+ * partnerKyc/{partnerId}. */
 export interface PartnerApplicationDoc {
   userId: string;
   productId: ProductId;
@@ -1092,12 +1100,55 @@ export interface PartnerApplicationDoc {
   dateOfBirth: string; // ISO yyyy-mm-dd; 18+ enforced client + server
   phone: string;
   partnerType: PartnerType;
+  country: string; // ISO-3166 alpha-2; 'IN' requires PAN
   agreementVersion: string;
+  panConsentVersion: string | null;
+  panMasked: string | null; // ABCDE****F
+  panLast4: string | null;
+  panStatus: PanStatus | null;
+  gstinMasked: string | null;
+  duplicatePanFlag: boolean;
   status: PartnerApplicationStatus;
   reviewedBy: string | null;
   reviewNote: string | null;
   partnerId: string | null; // set once status === 'APPROVED'
   submittedAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** partnerApplicationKyc/{appId} - Admin-SDK-only (allow read, write: if false).
+ * Deleted when the application is approved (promoted to partnerKyc) or
+ * rejected. */
+export interface PartnerApplicationKycDoc extends PartnerKycInput {
+  appId: string;
+  userId: string;
+  createdAt: Timestamp;
+}
+
+/** The sensitive block captured at application and promoted to
+ * partnerKyc/{partnerId} on approval. Never returned to any client. */
+export interface PartnerKycInput {
+  panFull: string;
+  panHash: string; // sha256(normalizedPan) - duplicate detection only
+  panName: string | null; // name as printed on the PAN card
+  gstin: string | null;
+  addressLine: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+/** partnerKyc/{partnerId} - Admin-SDK-only (rules: allow read, write: if false).
+ * Full PAN lives here and nowhere client-reachable. Revealing it is a
+ * dedicated audited admin action gated on users/{uid}.canRevealPan. */
+export interface PartnerKycDoc extends PartnerKycInput {
+  partnerId: string;
+  panStatus: PanStatus;
+  verificationProvider: string | null;
+  verificationRef: string | null;
+  verifiedAt: Timestamp | null;
+  createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
@@ -1116,6 +1167,14 @@ export interface PartnerDoc {
   agreementVersion: string;
   suspendedReason: string | null;
   createdBy: string; // reviewing staff uid
+  country: string;
+  panMasked: string | null;
+  panLast4: string | null;
+  panStatus: PanStatus | null;
+  // Gates inclusion in a payout batch. Starts KYC_ACTION_REQUIRED at
+  // approval (PAN captured, not yet verified); a staff member moves it to
+  // OK, or the system blocks it.
+  payoutStatus: PartnerPayoutStatus;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -1276,11 +1335,28 @@ export interface CommissionDoc {
   status: CommissionStatus;
   holdUntil: Timestamp | null;
   onHoldReason: string | null;
+  // Cumulative commission unwound by (possibly partial) refunds. When it
+  // reaches grossCommissionMinor the status becomes REVERSED; below that the
+  // commission stays live with netPayableMinor reduced.
+  reversedMinor: number;
   commissionPolicyId: string;
   commissionPolicyVersion: number;
   payoutBatchId: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/** paymentEvents/{providerEventId} - Admin-SDK-only. One doc per processed
+ * Razorpay webhook delivery (x-razorpay-event-id) or client verify
+ * (razorpay_payment_id), written inside the finalize transaction so a
+ * duplicate delivery is a true no-op even under a race (PRD 15). */
+export interface PaymentEventDoc {
+  provider: 'RAZORPAY';
+  eventId: string;
+  source: 'webhook' | 'client';
+  orderId: string | null;
+  type: string | null;
+  receivedAt: Timestamp;
 }
 
 /** commissionLedger/{id} - append-only. Every commission status change

@@ -5,6 +5,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
+import { useAuthStore } from '@/features/auth/store/useAuthStore';
 
 function fmt(ts: unknown): string {
   return ts ? toDate(ts).toLocaleDateString() : '-';
@@ -13,6 +14,28 @@ function fmt(ts: unknown): string {
 export function PartnerApplicationsPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
+  const canRevealPan = useAuthStore((s) => s.profile?.canRevealPan === true);
+
+  const kycAction = useMutation({
+    mutationFn: (v: { partnerId: string; payoutStatus: 'OK' | 'PAYOUT_BLOCKED' | 'KYC_ACTION_REQUIRED' }) =>
+      partnerAdminApi.setPartnerPayoutStatus(v),
+    onSuccess: () => {
+      pushToast('Payout status updated', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'partners'] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not update payout status'), 'error'),
+  });
+
+  const revealPan = async (partnerId: string) => {
+    const reason = window.prompt('Reason for revealing this PAN (recorded in the audit log):');
+    if (!reason || reason.trim().length < 5) return;
+    try {
+      const { pan } = await partnerAdminApi.revealPartnerPan({ partnerId, reason: reason.trim() });
+      window.alert(`PAN: ${pan}\n\nThis reveal has been logged.`);
+    } catch (err) {
+      pushToast(errorText(err, 'Could not reveal PAN'), 'error');
+    }
+  };
 
   const flags = useQuery({ queryKey: ['admin', 'partnerFlags'], queryFn: partnerAdminApi.getFrameworkSettings });
   const apps = useQuery({ queryKey: ['admin', 'partnerApplications'], queryFn: () => partnerAdminApi.listApplications() });
@@ -108,8 +131,7 @@ export function PartnerApplicationsPage() {
             <tr>
               <th className="px-4 py-3">Applicant</th>
               <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">DOB</th>
-              <th className="px-4 py-3">Phone</th>
+              <th className="px-4 py-3">PAN / KYC</th>
               <th className="px-4 py-3">Submitted</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3"></th>
@@ -118,7 +140,7 @@ export function PartnerApplicationsPage() {
           <tbody className="divide-y divide-surface-border">
             {(apps.data?.applications ?? []).length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-center text-ink-faint" colSpan={7}>
+                <td className="px-4 py-6 text-center text-ink-faint" colSpan={6}>
                   No applications yet.
                 </td>
               </tr>
@@ -130,8 +152,14 @@ export function PartnerApplicationsPage() {
                   <span className="block text-xs text-ink-faint">as {a.displayName}</span>
                 </td>
                 <td className="px-4 py-3 capitalize text-ink-faint">{a.partnerType}</td>
-                <td className="px-4 py-3 text-ink-faint">{a.dateOfBirth}</td>
-                <td className="px-4 py-3 text-ink-faint">{a.phone}</td>
+                <td className="px-4 py-3 text-xs">
+                  <span className="font-mono text-ink-faint">{a.panMasked ?? a.country ?? '-'}</span>
+                  {a.duplicatePanFlag && (
+                    <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-700 dark:text-amber-300">
+                      duplicate PAN
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-ink-faint">{fmt(a.submittedAt)}</td>
                 <td className="px-4 py-3">
                   <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{a.status}</span>
@@ -188,15 +216,17 @@ export function PartnerApplicationsPage() {
               <th className="px-4 py-3">Partner ID</th>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">PAN</th>
               <th className="px-4 py-3">Since</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Payout</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">
             {(partners.data?.partners ?? []).length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-center text-ink-faint" colSpan={6}>
+                <td className="px-4 py-6 text-center text-ink-faint" colSpan={8}>
                   No partners yet.
                 </td>
               </tr>
@@ -206,6 +236,14 @@ export function PartnerApplicationsPage() {
                 <td className="px-4 py-3 font-mono text-xs text-ink">{p.partnerId}</td>
                 <td className="px-4 py-3 text-ink">{p.displayName}</td>
                 <td className="px-4 py-3 capitalize text-ink-faint">{p.partnerType}</td>
+                <td className="px-4 py-3 font-mono text-xs text-ink-faint">
+                  {p.panMasked ?? '-'}
+                  {canRevealPan && p.panMasked && (
+                    <button type="button" onClick={() => revealPan(p.partnerId)} className="ml-2 text-[10px] text-[#155EEF] hover:underline">
+                      reveal
+                    </button>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-ink-faint">{fmt(p.createdAt)}</td>
                 <td className="px-4 py-3">
                   <span
@@ -215,6 +253,39 @@ export function PartnerApplicationsPage() {
                   >
                     {p.status}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      p.payoutStatus === 'OK'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                        : p.payoutStatus === 'PAYOUT_BLOCKED'
+                          ? 'bg-red-500/15 text-red-500'
+                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                    }`}
+                  >
+                    {p.payoutStatus}
+                  </span>
+                  {p.payoutStatus !== 'OK' && (
+                    <button
+                      type="button"
+                      disabled={kycAction.isPending}
+                      onClick={() => kycAction.mutate({ partnerId: p.partnerId, payoutStatus: 'OK' })}
+                      className="ml-2 text-[10px] text-[#0B7A48] hover:underline"
+                    >
+                      clear
+                    </button>
+                  )}
+                  {p.payoutStatus === 'OK' && (
+                    <button
+                      type="button"
+                      disabled={kycAction.isPending}
+                      onClick={() => kycAction.mutate({ partnerId: p.partnerId, payoutStatus: 'PAYOUT_BLOCKED' })}
+                      className="ml-2 text-[10px] text-[#B32D1A] hover:underline"
+                    >
+                      block
+                    </button>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <button

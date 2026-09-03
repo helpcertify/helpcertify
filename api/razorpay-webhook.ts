@@ -176,6 +176,7 @@ function addCommissionToBatch(
     status: 'PENDING_HOLD',
     holdUntil,
     onHoldReason: null,
+    reversedMinor: 0,
     commissionPolicyId: a.commissionPolicyId,
     commissionPolicyVersion: a.commissionPolicyVersion,
     payoutBatchId: null,
@@ -204,7 +205,7 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // Also skips an already-refunded order - same
   // shouldSkipAlreadyProcessedOrder guard as referralRules.ts's tested
   // version (see api/admin.ts's refundOrder for the other side of this).
-  if (order.status === 'paid' || order.status === 'refunded') return 'already_paid';
+  if (['paid', 'refunded', 'partially_refunded'].includes(order.status)) return 'already_paid';
 
   // Read before marking paid - processReferralOnPurchase's "is this their
   // first purchase" check needs to see the world as it was before this
@@ -356,14 +357,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  // Idempotency (PRD 15): one paymentEvents/{eventId} doc per delivery.
+  // Razorpay sends a stable x-razorpay-event-id; fall back to the payment id.
+  const eventIdHeader = req.headers['x-razorpay-event-id'];
+  const eventId =
+    (Array.isArray(eventIdHeader) ? eventIdHeader[0] : eventIdHeader) || `pay_${razorpayPaymentId}`;
+
   try {
+    const evtRef = db.collection('paymentEvents').doc(eventId);
+    if ((await evtRef.get()).exists) {
+      res.status(200).json({ received: true, duplicate: true });
+      return;
+    }
+
     const ordersSnap = await db.collection('orders').where('razorpayOrderId', '==', razorpayOrderId).limit(1).get();
     if (ordersSnap.empty) {
       console.error('razorpay-webhook: no order found for', razorpayOrderId);
       res.status(200).json({ received: true, ignored: true });
       return;
     }
-    await finalizeOrder(ordersSnap.docs[0].id, razorpayPaymentId);
+    const orderId = ordersSnap.docs[0].id;
+    await finalizeOrder(orderId, razorpayPaymentId);
+    // Written after finalize so a mid-transaction crash retries cleanly;
+    // finalizeOrder is itself idempotent on order status.
+    await evtRef.set({
+      provider: 'RAZORPAY',
+      eventId,
+      source: 'webhook',
+      orderId,
+      type: event.event ?? null,
+      receivedAt: Timestamp.now(),
+    });
     res.status(200).json({ received: true });
   } catch (err) {
     console.error('razorpay-webhook handler error:', err);

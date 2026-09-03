@@ -13,6 +13,7 @@ const SENSITIVE_KEY_PARTS = [
   'ifsc',
   'upi',
   'vpa',
+  'gstin', // a GSTIN embeds the holder's PAN (chars 3-12)
   'password',
   'secret',
   'token',

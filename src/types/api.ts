@@ -28,4 +28,8 @@ export interface SafeUser {
   // Present => this account is an approved partner; the partner portal
   // (Phase 3) route-gates on it. null for everyone else.
   partnerId: string | null;
+  // Field-level permission (PRD 15): true only for the specific staff users
+  // allowed to reveal a partner's full PAN, gated separately from the role.
+  // Set by hand on users/{uid}.canRevealPan. false/absent for everyone else.
+  canRevealPan: boolean;
 }

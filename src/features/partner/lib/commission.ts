@@ -85,3 +85,30 @@ export function nextCommissionStatusOnRefund(current: CommissionStatus): Commiss
 export function isAutoReleasable(status: CommissionStatus): boolean {
   return status === 'PENDING_HOLD';
 }
+
+/** Commission to unwind for a (possibly partial) refund, PRD 11:
+ * "reverse commission proportionally against the refunded base amount".
+ * - grossCommissionMinor: the order's full gross commission
+ * - refundedAmountMinor:  this refund's amount (customer-facing)
+ * - orderTotalMinor:      the order total the refund is a fraction of
+ * - alreadyReversedMinor: sum of prior reversals on this commission
+ * Result is rounded half-up and clamped so cumulative reversals never
+ * exceed the gross commission. */
+export function proportionalReversalMinor(
+  grossCommissionMinor: number,
+  refundedAmountMinor: number,
+  orderTotalMinor: number,
+  alreadyReversedMinor = 0,
+): number {
+  if (orderTotalMinor <= 0 || refundedAmountMinor <= 0 || grossCommissionMinor <= 0) return 0;
+  const share = Math.min(1, refundedAmountMinor / orderTotalMinor);
+  const want = roundMinor(grossCommissionMinor * share);
+  const remaining = Math.max(0, grossCommissionMinor - alreadyReversedMinor);
+  return Math.min(want, remaining);
+}
+
+/** After a reversal, does the commission become fully REVERSED (nothing
+ * left) or stay live with a reduced net payable? */
+export function isFullyReversed(grossCommissionMinor: number, totalReversedMinor: number): boolean {
+  return totalReversedMinor >= grossCommissionMinor;
+}

@@ -33,14 +33,20 @@ export function AdminReferralAuditPage() {
   const referrals = data?.referrals ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
 
   const selected = referrals.find((r) => r.id === selectedId) ?? null;
 
   const refundMutation = useMutation({
-    mutationFn: (orderId: string) => adminApi.refundOrder(orderId, refundReason.trim()),
+    mutationFn: (orderId: string) => {
+      const rupees = parseFloat(refundAmount.trim());
+      const amountMinor = Number.isFinite(rupees) && rupees > 0 ? Math.round(rupees * 100) : undefined;
+      return adminApi.refundOrder(orderId, refundReason.trim(), amountMinor);
+    },
     onSuccess: () => {
       pushToast('Order refunded', 'success');
       setRefundReason('');
+      setRefundAmount('');
       queryClient.invalidateQueries({ queryKey: ['admin', 'referrals'] });
     },
     onError: (err) => pushToast(errorText(err, 'Could not refund that order'), 'error'),
@@ -141,6 +147,13 @@ export function AdminReferralAuditPage() {
                     onChange={(e) => setRefundReason(e.target.value)}
                     rows={2}
                     placeholder="Reason (required)"
+                    className="input-dark mb-2"
+                  />
+                  <input
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="Amount in ₹ (blank = full refund)"
                     className="input-dark mb-2"
                   />
                   <button
