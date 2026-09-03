@@ -11,6 +11,7 @@ import { GoogleButton } from '@/components/common/GoogleButton';
 import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
 import { formatReward } from '@/utils/currency';
+import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
@@ -35,6 +36,9 @@ export function RegisterPage() {
   // through to both signup paths below, never shown as a form field.
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get('ref')?.trim() || undefined;
+  // Partner referral capture runs alongside Refer & Earn - it only reacts to
+  // HCP-prefixed partner codes, learner codes stay on the path below.
+  useCaptureReferral();
 
   useEffect(() => {
     if (profile) navigate(profile.role === 'admin' ? '/admin' : '/home', { replace: true });

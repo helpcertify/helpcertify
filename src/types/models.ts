@@ -5,7 +5,7 @@ import type { Timestamp } from 'firebase/firestore';
 // only applies to frontend/api/*.ts (each bundled in isolation by Vercel).
 // See functions/src/_migrated-v1-reference/README.md for what this replaced.
 
-export type Role = 'student' | 'admin';
+export type Role = 'student' | 'admin' | 'finance_admin';
 
 // A solid, real starting set of well-known certification-issuing bodies/
 // vendors across IT security, cloud, project management, networking, data,
@@ -83,6 +83,11 @@ export interface UserDoc {
   // reward. Never blocks account creation itself - only whether a
   // referral code gets linked.
   signupIp?: string | null;
+  // Partner Commission Framework - set by api/admin.ts's
+  // reviewPartnerApplication on approval; the id of this account's
+  // partners/{partnerId} doc. Absent for non-partners. Never read by any
+  // learner paywall - it only gates the partner portal (Phase 3).
+  partnerId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -1061,5 +1066,161 @@ export interface CertificateAccessLogDoc {
   certificateId: string;
   learnerUid: string | null; // null for an anonymous public verification
   action: 'view' | 'download' | 'verify';
+  createdAt: Timestamp;
+}
+
+// ===========================================================================
+// Partner Commission Framework (see Common_Partner_Commission_Framework_PRD.md)
+// Phase 1: identity, offers, versioned policy, referral codes, audit.
+// Every doc carries productId so the same core serves Bizzux / JobGalax later.
+// All money is integer minor units (paise); commission rate is basis points
+// (2000 = 20%). Collections are Admin-SDK-write-only; see firestore.rules.
+// ===========================================================================
+
+/** e.g. 'HELPCERTIFY'. A free string so the core stays product-agnostic. */
+export type ProductId = string;
+export type PartnerType = 'referral' | 'sales' | 'implementation' | 'agency';
+
+export type PartnerApplicationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+
+/** partnerApplications/{id} - one per submission by a signed-in user. */
+export interface PartnerApplicationDoc {
+  userId: string;
+  productId: ProductId;
+  legalName: string;
+  displayName: string;
+  dateOfBirth: string; // ISO yyyy-mm-dd; 18+ enforced client + server
+  phone: string;
+  partnerType: PartnerType;
+  agreementVersion: string;
+  status: PartnerApplicationStatus;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  partnerId: string | null; // set once status === 'APPROVED'
+  submittedAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type PartnerStatus = 'ACTIVE' | 'SUSPENDED' | 'TERMINATED';
+
+/** partners/{partnerId} - doc id is a non-guessable code (e.g. HCP + base32).
+ * linkedUserId is also mirrored onto users/{uid}.partnerId. KYC (PAN / bank)
+ * is not collected in Phase 1; when it is, those fields are masked in every
+ * UI and excluded from audit logs. */
+export interface PartnerDoc {
+  linkedUserId: string;
+  productId: ProductId;
+  displayName: string;
+  partnerType: PartnerType;
+  status: PartnerStatus;
+  agreementVersion: string;
+  suspendedReason: string | null;
+  createdBy: string; // reviewing staff uid
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** partnerAgreements/{id} - immutable acceptance record, one per accept. */
+export interface PartnerAgreementDoc {
+  partnerId: string;
+  version: string;
+  acceptedAt: Timestamp;
+  ip: string | null;
+}
+
+/** products/{productId} - one per integrated product; seeded once. */
+export interface PartnerProductDoc {
+  name: string;
+  status: 'ACTIVE' | 'PAUSED';
+  baseUrl: string;
+  currency: 'INR' | 'USD';
+  defaultAttributionDays: number;
+  defaultHoldDays: number;
+  allowReferralCode: boolean;
+  allowLeadRegistration: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** offers/{offerId} - a sellable plan a partner can be paid for promoting.
+ * externalRef points at the product's own catalogue (a packages/{id} here). */
+export interface PartnerOfferDoc {
+  productId: ProductId;
+  externalRef: string;
+  name: string;
+  eligiblePartnerTypes: PartnerType[];
+  commissionPolicyId: string;
+  holdDays: number;
+  combineWithDiscount: boolean;
+  validFrom: Timestamp | null;
+  validTo: Timestamp | null;
+  active: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type CommissionRuleType = 'percent' | 'fixed' | 'tiered';
+
+/** commissionPolicies/{policyId} - the container; the actual numbers live in
+ * an append-only versions subcollection so a historical order can always
+ * retain the version applied when its payment order was created. */
+export interface CommissionPolicyDoc {
+  productId: ProductId;
+  name: string;
+  activeVersion: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** commissionPolicies/{policyId}/versions/{version} - never edited once
+ * written. A new version supersedes; old orders keep their frozen version. */
+export interface CommissionPolicyVersionDoc {
+  version: number;
+  ruleType: CommissionRuleType;
+  rateBasisPoints: number; // 2000 = 20%; used for 'percent'
+  fixedAmountMinor: number | null; // used for 'fixed'
+  tiers: { minMonthlySales: number; rateBasisPoints: number }[] | null; // 'tiered'
+  maxCommissionMinor: number | null;
+  firstPurchaseOnly: boolean;
+  createdBy: string;
+  createdAt: Timestamp;
+}
+
+/** referralCodes/{NORMALISED_CODE} - doc id IS the code (upper-cased). One
+ * partner has many; suspending the partner sets active:false on all of them. */
+export interface ReferralCodeDoc {
+  partnerId: string;
+  productId: ProductId;
+  offerId: string | null;
+  active: boolean;
+  createdAt: Timestamp;
+}
+
+/** referralEvents/{id} - a click / landing-page visit carrying ?ref=. Used
+ * for velocity checks and the referral->paid conversion report. */
+export interface ReferralEventDoc {
+  code: string;
+  productId: ProductId;
+  ipHash: string | null;
+  uaHash: string | null;
+  landingPath: string | null;
+  createdAt: Timestamp;
+}
+
+export type AuditActorType = 'staff' | 'partner' | 'system' | 'customer';
+
+/** auditEvents/{id} - append-only. before/after already have PAN / bank /
+ * UPI / token / full-email fields stripped before write (see
+ * src/features/partner/lib/auditEvent.ts). */
+export interface AuditEventDoc {
+  entityType: string;
+  entityId: string;
+  action: string;
+  actorId: string;
+  actorType: AuditActorType;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  reason: string | null;
+  correlationId: string | null;
   createdAt: Timestamp;
 }

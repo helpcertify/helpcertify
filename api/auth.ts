@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { createHash, randomInt, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomInt, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 // Replaces functions/src/_migrated-v1-reference/register.ts + provision-profile.ts.
@@ -541,6 +541,295 @@ async function applyReferralCode(req: VercelRequest, body: unknown) {
   return { success: true as const, welcomeCoupon: referralResult.refereeCoupon };
 }
 
+// ===========================================================================
+// Partner Commission Framework - Phase 1 (user / partner / public actions).
+// Folded in here rather than a new api/partner.ts because Vercel Hobby caps
+// this project at 12 function files and a 13th fails to deploy (confirmed
+// again 2026-09-03, Fluid Compute included - see the vercel-hobby-function-cap
+// memory). This file already owns referral-code generation, getClientIp, and
+// an unauthenticated action (register), so it's the natural home. Staff-only
+// partner actions live in api/admin.ts.
+//
+// The pure specs these mirror: src/features/partner/lib/{referralCode,
+// partnerEligibility,attributionToken,auditEvent}.ts (tested; can't be
+// imported here - no cross-file / src imports in api/*).
+// ===========================================================================
+
+const PARTNER_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const PARTNER_CODE_RE = new RegExp(`^HCP[${PARTNER_CODE_ALPHABET}]{6}$`);
+const PARTNER_AGREEMENT_VERSION = '2026-09-03';
+const REF_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 45; // 45 days - covers the 30-day attribution window with slack
+
+function generatePartnerCode(): string {
+  const bytes = randomBytes(6);
+  let body = '';
+  for (const b of bytes) body += PARTNER_CODE_ALPHABET[b % PARTNER_CODE_ALPHABET.length];
+  return `HCP${body}`;
+}
+
+// Minimal audit-field redactor (mirrors src/features/partner/lib/auditEvent.ts).
+function redactForAudit(input: unknown): unknown {
+  const SENSITIVE = ['pan', 'aadhaar', 'aadhar', 'bank', 'account', 'ifsc', 'upi', 'vpa', 'password', 'secret', 'token', 'otp', 'signature'];
+  const maskEmail = (v: string) => {
+    const at = v.indexOf('@');
+    return at > 0 ? `${v[0]}***${v.slice(at)}` : '***';
+  };
+  if (input === null || typeof input !== 'object') {
+    if (typeof input === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input)) return maskEmail(input);
+    return input;
+  }
+  if (Array.isArray(input)) return input.map(redactForAudit);
+  const out: Record<string, unknown> = {};
+  for (const [k, val] of Object.entries(input as Record<string, unknown>)) {
+    const lk = k.toLowerCase();
+    if (SENSITIVE.some((s) => lk.includes(s))) out[k] = '[redacted]';
+    else if (/email/i.test(k) && typeof val === 'string') out[k] = maskEmail(val);
+    else out[k] = redactForAudit(val);
+  }
+  return out;
+}
+
+async function writePartnerAudit(args: {
+  entityType: string;
+  entityId: string;
+  action: string;
+  actorId: string;
+  actorType: 'staff' | 'partner' | 'system' | 'customer';
+  before?: unknown;
+  after?: unknown;
+  reason?: string | null;
+}) {
+  await db.collection('auditEvents').add({
+    entityType: args.entityType,
+    entityId: args.entityId,
+    action: args.action,
+    actorId: args.actorId,
+    actorType: args.actorType,
+    before: args.before === undefined ? null : redactForAudit(args.before),
+    after: args.after === undefined ? null : redactForAudit(args.after),
+    reason: args.reason ?? null,
+    correlationId: null,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+function signRefToken(payload: { code: string; partnerId: string; productId: string; exp: number }): string | null {
+  const secret = process.env.PARTNER_TOKEN_SECRET;
+  if (!secret) return null;
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = createHmac('sha256', secret).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+// --- public: resolve a ?ref= code, hand back an opaque signed token ---
+const resolvePartnerReferralSchema = z.object({
+  code: z.string().trim().min(1).max(20),
+  productId: z.string().trim().min(1).max(40).default('HELPCERTIFY'),
+  landingPath: z.string().trim().max(300).optional(),
+});
+
+async function resolvePartnerReferral(req: VercelRequest, body: unknown) {
+  const parsed = resolvePartnerReferralSchema.safeParse(body);
+  if (!parsed.success) return { valid: false as const };
+  const { productId, landingPath } = parsed.data;
+  const code = parsed.data.code.trim().toUpperCase();
+  if (!PARTNER_CODE_RE.test(code)) return { valid: false as const };
+
+  const codeSnap = await db.collection('referralCodes').doc(code).get();
+  const codeData = codeSnap.data();
+  if (!codeSnap.exists || codeData?.active !== true || codeData.productId !== productId) {
+    return { valid: false as const };
+  }
+  const partnerSnap = await db.collection('partners').doc(codeData.partnerId as string).get();
+  if (!partnerSnap.exists || partnerSnap.data()?.status !== 'ACTIVE') {
+    return { valid: false as const };
+  }
+
+  // Log the visit (best-effort; a failed write must not fail resolution).
+  const ip = getClientIp(req);
+  const ua = Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'];
+  await db
+    .collection('referralEvents')
+    .add({
+      code,
+      productId,
+      ipHash: ip ? createHash('sha256').update(ip).digest('hex') : null,
+      uaHash: ua ? createHash('sha256').update(ua).digest('hex') : null,
+      landingPath: landingPath ?? null,
+      createdAt: FieldValue.serverTimestamp(),
+    })
+    .catch((e) => console.error('referralEvents write failed:', e));
+
+  const token = signRefToken({
+    code,
+    partnerId: codeData.partnerId as string,
+    productId,
+    exp: Math.floor(Date.now() / 1000) + REF_TOKEN_TTL_SECONDS,
+  });
+  return { valid: true as const, token };
+}
+
+// --- authed user: submit a partner application ---
+const submitPartnerApplicationSchema = z.object({
+  legalName: z.string().trim().min(2).max(120),
+  displayName: z.string().trim().min(2).max(60),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use yyyy-mm-dd'),
+  phone: z.string().trim().min(6).max(20),
+  partnerType: z.enum(['referral', 'sales', 'implementation', 'agency']),
+  acceptAgreement: z.literal(true),
+});
+
+function ageInYears(dob: string, now: Date): number {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return NaN;
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+  return age;
+}
+
+async function submitPartnerApplication(req: VercelRequest, body: unknown) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+  const flagSnap = await db.collection('appSettings').doc('partnerFramework').get();
+  if (flagSnap.data()?.applicationsOpen !== true) {
+    throw new HttpError(409, 'Partner applications are not open right now.');
+  }
+  const parsed = submitPartnerApplicationSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  if (!(ageInYears(d.dateOfBirth, new Date()) >= 18)) {
+    throw Err.invalidArgument('You must be at least 18 to become a payout partner.');
+  }
+
+  const existing = await db
+    .collection('partnerApplications')
+    .where('userId', '==', uid)
+    .where('status', 'in', ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'])
+    .limit(1)
+    .get();
+  if (!existing.empty) {
+    throw new HttpError(409, 'You already have a partner application in progress.');
+  }
+
+  const now = FieldValue.serverTimestamp();
+  const ref = await db.collection('partnerApplications').add({
+    userId: uid,
+    productId: 'HELPCERTIFY',
+    legalName: d.legalName,
+    displayName: d.displayName,
+    dateOfBirth: d.dateOfBirth,
+    phone: d.phone,
+    partnerType: d.partnerType,
+    agreementVersion: PARTNER_AGREEMENT_VERSION,
+    status: 'SUBMITTED',
+    reviewedBy: null,
+    reviewNote: null,
+    partnerId: null,
+    submittedAt: now,
+    updatedAt: now,
+  });
+  await writePartnerAudit({
+    entityType: 'partnerApplication',
+    entityId: ref.id,
+    action: 'submit',
+    actorId: uid,
+    actorType: 'customer',
+    after: { partnerType: d.partnerType, displayName: d.displayName },
+  });
+  return { applicationId: ref.id, status: 'SUBMITTED' as const };
+}
+
+async function getMyPartnerApplication(req: VercelRequest) {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+  const snap = await db
+    .collection('partnerApplications')
+    .where('userId', '==', uid)
+    .orderBy('submittedAt', 'desc')
+    .limit(1)
+    .get();
+  if (snap.empty) return { application: null };
+  const a = snap.docs[0].data();
+  return {
+    application: {
+      id: snap.docs[0].id,
+      status: a.status as string,
+      partnerType: a.partnerType as string,
+      reviewNote: (a.reviewNote as string | null) ?? null,
+      partnerId: (a.partnerId as string | null) ?? null,
+    },
+  };
+}
+
+// --- authed partner: mint / list own referral codes ---
+async function requirePartner(req: VercelRequest): Promise<{ uid: string; partnerId: string }> {
+  const token = await requireIdToken(req);
+  let uid: string;
+  try {
+    ({ uid } = await adminAuth.verifyIdToken(token));
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+  const userSnap = await db.collection('users').doc(uid).get();
+  const partnerId = userSnap.data()?.partnerId as string | undefined;
+  if (!partnerId) throw new HttpError(403, 'This account is not an approved partner.');
+  const partnerSnap = await db.collection('partners').doc(partnerId).get();
+  if (partnerSnap.data()?.status !== 'ACTIVE') throw new HttpError(403, 'Your partner account is not active.');
+  return { uid, partnerId };
+}
+
+async function createPartnerReferralCode(req: VercelRequest) {
+  const { uid, partnerId } = await requirePartner(req);
+  const partnerSnap = await db.collection('partners').doc(partnerId).get();
+  const productId = (partnerSnap.data()?.productId as string) ?? 'HELPCERTIFY';
+  let code = generatePartnerCode();
+  // one retry on the astronomically-unlikely collision
+  if ((await db.collection('referralCodes').doc(code).get()).exists) code = generatePartnerCode();
+  await db.collection('referralCodes').doc(code).set({
+    partnerId,
+    productId,
+    offerId: null,
+    active: true,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  await writePartnerAudit({
+    entityType: 'referralCode',
+    entityId: code,
+    action: 'create',
+    actorId: uid,
+    actorType: 'partner',
+    after: { partnerId },
+  });
+  return { code };
+}
+
+async function listMyPartnerReferralCodes(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const snap = await db
+    .collection('referralCodes')
+    .where('partnerId', '==', partnerId)
+    .orderBy('createdAt', 'desc')
+    .get();
+  return {
+    codes: snap.docs.map((doc) => ({
+      code: doc.id,
+      active: doc.data().active === true,
+      productId: doc.data().productId as string,
+    })),
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -571,6 +860,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'applyReferralCode':
         res.status(200).json(await applyReferralCode(req, data));
+        return;
+      // --- Partner Commission Framework (Phase 1) ---
+      case 'resolvePartnerReferral':
+        res.status(200).json(await resolvePartnerReferral(req, data));
+        return;
+      case 'submitPartnerApplication':
+        res.status(200).json(await submitPartnerApplication(req, data));
+        return;
+      case 'getMyPartnerApplication':
+        res.status(200).json(await getMyPartnerApplication(req));
+        return;
+      case 'createPartnerReferralCode':
+        res.status(200).json(await createPartnerReferralCode(req));
+        return;
+      case 'listMyPartnerReferralCodes':
+        res.status(200).json(await listMyPartnerReferralCodes(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

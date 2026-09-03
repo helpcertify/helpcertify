@@ -1,4 +1,9 @@
-export type Role = 'student' | 'admin';
+// 'finance_admin' is the one partner-framework staff sub-role added in
+// Phase 1 (payout maker/checker in Phase 4 needs approver != creator).
+// 'admin' stays super-admin. partner_manager / product_admin / auditor
+// arrive in Phase 3 with their screens. A partner is NOT a role - it's a
+// partners/{id} entity linked from users/{uid}.partnerId (see SafeUser).
+export type Role = 'student' | 'admin' | 'finance_admin';
 
 export interface SafeUser {
   _id: string;
@@ -18,4 +23,9 @@ export interface SafeUser {
   // (called lazily on first My Profile visit for an account that predates
   // this feature).
   referralCode: string | null;
+  // Partner Commission Framework - set on users/{uid} by
+  // api/admin.ts's reviewPartnerApplication when an application is approved.
+  // Present => this account is an approved partner; the partner portal
+  // (Phase 3) route-gates on it. null for everyone else.
+  partnerId: string | null;
 }
