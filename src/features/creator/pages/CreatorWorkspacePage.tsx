@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { creatorApi } from '../api/creatorApi';
 import { CREATOR_ROLES, type CreatorRole } from '../lib/creatorRole';
+import { parseQaText } from '../lib/parseQa';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 
@@ -21,6 +22,90 @@ export function CreatorWorkspacePage() {
 
   const roles = useQuery({ queryKey: ['creator', 'myRoles'], queryFn: creatorApi.getMyRoles });
   const assignments = useQuery({ queryKey: ['creator', 'myAssignments'], queryFn: creatorApi.listMyAssignments });
+  const submissions = useQuery({ queryKey: ['creator', 'mySubmissions'], queryFn: creatorApi.listMySubmissions });
+
+  // --- Content Studio ---
+  const [studioAssignment, setStudioAssignment] = useState('');
+  const [studioTitle, setStudioTitle] = useState('');
+  const [studioText, setStudioText] = useState('');
+  const [declOriginality, setDeclOriginality] = useState(false);
+  const [declNoLeaked, setDeclNoLeaked] = useState(false);
+  const [declAi, setDeclAi] = useState(false);
+  const [declAiVerifier, setDeclAiVerifier] = useState('');
+  const [draftId, setDraftId] = useState<string | null>(null);
+
+  const parsed = useMemo(() => parseQaText(studioText), [studioText]);
+
+  const saveDraft = useMutation({
+    mutationFn: () =>
+      creatorApi.saveSubmission({
+        submissionId: draftId ?? undefined,
+        assignmentId: studioAssignment,
+        title: studioTitle.trim(),
+        items: parsed.items,
+        declarations: {
+          originality: declOriginality,
+          aiAssisted: declAi,
+          aiVerifiedBy: declAiVerifier.trim() || undefined,
+          noLeakedExam: declNoLeaked,
+        },
+      }),
+    onSuccess: (r) => {
+      setDraftId(r.submissionId);
+      pushToast('Draft saved', 'success');
+      qc.invalidateQueries({ queryKey: ['creator', 'mySubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not save the draft'), 'error'),
+  });
+
+  const submitForReview = useMutation({
+    mutationFn: async () => {
+      const r = await creatorApi.saveSubmission({
+        submissionId: draftId ?? undefined,
+        assignmentId: studioAssignment,
+        title: studioTitle.trim(),
+        items: parsed.items,
+        declarations: {
+          originality: declOriginality,
+          aiAssisted: declAi,
+          aiVerifiedBy: declAiVerifier.trim() || undefined,
+          noLeakedExam: declNoLeaked,
+        },
+      });
+      return creatorApi.submitSubmission({ submissionId: r.submissionId });
+    },
+    onSuccess: (r) => {
+      pushToast(
+        r.status === 'SME_REVIEW'
+          ? 'Submitted for review'
+          : `Flagged by automated checks (${r.duplicateHits} duplicate, ${r.leakedPhraseHits} phrase)`,
+        r.status === 'SME_REVIEW' ? 'success' : 'error',
+      );
+      setDraftId(null);
+      setStudioText('');
+      setStudioTitle('');
+      qc.invalidateQueries({ queryKey: ['creator', 'mySubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not submit'), 'error'),
+  });
+
+  const withdraw = useMutation({
+    mutationFn: (submissionId: string) => creatorApi.withdrawSubmission({ submissionId }),
+    onSuccess: () => {
+      pushToast('Withdrawn', 'success');
+      qc.invalidateQueries({ queryKey: ['creator', 'mySubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not withdraw'), 'error'),
+  });
+
+  const canSubmit =
+    !!studioAssignment &&
+    studioTitle.trim().length >= 3 &&
+    parsed.items.length > 0 &&
+    parsed.errors.length === 0 &&
+    declOriginality &&
+    declNoLeaked &&
+    (!declAi || declAiVerifier.trim().length > 0);
 
   const [role, setRole] = useState<CreatorRole>('practice_test_creator');
   const [expertise, setExpertise] = useState('');
@@ -133,7 +218,103 @@ export function CreatorWorkspacePage() {
         )}
       </section>
 
-      <p className="text-xs text-ink-faint">Content submission, review and earnings arrive in the next release.</p>
+      <section className="space-y-3 rounded-xl border border-surface-border bg-surface-raised p-5">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Content Studio</h2>
+        <select className={field} value={studioAssignment} onChange={(e) => setStudioAssignment(e.target.value)}>
+          <option value="">Select an assignment…</option>
+          {(assignments.data?.assignments ?? [])
+            .filter((a) => a.status === 'ASSIGNED' || a.status === 'IN_PROGRESS')
+            .map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.title}
+              </option>
+            ))}
+        </select>
+        <input className={field} value={studioTitle} onChange={(e) => setStudioTitle(e.target.value)} placeholder="Submission title" />
+        <textarea
+          className={`${field} font-mono`}
+          rows={10}
+          value={studioText}
+          onChange={(e) => setStudioText(e.target.value)}
+          placeholder={`Paste questions, e.g.\n\n1. What is the CIA triad?\nA. Confidentiality, Integrity, Availability\nB. ...\nAnswer: A\nExplanation: ...`}
+        />
+        <p className="text-xs text-ink-faint">
+          Parsed {parsed.items.length} item(s).
+          {parsed.errors.length > 0 && (
+            <span className="text-[#B32D1A]"> {parsed.errors.length} block(s) need fixing: {parsed.errors.map((e) => `#${e.block} ${e.message}`).join('; ')}</span>
+          )}
+        </p>
+        <div className="space-y-1.5 text-xs text-ink">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5" checked={declOriginality} onChange={(e) => setDeclOriginality(e.target.checked)} />
+            This content is my original work (or properly licensed).
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5" checked={declNoLeaked} onChange={(e) => setDeclNoLeaked(e.target.checked)} />
+            None of it is copied or memorised from a live certification exam.
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5" checked={declAi} onChange={(e) => setDeclAi(e.target.checked)} />
+            Some of it was AI-assisted.
+          </label>
+          {declAi && (
+            <input className={field} value={declAiVerifier} onChange={(e) => setDeclAiVerifier(e.target.value)} placeholder="Who verified the AI-assisted content?" />
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={saveDraft.isPending || !studioAssignment || studioTitle.trim().length < 3}
+            onClick={() => saveDraft.mutate()}
+            className="rounded border border-surface-border px-4 py-1.5 text-sm text-ink-muted disabled:opacity-50"
+          >
+            Save draft
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit || submitForReview.isPending}
+            onClick={() => submitForReview.mutate()}
+            className="rounded bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Submit for review
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">My submissions</h2>
+        {(submissions.data?.submissions ?? []).length === 0 ? (
+          <p className="text-sm text-ink-faint">Nothing submitted yet.</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <tbody className="divide-y divide-surface-border/60">
+              {(submissions.data?.submissions ?? []).map((s) => (
+                <tr key={s.id}>
+                  <td className="py-2 text-ink">
+                    {s.title}
+                    <span className="block text-xs text-ink-faint">
+                      v{s.version} · {s.itemCount} items
+                      {s.status === 'FLAGGED' && ` · ${s.duplicateHits} dup / ${s.leakedPhraseHits} phrase flags`}
+                      {s.status === 'PUBLISHED' && ` · ${s.acceptedItemCount} accepted`}
+                    </span>
+                    {s.reviewNote && <span className="block text-xs text-amber-600 dark:text-amber-400">Reviewer: {s.reviewNote}</span>}
+                  </td>
+                  <td className="py-2">
+                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{s.status}</span>
+                  </td>
+                  <td className="py-2 text-right">
+                    {['DRAFT', 'SUBMITTED', 'SME_REVIEW', 'CHANGES_REQUIRED', 'FLAGGED'].includes(s.status) && (
+                      <button type="button" onClick={() => withdraw.mutate(s.id)} className="text-xs text-[#B32D1A] hover:underline">
+                        withdraw
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }
