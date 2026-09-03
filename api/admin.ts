@@ -40,7 +40,7 @@ const Err = {
   conflict: (m: string) => new HttpError(409, m),
 };
 
-async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
+async function requireAdmin(req: VercelRequest): Promise<{ uid: string; role: 'admin' | 'finance_admin' }> {
   const authHeader = req.headers.authorization ?? '';
   const token = (Array.isArray(authHeader) ? authHeader[0] : authHeader).replace(/^Bearer\s+/i, '');
   if (!token) throw Err.unauthenticated();
@@ -59,9 +59,12 @@ async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
   const snap = await db.collection('users').doc(decoded.uid).get();
   const user = snap.data();
   if (!snap.exists || !user?.isActive) throw Err.unauthenticated('Account not found or deactivated');
-  if (user.role !== 'admin') throw Err.permissionDenied();
+  // finance_admin is a limited staff role: it may only reach the payout /
+  // commission finance actions (see FINANCE_ADMIN_ACTIONS in the handler).
+  // Everything else stays admin-only.
+  if (user.role !== 'admin' && user.role !== 'finance_admin') throw Err.permissionDenied();
 
-  return { uid: decoded.uid };
+  return { uid: decoded.uid, role: user.role as 'admin' | 'finance_admin' };
 }
 
 async function writeAdminLog(args: {
@@ -1061,6 +1064,269 @@ async function releaseCommissionHolds(): Promise<{ released: number }> {
   return { released: due.size };
 }
 
+// --- Partner payouts (Phase 3, MANUAL - no money moves here) --------------
+// The pilot payout is finance recording an external bank transfer by hand.
+// State: commissions PAYABLE -> PROCESSING (batched) -> PAID (recorded), or
+// back to PAYABLE if the batch is cancelled. payoutBatches: DRAFT ->
+// APPROVED (by a different staff member) -> PAID. Pure spec:
+// src/features/partner/lib/payoutBatch.ts.
+const MIN_PAYOUT_MINOR = 50000; // ₹500
+
+async function minPayoutMinor(): Promise<number> {
+  try {
+    const snap = await db.collection('appSettings').doc('general').get();
+    const v = Number(snap.data()?.minPayoutMinor);
+    return Number.isFinite(v) && v > 0 ? v : MIN_PAYOUT_MINOR;
+  } catch {
+    return MIN_PAYOUT_MINOR;
+  }
+}
+
+async function listPayableCommissions() {
+  const snap = await db.collection('commissions').where('status', '==', 'PAYABLE').limit(1000).get();
+  const min = await minPayoutMinor();
+  type PGroup = { partnerId: string; currency: string; commissionIds: string[]; grossMinor: number };
+  const byPartner = new Map<string, PGroup>();
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    const key = `${d.partnerId}::${d.currency ?? 'INR'}`;
+    const g: PGroup = byPartner.get(key) ?? { partnerId: d.partnerId, currency: (d.currency as string) ?? 'INR', commissionIds: [], grossMinor: 0 };
+    g.commissionIds.push(doc.id);
+    g.grossMinor += Math.max(0, Number(d.netPayableMinor) || 0);
+    byPartner.set(key, g);
+  }
+  const groups = await Promise.all(
+    [...byPartner.values()].map(async (g) => {
+      const p = (await db.collection('partners').doc(g.partnerId).get()).data();
+      return {
+        ...g,
+        meetsMinimum: g.grossMinor >= min,
+        displayName: (p?.displayName as string) ?? g.partnerId,
+        hasPayoutDetails: !!p?.payout?.method,
+      };
+    }),
+  );
+  groups.sort((a, b) => b.grossMinor - a.grossMinor);
+  return { groups, minPayoutMinor: min };
+}
+
+const createPayoutBatchSchema = z.object({
+  periodLabel: z.string().trim().regex(/^\d{4}-\d{2}$/, 'Use YYYY-MM'),
+  partnerIds: z.array(z.string().trim().min(1)).min(1).optional(),
+});
+
+async function createPayoutBatch(uid: string, body: unknown) {
+  const parsed = createPayoutBatchSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { periodLabel, partnerIds } = parsed.data;
+  const min = await minPayoutMinor();
+
+  const snap = await db.collection('commissions').where('status', '==', 'PAYABLE').limit(1000).get();
+  type BGroup = { partnerId: string; currency: string; ids: string[]; gross: number };
+  const byPartner = new Map<string, BGroup>();
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    if (partnerIds && !partnerIds.includes(d.partnerId)) continue;
+    const key = `${d.partnerId}::${d.currency ?? 'INR'}`;
+    const g: BGroup = byPartner.get(key) ?? { partnerId: d.partnerId, currency: (d.currency as string) ?? 'INR', ids: [], gross: 0 };
+    g.ids.push(doc.id);
+    g.gross += Math.max(0, Number(d.netPayableMinor) || 0);
+    byPartner.set(key, g);
+  }
+  const eligible = [...byPartner.values()].filter((g) => g.gross >= min);
+  if (eligible.length === 0) throw Err.conflict('No partner has enough PAYABLE commission to meet the minimum payout.');
+
+  const currency = eligible[0].currency;
+  if (eligible.some((g) => g.currency !== currency)) {
+    throw Err.conflict('Mixed currencies in one batch is not supported. Filter to a single currency.');
+  }
+
+  const batchRef = db.collection('payoutBatches').doc();
+  const grossMinor = eligible.reduce((t, g) => t + g.gross, 0);
+  const commissionCount = eligible.reduce((t, g) => t + g.ids.length, 0);
+  const now = Timestamp.now();
+
+  const wb = db.batch();
+  wb.set(batchRef, {
+    productId: 'HELPCERTIFY',
+    periodLabel,
+    status: 'DRAFT',
+    commissionCount,
+    grossMinor,
+    currency,
+    createdBy: uid,
+    approvedBy: null,
+    paidBy: null,
+    externalReference: null,
+    note: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  for (const g of eligible) {
+    wb.set(db.collection('payouts').doc(`${batchRef.id}_${g.partnerId}`), {
+      batchId: batchRef.id,
+      partnerId: g.partnerId,
+      productId: 'HELPCERTIFY',
+      periodLabel,
+      currency: g.currency,
+      commissionIds: g.ids,
+      grossMinor: g.gross,
+      deductionsMinor: 0,
+      netMinor: g.gross,
+      status: 'PENDING',
+      externalReference: null,
+      paidAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    for (const cid of g.ids) {
+      wb.update(db.collection('commissions').doc(cid), { status: 'PROCESSING', payoutBatchId: batchRef.id, updatedAt: now });
+      wb.set(db.collection('commissionLedger').doc(), {
+        commissionId: cid,
+        orderId: cid,
+        partnerId: g.partnerId,
+        fromStatus: 'PAYABLE',
+        toStatus: 'PROCESSING',
+        amountMinor: 0,
+        reason: `Added to payout batch ${batchRef.id}`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: now,
+      });
+    }
+  }
+  await wb.commit();
+  await writePartnerAudit({ entityType: 'payoutBatch', entityId: batchRef.id, action: 'create', actorId: uid, after: { periodLabel, grossMinor, commissionCount } });
+  return { batchId: batchRef.id, grossMinor, commissionCount, partnerCount: eligible.length };
+}
+
+const batchIdSchema = z.object({ batchId: z.string().trim().min(1) });
+
+async function approvePayoutBatch(uid: string, body: unknown) {
+  const parsed = batchIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('payoutBatches').doc(parsed.data.batchId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Batch not found');
+  const b = snap.data()!;
+  if (b.status !== 'DRAFT') throw Err.conflict(`Only a DRAFT batch can be approved (this one is ${b.status})`);
+  if (b.createdBy === uid) throw Err.conflict('The batch creator cannot approve it. A second staff member must approve.');
+  await ref.update({ status: 'APPROVED', approvedBy: uid, updatedAt: Timestamp.now() });
+  await writePartnerAudit({ entityType: 'payoutBatch', entityId: ref.id, action: 'approve', actorId: uid, before: { status: 'DRAFT' }, after: { status: 'APPROVED' } });
+  return { status: 'APPROVED' };
+}
+
+const recordPaidSchema = z.object({
+  batchId: z.string().trim().min(1),
+  externalReference: z.string().trim().min(1).max(140),
+  note: z.string().trim().max(500).optional(),
+});
+
+async function recordPayoutBatchPaid(uid: string, body: unknown) {
+  const parsed = recordPaidSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { batchId, externalReference, note } = parsed.data;
+  const ref = db.collection('payoutBatches').doc(batchId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Batch not found');
+  if (snap.data()!.status !== 'APPROVED') throw Err.conflict(`Only an APPROVED batch can be marked paid (this one is ${snap.data()!.status})`);
+
+  const payouts = await db.collection('payouts').where('batchId', '==', batchId).get();
+  const now = Timestamp.now();
+  const wb = db.batch();
+  wb.update(ref, { status: 'PAID', paidBy: uid, externalReference, note: note ?? null, updatedAt: now });
+  for (const p of payouts.docs) {
+    wb.update(p.ref, { status: 'PAID', externalReference, paidAt: now, updatedAt: now });
+    for (const cid of (p.data().commissionIds as string[]) ?? []) {
+      wb.update(db.collection('commissions').doc(cid), { status: 'PAID', updatedAt: now });
+      wb.set(db.collection('commissionLedger').doc(), {
+        commissionId: cid,
+        orderId: cid,
+        partnerId: p.data().partnerId,
+        fromStatus: 'PROCESSING',
+        toStatus: 'PAID',
+        amountMinor: Number(p.data().netMinor) || 0,
+        reason: `Payout batch ${batchId} paid (ref ${externalReference})`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: now,
+      });
+    }
+  }
+  await wb.commit();
+  await writePartnerAudit({ entityType: 'payoutBatch', entityId: batchId, action: 'markPaid', actorId: uid, after: { externalReference } });
+  return { status: 'PAID', payoutCount: payouts.size };
+}
+
+async function cancelPayoutBatch(uid: string, body: unknown) {
+  const parsed = batchIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('payoutBatches').doc(parsed.data.batchId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Batch not found');
+  const cur = snap.data()!.status as string;
+  if (cur === 'PAID') throw Err.conflict('A paid batch cannot be cancelled.');
+  if (cur === 'CANCELLED') throw Err.conflict('Batch is already cancelled.');
+
+  const payouts = await db.collection('payouts').where('batchId', '==', parsed.data.batchId).get();
+  const now = Timestamp.now();
+  const wb = db.batch();
+  wb.update(ref, { status: 'CANCELLED', updatedAt: now });
+  for (const p of payouts.docs) {
+    wb.update(p.ref, { status: 'FAILED', updatedAt: now });
+    for (const cid of (p.data().commissionIds as string[]) ?? []) {
+      wb.update(db.collection('commissions').doc(cid), { status: 'PAYABLE', payoutBatchId: null, updatedAt: now });
+      wb.set(db.collection('commissionLedger').doc(), {
+        commissionId: cid,
+        orderId: cid,
+        partnerId: p.data().partnerId,
+        fromStatus: 'PROCESSING',
+        toStatus: 'PAYABLE',
+        amountMinor: 0,
+        reason: `Payout batch ${parsed.data.batchId} cancelled; commission returned to payable`,
+        actorId: uid,
+        actorType: 'staff',
+        createdAt: now,
+      });
+    }
+  }
+  await wb.commit();
+  await writePartnerAudit({ entityType: 'payoutBatch', entityId: parsed.data.batchId, action: 'cancel', actorId: uid, before: { status: cur }, after: { status: 'CANCELLED' } });
+  return { status: 'CANCELLED' };
+}
+
+async function listPayoutBatches() {
+  const snap = await db.collection('payoutBatches').orderBy('createdAt', 'desc').limit(100).get();
+  return { batches: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+async function getPayoutBatch(body: unknown) {
+  const parsed = batchIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const batchSnap = await db.collection('payoutBatches').doc(parsed.data.batchId).get();
+  if (!batchSnap.exists) throw Err.invalidArgument('Batch not found');
+  const payoutsSnap = await db.collection('payouts').where('batchId', '==', parsed.data.batchId).get();
+  const payouts = await Promise.all(
+    payoutsSnap.docs.map(async (d) => {
+      const p = (await db.collection('partners').doc(d.data().partnerId).get()).data();
+      const pd = p?.payout;
+      return {
+        id: d.id,
+        ...d.data(),
+        partnerName: (p?.displayName as string) ?? d.data().partnerId,
+        payoutMethod: (pd?.method as string) ?? null,
+        payoutTo:
+          pd?.method === 'UPI'
+            ? pd?.upiVpa ?? null
+            : pd?.bankAccountNumber
+              ? `${pd.accountName ?? ''} ${String(pd.bankAccountNumber).slice(-4).padStart(String(pd.bankAccountNumber).length, '•')} / ${pd.bankIfsc ?? ''}`.trim()
+              : null,
+      };
+    }),
+  );
+  return { batch: { id: batchSnap.id, ...batchSnap.data() }, payouts };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // Vercel Cron hits this endpoint with a GET and an Authorization: Bearer
   // <CRON_SECRET> header (see vercel.json "crons"). No Firebase auth here.
@@ -1086,7 +1352,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
-    const { uid } = await requireAdmin(req);
+    const { uid, role } = await requireAdmin(req);
+
+    // finance_admin may only reach these; a full admin may reach everything.
+    const FINANCE_ADMIN_ACTIONS = new Set([
+      'listPartnerCommissions',
+      'holdPartnerCommission',
+      'releasePartnerCommission',
+      'releaseCommissionHoldsNow',
+      'listPayableCommissions',
+      'createPayoutBatch',
+      'approvePayoutBatch',
+      'recordPayoutBatchPaid',
+      'cancelPayoutBatch',
+      'listPayoutBatches',
+      'getPayoutBatch',
+      'listPartnersAdmin',
+    ]);
+    if (role === 'finance_admin' && !FINANCE_ADMIN_ACTIONS.has(String(action))) {
+      throw Err.permissionDenied();
+    }
 
     switch (action) {
       case 'getDashboardStats':
@@ -1168,6 +1453,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'releaseCommissionHoldsNow':
         res.status(200).json(await releaseCommissionHolds());
+        return;
+      // --- Partner payouts (Phase 3, manual) ---
+      case 'listPayableCommissions':
+        res.status(200).json(await listPayableCommissions());
+        return;
+      case 'createPayoutBatch':
+        res.status(200).json(await createPayoutBatch(uid, data));
+        return;
+      case 'approvePayoutBatch':
+        res.status(200).json(await approvePayoutBatch(uid, data));
+        return;
+      case 'recordPayoutBatchPaid':
+        res.status(200).json(await recordPayoutBatchPaid(uid, data));
+        return;
+      case 'cancelPayoutBatch':
+        res.status(200).json(await cancelPayoutBatch(uid, data));
+        return;
+      case 'listPayoutBatches':
+        res.status(200).json(await listPayoutBatches());
+        return;
+      case 'getPayoutBatch':
+        res.status(200).json(await getPayoutBatch(data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

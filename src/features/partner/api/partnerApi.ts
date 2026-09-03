@@ -68,7 +68,74 @@ export const partnerApi = {
       'auth',
       'listMyPartnerCommissions',
     ),
+  savePayoutDetails: (payload: {
+    method: 'BANK' | 'UPI';
+    accountName: string;
+    bankAccountNumber?: string;
+    bankIfsc?: string;
+    upiVpa?: string;
+    pan?: string;
+  }) => callAction<{ ok: true }>('auth', 'savePartnerPayoutDetails', payload),
+  getMyPayoutDetails: () => callAction<{ payout: MyPayoutDetails | null }>('auth', 'getMyPartnerPayoutDetails'),
+  listMyPayouts: () => callAction<{ payouts: PartnerPayoutRow[] }>('auth', 'listMyPartnerPayouts'),
 };
+
+export interface MyPayoutDetails {
+  method: string;
+  accountName: string;
+  bankAccountLast4: string | null;
+  bankIfsc: string | null;
+  upiVpa: string | null;
+  panLast4: string | null;
+}
+
+export interface PartnerPayoutRow {
+  id: string;
+  periodLabel: string;
+  currency: string;
+  grossMinor: number;
+  netMinor: number;
+  commissionCount: number;
+  status: string;
+  externalReference: string | null;
+  paidAt: string | null;
+}
+
+export interface PayableGroup {
+  partnerId: string;
+  displayName: string;
+  currency: string;
+  commissionIds: string[];
+  grossMinor: number;
+  meetsMinimum: boolean;
+  hasPayoutDetails: boolean;
+}
+
+export interface PayoutBatchRow {
+  id: string;
+  periodLabel: string;
+  status: string;
+  commissionCount: number;
+  grossMinor: number;
+  currency: string;
+  createdBy: string;
+  approvedBy: string | null;
+  externalReference: string | null;
+  createdAt: unknown;
+}
+
+export interface PayoutBatchLine {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  grossMinor: number;
+  netMinor: number;
+  currency: string;
+  status: string;
+  payoutMethod: string | null;
+  payoutTo: string | null;
+  commissionIds: string[];
+}
 
 export interface PartnerCommissionRow {
   id: string;
@@ -115,4 +182,21 @@ export const partnerAdminApi = {
   releaseCommission: (payload: { commissionId: string; reason?: string }) =>
     callAction<{ status: string }>('admin', 'releasePartnerCommission', payload),
   releaseHoldsNow: () => callAction<{ released: number }>('admin', 'releaseCommissionHoldsNow'),
+  listPayableCommissions: () =>
+    callAction<{ groups: PayableGroup[]; minPayoutMinor: number }>('admin', 'listPayableCommissions'),
+  createPayoutBatch: (payload: { periodLabel: string; partnerIds?: string[] }) =>
+    callAction<{ batchId: string; grossMinor: number; commissionCount: number; partnerCount: number }>(
+      'admin',
+      'createPayoutBatch',
+      payload,
+    ),
+  approvePayoutBatch: (payload: { batchId: string }) =>
+    callAction<{ status: string }>('admin', 'approvePayoutBatch', payload),
+  recordPayoutBatchPaid: (payload: { batchId: string; externalReference: string; note?: string }) =>
+    callAction<{ status: string; payoutCount: number }>('admin', 'recordPayoutBatchPaid', payload),
+  cancelPayoutBatch: (payload: { batchId: string }) =>
+    callAction<{ status: string }>('admin', 'cancelPayoutBatch', payload),
+  listPayoutBatches: () => callAction<{ batches: PayoutBatchRow[] }>('admin', 'listPayoutBatches'),
+  getPayoutBatch: (payload: { batchId: string }) =>
+    callAction<{ batch: PayoutBatchRow; payouts: PayoutBatchLine[] }>('admin', 'getPayoutBatch', payload),
 };
