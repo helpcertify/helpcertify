@@ -934,15 +934,18 @@ async function getPartnerDetail(body: unknown) {
   if (!pSnap.exists) throw Err.invalidArgument('Partner not found');
   const p = pSnap.data()!;
 
-  const [kSnap, appSnap, agreementsSnap, codesSnap, commissionsSnap, payoutsSnap, auditSnap] = await Promise.all([
-    db.collection('partnerKyc').doc(partnerId).get(),
-    db.collection('partnerApplications').where('partnerId', '==', partnerId).limit(1).get(),
-    db.collection('partnerAgreements').where('partnerId', '==', partnerId).get(),
-    db.collection('referralCodes').where('partnerId', '==', partnerId).get(),
-    db.collection('commissions').where('partnerId', '==', partnerId).limit(500).get(),
-    db.collection('payouts').where('partnerId', '==', partnerId).limit(60).get(),
-    db.collection('auditEvents').where('entityId', '==', partnerId).limit(50).get(),
-  ]);
+  const [kSnap, appSnap, agreementsSnap, codesSnap, commissionsSnap, payoutsSnap, auditSnap, rolesSnap, earningsSnap] =
+    await Promise.all([
+      db.collection('partnerKyc').doc(partnerId).get(),
+      db.collection('partnerApplications').where('partnerId', '==', partnerId).limit(1).get(),
+      db.collection('partnerAgreements').where('partnerId', '==', partnerId).get(),
+      db.collection('referralCodes').where('partnerId', '==', partnerId).get(),
+      db.collection('commissions').where('partnerId', '==', partnerId).limit(500).get(),
+      db.collection('payouts').where('partnerId', '==', partnerId).limit(60).get(),
+      db.collection('auditEvents').where('entityId', '==', partnerId).limit(50).get(),
+      db.collection('partnerRoles').where('partnerId', '==', partnerId).get(),
+      db.collection('earnings').where('partnerId', '==', partnerId).limit(500).get(),
+    ]);
 
   const k = kSnap.data();
   const app = appSnap.docs[0]?.data();
@@ -1003,6 +1006,20 @@ async function getPartnerDetail(body: unknown) {
     })(),
     agreements: agreementsSnap.docs.map((d) => ({ version: d.data().version, acceptedAt: d.data().acceptedAt ?? null })),
     codes: codesSnap.docs.map((d) => ({ code: d.id, active: d.data().active === true })),
+    creatorRoles: rolesSnap.docs.map((d) => ({ role: d.data().role as string, status: d.data().status as string })),
+    creatorEarnings: (() => {
+      const em = (pred: (s: string) => boolean) =>
+        earningsSnap.docs
+          .filter((d) => pred(d.data().status as string))
+          .reduce((t, d) => t + (Number(d.data().netMinor) || 0), 0);
+      return {
+        count: earningsSnap.size,
+        pendingMinor: em((s) => ['PENDING_HOLD', 'APPROVED'].includes(s)),
+        payableMinor: em((s) => ['PAYABLE', 'PROCESSING'].includes(s)),
+        paidMinor: em((s) => s === 'PAID'),
+        reversedMinor: em((s) => ['REVERSED', 'RECOVERABLE'].includes(s)),
+      };
+    })(),
     performance: {
       referralEventCount,
       commissionCount: commissionsSnap.size,

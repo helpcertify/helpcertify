@@ -83,6 +83,14 @@ export interface PartnerDetail {
   } | null;
   agreements: { version: string; acceptedAt: unknown }[];
   codes: { code: string; active: boolean }[];
+  creatorRoles: { role: string; status: string }[];
+  creatorEarnings: {
+    count: number;
+    pendingMinor: number;
+    payableMinor: number;
+    paidMinor: number;
+    reversedMinor: number;
+  };
   performance: {
     referralEventCount: number;
     commissionCount: number;

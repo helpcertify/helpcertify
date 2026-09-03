@@ -184,6 +184,23 @@ export function PartnerDetailPage() {
             <Row key={i} label={a.version} value={fmt(a.acceptedAt)} />
           ))}
         </Section>
+
+        <Section title="Creator roles & earnings">
+          {d.creatorRoles.length === 0 ? (
+            <p className="text-sm text-ink-faint">Not a creator partner.</p>
+          ) : (
+            <>
+              {d.creatorRoles.map((r) => (
+                <Row key={r.role} label={r.role.replace(/_/g, ' ')} value={r.status} />
+              ))}
+              <Row label="Earnings" value={`${d.creatorEarnings.count} total`} />
+              <Row label="In hold" value={formatMoney(d.creatorEarnings.pendingMinor, 'INR')} />
+              <Row label="Payable" value={formatMoney(d.creatorEarnings.payableMinor, 'INR')} />
+              <Row label="Paid" value={formatMoney(d.creatorEarnings.paidMinor, 'INR')} />
+              <Row label="Reversed" value={formatMoney(d.creatorEarnings.reversedMinor, 'INR')} />
+            </>
+          )}
+        </Section>
       </div>
 
       <Section title="Payout history">
