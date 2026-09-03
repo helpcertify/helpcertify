@@ -41,7 +41,7 @@ export function RegisterPage() {
   useCaptureReferral();
 
   useEffect(() => {
-    if (profile) navigate(profile.role === 'admin' ? '/admin' : '/home', { replace: true });
+    if (profile) navigate(profile.role === 'admin' || profile.role === 'finance_admin' ? '/admin' : '/home', { replace: true });
   }, [profile, navigate]);
 
   const {

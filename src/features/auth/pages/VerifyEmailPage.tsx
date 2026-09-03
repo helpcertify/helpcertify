@@ -29,7 +29,7 @@ export function VerifyEmailPage() {
     if (!firebaseUser) {
       navigate('/login', { replace: true });
     } else if (profile?.emailVerified) {
-      navigate(profile.role === 'admin' ? '/admin' : '/home', { replace: true });
+      navigate(profile.role === 'admin' || profile.role === 'finance_admin' ? '/admin' : '/home', { replace: true });
     }
   }, [isInitializing, firebaseUser, profile, navigate]);
 
@@ -44,7 +44,7 @@ export function VerifyEmailPage() {
     onSuccess: async () => {
       pushToast('Email verified', 'success');
       await refreshProfile();
-      navigate(profile?.role === 'admin' ? '/admin' : '/home', { replace: true });
+      navigate(profile?.role === 'admin' || profile?.role === 'finance_admin' ? '/admin' : '/home', { replace: true });
     },
     onError: (err) => pushToast(friendlyAuthError(err, 'Verification failed'), 'error'),
   });

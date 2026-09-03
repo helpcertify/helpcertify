@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { authApi } from '@/features/auth/api/authApi';
+import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { Logo } from '@/components/brand/Logo';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { SiteFooter } from '@/components/layout/SiteFooter';
@@ -21,6 +22,10 @@ const NAV_ITEMS = [
   { to: '/admin/settings', label: 'Settings' },
 ];
 
+// finance_admin is scoped to payouts only (see router.tsx + api/admin.ts's
+// FINANCE_ADMIN_ACTIONS allowlist), so it sees just that one nav item.
+const FINANCE_NAV_ITEMS = [{ to: '/admin/payouts', label: 'Partner Payouts', end: true }];
+
 // The nav links were `hidden sm:flex` with no mobile fallback at all -
 // confirmed live: below that breakpoint they just vanished, leaving no way
 // to reach Question Bank/Practice Exams/Learner Analytics on a phone. A
@@ -28,6 +33,8 @@ const NAV_ITEMS = [
 export function AdminShell() {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const role = useAuthStore((s) => s.profile?.role);
+  const navItems = role === 'finance_admin' ? FINANCE_NAV_ITEMS : NAV_ITEMS;
 
   const handleSignOut = async () => {
     await authApi.logout();
@@ -41,7 +48,7 @@ export function AdminShell() {
           <div className="flex items-center gap-8">
             <Logo to="/admin" size="sm" />
             <nav className="hidden gap-1 sm:flex">
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -79,7 +86,7 @@ export function AdminShell() {
         </div>
         {mobileNavOpen && (
           <nav className="flex flex-col gap-1 border-t border-surface-border p-4 sm:hidden">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

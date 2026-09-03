@@ -28,7 +28,7 @@ export function LoginPage() {
   // rather than right after the mutation resolves - signInWithEmailAndPassword
   // resolving doesn't guarantee onAuthStateChanged has fired yet.
   useEffect(() => {
-    if (profile) navigate(profile.role === 'admin' ? '/admin' : '/home', { replace: true });
+    if (profile) navigate(profile.role === 'admin' || profile.role === 'finance_admin' ? '/admin' : '/home', { replace: true });
   }, [profile, navigate]);
 
   const {
