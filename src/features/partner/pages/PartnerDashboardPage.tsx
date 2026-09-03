@@ -24,6 +24,34 @@ export function PartnerDashboardPage() {
 
   const codes = useQuery({ queryKey: ['partner', 'myCodes'], queryFn: partnerApi.listMyReferralCodes });
   const commissions = useQuery({ queryKey: ['partner', 'myCommissions'], queryFn: partnerApi.listMyCommissions });
+  const payoutDetails = useQuery({ queryKey: ['partner', 'payoutDetails'], queryFn: partnerApi.getMyPayoutDetails });
+  const payouts = useQuery({ queryKey: ['partner', 'myPayouts'], queryFn: partnerApi.listMyPayouts });
+
+  const [pm, setPm] = useState<'BANK' | 'UPI'>('BANK');
+  const [accountName, setAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankIfsc, setBankIfsc] = useState('');
+  const [upiVpa, setUpiVpa] = useState('');
+  const [pan, setPan] = useState('');
+
+  const savePayout = useMutation({
+    mutationFn: () =>
+      partnerApi.savePayoutDetails({
+        method: pm,
+        accountName: accountName.trim(),
+        bankAccountNumber: pm === 'BANK' ? bankAccountNumber.trim() : undefined,
+        bankIfsc: pm === 'BANK' ? bankIfsc.trim().toUpperCase() : undefined,
+        upiVpa: pm === 'UPI' ? upiVpa.trim() : undefined,
+        pan: pan.trim() ? pan.trim().toUpperCase() : undefined,
+      }),
+    onSuccess: () => {
+      pushToast('Payout details saved', 'success');
+      setBankAccountNumber('');
+      setUpiVpa('');
+      queryClient.invalidateQueries({ queryKey: ['partner', 'payoutDetails'] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not save your payout details'), 'error'),
+  });
 
   const createCode = useMutation({
     mutationFn: partnerApi.createReferralCode,
@@ -150,6 +178,73 @@ export function PartnerDashboardPage() {
         Commissions are held during the refund window, then released for a monthly payout after finance approval.
         A refunded order reverses its commission.
       </p>
+
+      <h2 className="mb-3 mt-10 text-sm font-bold uppercase tracking-wide text-ink-faint">Payout details</h2>
+      <div className="mb-8 rounded-xl border border-surface-border bg-surface-raised p-5">
+        {payoutDetails.data?.payout && (
+          <p className="mb-3 text-sm text-ink-faint">
+            On file: {payoutDetails.data.payout.method === 'UPI'
+              ? `UPI ${payoutDetails.data.payout.upiVpa}`
+              : `${payoutDetails.data.payout.accountName} · A/C ${payoutDetails.data.payout.bankAccountLast4} · ${payoutDetails.data.payout.bankIfsc}`}
+            {payoutDetails.data.payout.panLast4 ? ` · PAN ••••${payoutDetails.data.payout.panLast4}` : ''}
+          </p>
+        )}
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-2"><input type="radio" checked={pm === 'BANK'} onChange={() => setPm('BANK')} /> Bank account</label>
+          <label className="flex items-center gap-2"><input type="radio" checked={pm === 'UPI'} onChange={() => setPm('UPI')} /> UPI</label>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account holder name" className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm" />
+          {pm === 'BANK' ? (
+            <>
+              <input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} placeholder="Account number" className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm" />
+              <input value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value.toUpperCase())} placeholder="IFSC" className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm" />
+            </>
+          ) : (
+            <input value={upiVpa} onChange={(e) => setUpiVpa(e.target.value)} placeholder="name@bank" className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm" />
+          )}
+          <input value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="PAN (optional)" className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm" />
+        </div>
+        <button
+          type="button"
+          disabled={savePayout.isPending || accountName.trim().length < 2}
+          onClick={() => savePayout.mutate()}
+          className="mt-3 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {savePayout.isPending ? 'Saving…' : 'Save payout details'}
+        </button>
+      </div>
+
+      <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Payout statements</h2>
+      <div className="overflow-x-auto rounded-xl border border-surface-border">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <tr>
+              <th className="px-4 py-3">Period</th>
+              <th className="px-4 py-3">Commissions</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Reference</th>
+              <th className="px-4 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-border">
+            {(payouts.data?.payouts ?? []).length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-ink-faint">No payouts yet.</td>
+              </tr>
+            )}
+            {(payouts.data?.payouts ?? []).map((p) => (
+              <tr key={p.id}>
+                <td className="px-4 py-3 text-ink">{p.periodLabel}</td>
+                <td className="px-4 py-3 text-ink-faint">{p.commissionCount}</td>
+                <td className="px-4 py-3 font-semibold text-ink">{formatMoney(p.netMinor, p.currency as 'INR' | 'USD')}</td>
+                <td className="px-4 py-3 text-xs text-ink-faint">{p.externalReference ?? '-'}</td>
+                <td className="px-4 py-3 text-ink-faint">{p.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

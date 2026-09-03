@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/referrals', label: 'Referral Audit' },
   { to: '/admin/partners', label: 'Partners' },
+  { to: '/admin/payouts', label: 'Partner Payouts' },
   { to: '/admin/settings', label: 'Settings' },
 ];
 

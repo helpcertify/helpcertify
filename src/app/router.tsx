@@ -47,6 +47,7 @@ import { AdminReferralAuditPage } from '@/features/admin/pages/AdminReferralAudi
 import { ProductsPricingPage } from '@/features/admin/pages/ProductsPricingPage';
 import { CertificationEditorPage } from '@/features/admin/pages/CertificationEditorPage';
 import { PartnerApplicationsPage } from '@/features/admin/pages/PartnerApplicationsPage';
+import { PayoutsPage } from '@/features/admin/pages/PayoutsPage';
 import { BecomePartnerPage } from '@/features/partner/pages/BecomePartnerPage';
 import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardPage';
 
@@ -117,6 +118,7 @@ export function AppRouter() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/referrals" element={<AdminReferralAuditPage />} />
           <Route path="/admin/partners" element={<PartnerApplicationsPage />} />
+          <Route path="/admin/payouts" element={<PayoutsPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>
