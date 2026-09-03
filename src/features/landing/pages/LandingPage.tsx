@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
 import { useCompany } from '@/features/marketing/companyInfoStore';
+import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
 
 // Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
 // neither in the initial bundle nor in the build-time prerender module
@@ -52,6 +53,7 @@ const FEATURES = [
 export function LandingPage() {
   const [showAdminAccess, setShowAdminAccess] = useState(false);
   const COMPANY = useCompany();
+  useCaptureReferral();
 
   return (
     <div className="min-h-screen bg-surface">
