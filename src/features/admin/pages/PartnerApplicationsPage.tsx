@@ -8,6 +8,7 @@ import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { whatsAppLink } from '@/lib/phoneLinks';
+import { partnerTypeLabel } from '@/features/partner/lib/partnerTypeLabels';
 
 function fmt(ts: unknown): string {
   return ts ? toDate(ts).toLocaleDateString() : '-';
@@ -169,7 +170,7 @@ export function PartnerApplicationsPage() {
                     </button>
                     <span className="block text-xs text-ink-faint">as {a.displayName}</span>
                   </td>
-                  <td className="px-4 py-3 capitalize text-ink-faint">{a.partnerType}</td>
+                  <td className="px-4 py-3 text-ink-faint">{partnerTypeLabel(a.partnerType)}</td>
                   <td className="px-4 py-3 text-xs">
                     <span className="font-mono text-ink-faint">{a.panMasked ?? a.country ?? '-'}</span>
                     {a.duplicatePanFlag && (
@@ -340,7 +341,7 @@ export function PartnerApplicationsPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-ink">{p.displayName}</td>
-                <td className="px-4 py-3 capitalize text-ink-faint">{p.partnerType}</td>
+                <td className="px-4 py-3 text-ink-faint">{partnerTypeLabel(p.partnerType)}</td>
                 <td className="px-4 py-3 font-mono text-xs text-ink-faint">
                   {p.panMasked ?? '-'}
                   {canRevealPan && p.panMasked && (
