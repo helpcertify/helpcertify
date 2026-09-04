@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { partnerApi } from '../api/partnerApi';
+import { partnerApi, type MyPartnerApplication } from '../api/partnerApi';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { VercelApiError } from '@/lib/apiError';
 import { isAdult } from '../lib/partnerEligibility';
 import type { PartnerType } from '@/types/models';
 
@@ -71,11 +72,34 @@ export function BecomePartnerPage() {
         acceptAgreement: true,
         panConsent: needsPan ? panConsent : undefined,
       }),
-    onSuccess: () => {
-      pushToast('Application submitted', 'success');
+    onSuccess: (res) => {
+      // Show the confirmation card immediately - don't make the user wait on
+      // a refetch round-trip (or worse, miss a toast) to know it worked.
+      // See the note on retryable-looking duplicate submits below.
+      const optimistic: MyPartnerApplication = {
+        id: res.applicationId,
+        status: res.status,
+        partnerType,
+        reviewNote: null,
+        partnerId: null,
+      };
+      queryClient.setQueryData(['partner', 'myApplication'], { application: optimistic });
+      pushToast("Application submitted. We'll review it and email you.", 'success');
       queryClient.invalidateQueries({ queryKey: ['partner', 'myApplication'] });
     },
-    onError: (err) => pushToast(errorText(err, 'Could not submit your application'), 'error'),
+    onError: (err) => {
+      // A 409 here almost always means an earlier submit from this same
+      // session already went through (e.g. a slow response the user
+      // resubmitted against) - refetch so the confirmation card replaces
+      // the form instead of leaving the user stuck looking at a red error
+      // next to a form that appears to have done nothing.
+      if (err instanceof VercelApiError && err.status === 409) {
+        pushToast("You've already submitted an application - here's its status.", 'info');
+        queryClient.invalidateQueries({ queryKey: ['partner', 'myApplication'] });
+        return;
+      }
+      pushToast(errorText(err, 'Could not submit your application'), 'error');
+    },
   });
 
   const adultOk = !dateOfBirth || isAdult(dateOfBirth, new Date());
