@@ -77,7 +77,7 @@ export function PayoutsPage() {
             <tr>
               <th className="px-4 py-3"></th>
               <th className="px-4 py-3">Partner</th>
-              <th className="px-4 py-3">Commissions</th>
+              <th className="px-4 py-3">Line items</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Payout details</th>
             </tr>
@@ -101,8 +101,18 @@ export function PayoutsPage() {
                   />
                 </td>
                 <td className="px-4 py-3 text-ink">{g.displayName}</td>
-                <td className="px-4 py-3 text-ink-faint">{g.commissionIds.length}</td>
-                <td className="px-4 py-3 font-semibold text-ink">{formatMoney(g.grossMinor, g.currency as 'INR' | 'USD')}</td>
+                <td className="px-4 py-3 text-xs text-ink-faint">
+                  {g.commissionIds.length} commission{g.earningIds.length > 0 ? ` · ${g.earningIds.length} creator` : ''}
+                </td>
+                <td className="px-4 py-3 font-semibold text-ink">
+                  {formatMoney(g.grossMinor, g.currency as 'INR' | 'USD')}
+                  {g.earningMinor > 0 && (
+                    <span className="block text-xs font-normal text-ink-faint">
+                      {formatMoney(g.commissionMinor, g.currency as 'INR' | 'USD')} sales +{' '}
+                      {formatMoney(g.earningMinor, g.currency as 'INR' | 'USD')} creator
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-xs">
                   {g.hasPayoutDetails ? (
                     <span className="text-emerald-600 dark:text-emerald-400">On file</span>

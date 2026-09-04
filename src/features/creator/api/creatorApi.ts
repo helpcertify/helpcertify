@@ -65,7 +65,27 @@ export const creatorApi = {
   withdrawSubmission: (payload: { submissionId: string }) =>
     callAction<{ status: string }>('auth', 'withdrawContentSubmission', payload),
   listMySubmissions: () => callAction<{ submissions: MyContentSubmission[] }>('auth', 'listMyContentSubmissions'),
+  listMyEarnings: () =>
+    callAction<{ earnings: CreatorEarningRow[]; totals: CreatorEarningTotals }>('auth', 'listMyCreatorEarnings'),
 };
+
+export interface CreatorEarningRow {
+  id: string;
+  type: string;
+  qty: number;
+  grossMinor: number;
+  netMinor: number;
+  status: string;
+  holdUntil: string | null;
+  createdAt: string | null;
+}
+
+export interface CreatorEarningTotals {
+  pendingMinor: number;
+  payableMinor: number;
+  paidMinor: number;
+  reversedMinor: number;
+}
 
 export interface SubmissionItem {
   stem: string;
