@@ -92,12 +92,16 @@ export const adminApi = {
     callAction<{ success: true }>('admin', 'updateCompanyInfo', { ...payload }),
 
   getCustomExamBuilderSettings: () =>
-    callAction<{ priceMinor: number; currency: 'INR' | 'USD'; isEnabled: boolean }>(
+    callAction<{ priceMinor: number; originalPriceMinor: number | null; currency: 'INR' | 'USD'; isEnabled: boolean }>(
       'admin',
       'getCustomExamBuilderSettings'
     ),
-  updateCustomExamBuilderSettings: (payload: { priceMinor: number; currency: 'INR' | 'USD'; isEnabled: boolean }) =>
-    callAction<{ success: true }>('admin', 'updateCustomExamBuilderSettings', payload),
+  updateCustomExamBuilderSettings: (payload: {
+    priceMinor: number;
+    originalPriceMinor: number | null;
+    currency: 'INR' | 'USD';
+    isEnabled: boolean;
+  }) => callAction<{ success: true }>('admin', 'updateCustomExamBuilderSettings', payload),
   createAdminAccount: (payload: { name: string; email: string; password: string }) =>
     callAction<{ uid: string }>('admin', 'createAdminAccount', payload),
   listAdminAccounts: () =>

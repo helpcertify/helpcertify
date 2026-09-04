@@ -360,6 +360,10 @@ async function getCustomExamBuilderSettings() {
   const data = snap.data();
   return {
     priceMinor: typeof data?.priceMinor === 'number' ? data.priceMinor : 49900,
+    // The "marketing" price shown struck through, e.g. an offer's original
+    // price - never charged (same convention as QuizDoc.originalPrice in
+    // src/types/models.ts). null/absent = no offer badge shown.
+    originalPriceMinor: typeof data?.originalPriceMinor === 'number' ? data.originalPriceMinor : null,
     currency: data?.currency === 'USD' ? 'USD' : 'INR',
     isEnabled: data?.isEnabled !== false, // defaults to on for a doc that doesn't exist yet
   };
@@ -367,6 +371,7 @@ async function getCustomExamBuilderSettings() {
 
 const updateCustomExamBuilderSettingsSchema = z.object({
   priceMinor: z.number().int().min(0).max(10000000),
+  originalPriceMinor: z.number().int().min(0).max(10000000).nullable(),
   currency: z.enum(['INR', 'USD']),
   isEnabled: z.boolean(),
 });
