@@ -104,9 +104,14 @@ export function StudentShell() {
         </NavLink>
       ))}
       {profile?.partnerId ? (
-        <NavLink to="/home/partner" onClick={onNavigate} className={navLinkClass}>
-          Partner Dashboard
-        </NavLink>
+        <>
+          <NavLink to="/home/partner" onClick={onNavigate} className={navLinkClass}>
+            Partner Dashboard
+          </NavLink>
+          <NavLink to="/home/creator" onClick={onNavigate} className={navLinkClass}>
+            Creator Workspace
+          </NavLink>
+        </>
       ) : (
         <NavLink to="/home/become-a-partner" onClick={onNavigate} className={navLinkClass}>
           Become a Partner

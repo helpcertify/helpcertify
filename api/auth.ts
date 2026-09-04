@@ -1044,6 +1044,134 @@ async function listMyPartnerPayouts(req: VercelRequest) {
   };
 }
 
+// --- Creator / Content Partnership (Phase 4b), creator-facing ------------
+// A creator is an approved partner who then applies for one or more creator
+// roles. Roles / contracts / earnings are separate from sales commission.
+const CREATOR_ROLES = ['course_creator', 'practice_test_creator', 'mock_test_creator', 'reviewer'] as const;
+const CREATOR_AGREEMENT_VERSION = '2026-09-04';
+
+const applyCreatorRoleSchema = z.object({
+  role: z.enum(CREATOR_ROLES),
+  subjectExpertise: z.array(z.string().trim().min(1).max(60)).max(12).default([]),
+  qualifications: z.string().trim().max(1000).optional(),
+  sampleUrl: z.string().trim().url().max(500).optional(),
+  acceptCreatorAgreement: z.literal(true),
+});
+
+async function applyCreatorRole(req: VercelRequest, body: unknown) {
+  const { uid, partnerId } = await requirePartner(req);
+  const parsed = applyCreatorRoleSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const docId = `${partnerId}__${d.role}`;
+  const ref = db.collection('partnerRoles').doc(docId);
+  const existing = (await ref.get()).data();
+  // A live role (APPLIED / UNDER_REVIEW / APPROVED / SUSPENDED) blocks a
+  // re-apply; REJECTED (or none) may apply.
+  if (existing && existing.status !== 'REJECTED') {
+    throw new HttpError(409, `You already hold or have applied for the ${d.role.replace(/_/g, ' ')} role.`);
+  }
+
+  const now = FieldValue.serverTimestamp();
+  await ref.set({
+    partnerId,
+    linkedUserId: uid,
+    productId: 'HELPCERTIFY',
+    role: d.role,
+    status: 'APPLIED',
+    subjectExpertise: d.subjectExpertise,
+    qualifications: d.qualifications ?? null,
+    sampleUrl: d.sampleUrl ?? null,
+    agreementVersion: CREATOR_AGREEMENT_VERSION,
+    reviewedBy: null,
+    reviewNote: null,
+    appliedAt: existing?.appliedAt ?? now,
+    updatedAt: now,
+  });
+  await writePartnerAudit({
+    entityType: 'partnerRole',
+    entityId: docId,
+    action: 'apply',
+    actorId: uid,
+    actorType: 'partner',
+    after: { role: d.role },
+  });
+  return { role: d.role, status: 'APPLIED' as const };
+}
+
+async function getMyCreatorRoles(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const snap = await db.collection('partnerRoles').where('partnerId', '==', partnerId).get();
+  return {
+    roles: snap.docs.map((d) => {
+      const r = d.data();
+      return {
+        role: r.role as string,
+        status: r.status as string,
+        reviewNote: (r.reviewNote as string | null) ?? null,
+        subjectExpertise: (r.subjectExpertise as string[]) ?? [],
+      };
+    }),
+  };
+}
+
+async function listMyCreatorAssignments(req: VercelRequest) {
+  const { partnerId } = await requirePartner(req);
+  const snap = await db
+    .collection('creatorAssignments')
+    .where('partnerId', '==', partnerId)
+    .orderBy('dueAt', 'asc')
+    .limit(100)
+    .get();
+  return {
+    assignments: snap.docs.map((d) => {
+      const a = d.data();
+      return {
+        id: d.id,
+        contractId: a.contractId as string,
+        title: a.title as string,
+        targetType: a.targetType as string,
+        status: a.status as string,
+        acceptedItemCount: Number(a.acceptedItemCount) || 0,
+        dueAt: a.dueAt ? (a.dueAt as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+      };
+    }),
+  };
+}
+
+async function getMyCreatorAssignment(req: VercelRequest, body: unknown) {
+  const { partnerId } = await requirePartner(req);
+  const parsed = z.object({ assignmentId: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const aSnap = await db.collection('creatorAssignments').doc(parsed.data.assignmentId).get();
+  const a = aSnap.data();
+  if (!aSnap.exists || a?.partnerId !== partnerId) throw Err.invalidArgument("Assignment not found");
+  const cSnap = await db.collection('creatorContracts').doc(a!.contractId as string).get();
+  const c = cSnap.data();
+  return {
+    assignment: {
+      id: aSnap.id,
+      title: a!.title as string,
+      targetType: a!.targetType as string,
+      status: a!.status as string,
+      acceptedItemCount: Number(a!.acceptedItemCount) || 0,
+      dueAt: a!.dueAt ? (a!.dueAt as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+    },
+    contract: c
+      ? {
+          compensationModel: c.compensationModel as string,
+          rateMinor: Number(c.rateMinor) || 0,
+          deliverables: c.deliverables as string,
+          acceptanceCriteria: c.acceptanceCriteria as string,
+          ipAssignment: c.ipAssignment as string,
+          originalityDeclarationRequired: c.originalityDeclarationRequired === true,
+          aiDisclosureRequired: c.aiDisclosureRequired === true,
+        }
+      : null,
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -1102,6 +1230,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyPartnerPayouts':
         res.status(200).json(await listMyPartnerPayouts(req));
+        return;
+      case 'applyCreatorRole':
+        res.status(200).json(await applyCreatorRole(req, data));
+        return;
+      case 'getMyCreatorRoles':
+        res.status(200).json(await getMyCreatorRoles(req));
+        return;
+      case 'listMyCreatorAssignments':
+        res.status(200).json(await listMyCreatorAssignments(req));
+        return;
+      case 'getMyCreatorAssignment':
+        res.status(200).json(await getMyCreatorAssignment(req, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);
