@@ -7,6 +7,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
 import { toDate } from '@/utils/formatDate';
+import { whatsAppLink } from '@/lib/phoneLinks';
 
 function fmt(ts: unknown): string {
   return ts ? toDate(ts).toLocaleString() : '-';
@@ -115,7 +116,24 @@ export function PartnerDetailPage() {
         <Section title="Contact">
           <Row label="Email" value={d.contact.email} />
           <Row label="Email verified" value={d.contact.emailVerified ? 'Yes' : 'No'} />
-          <Row label="Phone" value={d.contact.phone} />
+          <Row
+            label="Phone"
+            value={
+              d.contact.phone && whatsAppLink(d.contact.phone, d.tax.country) ? (
+                <a
+                  href={whatsAppLink(d.contact.phone, d.tax.country)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open WhatsApp to contact this partner"
+                  className="text-[#0B7A48] hover:underline"
+                >
+                  {d.contact.phone} (WhatsApp)
+                </a>
+              ) : (
+                d.contact.phone
+              )
+            }
+          />
           <Row label="Date of birth" value={d.contact.dateOfBirth} />
           <Row label="Address" value={d.contact.address} />
         </Section>

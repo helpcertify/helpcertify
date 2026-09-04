@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { whatsAppLink } from '@/lib/phoneLinks';
 
 function fmt(ts: unknown): string {
   return ts ? toDate(ts).toLocaleDateString() : '-';
@@ -201,7 +202,22 @@ export function PartnerApplicationsPage() {
                           <div><span className="text-ink-faint">Legal name: </span><span className="text-ink">{detail.data.legalName}</span></div>
                           <div><span className="text-ink-faint">Display name: </span><span className="text-ink">{detail.data.displayName}</span></div>
                           <div><span className="text-ink-faint">Date of birth: </span><span className="text-ink">{detail.data.dateOfBirth}</span></div>
-                          <div><span className="text-ink-faint">Phone: </span><span className="text-ink">{detail.data.phone}</span></div>
+                          <div>
+                            <span className="text-ink-faint">Phone: </span>
+                            {whatsAppLink(detail.data.phone, detail.data.country) ? (
+                              <a
+                                href={whatsAppLink(detail.data.phone, detail.data.country)!}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Open WhatsApp to verify this partner"
+                                className="text-[#0B7A48] hover:underline"
+                              >
+                                {detail.data.phone} (WhatsApp)
+                              </a>
+                            ) : (
+                              <span className="text-ink">{detail.data.phone}</span>
+                            )}
+                          </div>
                           <div className="sm:col-span-2"><span className="text-ink-faint">Address: </span><span className="text-ink">{detail.data.address ?? '-'}</span></div>
                           <div><span className="text-ink-faint">Country: </span><span className="text-ink">{detail.data.country}</span></div>
                           <div>
