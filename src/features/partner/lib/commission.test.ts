@@ -66,6 +66,61 @@ describe('computeCommission', () => {
   });
 });
 
+describe('computeCommission - boundary cases', () => {
+  const base = {
+    subtotalExcludingTaxMinor: 1_000_000,
+    nonCommissionableDiscountMinor: 0,
+    refundedBaseMinor: 0,
+    excludedFeesMinor: 0,
+    rateBasisPoints: 2000,
+    maxCommissionMinor: null as number | null,
+  };
+
+  it('a zero rate yields zero commission but a real base', () => {
+    const r = computeCommission({ ...base, rateBasisPoints: 0 });
+    expect(r.eligibleBaseMinor).toBe(1_000_000);
+    expect(r.grossCommissionMinor).toBe(0);
+    expect(r.capped).toBe(false);
+  });
+
+  it('cap exactly equal to the computed value is not reported as capped', () => {
+    const r = computeCommission({ ...base, maxCommissionMinor: 200_000 });
+    expect(r.grossCommissionMinor).toBe(200_000);
+    expect(r.capped).toBe(false);
+  });
+
+  it('cap one minor unit below the computed value clamps and flags', () => {
+    const r = computeCommission({ ...base, maxCommissionMinor: 199_999 });
+    expect(r.grossCommissionMinor).toBe(199_999);
+    expect(r.capped).toBe(true);
+  });
+
+  it('every discount stacks off the base (coupon + refund + fees)', () => {
+    const r = computeCommission({
+      ...base,
+      nonCommissionableDiscountMinor: 100_000,
+      refundedBaseMinor: 50_000,
+      excludedFeesMinor: 25_000,
+    });
+    expect(r.eligibleBaseMinor).toBe(825_000);
+    expect(r.grossCommissionMinor).toBe(165_000);
+  });
+
+  it('matches the api handler inline formula Math.floor(base*bp/10000 + 0.5)', () => {
+    for (const [b, bp] of [
+      [1_500_000, 2000],
+      [1_234_567, 333],
+      [999_999, 1750],
+      [1, 2000],
+      [7_777_777, 909],
+    ] as const) {
+      const inline = Math.floor((b * bp) / 10000 + 0.5);
+      const lib = computeCommission({ ...base, subtotalExcludingTaxMinor: b, rateBasisPoints: bp }).grossCommissionMinor;
+      expect(lib).toBe(inline);
+    }
+  });
+});
+
 describe('holdDaysFor', () => {
   it('floors at 7 days', () => {
     expect(holdDaysFor(0)).toBe(7);
