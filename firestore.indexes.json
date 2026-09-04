@@ -106,6 +106,30 @@
       ]
     },
     {
+      "collectionGroup": "contentSubmissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assignmentId", "order": "ASCENDING" },
+        { "fieldPath": "version", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentSubmissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorUid", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentReviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "submissionId", "order": "ASCENDING" },
+        { "fieldPath": "decidedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "payouts",
       "queryScope": "COLLECTION",
       "fields": [

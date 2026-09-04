@@ -2398,6 +2398,241 @@ async function listCreatorAssignmentsAdmin(data: unknown) {
   return { assignments: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
 }
 
+// --- Content review + publish (Phase 4b-2), staff-facing ----------------
+// Separation of duties (PRD 9B/19): a creator can never review or publish
+// their own work, and the publisher must differ from the reviewer. Enforced
+// by uid here. Tested spec: src/features/creator/lib/reviewGuards.ts.
+
+async function listContentSubmissionsAdmin(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q: FirebaseFirestore.Query = db.collection('contentSubmissions');
+  if (status) q = q.where('status', '==', status);
+  const snap = await q.limit(300).get();
+  const rows = await Promise.all(
+    snap.docs.map(async (d) => {
+      const s = d.data();
+      const p = (await db.collection('partners').doc(s.partnerId as string).get()).data();
+      return {
+        id: d.id,
+        assignmentId: s.assignmentId as string,
+        partnerId: s.partnerId as string,
+        partnerName: (p?.displayName as string) ?? (s.partnerId as string),
+        title: s.title as string,
+        version: Number(s.version) || 1,
+        itemCount: Number(s.itemCount) || 0,
+        status: s.status as string,
+        duplicateHits: s.automatedChecks?.duplicateHits?.length ?? 0,
+        leakedPhraseHits: s.automatedChecks?.leakedPhraseHits?.length ?? 0,
+        reviewerUid: (s.reviewerUid as string | null) ?? null,
+        submittedAt: s.submittedAt ?? null,
+      };
+    }),
+  );
+  rows.sort((a, b) => Number((b.submittedAt as { toMillis?: () => number })?.toMillis?.() ?? 0) - Number((a.submittedAt as { toMillis?: () => number })?.toMillis?.() ?? 0));
+  return { submissions: rows };
+}
+
+async function getContentSubmissionAdmin(data: unknown) {
+  const parsed = z.object({ submissionId: z.string().trim().min(1) }).safeParse(data);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const snap = await db.collection('contentSubmissions').doc(parsed.data.submissionId).get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  const reviews = await db.collection('contentReviews').where('submissionId', '==', parsed.data.submissionId).limit(20).get();
+  return {
+    submission: { id: snap.id, ...s },
+    reviews: reviews.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => Number((b as { decidedAt?: { toMillis?: () => number } }).decidedAt?.toMillis?.() ?? 0) - Number((a as { decidedAt?: { toMillis?: () => number } }).decidedAt?.toMillis?.() ?? 0)),
+  };
+}
+
+const decideReviewSchema = z.object({
+  submissionId: z.string().trim().min(1),
+  decision: z.enum(['approve', 'changes', 'reject', 'flag_cleared', 'flag_upheld']),
+  note: z.string().trim().max(2000).optional(),
+  itemComments: z.array(z.object({ itemIndex: z.number().int().min(0), comment: z.string().trim().min(1).max(1000) })).max(200).default([]),
+  acceptedItemCount: z.number().int().min(0).optional(),
+  conflictOfInterestChecked: z.boolean().default(true),
+});
+
+async function decideContentReview(uid: string, body: unknown) {
+  const parsed = decideReviewSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const ref = db.collection('contentSubmissions').doc(d.submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  const cur = s.status as string;
+
+  if (s.creatorUid === uid) throw Err.failedPrecondition('A creator cannot review their own submission.');
+
+  const map: Record<string, { from: string[]; to: string }> = {
+    approve: { from: ['SME_REVIEW'], to: 'APPROVED' },
+    changes: { from: ['SME_REVIEW'], to: 'CHANGES_REQUIRED' },
+    reject: { from: ['SME_REVIEW', 'FLAGGED'], to: 'REJECTED' },
+    flag_cleared: { from: ['FLAGGED'], to: 'SME_REVIEW' },
+    flag_upheld: { from: ['FLAGGED'], to: 'REJECTED' },
+  };
+  const t = map[d.decision];
+  if (!t.from.includes(cur)) throw Err.failedPrecondition(`Cannot ${d.decision} a submission that is ${cur}.`);
+
+  const now = FieldValue.serverTimestamp();
+  const accepted =
+    d.decision === 'approve'
+      ? (d.acceptedItemCount ?? (Number(s.itemCount) || 0))
+      : (Number(s.acceptedItemCount) || 0);
+
+  const batch = db.batch();
+  batch.update(ref, {
+    status: t.to,
+    reviewerUid: uid,
+    reviewNote: d.note ?? null,
+    acceptedItemCount: accepted,
+    updatedAt: now,
+  });
+  batch.set(db.collection('contentReviews').doc(), {
+    submissionId: d.submissionId,
+    submissionVersion: Number(s.version) || 1,
+    reviewerUid: uid,
+    decision:
+      d.decision === 'approve'
+        ? 'APPROVE'
+        : d.decision === 'changes'
+          ? 'CHANGES_REQUIRED'
+          : d.decision === 'reject'
+            ? 'REJECT'
+            : d.decision === 'flag_cleared'
+              ? 'FLAG_CLEARED'
+              : 'FLAG_UPHELD',
+    itemComments: d.itemComments,
+    note: d.note ?? null,
+    conflictOfInterestChecked: d.conflictOfInterestChecked,
+    decidedAt: now,
+  });
+  if (d.decision === 'flag_cleared' || d.decision === 'flag_upheld') {
+    const cases = await db.collection('contentComplianceCases').where('submissionId', '==', d.submissionId).where('status', '==', 'OPEN').get();
+    cases.docs.forEach((c) =>
+      batch.update(c.ref, { status: d.decision === 'flag_cleared' ? 'DISMISSED' : 'UPHELD', resolvedBy: uid, resolvedAt: now }),
+    );
+  }
+  await batch.commit();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'decideContentReview',
+    targetType: 'contentSubmission',
+    targetId: d.submissionId,
+    description: `${d.decision} (${cur} -> ${t.to})`,
+    previousValue: { status: cur },
+    newValue: { status: t.to },
+    reason: d.note,
+  });
+  return { status: t.to };
+}
+
+async function publishContentSubmission(uid: string, body: unknown) {
+  const parsed = z.object({ submissionId: z.string().trim().min(1), changeNote: z.string().trim().max(500).optional() }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('contentSubmissions').doc(parsed.data.submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  if (s.status !== 'APPROVED') throw Err.failedPrecondition(`Only an APPROVED submission can be published (this is ${s.status}).`);
+  if (s.creatorUid === uid) throw Err.failedPrecondition('A creator cannot publish their own submission.');
+  if (s.reviewerUid === uid) throw Err.failedPrecondition('The reviewer cannot also publish - a second staff member must publish.');
+
+  const aSnap = await db.collection('creatorAssignments').doc(s.assignmentId as string).get();
+  const contractId = aSnap.data()?.contractId as string;
+  const items = (s.items as { stem: string; options: string[]; answer: string; explanation: string }[]) ?? [];
+  const acceptedCount = Number(s.acceptedItemCount) || items.length;
+  const toPublish = items.slice(0, acceptedCount);
+
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  const itemIds: string[] = [];
+  for (const item of toPublish) {
+    const ciRef = db.collection('contentItems').doc();
+    itemIds.push(ciRef.id);
+    batch.set(ciRef, {
+      productId: 'HELPCERTIFY',
+      creatorContractId: contractId ?? null,
+      submissionId: parsed.data.submissionId,
+      partnerId: s.partnerId,
+      assignmentId: s.assignmentId,
+      currentVersion: 1,
+      status: 'PUBLISHED',
+      createdAt: now,
+      updatedAt: now,
+    });
+    batch.set(ciRef.collection('versions').doc('1'), {
+      version: 1,
+      item,
+      publishedBy: uid,
+      publishedAt: now,
+      changeNote: parsed.data.changeNote ?? null,
+    });
+  }
+  batch.update(ref, { status: 'PUBLISHED', publishedBy: uid, contentItemIds: itemIds, updatedAt: now });
+  batch.update(db.collection('creatorAssignments').doc(s.assignmentId as string), {
+    status: 'ACCEPTED',
+    acceptedItemCount: FieldValue.increment(toPublish.length),
+    updatedAt: now,
+  });
+  await batch.commit();
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'publishContentSubmission',
+    targetType: 'contentSubmission',
+    targetId: parsed.data.submissionId,
+    description: `Published ${toPublish.length} item(s) from ${s.partnerId}`,
+  });
+  // NOTE: the accepted items are recorded as immutable contentItems here.
+  // Wiring them into a live quiz / practice test / question bank is done
+  // through the existing admin import (createBatchedSeries / question
+  // editor) - deliberately reused, not forked. Earnings are generated in
+  // Phase 4b-3.
+  return { status: 'PUBLISHED' as const, itemsPublished: toPublish.length };
+}
+
+async function listComplianceCases(data: unknown) {
+  const status = (data as { status?: string })?.status ?? 'OPEN';
+  const snap = await db.collection('contentComplianceCases').where('status', '==', status).limit(200).get();
+  return { cases: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+async function resolveComplianceCase(uid: string, body: unknown) {
+  const parsed = z
+    .object({ caseId: z.string().trim().min(1), decision: z.enum(['uphold', 'dismiss']), quarantine: z.boolean().default(false) })
+    .safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('contentComplianceCases').doc(parsed.data.caseId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Case not found');
+  const c = snap.data()!;
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.update(ref, {
+    status: parsed.data.decision === 'uphold' ? 'UPHELD' : 'DISMISSED',
+    quarantined: parsed.data.quarantine,
+    resolvedBy: uid,
+    resolvedAt: now,
+  });
+  if (parsed.data.quarantine && c.contentItemId) {
+    batch.update(db.collection('contentItems').doc(c.contentItemId as string), { status: 'QUARANTINED', updatedAt: now });
+  }
+  await batch.commit();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'resolveComplianceCase',
+    targetType: 'contentComplianceCase',
+    targetId: parsed.data.caseId,
+    description: `${parsed.data.decision}${parsed.data.quarantine ? ' + quarantine' : ''}`,
+  });
+  return { status: parsed.data.decision === 'uphold' ? 'UPHELD' : 'DISMISSED' };
+}
+
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -2543,6 +2778,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listCreatorAssignmentsAdmin':
         res.status(200).json(await listCreatorAssignmentsAdmin(data));
+        return;
+      case 'listContentSubmissionsAdmin':
+        res.status(200).json(await listContentSubmissionsAdmin(data));
+        return;
+      case 'getContentSubmissionAdmin':
+        res.status(200).json(await getContentSubmissionAdmin(data));
+        return;
+      case 'decideContentReview':
+        res.status(200).json(await decideContentReview(uid, data));
+        return;
+      case 'publishContentSubmission':
+        res.status(200).json(await publishContentSubmission(uid, data));
+        return;
+      case 'listComplianceCases':
+        res.status(200).json(await listComplianceCases(data));
+        return;
+      case 'resolveComplianceCase':
+        res.status(200).json(await resolveComplianceCase(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

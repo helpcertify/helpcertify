@@ -1172,6 +1172,241 @@ async function getMyCreatorAssignment(req: VercelRequest, body: unknown) {
   };
 }
 
+// --- Content submissions (Phase 4b-2), creator-facing ------------------
+// Tested spec: src/features/creator/lib/{submissionState,reviewGuards}.ts.
+const SUB_ITEM_SCHEMA = z.object({
+  stem: z.string().trim().min(8).max(4000),
+  options: z.array(z.string().trim().min(1).max(1000)).min(2).max(8),
+  answer: z.string().trim().min(1).max(1000),
+  explanation: z.string().trim().max(4000).default(''),
+});
+const saveContentSubmissionSchema = z.object({
+  submissionId: z.string().trim().min(1).optional(),
+  assignmentId: z.string().trim().min(1),
+  title: z.string().trim().min(3).max(160),
+  items: z.array(SUB_ITEM_SCHEMA).max(500).default([]),
+  declarations: z
+    .object({
+      originality: z.boolean().default(false),
+      aiAssisted: z.boolean().default(false),
+      aiVerifiedBy: z.string().trim().max(120).optional(),
+      noLeakedExam: z.boolean().default(false),
+    })
+    .default({ originality: false, aiAssisted: false, noLeakedExam: false }),
+});
+
+async function loadOwnedSubmission(submissionId: string, creatorUid: string) {
+  const snap = await db.collection('contentSubmissions').doc(submissionId).get();
+  const s = snap.data();
+  if (!snap.exists || s?.creatorUid !== creatorUid) throw Err.invalidArgument('Submission not found');
+  return { ref: snap.ref, data: s! };
+}
+
+async function saveContentSubmission(req: VercelRequest, body: unknown) {
+  const { uid, partnerId } = await requirePartner(req);
+  const parsed = saveContentSubmissionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const aSnap = await db.collection('creatorAssignments').doc(d.assignmentId).get();
+  const a = aSnap.data();
+  if (!aSnap.exists || a?.partnerId !== partnerId) throw Err.invalidArgument('Assignment not found');
+
+  const now = FieldValue.serverTimestamp();
+  const decl = {
+    originality: d.declarations.originality === true,
+    aiAssisted: d.declarations.aiAssisted === true,
+    aiVerifiedBy: d.declarations.aiVerifiedBy ?? null,
+    noLeakedExam: d.declarations.noLeakedExam === true,
+  };
+
+  if (d.submissionId) {
+    const { ref, data } = await loadOwnedSubmission(d.submissionId, uid);
+    if (data.status !== 'DRAFT' && data.status !== 'CHANGES_REQUIRED') {
+      throw new HttpError(409, `This submission cannot be edited (it is ${data.status}).`);
+    }
+    await ref.update({ title: d.title, items: d.items, itemCount: d.items.length, declarations: decl, updatedAt: now });
+    return { submissionId: d.submissionId };
+  }
+
+  const ref = await db.collection('contentSubmissions').add({
+    assignmentId: d.assignmentId,
+    partnerId,
+    creatorUid: uid,
+    version: 1,
+    title: d.title,
+    items: d.items,
+    itemCount: d.items.length,
+    declarations: decl,
+    status: 'DRAFT',
+    automatedChecks: null,
+    reviewerUid: null,
+    reviewNote: null,
+    acceptedItemCount: 0,
+    publishedBy: null,
+    contentItemIds: [],
+    submittedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { submissionId: ref.id };
+}
+
+async function submitContentSubmission(req: VercelRequest, body: unknown) {
+  const { uid } = await requirePartner(req);
+  const parsed = z.object({ submissionId: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, data } = await loadOwnedSubmission(parsed.data.submissionId, uid);
+
+  if (data.status !== 'DRAFT' && data.status !== 'CHANGES_REQUIRED') {
+    throw new HttpError(409, `This submission is already ${data.status}.`);
+  }
+  if (!Array.isArray(data.items) || data.items.length === 0) {
+    throw Err.invalidArgument('Add at least one item before submitting.');
+  }
+
+  // Required declarations (contract-driven).
+  const cSnap = await db.collection('creatorContracts').doc((await db.collection('creatorAssignments').doc(data.assignmentId).get()).data()?.contractId ?? '').get();
+  const c = cSnap.data();
+  const decl = data.declarations ?? {};
+  const missing: string[] = [];
+  if ((c?.originalityDeclarationRequired ?? true) && decl.originality !== true) missing.push('originality declaration');
+  if (decl.noLeakedExam !== true) missing.push('no-leaked-exam-content declaration');
+  if ((c?.aiDisclosureRequired ?? true)) {
+    if (decl.aiAssisted === true && !decl.aiVerifiedBy) missing.push('human verifier for AI-assisted content');
+  }
+  if (missing.length) throw Err.invalidArgument(`Please complete: ${missing.join(', ')}.`);
+
+  // Automated checks: exact + near-duplicate against the content bank +
+  // leaked-exam phrase scan. Tested spec: contentDedup.ts.
+  const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const fp = (t: string) => norm(t).replace(/\s/g, '');
+  const trig = (t: string) => {
+    const s = norm(t);
+    const set = new Set<string>();
+    for (let i = 0; i < s.length - 2; i++) set.add(s.slice(i, i + 3));
+    return set;
+  };
+  const sim = (a: string, b: string) => {
+    const ta = trig(a), tb = trig(b);
+    if (ta.size === 0 && tb.size === 0) return 1;
+    let inter = 0;
+    for (const x of ta) if (tb.has(x)) inter++;
+    const u = ta.size + tb.size - inter;
+    return u === 0 ? 0 : inter / u;
+  };
+
+  const bankSnap = await db.collection('contentItems').where('status', '==', 'PUBLISHED').limit(2000).get().catch(() => null);
+  const existing: { ref: string; text: string }[] = [];
+  if (bankSnap) {
+    for (const doc of bankSnap.docs) {
+      const v = await doc.ref.collection('versions').doc(String(doc.data().currentVersion ?? 1)).get();
+      const stem = v.data()?.item?.stem;
+      if (typeof stem === 'string') existing.push({ ref: doc.id, text: stem });
+    }
+  }
+  const blSnap = await db.collection('appSettings').doc('contentGuard').get();
+  const blocklist: string[] = (blSnap.data()?.leakedExamPhrases as string[]) ?? [];
+
+  const items = data.items as { stem: string }[];
+  const dupHits: { itemIndex: number; matchRef: string; score: number; kind: string }[] = [];
+  const leaked: string[] = [];
+  const seen = new Map<string, number>();
+  items.forEach((it, i) => {
+    const f = fp(it.stem);
+    const exExisting = existing.find((e) => fp(e.text) === f);
+    if (exExisting) dupHits.push({ itemIndex: i, matchRef: exExisting.ref, score: 1, kind: 'exact' });
+    else if (seen.has(f)) dupHits.push({ itemIndex: i, matchRef: `submission:${seen.get(f)}`, score: 1, kind: 'exact' });
+    else {
+      seen.set(f, i);
+      let best = { ref: '', score: 0 };
+      for (const e of existing) {
+        const s = sim(it.stem, e.text);
+        if (s > best.score) best = { ref: e.ref, score: s };
+      }
+      if (best.score >= 0.82) dupHits.push({ itemIndex: i, matchRef: best.ref, score: Number(best.score.toFixed(3)), kind: 'near' });
+    }
+    for (const p of blocklist) if (p && norm(it.stem).includes(norm(p))) leaked.push(p);
+  });
+
+  const passed = dupHits.length === 0 && leaked.length === 0;
+  const now = FieldValue.serverTimestamp();
+  const version = data.status === 'CHANGES_REQUIRED' ? (Number(data.version) || 1) + 1 : Number(data.version) || 1;
+
+  await ref.update({
+    status: passed ? 'SME_REVIEW' : 'FLAGGED',
+    version,
+    submittedAt: now,
+    updatedAt: now,
+    automatedChecks: { ranAt: now, duplicateHits: dupHits, leakedPhraseHits: leaked, passed },
+    reviewNote: null,
+  });
+
+  if (!passed) {
+    await db.collection('contentComplianceCases').add({
+      submissionId: parsed.data.submissionId,
+      contentItemId: null,
+      type: leaked.length ? 'leaked_exam' : 'duplicate',
+      status: 'OPEN',
+      evidence: JSON.stringify({ dupHits, leaked }).slice(0, 4000),
+      quarantined: false,
+      raisedBy: 'system',
+      resolvedBy: null,
+      resolvedAt: null,
+      createdAt: now,
+    });
+  }
+  await writePartnerAudit({
+    entityType: 'contentSubmission',
+    entityId: parsed.data.submissionId,
+    action: 'submit',
+    actorId: uid,
+    actorType: 'partner',
+    after: { status: passed ? 'SME_REVIEW' : 'FLAGGED', itemCount: items.length },
+  });
+  return { status: passed ? 'SME_REVIEW' : 'FLAGGED', duplicateHits: dupHits.length, leakedPhraseHits: leaked.length };
+}
+
+async function withdrawContentSubmission(req: VercelRequest, body: unknown) {
+  const { uid } = await requirePartner(req);
+  const parsed = z.object({ submissionId: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, data } = await loadOwnedSubmission(parsed.data.submissionId, uid);
+  if (['APPROVED', 'REJECTED', 'PUBLISHED', 'WITHDRAWN'].includes(data.status as string)) {
+    throw new HttpError(409, `Cannot withdraw a ${data.status} submission.`);
+  }
+  await ref.update({ status: 'WITHDRAWN', updatedAt: FieldValue.serverTimestamp() });
+  return { status: 'WITHDRAWN' as const };
+}
+
+async function listMyContentSubmissions(req: VercelRequest) {
+  const { uid } = await requirePartner(req);
+  const snap = await db
+    .collection('contentSubmissions')
+    .where('creatorUid', '==', uid)
+    .orderBy('updatedAt', 'desc')
+    .limit(100)
+    .get();
+  return {
+    submissions: snap.docs.map((d) => {
+      const s = d.data();
+      return {
+        id: d.id,
+        assignmentId: s.assignmentId as string,
+        title: s.title as string,
+        version: Number(s.version) || 1,
+        itemCount: Number(s.itemCount) || 0,
+        status: s.status as string,
+        reviewNote: (s.reviewNote as string | null) ?? null,
+        duplicateHits: s.automatedChecks?.duplicateHits?.length ?? 0,
+        leakedPhraseHits: s.automatedChecks?.leakedPhraseHits?.length ?? 0,
+        acceptedItemCount: Number(s.acceptedItemCount) || 0,
+        updatedAt: s.updatedAt ? (s.updatedAt as FirebaseFirestore.Timestamp).toDate().toISOString() : null,
+      };
+    }),
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -1242,6 +1477,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getMyCreatorAssignment':
         res.status(200).json(await getMyCreatorAssignment(req, data));
+        return;
+      case 'saveContentSubmission':
+        res.status(200).json(await saveContentSubmission(req, data));
+        return;
+      case 'submitContentSubmission':
+        res.status(200).json(await submitContentSubmission(req, data));
+        return;
+      case 'withdrawContentSubmission':
+        res.status(200).json(await withdrawContentSubmission(req, data));
+        return;
+      case 'listMyContentSubmissions':
+        res.status(200).json(await listMyContentSubmissions(req));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

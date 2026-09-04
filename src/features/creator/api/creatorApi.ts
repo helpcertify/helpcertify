@@ -53,7 +53,55 @@ export const creatorApi = {
   listMyAssignments: () => callAction<{ assignments: MyCreatorAssignment[] }>('auth', 'listMyCreatorAssignments'),
   getMyAssignment: (payload: { assignmentId: string }) =>
     callAction<CreatorAssignmentDetail>('auth', 'getMyCreatorAssignment', payload),
+  saveSubmission: (payload: {
+    submissionId?: string;
+    assignmentId: string;
+    title: string;
+    items: SubmissionItem[];
+    declarations: { originality: boolean; aiAssisted: boolean; aiVerifiedBy?: string; noLeakedExam: boolean };
+  }) => callAction<{ submissionId: string }>('auth', 'saveContentSubmission', payload),
+  submitSubmission: (payload: { submissionId: string }) =>
+    callAction<{ status: string; duplicateHits: number; leakedPhraseHits: number }>('auth', 'submitContentSubmission', payload),
+  withdrawSubmission: (payload: { submissionId: string }) =>
+    callAction<{ status: string }>('auth', 'withdrawContentSubmission', payload),
+  listMySubmissions: () => callAction<{ submissions: MyContentSubmission[] }>('auth', 'listMyContentSubmissions'),
 };
+
+export interface SubmissionItem {
+  stem: string;
+  options: string[];
+  answer: string;
+  explanation: string;
+}
+
+export interface MyContentSubmission {
+  id: string;
+  assignmentId: string;
+  title: string;
+  version: number;
+  itemCount: number;
+  status: string;
+  reviewNote: string | null;
+  duplicateHits: number;
+  leakedPhraseHits: number;
+  acceptedItemCount: number;
+  updatedAt: string | null;
+}
+
+export interface AdminContentSubmissionRow {
+  id: string;
+  assignmentId: string;
+  partnerId: string;
+  partnerName: string;
+  title: string;
+  version: number;
+  itemCount: number;
+  status: string;
+  duplicateHits: number;
+  leakedPhraseHits: number;
+  reviewerUid: string | null;
+  submittedAt: unknown;
+}
 
 export interface CreatorApplicationRow {
   id: string;
@@ -98,4 +146,20 @@ export const creatorAdminApi = {
     callAction<{ contracts: Record<string, unknown>[] }>('content-admin', 'listCreatorContractsAdmin', partnerId ? { partnerId } : {}),
   listAssignments: (partnerId?: string) =>
     callAction<{ assignments: Record<string, unknown>[] }>('content-admin', 'listCreatorAssignmentsAdmin', partnerId ? { partnerId } : {}),
+  listSubmissions: (status?: string) =>
+    callAction<{ submissions: AdminContentSubmissionRow[] }>('content-admin', 'listContentSubmissionsAdmin', status ? { status } : {}),
+  getSubmission: (submissionId: string) =>
+    callAction<{ submission: Record<string, unknown>; reviews: Record<string, unknown>[] }>('content-admin', 'getContentSubmissionAdmin', { submissionId }),
+  decideReview: (payload: {
+    submissionId: string;
+    decision: 'approve' | 'changes' | 'reject' | 'flag_cleared' | 'flag_upheld';
+    note?: string;
+    acceptedItemCount?: number;
+  }) => callAction<{ status: string }>('content-admin', 'decideContentReview', payload),
+  publishSubmission: (payload: { submissionId: string; changeNote?: string }) =>
+    callAction<{ status: string; itemsPublished: number }>('content-admin', 'publishContentSubmission', payload),
+  listComplianceCases: (status?: string) =>
+    callAction<{ cases: Record<string, unknown>[] }>('content-admin', 'listComplianceCases', status ? { status } : {}),
+  resolveComplianceCase: (payload: { caseId: string; decision: 'uphold' | 'dismiss'; quarantine?: boolean }) =>
+    callAction<{ status: string }>('content-admin', 'resolveComplianceCase', payload),
 };

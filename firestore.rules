@@ -260,9 +260,17 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
-    // Written from 4b-2 onward; deny-all until then.
-    match /contentSubmissions/{id} { allow read, write: if false; }
-    match /contentReviews/{id} { allow read, write: if false; }
+    // A creator reads back their own submissions + the review feedback on
+    // them; reviewers/staff read any. Writes are Admin-SDK only.
+    match /contentSubmissions/{id} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.creatorUid == request.auth.uid);
+      allow write: if false;
+    }
+    match /contentReviews/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/contentSubmissions/$(resource.data.submissionId)).data.creatorUid == request.auth.uid);
+      allow write: if false;
+    }
     match /contentItems/{id} {
       allow read: if isStaff();
       allow write: if false;

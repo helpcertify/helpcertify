@@ -21,6 +21,30 @@ export function CreatorAdminPage() {
   const apps = useQuery({ queryKey: ['admin', 'creatorApps'], queryFn: () => creatorAdminApi.listApplications() });
   const contracts = useQuery({ queryKey: ['admin', 'creatorContracts'], queryFn: () => creatorAdminApi.listContracts() });
   const assignments = useQuery({ queryKey: ['admin', 'creatorAssignments'], queryFn: () => creatorAdminApi.listAssignments() });
+  const subs = useQuery({ queryKey: ['admin', 'contentSubmissions'], queryFn: () => creatorAdminApi.listSubmissions() });
+
+  const decide = useMutation({
+    mutationFn: (v: {
+      submissionId: string;
+      decision: 'approve' | 'changes' | 'reject' | 'flag_cleared' | 'flag_upheld';
+      note?: string;
+      acceptedItemCount?: number;
+    }) => creatorAdminApi.decideReview(v),
+    onSuccess: () => {
+      pushToast('Review recorded', 'success');
+      qc.invalidateQueries({ queryKey: ['admin', 'contentSubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not record the review'), 'error'),
+  });
+
+  const publish = useMutation({
+    mutationFn: (submissionId: string) => creatorAdminApi.publishSubmission({ submissionId }),
+    onSuccess: (r) => {
+      pushToast(`Published ${r.itemsPublished} item(s)`, 'success');
+      qc.invalidateQueries({ queryKey: ['admin', 'contentSubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not publish'), 'error'),
+  });
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['admin', 'creatorApps'] });
@@ -243,6 +267,102 @@ export function CreatorAdminPage() {
               </ul>
             )}
           </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Content submissions</h2>
+        <p className="mb-3 text-xs text-ink-faint">
+          A creator cannot review or publish their own work, and the publisher must differ from the reviewer - use a
+          second admin account for the publish step.
+        </p>
+        <div className="overflow-x-auto rounded-xl border border-surface-border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+              <tr>
+                <th className="px-4 py-3">Submission</th>
+                <th className="px-4 py-3">Partner</th>
+                <th className="px-4 py-3">Checks</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border">
+              {(subs.data?.submissions ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-ink-faint">
+                    No submissions yet.
+                  </td>
+                </tr>
+              )}
+              {(subs.data?.submissions ?? []).map((s) => (
+                <tr key={s.id}>
+                  <td className="px-4 py-3 text-ink">
+                    {s.title}
+                    <span className="block text-xs text-ink-faint">v{s.version} · {s.itemCount} items</span>
+                  </td>
+                  <td className="px-4 py-3 text-ink-faint">{s.partnerName}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {s.duplicateHits + s.leakedPhraseHits === 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">clean</span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400">
+                        {s.duplicateHits} dup / {s.leakedPhraseHits} phrase
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{s.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {s.status === 'FLAGGED' && (
+                        <>
+                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_cleared', note: window.prompt('Note (optional)') || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
+                            Clear flag
+                          </button>
+                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_upheld', note: window.prompt('Reason?') || undefined })} className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50">
+                            Uphold / reject
+                          </button>
+                        </>
+                      )}
+                      {s.status === 'SME_REVIEW' && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={decide.isPending}
+                            onClick={() => {
+                              const raw = window.prompt(`Accepted item count (max ${s.itemCount}, blank = all)`);
+                              const n = raw && raw.trim() ? parseInt(raw.trim(), 10) : undefined;
+                              decide.mutate({
+                                submissionId: s.id,
+                                decision: 'approve',
+                                acceptedItemCount: Number.isFinite(n) ? n : undefined,
+                              });
+                            }}
+                            className="rounded bg-[#0B7A48] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'changes', note: window.prompt('What needs to change?') || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
+                            Changes
+                          </button>
+                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50">
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {s.status === 'APPROVED' && (
+                        <button type="button" disabled={publish.isPending} onClick={() => publish.mutate(s.id)} className="rounded bg-[#155EEF] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                          Publish
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>

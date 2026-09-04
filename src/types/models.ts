@@ -1552,3 +1552,111 @@ export interface EarningsLedgerDoc {
   actorType: AuditActorType;
   createdAt: Timestamp;
 }
+
+// --- Content submission -> review -> publish (Phase 4b-2) ------------------
+
+export type SubmissionStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'AUTOMATED_CHECKS'
+  | 'FLAGGED'
+  | 'SME_REVIEW'
+  | 'CHANGES_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'WITHDRAWN'
+  | 'PUBLISHED';
+
+export interface SubmissionItem {
+  stem: string;
+  options: string[];
+  answer: string; // the correct option text or letter
+  explanation: string;
+}
+
+export interface SubmissionDeclarations {
+  originality: boolean;
+  aiAssisted: boolean;
+  aiVerifiedBy: string | null;
+  noLeakedExam: boolean;
+}
+
+/** contentSubmissions/{id} - one creator's submission against an assignment.
+ * `version` bumps on every resubmit; the payload is a structured item list
+ * (doc-upload parsing stays admin-side, per the 4b decision). */
+export interface ContentSubmissionDoc {
+  assignmentId: string;
+  partnerId: string;
+  creatorUid: string;
+  version: number;
+  title: string;
+  items: SubmissionItem[];
+  itemCount: number;
+  declarations: SubmissionDeclarations;
+  status: SubmissionStatus;
+  automatedChecks: {
+    ranAt: Timestamp | null;
+    duplicateHits: { itemIndex: number; matchRef: string; score: number; kind: string }[];
+    leakedPhraseHits: string[];
+    passed: boolean;
+  } | null;
+  reviewerUid: string | null;
+  reviewNote: string | null;
+  acceptedItemCount: number;
+  publishedBy: string | null;
+  contentItemIds: string[];
+  submittedAt: Timestamp | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** contentReviews/{id} - append-only decision record. */
+export interface ContentReviewDoc {
+  submissionId: string;
+  submissionVersion: number;
+  reviewerUid: string;
+  decision: 'APPROVE' | 'CHANGES_REQUIRED' | 'REJECT' | 'FLAG_CLEARED' | 'FLAG_UPHELD';
+  itemComments: { itemIndex: number; comment: string }[];
+  note: string | null;
+  conflictOfInterestChecked: boolean;
+  decidedAt: Timestamp;
+}
+
+/** contentItems/{contentId} + versions/{v} - the immutable published record
+ * of one accepted item, retaining internal creator attribution forever. */
+export interface ContentItemDoc {
+  productId: ProductId;
+  creatorContractId: string;
+  submissionId: string;
+  partnerId: string;
+  assignmentId: string;
+  currentVersion: number;
+  status: 'PUBLISHED' | 'QUARANTINED' | 'RETIRED';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface ContentItemVersionDoc {
+  version: number;
+  item: SubmissionItem;
+  publishedBy: string;
+  publishedAt: Timestamp;
+  changeNote: string | null;
+}
+
+export type ComplianceCaseType = 'duplicate' | 'plagiarism' | 'leaked_exam' | 'accuracy' | 'other';
+
+/** contentComplianceCases/{id} - raised by automated checks or a reviewer;
+ * quarantining a case pulls the content while evidence is preserved. */
+export interface ContentComplianceCaseDoc {
+  submissionId: string | null;
+  contentItemId: string | null;
+  type: ComplianceCaseType;
+  status: 'OPEN' | 'UPHELD' | 'DISMISSED';
+  evidence: string;
+  quarantined: boolean;
+  raisedBy: string;
+  resolvedBy: string | null;
+  resolvedAt: Timestamp | null;
+  createdAt: Timestamp;
+}
