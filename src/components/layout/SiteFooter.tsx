@@ -12,6 +12,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: '/privacy', label: 'Privacy Policy' },
   { href: '/support', label: 'Support Policy' },
   { href: '/contact', label: 'Contact' },
+  { href: '/build-your-own-exam', label: 'Bring Your Own Question Bank' },
 ];
 
 export function SiteFooter() {

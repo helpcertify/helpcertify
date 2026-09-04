@@ -16,6 +16,7 @@ import { TermsPage } from '@/features/marketing/pages/TermsPage';
 import { RefundPage } from '@/features/marketing/pages/RefundPage';
 import { SupportPage } from '@/features/marketing/pages/SupportPage';
 import { DisclaimerPage } from '@/features/marketing/pages/DisclaimerPage';
+import { BuildYourOwnExamPage } from '@/features/marketing/pages/BuildYourOwnExamPage';
 import { AdminHomePage } from '@/features/admin/pages/AdminHomePage';
 import { ExamQuizStudioPage } from '@/features/admin/pages/ExamQuizStudioPage';
 import { QuizAnswerKeyPage } from '@/features/admin/pages/QuizAnswerKeyPage';
@@ -75,6 +76,7 @@ export function AppRouter() {
       <Route path="/refund" element={<RefundPage />} />
       <Route path="/support" element={<SupportPage />} />
       <Route path="/disclaimer" element={<DisclaimerPage />} />
+      <Route path="/build-your-own-exam" element={<BuildYourOwnExamPage />} />
       {/* Public certificate verification - no login required, matching how
           a real credential-verification page works for a third party
           checking a certificate a learner shared with them. */}

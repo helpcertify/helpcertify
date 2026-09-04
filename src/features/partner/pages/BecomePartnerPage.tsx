@@ -6,12 +6,13 @@ import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { VercelApiError } from '@/lib/apiError';
 import { isAdult } from '../lib/partnerEligibility';
+import { PARTNER_TYPE_LABELS } from '../lib/partnerTypeLabels';
 import type { PartnerType } from '@/types/models';
 
 const PARTNER_TYPES: { value: PartnerType; label: string; hint: string }[] = [
-  { value: 'referral', label: 'Referral Partner', hint: 'Share a tracked link or code' },
-  { value: 'sales', label: 'Sales Partner', hint: 'Register leads, demo and close' },
-  { value: 'implementation', label: 'Implementation Partner', hint: 'Configure or train customers' },
+  { value: 'referral', label: PARTNER_TYPE_LABELS.referral, hint: 'Share a tracked link or code' },
+  { value: 'sales', label: PARTNER_TYPE_LABELS.sales, hint: 'Register leads, demo and close' },
+  { value: 'implementation', label: PARTNER_TYPE_LABELS.implementation, hint: 'Train or set up customers on the platform' },
 ];
 
 const field =

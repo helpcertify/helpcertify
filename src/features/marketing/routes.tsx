@@ -7,6 +7,7 @@ import { TermsPage } from './pages/TermsPage';
 import { RefundPage } from './pages/RefundPage';
 import { SupportPage } from './pages/SupportPage';
 import { DisclaimerPage } from './pages/DisclaimerPage';
+import { BuildYourOwnExamPage } from './pages/BuildYourOwnExamPage';
 
 export interface MarketingRoute {
   path: string;
@@ -86,5 +87,13 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     description:
       'HelpCertify is an independent exam-prep service, not affiliated with any certification body; practice material is not official exam content.',
     priority: 0.4,
+  },
+  {
+    path: '/build-your-own-exam',
+    element: <BuildYourOwnExamPage />,
+    title: 'Bring Your Own Question Bank - HelpCertify',
+    description:
+      'Upload your own question-and-answer document for a certification HelpCertify does not stock, and use it as a private practice test and mock exam.',
+    priority: 0.5,
   },
 ];
