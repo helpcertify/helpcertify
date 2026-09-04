@@ -22,6 +22,7 @@ async function loadProfile(firebaseUser: FirebaseUser): Promise<SafeUser> {
     referralCode: profileData?.referralCode ?? null,
     partnerId: profileData?.partnerId ?? null,
     canRevealPan: profileData?.canRevealPan === true,
+    trainerId: profileData?.trainerId ?? null,
   };
 }
 

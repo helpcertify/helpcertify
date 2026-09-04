@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../api/adminApi';
 import { toDate } from '@/utils/formatDate';
+import { useUiStore } from '@/store/useUiStore';
+import { errorText } from '@/lib/errorMessages';
 
 function formatDate(ts: unknown): string {
   return toDate(ts).toLocaleDateString();
@@ -17,11 +19,31 @@ export function AdminUsersPage() {
   const { data } = useQuery({ queryKey: ['admin', 'users'], queryFn: adminApi.listUsersAdmin });
   const users = data?.users ?? [];
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const pushToast = useUiStore((s) => s.pushToast);
+  const queryClient = useQueryClient();
 
   const { data: detail, isLoading: detailLoading } = useQuery({
     queryKey: ['admin', 'userDetail', selectedUid],
     queryFn: () => adminApi.getUserDetailAdmin(selectedUid!),
     enabled: !!selectedUid,
+  });
+
+  const grantTrainerMutation = useMutation({
+    mutationFn: () => adminApi.grantTrainerStatus(selectedUid!),
+    onSuccess: () => {
+      pushToast('Trainer status granted.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'userDetail', selectedUid] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not grant trainer status'), 'error'),
+  });
+
+  const revokeTrainerMutation = useMutation({
+    mutationFn: () => adminApi.revokeTrainerStatus(selectedUid!),
+    onSuccess: () => {
+      pushToast('Trainer status revoked.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'userDetail', selectedUid] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not revoke trainer status'), 'error'),
   });
 
   return (
@@ -91,6 +113,33 @@ export function AdminUsersPage() {
             <div>
               <h2 className="mb-1 font-bold text-ink">{detail.user.name}</h2>
               <p className="mb-4 text-sm text-ink-faint">{detail.user.email}</p>
+
+              <div className="mb-4 flex items-center justify-between rounded-lg border border-surface-border p-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-ink-faint">Trainer access</p>
+                  <p className="text-sm text-ink-muted">{detail.user.trainerId ? 'Enabled' : 'Not a trainer'}</p>
+                </div>
+                {detail.user.trainerId ? (
+                  <button
+                    type="button"
+                    onClick={() => revokeTrainerMutation.mutate()}
+                    disabled={revokeTrainerMutation.isPending}
+                    className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:hover:bg-red-500/10"
+                  >
+                    Revoke
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => grantTrainerMutation.mutate()}
+                    disabled={grantTrainerMutation.isPending}
+                    className="rounded-lg bg-[#155EEF] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                  >
+                    Grant trainer access
+                  </button>
+                )}
+              </div>
+
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-faint">Purchases</h3>
               {detail.orders.length === 0 ? (
                 <p className="text-sm text-ink-faint">No paid orders yet.</p>

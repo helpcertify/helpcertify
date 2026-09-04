@@ -55,6 +55,8 @@ import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardP
 import { CreatorWorkspacePage } from '@/features/creator/pages/CreatorWorkspacePage';
 import { CustomExamsPage } from '@/features/students/pages/CustomExamsPage';
 import { CustomExamTakingPage } from '@/features/students/pages/CustomExamTakingPage';
+import { TrainerWorkspacePage } from '@/features/trainer/pages/TrainerWorkspacePage';
+import { MyTrainingPage } from '@/features/students/pages/MyTrainingPage';
 import { CreatorAdminPage } from '@/features/admin/pages/CreatorAdminPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
@@ -107,6 +109,8 @@ export function AppRouter() {
           <Route path="/home/creator" element={<CreatorWorkspacePage />} />
           <Route path="/home/cart" element={<CartPage />} />
           <Route path="/home/custom-exams" element={<CustomExamsPage />} />
+          <Route path="/home/trainer" element={<TrainerWorkspacePage />} />
+          <Route path="/home/my-training" element={<MyTrainingPage />} />
         </Route>
         <Route path="/quizzes/:quizId/take" element={<QuizTakingPage />} />
         <Route path="/practice-tests/:testId/take" element={<PracticeTakingPage />} />

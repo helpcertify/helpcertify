@@ -833,6 +833,57 @@ export interface CustomExamAttemptDoc {
   submittedAt: Timestamp;
 }
 
+/** trainers/{trainerId} - Trainer / Mentored Learning, Phase 1A. Mirrors
+ * PartnerDoc's shape but deliberately minimal - no KYC, no payouts, no
+ * agreement: an admin grants this directly (see api/admin.ts's
+ * grantTrainerStatus), there is no application/approval queue. A trainer
+ * is still `role: 'student'` (see users/{uid}.trainerId on SafeUser) -
+ * this is an additive capability, not a replacement role. */
+export interface TrainerDoc {
+  linkedUserId: string;
+  displayName: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  createdBy: string; // granting admin uid
+  createdAt: Timestamp;
+}
+
+/** trainingPrograms/{programId} - a trainer-owned program with a learner
+ * roster (see ProgramLearnerDoc). "Assign a course" in this app means
+ * referencing an existing quizzes/{id} or practiceTests/{id} doc - there
+ * is no separate Course entity - so assignedContent just stores enough to
+ * render a reading list; it grants no access beyond what a learner's own
+ * purchase/entitlement already allows (see api/quiz-session.ts /
+ * api/practice-session.ts, both unchanged by this feature). */
+export interface TrainingProgramDoc {
+  trainerId: string;
+  title: string;
+  description: string;
+  assignedContent: { itemType: 'quiz' | 'practiceTest'; itemId: string; title: string }[];
+  // Reserved for a future read-only Observer/Guardian/Sponsor role (see the
+  // Trainer/Mentored Learning brief) - always empty in Phase 1A, no UI or
+  // permission logic reads this yet. Keeping the field now avoids a schema
+  // migration later.
+  observerUids: string[];
+  status: 'ACTIVE' | 'ARCHIVED';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** trainingPrograms/{programId}/learners/{learnerUid} - one roster row.
+ * Doc id is the learner's own uid (composite-key convention used
+ * throughout this app, e.g. PurchaseDoc) so "is this learner already on
+ * this program" is an O(1) doc-get, not a query. 'REMOVED' is a soft
+ * delete - the row (and any later session/attendance history keyed off it
+ * in Phase 1B) is kept, not deleted. */
+export interface ProgramLearnerDoc {
+  learnerUid: string;
+  learnerName: string;
+  learnerEmail: string;
+  status: 'INVITED' | 'ACTIVE' | 'REMOVED';
+  invitedAt: Timestamp;
+  joinedAt: Timestamp | null;
+}
+
 /** reviews/{uid}_{itemType}_{itemId} - one student's rating/review of one
  * item. Composite doc id (same convention as PurchaseDoc/PracticeProgressDoc)
  * makes "does this user already have a review for this item" an O(1)
