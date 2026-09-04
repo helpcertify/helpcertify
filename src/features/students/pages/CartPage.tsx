@@ -88,8 +88,14 @@ export function CartPage() {
                 <div>
                   <div className="font-medium text-ink">{item.title}</div>
                   <div className="text-xs uppercase tracking-wide text-ink-faint">
-                    {item.itemType === 'quiz' ? 'Exam Quiz' : item.itemType === 'practiceTest' ? 'Practice Test' : 'Package'}
-                    {item.itemType !== 'package' && ` · ${item.totalQuestions} questions`}
+                    {item.itemType === 'quiz'
+                      ? 'Exam Quiz'
+                      : item.itemType === 'practiceTest'
+                        ? 'Practice Test'
+                        : item.itemType === 'customExamBuilder'
+                          ? 'Custom Exam Builder'
+                          : 'Package'}
+                    {item.itemType !== 'package' && item.itemType !== 'customExamBuilder' && ` · ${item.totalQuestions} questions`}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

@@ -105,6 +105,7 @@ export function AdminSettingsPage() {
 
       <div className="max-w-xl space-y-6">
         <CompanyDetailsCard />
+        <CustomExamBuilderSettingsCard />
 
         <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">Appearance</h2>
@@ -322,6 +323,87 @@ const EMPTY_COMPANY: CompanyInfoSettings = {
   contactEmail: '', contactPhone: '', grievanceEmail: '', grievanceOfficer: '',
   grievanceOfficerTitle: '', gstin: '', udyamNumber: '',
 };
+
+// Price and availability for the "Bring Your Own Question Bank" add-on
+// (see api/checkout.ts's createOrder and api/content-admin.ts's
+// createCustomExamSet). Price is typed in rupees, same convention as every
+// other price field in the admin (see PracticeTestFormCard) - converted
+// to/from paise only at the load/save boundary.
+function CustomExamBuilderSettingsCard() {
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
+  const { data } = useQuery({ queryKey: ['admin', 'customExamBuilderSettings'], queryFn: adminApi.getCustomExamBuilderSettings });
+  const [priceInput, setPriceInput] = useState('');
+  const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
+  const [isEnabled, setIsEnabled] = useState(true);
+
+  useEffect(() => {
+    if (data) {
+      setPriceInput(String(minorToMajor(data.priceMinor)));
+      setCurrency(data.currency);
+      setIsEnabled(data.isEnabled);
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      adminApi.updateCustomExamBuilderSettings({
+        priceMinor: majorToMinor(Number(priceInput) || 0),
+        currency,
+        isEnabled,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'customExamBuilderSettings'] });
+      pushToast('Custom Exam Builder settings saved.', 'success');
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not save these settings'), 'error'),
+  });
+
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">Custom Exam Builder</h2>
+      <p className="mb-4 text-sm text-ink-faint">
+        The "Bring Your Own Question Bank" add-on: a one-time purchase that lets a student upload
+        their own question bank. Disabling it blocks new purchases immediately without affecting
+        students who already bought it.
+      </p>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">Price</label>
+          <input
+            type="number"
+            min={0}
+            value={priceInput}
+            onChange={(e) => setPriceInput(e.target.value)}
+            className="input-dark w-full"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">Currency</label>
+          <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark w-full">
+            <option value="INR">INR</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+      </div>
+
+      <label className="mt-4 flex items-center gap-2 text-sm text-ink-muted">
+        <input type="checkbox" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} className="h-4 w-4" />
+        Available for purchase
+      </label>
+
+      <button
+        type="button"
+        disabled={saveMutation.isPending}
+        onClick={() => saveMutation.mutate()}
+        className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {saveMutation.isPending ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  );
+}
 
 function CompanyDetailsCard() {
   const queryClient = useQueryClient();

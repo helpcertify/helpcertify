@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { to: '/home/certificates', label: 'My Certificates' },
   { to: '/home/purchases', label: 'Billing & Orders' },
   { to: '/home/wishlist', label: 'Saved Items' },
+  { to: '/home/custom-exams', label: 'Custom Exam Builder' },
 ];
 
 // My Profile and Settings are account-level, not content tabs, so they're

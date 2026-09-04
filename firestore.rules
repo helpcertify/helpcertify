@@ -90,6 +90,37 @@ service cloud.firestore {
       }
     }
 
+    // --- customExamSets/{setId} (Custom Exam Builder) --- the app's first
+    // ownership-scoped (not admin-catalog) content collection: gated on
+    // resource.data.ownerId matching the caller, not an isPublished flag
+    // like quizzes/practiceTests above. Only ever written by
+    // api/content-admin.ts's createCustomExamSet/deleteMyCustomExamSet
+    // (Admin SDK, gated on the caller owning a
+    // purchases/customExamBuilder_capability entitlement, not an admin role).
+    match /customExamSets/{setId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+      allow write: if false;
+
+      match /questions/{questionId} {
+        allow read: if isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/customExamSets/$(setId)).data.ownerId == request.auth.uid);
+        allow write: if false;
+
+        match /private/answerKey {
+          allow read: if isAdmin(); // never client-readable, not even by the set's own owner
+          allow write: if false;
+        }
+      }
+    }
+
+    // --- customExamAttempts/{attemptId} --- one scored attempt against a
+    // customExamSets doc. Written only by
+    // api/content-admin.ts's submitCustomExamAttempt.
+    match /customExamAttempts/{attemptId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+      allow write: if false;
+    }
+
     // --- quizAttempts/{attemptId} (+ answers/{questionId}) ---
     match /quizAttempts/{attemptId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
@@ -360,6 +391,17 @@ service cloud.firestore {
     // catch-all below, same pattern as /appSettings/appearance.
     match /appSettings/partnerFramework {
       allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // --- appSettings/customExamBuilder --- { priceMinor, currency,
+    // isEnabled }. Publicly readable so the student-facing Custom Exam
+    // Builder page can show the live price/availability without an extra
+    // authenticated round trip, same reasoning as /appSettings/company and
+    // /appSettings/appearance above; nothing on it is sensitive. Written
+    // only by api/admin.ts's updateCustomExamBuilderSettings (admin-gated).
+    match /appSettings/customExamBuilder {
+      allow read: if true;
       allow write: if false;
     }
 

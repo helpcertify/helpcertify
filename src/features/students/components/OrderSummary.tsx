@@ -4,7 +4,7 @@ import { accessPeriodLabel } from '../lib/accessPeriod';
 export interface OrderSummaryItem {
   key: string;
   title: string;
-  itemType: 'quiz' | 'practiceTest' | 'package';
+  itemType: 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
   /** Question count for a quiz / practice test; omit for a package. */
   questionCount?: number;
   /** Access period in days (0 / undefined = lifetime). */
@@ -17,6 +17,7 @@ const TYPE_LABEL: Record<OrderSummaryItem['itemType'], string> = {
   quiz: 'Mock Exam',
   practiceTest: 'Practice Exam',
   package: 'Package',
+  customExamBuilder: 'Custom Exam Builder',
 };
 
 // The "YOU'RE PURCHASING" order summary shown before the Pay button on both

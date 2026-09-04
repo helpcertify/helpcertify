@@ -346,6 +346,52 @@ async function updateCompanyInfo(uid: string, body: unknown) {
   return { success: true };
 }
 
+// --- Custom Exam Builder settings (appSettings/customExamBuilder) --------
+// Price and availability for the "Bring Your Own Question Bank" add-on
+// (see api/checkout.ts's createOrder and api/content-admin.ts's
+// createCustomExamSet). Stored in its own doc (publicly readable - see
+// firestore.rules) so the student-facing page can show the live price
+// without an authenticated call, same pattern as appSettings/company above.
+// isEnabled is a kill switch: turning it off blocks new purchases
+// immediately without a deploy, without affecting students who already
+// bought it.
+async function getCustomExamBuilderSettings() {
+  const snap = await db.collection('appSettings').doc('customExamBuilder').get();
+  const data = snap.data();
+  return {
+    priceMinor: typeof data?.priceMinor === 'number' ? data.priceMinor : 49900,
+    currency: data?.currency === 'USD' ? 'USD' : 'INR',
+    isEnabled: data?.isEnabled !== false, // defaults to on for a doc that doesn't exist yet
+  };
+}
+
+const updateCustomExamBuilderSettingsSchema = z.object({
+  priceMinor: z.number().int().min(0).max(10000000),
+  currency: z.enum(['INR', 'USD']),
+  isEnabled: z.boolean(),
+});
+
+async function updateCustomExamBuilderSettings(uid: string, body: unknown) {
+  const parsed = updateCustomExamBuilderSettingsSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  await db.collection('appSettings').doc('customExamBuilder').set(
+    { ...d, updatedAt: FieldValue.serverTimestamp(), updatedBy: uid },
+    { merge: true }
+  );
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updateCustomExamBuilderSettings',
+    targetType: 'appSettings',
+    targetId: 'customExamBuilder',
+    description: `Set Custom Exam Builder price to ${d.priceMinor} ${d.currency} (minor units), ${d.isEnabled ? 'enabled' : 'disabled'}`,
+  });
+
+  return { success: true };
+}
+
 // --- Users list (Learner Analytics' "Users" tab) ------------------------
 // One read of every user doc plus one read of every purchase doc, joined
 // in memory by userId - simpler than N per-user count queries, and fine
@@ -1895,6 +1941,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updateCompanyInfo':
         res.status(200).json(await updateCompanyInfo(uid, data));
+        return;
+      case 'getCustomExamBuilderSettings':
+        res.status(200).json(await getCustomExamBuilderSettings());
+        return;
+      case 'updateCustomExamBuilderSettings':
+        res.status(200).json(await updateCustomExamBuilderSettings(uid, data));
         return;
       case 'listUsersAdmin':
         res.status(200).json(await listUsersAdmin());

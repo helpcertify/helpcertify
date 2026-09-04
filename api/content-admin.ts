@@ -55,7 +55,14 @@ const Err = {
   failedPrecondition: (m: string) => new HttpError(409, m),
 };
 
-async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
+// Verifies the caller is a real, active, signed-in user - no role check.
+// requireAdmin (below) is this plus a role check, used by every action in
+// this file except the Custom Exam Builder ones (createCustomExamSet /
+// listMyCustomExamSets / getCustomExamSetForTaking / submitCustomExamAttempt
+// / deleteMyCustomExamSet), which are deliberately reachable by any signed-in
+// student - they gate on that student owning a
+// purchases/{uid}_customExamBuilder_capability entitlement instead of a role.
+async function verifyAuthedUser(req: VercelRequest): Promise<{ uid: string; role: string | undefined }> {
   const authHeader = req.headers.authorization ?? '';
   const token = (Array.isArray(authHeader) ? authHeader[0] : authHeader).replace(/^Bearer\s+/i, '');
   if (!token) throw Err.unauthenticated();
@@ -67,14 +74,19 @@ async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
     throw Err.unauthenticated('Invalid or expired token');
   }
 
-  // Role comes from the Firestore users/{uid} doc, not an ID-token custom
-  // claim - see api/admin.ts's requireAdmin for why.
   const snap = await db.collection('users').doc(decoded.uid).get();
   const user = snap.data();
   if (!snap.exists || !user?.isActive) throw Err.unauthenticated('Account not found or deactivated');
-  if (user.role !== 'admin') throw Err.permissionDenied();
 
-  return { uid: decoded.uid };
+  return { uid: decoded.uid, role: user.role };
+}
+
+async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
+  const { uid, role } = await verifyAuthedUser(req);
+  // Role comes from the Firestore users/{uid} doc, not an ID-token custom
+  // claim - see api/admin.ts's requireAdmin for why.
+  if (role !== 'admin') throw Err.permissionDenied();
+  return { uid };
 }
 
 async function writeAdminLog(args: {
@@ -2778,6 +2790,123 @@ async function resolveComplianceCase(uid: string, body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
+// Custom Exam Builder - a signed-in student's own uploaded question bank.
+// Reuses this file's docx-parsing pipeline (fetchAndParse /
+// writeQuestionsBatch / deleteSubcollection, all already defined above)
+// unchanged, but every action here is reachable by any signed-in student,
+// gated on owning the purchases/{uid}_customExamBuilder_capability
+// entitlement instead of an admin role - see verifyAuthedUser's comment.
+// Listing a student's own sets and reading one for taking are done as
+// direct client Firestore reads (firestore.rules already gates those on
+// ownerId), so only the write path (create/delete) and the score-computing
+// path (submit, which needs the private answerKey a student can never read
+// directly) need actions here.
+// ---------------------------------------------------------------------------
+
+const MAX_CUSTOM_EXAM_SETS_PER_USER = 20;
+
+const createCustomExamSetSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  fileUrl: z.string().url(),
+});
+
+async function createCustomExamSet(uid: string, body: unknown) {
+  const parsed = createCustomExamSetSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const purchaseSnap = await db.collection('purchases').doc(`${uid}_customExamBuilder_capability`).get();
+  if (!purchaseSnap.exists) {
+    throw Err.permissionDenied('Buy Custom Exam Builder to upload your own question bank');
+  }
+
+  const existing = await db.collection('customExamSets').where('ownerId', '==', uid).count().get();
+  if (existing.data().count >= MAX_CUSTOM_EXAM_SETS_PER_USER) {
+    throw Err.failedPrecondition(
+      `You've reached the limit of ${MAX_CUSTOM_EXAM_SETS_PER_USER} custom exam sets. Delete one before adding another.`
+    );
+  }
+
+  const {
+    result: { valid, errors, warnings },
+    detectedFormat,
+  } = await fetchAndParse(d.fileUrl);
+  if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
+
+  const now = FieldValue.serverTimestamp();
+  const setRef = db.collection('customExamSets').doc();
+  await setRef.set({
+    ownerId: uid,
+    title: d.title,
+    sourceFormat: detectedFormat,
+    totalQuestions: valid.length,
+    status: 'ready',
+    parseWarnings: warnings,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeQuestionsBatch(setRef, valid);
+
+  return { setId: setRef.id, totalQuestions: valid.length, parseErrors: errors, parseWarnings: warnings };
+}
+
+const customExamSetIdSchema = z.object({ setId: z.string().trim().min(1) });
+
+async function deleteMyCustomExamSet(uid: string, body: unknown) {
+  const parsed = customExamSetIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('customExamSets').doc(parsed.data.setId);
+  const snap = await ref.get();
+  if (!snap.exists) return { success: true }; // already gone
+  if (snap.data()!.ownerId !== uid) throw Err.permissionDenied();
+  await deleteSubcollection(ref, 'questions');
+  await ref.delete();
+  return { success: true };
+}
+
+const submitCustomExamAttemptSchema = z.object({
+  setId: z.string().trim().min(1),
+  mode: z.enum(['practice', 'mock']),
+  // questionId -> the option id the student selected. Unanswered questions
+  // are simply absent from this map - counted wrong, never throws.
+  answers: z.record(z.string()),
+});
+
+async function submitCustomExamAttempt(uid: string, body: unknown) {
+  const parsed = submitCustomExamAttemptSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { setId, mode, answers } = parsed.data;
+
+  const setRef = db.collection('customExamSets').doc(setId);
+  const setSnap = await setRef.get();
+  if (!setSnap.exists) throw Err.notFound('Custom exam set not found');
+  if (setSnap.data()!.ownerId !== uid) throw Err.permissionDenied();
+
+  const qSnap = await setRef.collection('questions').orderBy('order').get();
+  const totalQuestions = qSnap.docs.length;
+  const answerKeySnaps = await db.getAll(...qSnap.docs.map((q) => q.ref.collection('private').doc('answerKey')));
+  let correctCount = 0;
+  qSnap.docs.forEach((q, i) => {
+    const correctOptionId = answerKeySnaps[i].data()?.correctOptionId;
+    if (answers[q.id] && answers[q.id] === correctOptionId) correctCount += 1;
+  });
+  const scorePercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+  const attemptRef = db.collection('customExamAttempts').doc();
+  await attemptRef.set({
+    ownerId: uid,
+    setId,
+    mode,
+    correctCount,
+    totalQuestions,
+    scorePercent,
+    submittedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { attemptId: attemptRef.id, correctCount, totalQuestions, scorePercent };
+}
+
+// ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -2787,9 +2916,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
-    const { uid } = await requireAdmin(req);
+
+    // Every action in this file is admin-only except the Custom Exam
+    // Builder ones, which any signed-in student may call (they gate on that
+    // student's own purchases/{uid}_customExamBuilder_capability
+    // entitlement instead - see createCustomExamSet/deleteMyCustomExamSet/
+    // submitCustomExamAttempt).
+    const STUDENT_REACHABLE_ACTIONS = new Set(['createCustomExamSet', 'deleteMyCustomExamSet', 'submitCustomExamAttempt']);
+    const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
+      ? await verifyAuthedUser(req)
+      : await requireAdmin(req);
 
     switch (action) {
+      case 'createCustomExamSet':
+        res.status(200).json(await createCustomExamSet(uid, data));
+        return;
+      case 'deleteMyCustomExamSet':
+        res.status(200).json(await deleteMyCustomExamSet(uid, data));
+        return;
+      case 'submitCustomExamAttempt':
+        res.status(200).json(await submitCustomExamAttempt(uid, data));
+        return;
       case 'createQuiz':
         res.status(200).json(await createQuiz(uid, data));
         return;

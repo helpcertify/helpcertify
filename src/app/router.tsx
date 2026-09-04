@@ -53,6 +53,8 @@ import { PartnerDetailPage } from '@/features/admin/pages/PartnerDetailPage';
 import { BecomePartnerPage } from '@/features/partner/pages/BecomePartnerPage';
 import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardPage';
 import { CreatorWorkspacePage } from '@/features/creator/pages/CreatorWorkspacePage';
+import { CustomExamsPage } from '@/features/students/pages/CustomExamsPage';
+import { CustomExamTakingPage } from '@/features/students/pages/CustomExamTakingPage';
 import { CreatorAdminPage } from '@/features/admin/pages/CreatorAdminPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
@@ -104,9 +106,11 @@ export function AppRouter() {
           <Route path="/home/partner" element={<PartnerDashboardPage />} />
           <Route path="/home/creator" element={<CreatorWorkspacePage />} />
           <Route path="/home/cart" element={<CartPage />} />
+          <Route path="/home/custom-exams" element={<CustomExamsPage />} />
         </Route>
         <Route path="/quizzes/:quizId/take" element={<QuizTakingPage />} />
         <Route path="/practice-tests/:testId/take" element={<PracticeTakingPage />} />
+        <Route path="/custom-exams/:setId/take" element={<CustomExamTakingPage />} />
       </Route>
 
       {/* finance_admin is a limited staff role: it reaches the admin shell

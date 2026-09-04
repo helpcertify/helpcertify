@@ -40,7 +40,13 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
             {items.map((i) => (
               <div key={`${i.itemType}_${i.itemId}`} className="overflow-hidden rounded-lg border border-surface-border bg-surface">
                 <Link
-                  to={i.itemType === 'quiz' ? '/home' : '/home/practice-tests'}
+                  to={
+                    i.itemType === 'quiz'
+                      ? '/home'
+                      : i.itemType === 'customExamBuilder'
+                        ? '/home/custom-exams'
+                        : '/home/practice-tests'
+                  }
                   onClick={onClose}
                   className="block border-l-4 border-l-[#155EEF] px-4 py-3 hover:bg-brand-500/5"
                 >
