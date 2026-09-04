@@ -233,6 +233,50 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
+
+    // === Creator / Content Partnership (Phase 4b) ===
+    // A creator reads their own roles / contracts / assignments / earnings;
+    // never another creator's. Staff read any. Writes are Admin-SDK only.
+    match /partnerRoles/{id} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /creatorContracts/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/partners/$(resource.data.partnerId)).data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /creatorAssignments/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/partners/$(resource.data.partnerId)).data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /earnings/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/partners/$(resource.data.partnerId)).data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /earningsLedger/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    // A creator reads back their own submissions + the review feedback on
+    // them; reviewers/staff read any. Writes are Admin-SDK only.
+    match /contentSubmissions/{id} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.creatorUid == request.auth.uid);
+      allow write: if false;
+    }
+    match /contentReviews/{id} {
+      allow read: if isStaff() ||
+        (isSignedIn() && get(/databases/$(database)/documents/contentSubmissions/$(resource.data.submissionId)).data.creatorUid == request.auth.uid);
+      allow write: if false;
+    }
+    match /contentItems/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+      match /versions/{v} { allow read: if isStaff(); allow write: if false; }
+    }
+    match /contentComplianceCases/{id} { allow read: if isStaff(); allow write: if false; }
     // products / offers are shown on the "become a partner" page.
     match /products/{productId} {
       allow read: if isSignedIn();

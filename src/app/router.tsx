@@ -48,8 +48,11 @@ import { ProductsPricingPage } from '@/features/admin/pages/ProductsPricingPage'
 import { CertificationEditorPage } from '@/features/admin/pages/CertificationEditorPage';
 import { PartnerApplicationsPage } from '@/features/admin/pages/PartnerApplicationsPage';
 import { PayoutsPage } from '@/features/admin/pages/PayoutsPage';
+import { PartnerDetailPage } from '@/features/admin/pages/PartnerDetailPage';
 import { BecomePartnerPage } from '@/features/partner/pages/BecomePartnerPage';
 import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardPage';
+import { CreatorWorkspacePage } from '@/features/creator/pages/CreatorWorkspacePage';
+import { CreatorAdminPage } from '@/features/admin/pages/CreatorAdminPage';
 
 // v2 route map (Quiz + Practice Test platform). Replaced the v1
 // course/exam/certificate routes on 2026-08-22 - see
@@ -97,6 +100,7 @@ export function AppRouter() {
           <Route path="/home/help" element={<HelpPage />} />
           <Route path="/home/become-a-partner" element={<BecomePartnerPage />} />
           <Route path="/home/partner" element={<PartnerDashboardPage />} />
+          <Route path="/home/creator" element={<CreatorWorkspacePage />} />
           <Route path="/home/cart" element={<CartPage />} />
         </Route>
         <Route path="/quizzes/:quizId/take" element={<QuizTakingPage />} />
@@ -127,6 +131,8 @@ export function AppRouter() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/referrals" element={<AdminReferralAuditPage />} />
           <Route path="/admin/partners" element={<PartnerApplicationsPage />} />
+          <Route path="/admin/partners/:partnerId" element={<PartnerDetailPage />} />
+          <Route path="/admin/creators" element={<CreatorAdminPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

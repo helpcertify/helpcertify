@@ -46,6 +46,70 @@ export interface PartnerRow {
   createdAt: unknown;
 }
 
+export interface PartnerDetail {
+  partnerId: string;
+  header: {
+    legalName: string;
+    displayName: string;
+    status: string;
+    payoutStatus: string;
+    partnerType: string;
+    createdAt: unknown;
+    applicationDate: unknown;
+  };
+  contact: {
+    email: string | null;
+    phone: string | null;
+    dateOfBirth: string | null;
+    address: string | null;
+    emailVerified: boolean;
+  };
+  tax: {
+    country: string;
+    panMasked: string | null;
+    panStatus: string | null;
+    panName: string | null;
+    gstinMasked: string | null;
+    duplicatePanFlag: boolean;
+    verifiedAt: unknown;
+    verificationRef: string | null;
+  };
+  payout: {
+    method: string;
+    accountName: string;
+    bankAccountLast4: string | null;
+    bankIfsc: string | null;
+    upiVpa: string | null;
+  } | null;
+  agreements: { version: string; acceptedAt: unknown }[];
+  codes: { code: string; active: boolean }[];
+  creatorRoles: { role: string; status: string }[];
+  creatorEarnings: {
+    count: number;
+    pendingMinor: number;
+    payableMinor: number;
+    paidMinor: number;
+    reversedMinor: number;
+  };
+  performance: {
+    referralEventCount: number;
+    commissionCount: number;
+    pendingMinor: number;
+    payableMinor: number;
+    paidMinor: number;
+    reversedMinor: number;
+  };
+  payouts: {
+    id: string;
+    periodLabel: string;
+    netMinor: number;
+    currency: string;
+    status: string;
+    externalReference: string | null;
+  }[];
+  audit: { action: string; actorId: string; reason: string | null; createdAt: unknown }[];
+}
+
 export interface PartnerKycMasked {
   partnerId: string;
   country: string;
@@ -137,6 +201,9 @@ export interface PayableGroup {
   displayName: string;
   currency: string;
   commissionIds: string[];
+  earningIds: string[];
+  commissionMinor: number;
+  earningMinor: number;
   grossMinor: number;
   meetsMinimum: boolean;
   hasPayoutDetails: boolean;
@@ -205,6 +272,8 @@ export const partnerAdminApi = {
     callAction<{ status: string; codesAffected: number }>('admin', 'reactivatePartner', payload),
   getPartnerKyc: (payload: { partnerId: string }) =>
     callAction<PartnerKycMasked>('admin', 'getPartnerKycMasked', payload),
+  getPartnerDetail: (payload: { partnerId: string }) =>
+    callAction<PartnerDetail>('admin', 'getPartnerDetail', payload),
   revealPartnerPan: (payload: { partnerId: string; reason: string }) =>
     callAction<{ pan: string }>('admin', 'revealPartnerPan', payload),
   setPartnerPayoutStatus: (payload: {

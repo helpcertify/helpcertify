@@ -2192,6 +2192,591 @@ async function getAuditHistoryForCertification(body: unknown) {
   return { entries };
 }
 
+// --- Creator / Content Partnership (Phase 4b), staff-facing -------------
+// In the pilot every action here is admin-only (see requireAdmin). A
+// dedicated content_reviewer / content_publisher role is added in 4b-2
+// alongside the review + publish workflow.
+const CREATOR_ROLES = ['course_creator', 'practice_test_creator', 'mock_test_creator', 'reviewer'] as const;
+const CREATOR_AGREEMENT_VERSION = '2026-09-04';
+
+async function listCreatorApplications(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q: FirebaseFirestore.Query = db.collection('partnerRoles');
+  if (status && ['APPLIED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+    q = q.where('status', '==', status);
+  }
+  const snap = await q.limit(300).get();
+  const rows = await Promise.all(
+    snap.docs.map(async (d) => {
+      const r = d.data();
+      const p = (await db.collection('partners').doc(r.partnerId as string).get()).data();
+      return {
+        id: d.id,
+        partnerId: r.partnerId as string,
+        partnerName: (p?.displayName as string) ?? (r.partnerId as string),
+        role: r.role as string,
+        status: r.status as string,
+        subjectExpertise: (r.subjectExpertise as string[]) ?? [],
+        qualifications: (r.qualifications as string | null) ?? null,
+        sampleUrl: (r.sampleUrl as string | null) ?? null,
+        reviewNote: (r.reviewNote as string | null) ?? null,
+        appliedAt: r.appliedAt ?? null,
+      };
+    }),
+  );
+  rows.sort((a, b) => Number((b.appliedAt as { toMillis?: () => number })?.toMillis?.() ?? 0) - Number((a.appliedAt as { toMillis?: () => number })?.toMillis?.() ?? 0));
+  return { applications: rows };
+}
+
+const reviewCreatorRoleSchema = z.object({
+  roleDocId: z.string().trim().min(1),
+  decision: z.enum(['approve', 'reject', 'suspend', 'reinstate']),
+  note: z.string().trim().max(500).optional(),
+});
+
+async function reviewCreatorRole(uid: string, body: unknown) {
+  const parsed = reviewCreatorRoleSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { roleDocId, decision, note } = parsed.data;
+  const ref = db.collection('partnerRoles').doc(roleDocId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Role application not found');
+  const cur = snap.data()!.status as string;
+
+  const next =
+    decision === 'approve'
+      ? 'APPROVED'
+      : decision === 'reject'
+        ? 'REJECTED'
+        : decision === 'suspend'
+          ? 'SUSPENDED'
+          : 'APPROVED'; // reinstate
+  if (decision === 'approve' && !['APPLIED', 'UNDER_REVIEW'].includes(cur)) {
+    throw Err.failedPrecondition(`Can only approve an applied role (this one is ${cur}).`);
+  }
+  if (decision === 'suspend' && cur !== 'APPROVED') throw Err.failedPrecondition('Only an approved role can be suspended.');
+  if (decision === 'reinstate' && cur !== 'SUSPENDED') throw Err.failedPrecondition('Only a suspended role can be reinstated.');
+
+  await ref.update({ status: next, reviewedBy: uid, reviewNote: note ?? null, updatedAt: FieldValue.serverTimestamp() });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'reviewCreatorRole',
+    targetType: 'partnerRole',
+    targetId: roleDocId,
+    description: `${decision} creator role (${cur} -> ${next})`,
+    previousValue: { status: cur },
+    newValue: { status: next },
+    reason: note,
+  });
+  return { status: next };
+}
+
+const saveCreatorContractSchema = z.object({
+  contractId: z.string().trim().min(1).max(60).optional(),
+  partnerId: z.string().trim().min(1),
+  role: z.enum(CREATOR_ROLES),
+  scopeType: z.enum(['certification', 'domain', 'series']),
+  scopeRef: z.string().trim().max(120).optional(),
+  compensationModel: z.enum(['FIXED', 'PER_ITEM', 'REVIEW']),
+  rateMinor: z.number().int().positive(),
+  deliverables: z.string().trim().min(4).max(2000),
+  acceptanceCriteria: z.string().trim().min(4).max(2000),
+  dueAt: z.string().datetime().optional(),
+  ipAssignment: z.enum(['ASSIGN', 'LICENCE']).default('ASSIGN'),
+  originalityDeclarationRequired: z.boolean().default(true),
+  aiDisclosureRequired: z.boolean().default(true),
+});
+
+async function saveCreatorContract(uid: string, body: unknown) {
+  const parsed = saveCreatorContractSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  // Rate sanity (mirror src/features/creator/lib/creatorRole.ts).
+  if (d.compensationModel === 'FIXED' && d.rateMinor > 5_000_000) {
+    throw Err.invalidArgument('A fixed fee over the configured ceiling needs finance sign-off.');
+  }
+  if (d.compensationModel !== 'FIXED' && d.rateMinor > 100_000) {
+    throw Err.invalidArgument('Per-item rate is unusually high - confirm the value.');
+  }
+
+  // The partner must hold the matching APPROVED creator role.
+  const roleSnap = await db.collection('partnerRoles').doc(`${d.partnerId}__${d.role}`).get();
+  if (roleSnap.data()?.status !== 'APPROVED') {
+    throw Err.failedPrecondition('That partner does not hold an approved role for this contract.');
+  }
+
+  const ref = d.contractId ? db.collection('creatorContracts').doc(d.contractId) : db.collection('creatorContracts').doc();
+  const existing = d.contractId ? (await ref.get()).data() : null;
+  const now = FieldValue.serverTimestamp();
+  await ref.set(
+    {
+      partnerId: d.partnerId,
+      role: d.role,
+      productId: 'HELPCERTIFY',
+      scopeType: d.scopeType,
+      scopeRef: d.scopeRef ?? null,
+      compensationModel: d.compensationModel,
+      rateMinor: d.rateMinor,
+      deliverables: d.deliverables,
+      acceptanceCriteria: d.acceptanceCriteria,
+      dueAt: d.dueAt ? Timestamp.fromDate(new Date(d.dueAt)) : null,
+      ipAssignment: d.ipAssignment,
+      originalityDeclarationRequired: d.originalityDeclarationRequired,
+      aiDisclosureRequired: d.aiDisclosureRequired,
+      agreementVersion: CREATOR_AGREEMENT_VERSION,
+      status: 'ACTIVE',
+      createdBy: existing?.createdBy ?? uid,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+  await writeAdminLog({
+    performedBy: uid,
+    action: d.contractId ? 'updateCreatorContract' : 'createCreatorContract',
+    targetType: 'creatorContract',
+    targetId: ref.id,
+    description: `${d.compensationModel} contract for ${d.partnerId} (${d.role})`,
+  });
+  return { contractId: ref.id };
+}
+
+const createCreatorAssignmentSchema = z.object({
+  contractId: z.string().trim().min(1),
+  title: z.string().trim().min(3).max(160),
+  targetType: z.enum(['quiz', 'practiceTest', 'questionBank', 'mockTest']),
+  dueAt: z.string().datetime().optional(),
+});
+
+async function createCreatorAssignment(uid: string, body: unknown) {
+  const parsed = createCreatorAssignmentSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const cSnap = await db.collection('creatorContracts').doc(d.contractId).get();
+  const c = cSnap.data();
+  if (!cSnap.exists || c?.status !== 'ACTIVE') throw Err.invalidArgument('Contract not found or not active');
+
+  const now = FieldValue.serverTimestamp();
+  const ref = await db.collection('creatorAssignments').add({
+    contractId: d.contractId,
+    partnerId: c!.partnerId as string,
+    productId: 'HELPCERTIFY',
+    title: d.title,
+    targetType: d.targetType,
+    targetRef: null,
+    status: 'ASSIGNED',
+    acceptedItemCount: 0,
+    dueAt: d.dueAt ? Timestamp.fromDate(new Date(d.dueAt)) : (c!.dueAt ?? null),
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'createCreatorAssignment',
+    targetType: 'creatorAssignment',
+    targetId: ref.id,
+    description: `Assigned "${d.title}" to ${c!.partnerId}`,
+  });
+  return { assignmentId: ref.id };
+}
+
+async function listCreatorContractsAdmin(data: unknown) {
+  const partnerId = (data as { partnerId?: string })?.partnerId;
+  let q: FirebaseFirestore.Query = db.collection('creatorContracts');
+  if (partnerId) q = q.where('partnerId', '==', partnerId);
+  const snap = await q.limit(200).get();
+  return { contracts: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+async function listCreatorAssignmentsAdmin(data: unknown) {
+  const partnerId = (data as { partnerId?: string })?.partnerId;
+  let q: FirebaseFirestore.Query = db.collection('creatorAssignments');
+  if (partnerId) q = q.where('partnerId', '==', partnerId);
+  const snap = await q.limit(300).get();
+  return { assignments: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+// --- Content review + publish (Phase 4b-2), staff-facing ----------------
+// Separation of duties (PRD 9B/19): a creator can never review or publish
+// their own work, and the publisher must differ from the reviewer. Enforced
+// by uid here. Tested spec: src/features/creator/lib/reviewGuards.ts.
+
+async function listContentSubmissionsAdmin(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q: FirebaseFirestore.Query = db.collection('contentSubmissions');
+  if (status) q = q.where('status', '==', status);
+  const snap = await q.limit(300).get();
+  const rows = await Promise.all(
+    snap.docs.map(async (d) => {
+      const s = d.data();
+      const p = (await db.collection('partners').doc(s.partnerId as string).get()).data();
+      return {
+        id: d.id,
+        assignmentId: s.assignmentId as string,
+        partnerId: s.partnerId as string,
+        partnerName: (p?.displayName as string) ?? (s.partnerId as string),
+        title: s.title as string,
+        version: Number(s.version) || 1,
+        itemCount: Number(s.itemCount) || 0,
+        status: s.status as string,
+        duplicateHits: s.automatedChecks?.duplicateHits?.length ?? 0,
+        leakedPhraseHits: s.automatedChecks?.leakedPhraseHits?.length ?? 0,
+        reviewerUid: (s.reviewerUid as string | null) ?? null,
+        submittedAt: s.submittedAt ?? null,
+      };
+    }),
+  );
+  rows.sort((a, b) => Number((b.submittedAt as { toMillis?: () => number })?.toMillis?.() ?? 0) - Number((a.submittedAt as { toMillis?: () => number })?.toMillis?.() ?? 0));
+  return { submissions: rows };
+}
+
+async function getContentSubmissionAdmin(data: unknown) {
+  const parsed = z.object({ submissionId: z.string().trim().min(1) }).safeParse(data);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const snap = await db.collection('contentSubmissions').doc(parsed.data.submissionId).get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  const reviews = await db.collection('contentReviews').where('submissionId', '==', parsed.data.submissionId).limit(20).get();
+  return {
+    submission: { id: snap.id, ...s },
+    reviews: reviews.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => Number((b as { decidedAt?: { toMillis?: () => number } }).decidedAt?.toMillis?.() ?? 0) - Number((a as { decidedAt?: { toMillis?: () => number } }).decidedAt?.toMillis?.() ?? 0)),
+  };
+}
+
+const decideReviewSchema = z.object({
+  submissionId: z.string().trim().min(1),
+  decision: z.enum(['approve', 'changes', 'reject', 'flag_cleared', 'flag_upheld']),
+  note: z.string().trim().max(2000).optional(),
+  itemComments: z.array(z.object({ itemIndex: z.number().int().min(0), comment: z.string().trim().min(1).max(1000) })).max(200).default([]),
+  acceptedItemCount: z.number().int().min(0).optional(),
+  conflictOfInterestChecked: z.boolean().default(true),
+});
+
+async function decideContentReview(uid: string, body: unknown) {
+  const parsed = decideReviewSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const ref = db.collection('contentSubmissions').doc(d.submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  const cur = s.status as string;
+
+  if (s.creatorUid === uid) throw Err.failedPrecondition('A creator cannot review their own submission.');
+
+  const map: Record<string, { from: string[]; to: string }> = {
+    approve: { from: ['SME_REVIEW'], to: 'APPROVED' },
+    changes: { from: ['SME_REVIEW'], to: 'CHANGES_REQUIRED' },
+    reject: { from: ['SME_REVIEW', 'FLAGGED'], to: 'REJECTED' },
+    flag_cleared: { from: ['FLAGGED'], to: 'SME_REVIEW' },
+    flag_upheld: { from: ['FLAGGED'], to: 'REJECTED' },
+  };
+  const t = map[d.decision];
+  if (!t.from.includes(cur)) throw Err.failedPrecondition(`Cannot ${d.decision} a submission that is ${cur}.`);
+
+  const now = FieldValue.serverTimestamp();
+  const accepted =
+    d.decision === 'approve'
+      ? (d.acceptedItemCount ?? (Number(s.itemCount) || 0))
+      : (Number(s.acceptedItemCount) || 0);
+
+  const batch = db.batch();
+  batch.update(ref, {
+    status: t.to,
+    reviewerUid: uid,
+    reviewNote: d.note ?? null,
+    acceptedItemCount: accepted,
+    updatedAt: now,
+  });
+  batch.set(db.collection('contentReviews').doc(), {
+    submissionId: d.submissionId,
+    submissionVersion: Number(s.version) || 1,
+    reviewerUid: uid,
+    decision:
+      d.decision === 'approve'
+        ? 'APPROVE'
+        : d.decision === 'changes'
+          ? 'CHANGES_REQUIRED'
+          : d.decision === 'reject'
+            ? 'REJECT'
+            : d.decision === 'flag_cleared'
+              ? 'FLAG_CLEARED'
+              : 'FLAG_UPHELD',
+    itemComments: d.itemComments,
+    note: d.note ?? null,
+    conflictOfInterestChecked: d.conflictOfInterestChecked,
+    decidedAt: now,
+  });
+  if (d.decision === 'flag_cleared' || d.decision === 'flag_upheld') {
+    const cases = await db.collection('contentComplianceCases').where('submissionId', '==', d.submissionId).where('status', '==', 'OPEN').get();
+    cases.docs.forEach((c) =>
+      batch.update(c.ref, { status: d.decision === 'flag_cleared' ? 'DISMISSED' : 'UPHELD', resolvedBy: uid, resolvedAt: now }),
+    );
+  }
+  await batch.commit();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'decideContentReview',
+    targetType: 'contentSubmission',
+    targetId: d.submissionId,
+    description: `${d.decision} (${cur} -> ${t.to})`,
+    previousValue: { status: cur },
+    newValue: { status: t.to },
+    reason: d.note,
+  });
+  return { status: t.to };
+}
+
+async function publishContentSubmission(uid: string, body: unknown) {
+  const parsed = z.object({ submissionId: z.string().trim().min(1), changeNote: z.string().trim().max(500).optional() }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('contentSubmissions').doc(parsed.data.submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  if (s.status !== 'APPROVED') throw Err.failedPrecondition(`Only an APPROVED submission can be published (this is ${s.status}).`);
+  if (s.creatorUid === uid) throw Err.failedPrecondition('A creator cannot publish their own submission.');
+  if (s.reviewerUid === uid) throw Err.failedPrecondition('The reviewer cannot also publish - a second staff member must publish.');
+
+  const aSnap = await db.collection('creatorAssignments').doc(s.assignmentId as string).get();
+  const contractId = aSnap.data()?.contractId as string;
+  const items = (s.items as { stem: string; options: string[]; answer: string; explanation: string }[]) ?? [];
+  const acceptedCount = Number(s.acceptedItemCount) || items.length;
+  const toPublish = items.slice(0, acceptedCount);
+
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  const itemIds: string[] = [];
+  for (const item of toPublish) {
+    const ciRef = db.collection('contentItems').doc();
+    itemIds.push(ciRef.id);
+    batch.set(ciRef, {
+      productId: 'HELPCERTIFY',
+      creatorContractId: contractId ?? null,
+      submissionId: parsed.data.submissionId,
+      partnerId: s.partnerId,
+      assignmentId: s.assignmentId,
+      currentVersion: 1,
+      status: 'PUBLISHED',
+      createdAt: now,
+      updatedAt: now,
+    });
+    batch.set(ciRef.collection('versions').doc('1'), {
+      version: 1,
+      item,
+      publishedBy: uid,
+      publishedAt: now,
+      changeNote: parsed.data.changeNote ?? null,
+    });
+  }
+  batch.update(ref, { status: 'PUBLISHED', publishedBy: uid, contentItemIds: itemIds, updatedAt: now });
+  batch.update(db.collection('creatorAssignments').doc(s.assignmentId as string), {
+    status: 'ACCEPTED',
+    acceptedItemCount: FieldValue.increment(toPublish.length),
+    updatedAt: now,
+  });
+
+  // --- Earnings (Phase 4b-3). Separate liability from sales commission;
+  // shares the payout batches. Held for a correction window, then released
+  // by the same daily cron. Tested spec:
+  // src/features/creator/lib/creatorEarnings.ts.
+  const guardSnap = await db.collection('appSettings').doc('creatorEarnings').get();
+  const holdDays = Number(guardSnap.data()?.holdDays) > 0 ? Math.floor(Number(guardSnap.data()!.holdDays)) : 14;
+  const holdUntil = Timestamp.fromMillis(Date.now() + holdDays * 24 * 60 * 60 * 1000);
+  const contract = contractId ? (await db.collection('creatorContracts').doc(contractId).get()).data() : null;
+
+  const mkEarning = (
+    id: string,
+    partnerId: string,
+    type: string,
+    sourceType: string,
+    sourceRef: string,
+    qty: number,
+    rateMinor: number,
+  ) => {
+    const gross = Math.max(0, Math.floor(rateMinor)) * Math.max(0, Math.floor(qty));
+    if (gross <= 0) return;
+    batch.set(
+      db.collection('earnings').doc(id),
+      {
+        partnerId,
+        productId: 'HELPCERTIFY',
+        type,
+        sourceType,
+        sourceRef,
+        contractId: contractId ?? null,
+        qty,
+        rateMinor: Math.floor(rateMinor),
+        grossMinor: gross,
+        deductionsMinor: 0,
+        netMinor: gross,
+        currency: 'INR',
+        status: 'PENDING_HOLD',
+        holdUntil,
+        reversedMinor: 0,
+        payoutBatchId: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      { merge: false },
+    );
+    batch.set(db.collection('earningsLedger').doc(), {
+      earningId: id,
+      partnerId,
+      fromStatus: null,
+      toStatus: 'PENDING_HOLD',
+      amountMinor: gross,
+      reason: `${type} on publish of submission ${parsed.data.submissionId}`,
+      actorId: uid,
+      actorType: 'staff',
+      createdAt: now,
+    });
+  };
+
+  if (contract) {
+    const model = contract.compensationModel as string;
+    const rate = Number(contract.rateMinor) || 0;
+    if (model === 'FIXED') {
+      const fid = `assignment_${s.assignmentId}_${s.partnerId}`;
+      if (!(await db.collection('earnings').doc(fid).get()).exists) {
+        mkEarning(fid, s.partnerId as string, 'CREATOR_FIXED_FEE', 'assignment', s.assignmentId as string, 1, rate);
+      }
+    } else if (model === 'PER_ITEM') {
+      mkEarning(
+        `submission_${parsed.data.submissionId}_${s.partnerId}`,
+        s.partnerId as string,
+        'CREATOR_ITEM_FEE',
+        'submission',
+        parsed.data.submissionId,
+        toPublish.length,
+        rate,
+      );
+    }
+  }
+
+  // Reviewer fee - if the reviewer is a partner with an active REVIEW contract.
+  if (s.reviewerUid) {
+    const reviewerPartnerId = (await db.collection('users').doc(s.reviewerUid as string).get()).data()?.partnerId as
+      | string
+      | undefined;
+    if (reviewerPartnerId) {
+      const revContract = (await db.collection('creatorContracts').where('partnerId', '==', reviewerPartnerId).limit(20).get()).docs
+        .map((d) => d.data())
+        .find((c) => c.compensationModel === 'REVIEW' && c.status === 'ACTIVE');
+      if (revContract) {
+        mkEarning(
+          `review_${parsed.data.submissionId}_${reviewerPartnerId}`,
+          reviewerPartnerId,
+          'REVIEWER_FEE',
+          'review',
+          parsed.data.submissionId,
+          toPublish.length,
+          Number(revContract.rateMinor) || 0,
+        );
+      }
+    }
+  }
+
+  await batch.commit();
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'publishContentSubmission',
+    targetType: 'contentSubmission',
+    targetId: parsed.data.submissionId,
+    description: `Published ${toPublish.length} item(s) from ${s.partnerId}`,
+  });
+  // Wiring the accepted items into a live quiz / practice test / question
+  // bank is done through the existing admin import (createBatchedSeries /
+  // question editor) - deliberately reused, not forked.
+  return { status: 'PUBLISHED' as const, itemsPublished: toPublish.length };
+}
+
+async function listComplianceCases(data: unknown) {
+  const status = (data as { status?: string })?.status ?? 'OPEN';
+  const snap = await db.collection('contentComplianceCases').where('status', '==', status).limit(200).get();
+  return { cases: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+async function resolveComplianceCase(uid: string, body: unknown) {
+  const parsed = z
+    .object({ caseId: z.string().trim().min(1), decision: z.enum(['uphold', 'dismiss']), quarantine: z.boolean().default(false) })
+    .safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('contentComplianceCases').doc(parsed.data.caseId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Case not found');
+  const c = snap.data()!;
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.update(ref, {
+    status: parsed.data.decision === 'uphold' ? 'UPHELD' : 'DISMISSED',
+    quarantined: parsed.data.quarantine,
+    resolvedBy: uid,
+    resolvedAt: now,
+  });
+  if (parsed.data.quarantine && c.contentItemId) {
+    const ciSnap = await db.collection('contentItems').doc(c.contentItemId as string).get();
+    const ci = ciSnap.data();
+    batch.update(ciSnap.ref, { status: 'QUARANTINED', updatedAt: now });
+
+    // Reverse the creator earning tied to the quarantined content. Not yet
+    // paid -> REVERSED; already paid -> a RECOVERABLE ledger row (history
+    // preserved). Reviewer fee is left intact.
+    if (ci) {
+      const candidates = [
+        `submission_${ci.submissionId}_${ci.partnerId}`,
+        `assignment_${ci.assignmentId}_${ci.partnerId}`,
+      ];
+      for (const eid of candidates) {
+        const eSnap = await db.collection('earnings').doc(eid).get();
+        if (!eSnap.exists) continue;
+        const cur = eSnap.data()!.status as string;
+        const net = Number(eSnap.data()!.netMinor) || 0;
+        if (['PENDING_HOLD', 'APPROVED', 'PAYABLE'].includes(cur)) {
+          batch.update(eSnap.ref, { status: 'REVERSED', reversedMinor: net, updatedAt: now });
+          batch.set(db.collection('earningsLedger').doc(), {
+            earningId: eid,
+            partnerId: ci.partnerId,
+            fromStatus: cur,
+            toStatus: 'REVERSED',
+            amountMinor: -net,
+            reason: `Content quarantined (case ${parsed.data.caseId})`,
+            actorId: uid,
+            actorType: 'staff',
+            createdAt: now,
+          });
+        } else if (['PROCESSING', 'PAID'].includes(cur)) {
+          batch.set(db.collection('earningsLedger').doc(), {
+            earningId: eid,
+            partnerId: ci.partnerId,
+            fromStatus: cur,
+            toStatus: 'RECOVERABLE',
+            amountMinor: -net,
+            reason: `Content quarantined after payout (case ${parsed.data.caseId})`,
+            actorId: uid,
+            actorType: 'staff',
+            createdAt: now,
+          });
+        }
+      }
+    }
+  }
+  await batch.commit();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'resolveComplianceCase',
+    targetType: 'contentComplianceCase',
+    targetId: parsed.data.caseId,
+    description: `${parsed.data.decision}${parsed.data.quarantine ? ' + quarantine' : ''}`,
+  });
+  return { status: parsed.data.decision === 'uphold' ? 'UPHELD' : 'DISMISSED' };
+}
+
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -2318,6 +2903,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getAuditHistoryForCertification':
         res.status(200).json(await getAuditHistoryForCertification(data));
+        return;
+      // --- Creator / Content Partnership (Phase 4b) ---
+      case 'listCreatorApplications':
+        res.status(200).json(await listCreatorApplications(data));
+        return;
+      case 'reviewCreatorRole':
+        res.status(200).json(await reviewCreatorRole(uid, data));
+        return;
+      case 'saveCreatorContract':
+        res.status(200).json(await saveCreatorContract(uid, data));
+        return;
+      case 'createCreatorAssignment':
+        res.status(200).json(await createCreatorAssignment(uid, data));
+        return;
+      case 'listCreatorContractsAdmin':
+        res.status(200).json(await listCreatorContractsAdmin(data));
+        return;
+      case 'listCreatorAssignmentsAdmin':
+        res.status(200).json(await listCreatorAssignmentsAdmin(data));
+        return;
+      case 'listContentSubmissionsAdmin':
+        res.status(200).json(await listContentSubmissionsAdmin(data));
+        return;
+      case 'getContentSubmissionAdmin':
+        res.status(200).json(await getContentSubmissionAdmin(data));
+        return;
+      case 'decideContentReview':
+        res.status(200).json(await decideContentReview(uid, data));
+        return;
+      case 'publishContentSubmission':
+        res.status(200).json(await publishContentSubmission(uid, data));
+        return;
+      case 'listComplianceCases':
+        res.status(200).json(await listComplianceCases(data));
+        return;
+      case 'resolveComplianceCase':
+        res.status(200).json(await resolveComplianceCase(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

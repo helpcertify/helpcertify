@@ -73,6 +73,70 @@ export function canCancelBatch(status: PayoutBatchStatus): BatchTransition {
   return { ok: true };
 }
 
+export interface PayableEarning {
+  id: string;
+  partnerId: string;
+  netMinor: number;
+  currency: string;
+}
+
+export interface CombinedPayoutGroup {
+  partnerId: string;
+  currency: string;
+  commissionIds: string[];
+  earningIds: string[];
+  commissionMinor: number;
+  earningMinor: number;
+  grossMinor: number;
+  meetsMinimum: boolean;
+}
+
+/** Sales commissions and creator/reviewer earnings are separate liabilities
+ * but share ONE payout run (PRD 9A). Groups both per partner+currency and
+ * sums to a single gross - the batch total must equal the sum of every
+ * included net line item (PRD 19). Mirrors api/admin.ts gatherPayable. */
+export function combinePayable(
+  commissions: PayableCommission[],
+  earnings: PayableEarning[],
+  minPayoutMinor: number = MIN_PAYOUT_MINOR,
+): CombinedPayoutGroup[] {
+  const byKey = new Map<string, CombinedPayoutGroup>();
+  const grp = (partnerId: string, currency: string): CombinedPayoutGroup => {
+    const key = `${partnerId}::${currency}`;
+    const g =
+      byKey.get(key) ??
+      {
+        partnerId,
+        currency,
+        commissionIds: [],
+        earningIds: [],
+        commissionMinor: 0,
+        earningMinor: 0,
+        grossMinor: 0,
+        meetsMinimum: false,
+      };
+    byKey.set(key, g);
+    return g;
+  };
+  for (const c of commissions) {
+    const g = grp(c.partnerId, c.currency);
+    g.commissionIds.push(c.id);
+    const m = Math.max(0, c.netPayableMinor);
+    g.commissionMinor += m;
+    g.grossMinor += m;
+  }
+  for (const e of earnings) {
+    const g = grp(e.partnerId, e.currency);
+    g.earningIds.push(e.id);
+    const m = Math.max(0, e.netMinor);
+    g.earningMinor += m;
+    g.grossMinor += m;
+  }
+  const groups = [...byKey.values()];
+  for (const g of groups) g.meetsMinimum = g.grossMinor >= minPayoutMinor;
+  return groups.sort((a, b) => b.grossMinor - a.grossMinor);
+}
+
 /** Masks a value to its last n characters, e.g. bank account -> "•••3456". */
 export function maskTail(value: string | null | undefined, keep = 4): string | null {
   if (!value) return null;

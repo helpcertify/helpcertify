@@ -1431,3 +1431,232 @@ export interface PayoutDoc {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+// ===========================================================================
+// Creator / Content Partnership (PRD sec 9A/9B) - Phase 4b.
+// Creator earnings are a SEPARATE liability from sales commission: different
+// collections, types and agreements, sharing only the payout infrastructure.
+// ===========================================================================
+
+export type CreatorRole = 'course_creator' | 'practice_test_creator' | 'mock_test_creator' | 'reviewer';
+export type PartnerRoleStatus = 'APPLIED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
+/** partnerRoles/{partnerId}__{role} - an independently approved capability on
+ * one partner identity. Doc id ties the two together so a partner has at
+ * most one row per role. Suspending one role never touches the others. */
+export interface PartnerRoleDoc {
+  partnerId: string;
+  linkedUserId: string;
+  productId: ProductId;
+  role: CreatorRole;
+  status: PartnerRoleStatus;
+  subjectExpertise: string[];
+  qualifications: string | null;
+  sampleUrl: string | null;
+  agreementVersion: string;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  appliedAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type CreatorCompensationModel = 'FIXED' | 'PER_ITEM' | 'REVIEW';
+export type CreatorIpAssignment = 'ASSIGN' | 'LICENCE';
+export type CreatorContractStatus = 'ACTIVE' | 'ENDED';
+
+/** creatorContracts/{contractId} - the commercial terms for a creator's
+ * work on a defined scope. Pilot models: FIXED assignment fee, PER_ITEM
+ * fee, REVIEW fee. Revenue-share / royalty are deferred (PRD 9A: only after
+ * sales reconciliation). Frozen onto each earning at generation time. */
+export interface CreatorContractDoc {
+  partnerId: string;
+  role: CreatorRole;
+  productId: ProductId;
+  scopeType: 'certification' | 'domain' | 'series';
+  scopeRef: string | null;
+  compensationModel: CreatorCompensationModel;
+  rateMinor: number; // FIXED: whole fee; PER_ITEM / REVIEW: per accepted item
+  deliverables: string;
+  acceptanceCriteria: string;
+  dueAt: Timestamp | null;
+  ipAssignment: CreatorIpAssignment;
+  originalityDeclarationRequired: boolean;
+  aiDisclosureRequired: boolean;
+  agreementVersion: string;
+  status: CreatorContractStatus;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type CreatorAssignmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'ACCEPTED' | 'RETURNED';
+
+/** creatorAssignments/{assignmentId} - one concrete piece of work under a
+ * contract. targetRef is null until the accepted content is published into
+ * the existing quiz / practice-test / question-bank. */
+export interface CreatorAssignmentDoc {
+  contractId: string;
+  partnerId: string;
+  productId: ProductId;
+  title: string;
+  targetType: 'quiz' | 'practiceTest' | 'questionBank' | 'mockTest';
+  targetRef: string | null;
+  status: CreatorAssignmentStatus;
+  acceptedItemCount: number;
+  dueAt: Timestamp | null;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export type EarningType =
+  | 'CREATOR_FIXED_FEE'
+  | 'CREATOR_ITEM_FEE'
+  | 'REVIEWER_FEE'
+  | 'REVERSAL';
+
+/** earnings/{earningId} - a creator/reviewer liability. Reuses the commission
+ * status vocabulary (PENDING_HOLD -> PAYABLE -> PROCESSING -> PAID / REVERSED)
+ * and the same payout batches, but is calculated by its own rules and never
+ * mixed into a commission total. Written from Phase 4b-3 onward. */
+export interface EarningDoc {
+  partnerId: string;
+  productId: ProductId;
+  type: EarningType;
+  sourceType: 'assignment' | 'submission' | 'review';
+  sourceRef: string;
+  contractId: string | null;
+  qty: number;
+  rateMinor: number;
+  grossMinor: number;
+  deductionsMinor: number;
+  netMinor: number;
+  currency: string;
+  status: CommissionStatus;
+  holdUntil: Timestamp | null;
+  reversedMinor: number;
+  payoutBatchId: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** earningsLedger/{id} - append-only, mirrors commissionLedger. */
+export interface EarningsLedgerDoc {
+  earningId: string;
+  partnerId: string;
+  fromStatus: CommissionStatus | null;
+  toStatus: CommissionStatus;
+  amountMinor: number;
+  reason: string;
+  actorId: string;
+  actorType: AuditActorType;
+  createdAt: Timestamp;
+}
+
+// --- Content submission -> review -> publish (Phase 4b-2) ------------------
+
+export type SubmissionStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'AUTOMATED_CHECKS'
+  | 'FLAGGED'
+  | 'SME_REVIEW'
+  | 'CHANGES_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'WITHDRAWN'
+  | 'PUBLISHED';
+
+export interface SubmissionItem {
+  stem: string;
+  options: string[];
+  answer: string; // the correct option text or letter
+  explanation: string;
+}
+
+export interface SubmissionDeclarations {
+  originality: boolean;
+  aiAssisted: boolean;
+  aiVerifiedBy: string | null;
+  noLeakedExam: boolean;
+}
+
+/** contentSubmissions/{id} - one creator's submission against an assignment.
+ * `version` bumps on every resubmit; the payload is a structured item list
+ * (doc-upload parsing stays admin-side, per the 4b decision). */
+export interface ContentSubmissionDoc {
+  assignmentId: string;
+  partnerId: string;
+  creatorUid: string;
+  version: number;
+  title: string;
+  items: SubmissionItem[];
+  itemCount: number;
+  declarations: SubmissionDeclarations;
+  status: SubmissionStatus;
+  automatedChecks: {
+    ranAt: Timestamp | null;
+    duplicateHits: { itemIndex: number; matchRef: string; score: number; kind: string }[];
+    leakedPhraseHits: string[];
+    passed: boolean;
+  } | null;
+  reviewerUid: string | null;
+  reviewNote: string | null;
+  acceptedItemCount: number;
+  publishedBy: string | null;
+  contentItemIds: string[];
+  submittedAt: Timestamp | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** contentReviews/{id} - append-only decision record. */
+export interface ContentReviewDoc {
+  submissionId: string;
+  submissionVersion: number;
+  reviewerUid: string;
+  decision: 'APPROVE' | 'CHANGES_REQUIRED' | 'REJECT' | 'FLAG_CLEARED' | 'FLAG_UPHELD';
+  itemComments: { itemIndex: number; comment: string }[];
+  note: string | null;
+  conflictOfInterestChecked: boolean;
+  decidedAt: Timestamp;
+}
+
+/** contentItems/{contentId} + versions/{v} - the immutable published record
+ * of one accepted item, retaining internal creator attribution forever. */
+export interface ContentItemDoc {
+  productId: ProductId;
+  creatorContractId: string;
+  submissionId: string;
+  partnerId: string;
+  assignmentId: string;
+  currentVersion: number;
+  status: 'PUBLISHED' | 'QUARANTINED' | 'RETIRED';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface ContentItemVersionDoc {
+  version: number;
+  item: SubmissionItem;
+  publishedBy: string;
+  publishedAt: Timestamp;
+  changeNote: string | null;
+}
+
+export type ComplianceCaseType = 'duplicate' | 'plagiarism' | 'leaked_exam' | 'accuracy' | 'other';
+
+/** contentComplianceCases/{id} - raised by automated checks or a reviewer;
+ * quarantining a case pulls the content while evidence is preserved. */
+export interface ContentComplianceCaseDoc {
+  submissionId: string | null;
+  contentItemId: string | null;
+  type: ComplianceCaseType;
+  status: 'OPEN' | 'UPHELD' | 'DISMISSED';
+  evidence: string;
+  quarantined: boolean;
+  raisedBy: string;
+  resolvedBy: string | null;
+  resolvedAt: Timestamp | null;
+  createdAt: Timestamp;
+}
