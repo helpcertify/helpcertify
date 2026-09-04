@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { to: '/home/purchases', label: 'Billing & Orders' },
   { to: '/home/wishlist', label: 'Saved Items' },
   { to: '/home/custom-exams', label: 'Custom Exam Builder' },
+  { to: '/home/my-training', label: 'My Training' },
 ];
 
 // My Profile and Settings are account-level, not content tabs, so they're
@@ -106,6 +107,11 @@ export function StudentShell() {
       ) : (
         <NavLink to="/home/become-a-partner" onClick={onNavigate} className={navLinkClass}>
           Become a Partner
+        </NavLink>
+      )}
+      {profile?.trainerId && (
+        <NavLink to="/home/trainer" onClick={onNavigate} className={navLinkClass}>
+          Trainer Workspace
         </NavLink>
       )}
       <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>

@@ -32,4 +32,10 @@ export interface SafeUser {
   // allowed to reveal a partner's full PAN, gated separately from the role.
   // Set by hand on users/{uid}.canRevealPan. false/absent for everyone else.
   canRevealPan: boolean;
+  // Trainer / Mentored Learning - set on users/{uid} by api/admin.ts's
+  // grantTrainerStatus. Same shape as partnerId: not a Role, just an
+  // optional capability layered on a student account. Present => this
+  // account may create training programs; the Trainer Workspace nav item
+  // and route gate on it. null for everyone else.
+  trainerId: string | null;
 }

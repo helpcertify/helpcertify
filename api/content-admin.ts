@@ -2907,6 +2907,260 @@ async function submitCustomExamAttempt(uid: string, body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
+// Trainer / Mentored Learning - Phase 1A. A trainer owns training programs
+// (trainingPrograms/{id}) and a learner roster (that doc's own
+// learners/{learnerUid} subcollection, doc id = the learner's uid). Trainer
+// is not a Role (see users/{uid}.trainerId, and src/types/models.ts's
+// TrainerDoc comment) - every action below is reachable by any signed-in
+// user (added to STUDENT_REACHABLE_ACTIONS below) and does its own
+// requireActiveTrainer + ownership check internally, same shape as Custom
+// Exam Builder's entitlement check above. "Assign a course" means
+// referencing an existing quizzes/{id} or practiceTests/{id} doc - this
+// codebase has no separate Course entity - and grants no access beyond
+// what the learner's own purchase/entitlement already allows.
+//
+// programMemberships/{learnerUid}_{programId} is a small denormalized
+// top-level collection (composite doc id, same convention as
+// purchases/{uid}_{itemType}_{itemId}) that exists purely so a learner can
+// find "which programs am I on" with a plain equality query instead of a
+// Firestore collection-group query (which needs an explicit index this
+// environment has no way to verify - see this session's Custom Exam
+// Builder rules for the same testing limitation). It caches only identity/
+// status fields, never program content, so it can't go stale - the actual
+// title/description/assignedContent are always read fresh from
+// trainingPrograms/{programId} at request time.
+// ---------------------------------------------------------------------------
+
+async function requireActiveTrainer(uid: string): Promise<{ trainerId: string }> {
+  const userSnap = await db.collection('users').doc(uid).get();
+  const trainerId = userSnap.data()?.trainerId as string | undefined;
+  if (!trainerId) throw Err.permissionDenied('This account is not a trainer');
+  const trainerSnap = await db.collection('trainers').doc(trainerId).get();
+  if (trainerSnap.data()?.status !== 'ACTIVE') throw Err.permissionDenied('Trainer status is not active');
+  return { trainerId };
+}
+
+async function requireOwnedProgram(trainerId: string, programId: string) {
+  const ref = db.collection('trainingPrograms').doc(programId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Training program not found');
+  const data = snap.data()!;
+  if (data.trainerId !== trainerId) throw Err.permissionDenied();
+  return { ref, data };
+}
+
+const createTrainingProgramSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(2000).default(''),
+});
+
+async function createTrainingProgram(uid: string, body: unknown) {
+  const parsed = createTrainingProgramSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('trainingPrograms').doc();
+  await ref.set({
+    trainerId,
+    title: parsed.data.title,
+    description: parsed.data.description,
+    assignedContent: [],
+    observerUids: [],
+    status: 'ACTIVE',
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { programId: ref.id };
+}
+
+const updateTrainingProgramSchema = z.object({
+  programId: z.string().trim().min(1),
+  title: z.string().trim().min(2).max(200).optional(),
+  description: z.string().trim().max(2000).optional(),
+});
+
+async function updateTrainingProgram(uid: string, body: unknown) {
+  const parsed = updateTrainingProgramSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+  const { ref } = await requireOwnedProgram(trainerId, parsed.data.programId);
+
+  const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+  if (parsed.data.title !== undefined) update.title = parsed.data.title;
+  if (parsed.data.description !== undefined) update.description = parsed.data.description;
+  await ref.update(update);
+  return { success: true };
+}
+
+const programIdSchema = z.object({ programId: z.string().trim().min(1) });
+
+async function archiveTrainingProgram(uid: string, body: unknown) {
+  const parsed = programIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+  const { ref } = await requireOwnedProgram(trainerId, parsed.data.programId);
+  await ref.update({ status: 'ARCHIVED', updatedAt: FieldValue.serverTimestamp() });
+  return { success: true };
+}
+
+async function listMyTrainingPrograms(uid: string) {
+  const { trainerId } = await requireActiveTrainer(uid);
+  const snap = await db.collection('trainingPrograms').where('trainerId', '==', trainerId).orderBy('createdAt', 'desc').get();
+  const programs = await Promise.all(
+    snap.docs.map(async (d) => {
+      const learnersSnap = await d.ref.collection('learners').get();
+      const activeLearners = learnersSnap.docs.filter((l) => l.data().status !== 'REMOVED');
+      return { id: d.id, ...d.data(), learnerCount: activeLearners.length };
+    })
+  );
+  return { programs };
+}
+
+const addLearnerSchema = z.object({
+  programId: z.string().trim().min(1),
+  email: z.string().trim().toLowerCase().email(),
+});
+
+async function addLearnerToProgram(uid: string, body: unknown) {
+  const parsed = addLearnerSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+  const { ref: programRef } = await requireOwnedProgram(trainerId, parsed.data.programId);
+
+  const userQuery = await db.collection('users').where('email', '==', parsed.data.email).limit(1).get();
+  if (userQuery.empty) throw Err.invalidArgument('No HelpCertify account found with that email');
+  const learnerDoc = userQuery.docs[0];
+  const learnerUid = learnerDoc.id;
+
+  const learnerRef = programRef.collection('learners').doc(learnerUid);
+  const existing = await learnerRef.get();
+  if (existing.exists && existing.data()!.status !== 'REMOVED') {
+    throw Err.failedPrecondition('This learner is already on this program');
+  }
+
+  const now = FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.set(learnerRef, {
+    learnerUid,
+    learnerName: (learnerDoc.data().name as string) ?? '',
+    learnerEmail: parsed.data.email,
+    status: 'INVITED',
+    invitedAt: now,
+    joinedAt: null,
+  });
+  batch.set(db.collection('programMemberships').doc(`${learnerUid}_${parsed.data.programId}`), {
+    learnerUid,
+    programId: parsed.data.programId,
+    trainerId,
+    status: 'INVITED',
+    updatedAt: now,
+  });
+  await batch.commit();
+  return { success: true };
+}
+
+const removeLearnerSchema = z.object({ programId: z.string().trim().min(1), learnerUid: z.string().trim().min(1) });
+
+async function removeLearnerFromProgram(uid: string, body: unknown) {
+  const parsed = removeLearnerSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+  const { ref: programRef } = await requireOwnedProgram(trainerId, parsed.data.programId);
+
+  const batch = db.batch();
+  batch.update(programRef.collection('learners').doc(parsed.data.learnerUid), { status: 'REMOVED' });
+  batch.update(db.collection('programMemberships').doc(`${parsed.data.learnerUid}_${parsed.data.programId}`), {
+    status: 'REMOVED',
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await batch.commit();
+  return { success: true };
+}
+
+const assignContentSchema = z.object({
+  programId: z.string().trim().min(1),
+  itemType: z.enum(['quiz', 'practiceTest']),
+  itemId: z.string().trim().min(1),
+});
+
+async function assignContentToProgram(uid: string, body: unknown) {
+  const parsed = assignContentSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+  const { ref, data } = await requireOwnedProgram(trainerId, parsed.data.programId);
+
+  const collectionName = parsed.data.itemType === 'quiz' ? 'quizzes' : 'practiceTests';
+  const contentSnap = await db.collection(collectionName).doc(parsed.data.itemId).get();
+  if (!contentSnap.exists) throw Err.invalidArgument('That content no longer exists');
+
+  const current = (data.assignedContent as { itemType: string; itemId: string }[] | undefined) ?? [];
+  if (current.some((c) => c.itemType === parsed.data.itemType && c.itemId === parsed.data.itemId)) {
+    throw Err.failedPrecondition('This content is already assigned to the program');
+  }
+
+  await ref.update({
+    assignedContent: FieldValue.arrayUnion({
+      itemType: parsed.data.itemType,
+      itemId: parsed.data.itemId,
+      title: (contentSnap.data()!.title as string) ?? 'Untitled',
+    }),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { success: true };
+}
+
+async function unassignContentFromProgram(uid: string, body: unknown) {
+  const parsed = assignContentSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { trainerId } = await requireActiveTrainer(uid);
+  const { ref, data } = await requireOwnedProgram(trainerId, parsed.data.programId);
+
+  const current = (data.assignedContent as { itemType: string; itemId: string; title: string }[] | undefined) ?? [];
+  const toRemove = current.find((c) => c.itemType === parsed.data.itemType && c.itemId === parsed.data.itemId);
+  if (!toRemove) return { success: true };
+
+  await ref.update({ assignedContent: FieldValue.arrayRemove(toRemove), updatedAt: FieldValue.serverTimestamp() });
+  return { success: true };
+}
+
+// Learner-side: the whole of Phase 1A's learner-facing surface. Any
+// signed-in user may call this (not gated on being a trainer) - it returns
+// the programs where the caller has a non-removed programMemberships row,
+// with each program's current title/description/assignedContent and its
+// trainer's display name always read fresh (never denormalized/cached),
+// plus the caller's own roster status (INVITED vs ACTIVE) on that program.
+async function listMyTrainingProgramMemberships(uid: string) {
+  const membershipSnap = await db.collection('programMemberships').where('learnerUid', '==', uid).get();
+  const memberships = membershipSnap.docs
+    .map((d) => d.data() as { programId: string; trainerId: string; status: string })
+    .filter((m) => m.status !== 'REMOVED');
+  if (memberships.length === 0) return { programs: [] };
+
+  const programRefs = memberships.map((m) => db.collection('trainingPrograms').doc(m.programId));
+  const trainerIds = [...new Set(memberships.map((m) => m.trainerId))];
+  const trainerRefs = trainerIds.map((id) => db.collection('trainers').doc(id));
+  const [programSnaps, trainerSnaps] = await Promise.all([db.getAll(...programRefs), db.getAll(...trainerRefs)]);
+
+  const trainerNameById = new Map(trainerSnaps.map((s) => [s.id, (s.data()?.displayName as string) ?? 'Trainer']));
+
+  const programs = memberships.map((m, i) => {
+    const programSnap = programSnaps[i];
+    const programData = programSnap.data();
+    return {
+      programId: m.programId,
+      membershipStatus: m.status,
+      trainerName: trainerNameById.get(m.trainerId) ?? 'Trainer',
+      title: (programData?.title as string) ?? 'Untitled program',
+      description: (programData?.description as string) ?? '',
+      programStatus: (programData?.status as string) ?? 'ACTIVE',
+      assignedContent: (programData?.assignedContent as { itemType: string; itemId: string; title: string }[]) ?? [],
+    };
+  });
+  return { programs };
+}
+
+// ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -2918,11 +3172,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
 
     // Every action in this file is admin-only except the Custom Exam
-    // Builder ones, which any signed-in student may call (they gate on that
-    // student's own purchases/{uid}_customExamBuilder_capability
-    // entitlement instead - see createCustomExamSet/deleteMyCustomExamSet/
-    // submitCustomExamAttempt).
-    const STUDENT_REACHABLE_ACTIONS = new Set(['createCustomExamSet', 'deleteMyCustomExamSet', 'submitCustomExamAttempt']);
+    // Builder ones (gate on that student's own
+    // purchases/{uid}_customExamBuilder_capability entitlement instead)
+    // and the Trainer / Mentored Learning ones (gate on
+    // requireActiveTrainer / a learner's own programMemberships row
+    // instead) - both checked inside the function itself, not here.
+    const STUDENT_REACHABLE_ACTIONS = new Set([
+      'createCustomExamSet',
+      'deleteMyCustomExamSet',
+      'submitCustomExamAttempt',
+      'createTrainingProgram',
+      'updateTrainingProgram',
+      'archiveTrainingProgram',
+      'listMyTrainingPrograms',
+      'addLearnerToProgram',
+      'removeLearnerFromProgram',
+      'assignContentToProgram',
+      'unassignContentFromProgram',
+      'listMyTrainingProgramMemberships',
+    ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
       ? await verifyAuthedUser(req)
       : await requireAdmin(req);
@@ -2936,6 +3204,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'submitCustomExamAttempt':
         res.status(200).json(await submitCustomExamAttempt(uid, data));
+        return;
+      case 'createTrainingProgram':
+        res.status(200).json(await createTrainingProgram(uid, data));
+        return;
+      case 'updateTrainingProgram':
+        res.status(200).json(await updateTrainingProgram(uid, data));
+        return;
+      case 'archiveTrainingProgram':
+        res.status(200).json(await archiveTrainingProgram(uid, data));
+        return;
+      case 'listMyTrainingPrograms':
+        res.status(200).json(await listMyTrainingPrograms(uid));
+        return;
+      case 'addLearnerToProgram':
+        res.status(200).json(await addLearnerToProgram(uid, data));
+        return;
+      case 'removeLearnerFromProgram':
+        res.status(200).json(await removeLearnerFromProgram(uid, data));
+        return;
+      case 'assignContentToProgram':
+        res.status(200).json(await assignContentToProgram(uid, data));
+        return;
+      case 'unassignContentFromProgram':
+        res.status(200).json(await unassignContentFromProgram(uid, data));
+        return;
+      case 'listMyTrainingProgramMemberships':
+        res.status(200).json(await listMyTrainingProgramMemberships(uid));
         return;
       case 'createQuiz':
         res.status(200).json(await createQuiz(uid, data));

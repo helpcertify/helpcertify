@@ -246,6 +246,28 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
+
+    // --- Trainer / Mentored Learning, Phase 1A ---------------------------
+    // A trainer reads their own trainers/{id} doc; staff read any. No
+    // application/KYC flow (unlike partners above) - admin grants this
+    // directly via api/admin.ts's grantTrainerStatus.
+    match /trainers/{trainerId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.linkedUserId == request.auth.uid);
+      allow write: if false;
+    }
+    match /trainingPrograms/{programId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.trainerId == request.auth.uid);
+      allow write: if false;
+
+      // A learner reads their own roster row (to see they're enrolled);
+      // the owning trainer or an admin reads the whole roster.
+      match /learners/{learnerUid} {
+        allow read: if isAdmin() || isOwner(learnerUid) ||
+          (isSignedIn() && get(/databases/$(database)/documents/trainingPrograms/$(programId)).data.trainerId == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
     // Full PAN / GSTIN / address. Admin-SDK only - no client, not even the
     // owning partner or staff, reads these directly. Staff see a masked
     // view through api/admin.ts; a full-PAN reveal is a dedicated audited

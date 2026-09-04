@@ -131,11 +131,14 @@ export const adminApi = {
 
   listUsersAdmin: () => callAction<{ users: AdminUserRow[] }>('admin', 'listUsersAdmin'),
   getUserDetailAdmin: (uid: string) =>
-    callAction<{ user: AdminUserRow & { avatarUrl: string | null }; orders: AdminOrderRow[] }>(
+    callAction<{ user: AdminUserRow & { avatarUrl: string | null; trainerId?: string | null }; orders: AdminOrderRow[] }>(
       'admin',
       'getUserDetailAdmin',
       { uid }
     ),
+
+  grantTrainerStatus: (userId: string) => callAction<{ trainerId: string }>('admin', 'grantTrainerStatus', { userId }),
+  revokeTrainerStatus: (userId: string) => callAction<{ success: true }>('admin', 'revokeTrainerStatus', { userId }),
 
   // Item 11/15 - the minimal admin refund action and the Referral Audit
   // list (see api/admin.ts's refundOrder/listReferralsAdmin).

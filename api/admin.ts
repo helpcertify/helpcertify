@@ -158,6 +158,96 @@ async function listAdminLogs() {
   return { logs: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
 }
 
+// --- Trainer / Mentored Learning, Phase 1A -------------------------------
+// Deliberately no application/KYC flow (unlike Partner above) - an admin
+// grants this directly on an existing user's account. See
+// src/types/models.ts's TrainerDoc for why this is a capability layered on
+// a student account, not a new Role.
+const grantTrainerStatusSchema = z.object({ userId: z.string().trim().min(1) });
+
+async function grantTrainerStatus(uid: string, body: unknown) {
+  const parsed = grantTrainerStatusSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { userId } = parsed.data;
+
+  const userRef = db.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) throw Err.invalidArgument('User not found');
+  const user = userSnap.data()!;
+
+  const now = FieldValue.serverTimestamp();
+  const existingTrainerId = user.trainerId as string | undefined;
+
+  if (existingTrainerId) {
+    // Re-granting after a revoke - reactivate the existing trainers/{id}
+    // doc instead of minting a second one, so past training programs
+    // (owned by that same trainerId) come back with it.
+    await db.collection('trainers').doc(existingTrainerId).update({ status: 'ACTIVE' });
+    await writeAdminLog({
+      performedBy: uid,
+      action: 'grantTrainerStatus',
+      targetType: 'trainer',
+      targetId: existingTrainerId,
+      description: `Reactivated trainer status for ${user.email ?? userId}`,
+    });
+    return { trainerId: existingTrainerId };
+  }
+
+  const trainerRef = db.collection('trainers').doc();
+  await trainerRef.set({
+    linkedUserId: userId,
+    displayName: (user.name as string) ?? 'Trainer',
+    status: 'ACTIVE',
+    createdBy: uid,
+    createdAt: now,
+  });
+  await userRef.update({ trainerId: trainerRef.id, updatedAt: now });
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'grantTrainerStatus',
+    targetType: 'trainer',
+    targetId: trainerRef.id,
+    description: `Granted trainer status to ${user.email ?? userId}`,
+  });
+
+  return { trainerId: trainerRef.id };
+}
+
+const revokeTrainerStatusSchema = z.object({ userId: z.string().trim().min(1) });
+
+async function revokeTrainerStatus(uid: string, body: unknown) {
+  const parsed = revokeTrainerStatusSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { userId } = parsed.data;
+
+  const userSnap = await db.collection('users').doc(userId).get();
+  const trainerId = userSnap.data()?.trainerId as string | undefined;
+  if (!trainerId) throw Err.invalidArgument('This user is not a trainer');
+
+  // Soft revoke - the trainers/{id} doc and every program it owns stay
+  // intact, they're just no longer reachable by that user (their own
+  // requireActiveTrainer check in api/content-admin.ts fails once
+  // status !== 'ACTIVE'). users/{uid}.trainerId is left set so re-granting
+  // finds the same trainerId again (see grantTrainerStatus above).
+  await db.collection('trainers').doc(trainerId).update({ status: 'SUSPENDED' });
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'revokeTrainerStatus',
+    targetType: 'trainer',
+    targetId: trainerId,
+    description: `Revoked trainer status for ${userSnap.data()?.email ?? userId}`,
+  });
+
+  return { success: true };
+}
+
+async function listTrainersAdmin() {
+  const snap = await db.collection('trainers').orderBy('createdAt', 'desc').get();
+  return { trainers: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
 // --- App settings (Email/Mobile OTP toggles, Refer & Earn rewards) -----
 // A single appSettings/general doc rather than one doc per setting - a
 // single doc keeps getAppSettings/updateAppSettings a plain get/set
@@ -1934,6 +2024,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listAdminLogs':
         res.status(200).json(await listAdminLogs());
+        return;
+      case 'grantTrainerStatus':
+        res.status(200).json(await grantTrainerStatus(uid, data));
+        return;
+      case 'revokeTrainerStatus':
+        res.status(200).json(await revokeTrainerStatus(uid, data));
+        return;
+      case 'listTrainersAdmin':
+        res.status(200).json(await listTrainersAdmin());
         return;
       case 'getAppSettings':
         res.status(200).json(await getAppSettings());
