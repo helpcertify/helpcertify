@@ -261,9 +261,29 @@ export interface AdminCommissionRow extends PartnerCommissionRow {
   onHoldReason: string | null;
 }
 
+export interface PartnerApplicationDetail {
+  id: string;
+  legalName: string;
+  displayName: string;
+  dateOfBirth: string;
+  phone: string;
+  partnerType: string;
+  country: string;
+  address: string | null;
+  panMasked: string | null;
+  panName: string | null;
+  gstinMasked: string | null;
+  duplicatePanFlag: boolean;
+  agreementVersion: string | null;
+  status: string;
+  submittedAt: unknown;
+}
+
 export const partnerAdminApi = {
   listApplications: (status?: string) =>
     callAction<{ applications: PartnerApplicationRow[] }>('admin', 'listPartnerApplications', status ? { status } : {}),
+  getApplicationDetail: (applicationId: string) =>
+    callAction<PartnerApplicationDetail>('admin', 'getPartnerApplicationDetail', { applicationId }),
   reviewApplication: (payload: { applicationId: string; decision: 'approve' | 'reject'; note?: string }) =>
     callAction<{ status: string; partnerId?: string; referralCode?: string }>('admin', 'reviewPartnerApplication', payload),
   suspendPartner: (payload: { partnerId: string; reason?: string }) =>

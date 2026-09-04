@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { partnerAdminApi } from '@/features/partner/api/partnerApi';
 import { useUiStore } from '@/store/useUiStore';
@@ -65,6 +65,12 @@ export function PartnerApplicationsPage() {
   });
 
   const [reviewFor, setReviewFor] = useState<string | null>(null);
+  const [detailFor, setDetailFor] = useState<string | null>(null);
+  const detail = useQuery({
+    queryKey: ['admin', 'partnerApplicationDetail', detailFor],
+    queryFn: () => partnerAdminApi.getApplicationDetail(detailFor!),
+    enabled: !!detailFor,
+  });
   const [partnerSearch, setPartnerSearch] = useState('');
   const [note, setNote] = useState('');
 
@@ -147,65 +153,115 @@ export function PartnerApplicationsPage() {
                 </td>
               </tr>
             )}
-            {(apps.data?.applications ?? []).map((a) => (
-              <tr key={a.id}>
-                <td className="px-4 py-3 text-ink">
-                  {a.legalName}
-                  <span className="block text-xs text-ink-faint">as {a.displayName}</span>
-                </td>
-                <td className="px-4 py-3 capitalize text-ink-faint">{a.partnerType}</td>
-                <td className="px-4 py-3 text-xs">
-                  <span className="font-mono text-ink-faint">{a.panMasked ?? a.country ?? '-'}</span>
-                  {a.duplicatePanFlag && (
-                    <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-700 dark:text-amber-300">
-                      duplicate PAN
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-ink-faint">{fmt(a.submittedAt)}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{a.status}</span>
-                </td>
-                <td className="px-4 py-3">
-                  {(a.status === 'SUBMITTED' || a.status === 'UNDER_REVIEW') &&
-                    (reviewFor === a.id ? (
-                      <div className="flex flex-col gap-2">
-                        <input
-                          value={note}
-                          onChange={(e) => setNote(e.target.value)}
-                          placeholder="Note (optional / required for reject)"
-                          className="rounded border border-surface-border bg-surface px-2 py-1 text-xs"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={review.isPending}
-                            onClick={() => review.mutate({ applicationId: a.id, decision: 'approve', note: note || undefined })}
-                            className="rounded bg-[#0B7A48] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={review.isPending || !note.trim()}
-                            onClick={() => review.mutate({ applicationId: a.id, decision: 'reject', note })}
-                            className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                          <button type="button" onClick={() => { setReviewFor(null); setNote(''); }} className="px-2 py-1 text-xs text-ink-faint">
-                            Cancel
-                          </button>
+            {(apps.data?.applications ?? []).map((a) => {
+              const expanded = detailFor === a.id;
+              return (
+              <Fragment key={a.id}>
+                <tr>
+                  <td className="px-4 py-3 text-ink">
+                    <button
+                      type="button"
+                      onClick={() => setDetailFor(expanded ? null : a.id)}
+                      className="text-left text-[#155EEF] hover:underline"
+                    >
+                      {a.legalName}
+                    </button>
+                    <span className="block text-xs text-ink-faint">as {a.displayName}</span>
+                  </td>
+                  <td className="px-4 py-3 capitalize text-ink-faint">{a.partnerType}</td>
+                  <td className="px-4 py-3 text-xs">
+                    <span className="font-mono text-ink-faint">{a.panMasked ?? a.country ?? '-'}</span>
+                    {a.duplicatePanFlag && (
+                      <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-700 dark:text-amber-300">
+                        duplicate PAN
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-ink-faint">{fmt(a.submittedAt)}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{a.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setDetailFor(expanded ? null : a.id)}
+                      className="rounded border border-surface-border px-3 py-1 text-xs text-ink-muted"
+                    >
+                      {expanded ? 'Hide details' : 'View details'}
+                    </button>
+                  </td>
+                </tr>
+                {expanded && (
+                  <tr className="bg-black/10">
+                    <td colSpan={6} className="px-4 py-4">
+                      {detail.isLoading || detail.data?.id !== a.id ? (
+                        <p className="text-xs text-ink-faint">Loading full application…</p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
+                          <div><span className="text-ink-faint">Legal name: </span><span className="text-ink">{detail.data.legalName}</span></div>
+                          <div><span className="text-ink-faint">Display name: </span><span className="text-ink">{detail.data.displayName}</span></div>
+                          <div><span className="text-ink-faint">Date of birth: </span><span className="text-ink">{detail.data.dateOfBirth}</span></div>
+                          <div><span className="text-ink-faint">Phone: </span><span className="text-ink">{detail.data.phone}</span></div>
+                          <div className="sm:col-span-2"><span className="text-ink-faint">Address: </span><span className="text-ink">{detail.data.address ?? '-'}</span></div>
+                          <div><span className="text-ink-faint">Country: </span><span className="text-ink">{detail.data.country}</span></div>
+                          <div>
+                            <span className="text-ink-faint">PAN: </span>
+                            <span className="font-mono text-ink">{detail.data.panMasked ?? '-'}</span>
+                          </div>
+                          <div><span className="text-ink-faint">Name on PAN: </span><span className="text-ink">{detail.data.panName ?? '-'}</span></div>
+                          <div><span className="text-ink-faint">GSTIN: </span><span className="font-mono text-ink">{detail.data.gstinMasked ?? '-'}</span></div>
+                          <div><span className="text-ink-faint">Partner agreement: </span><span className="text-ink">{detail.data.agreementVersion ?? '-'}</span></div>
+                          {detail.data.duplicatePanFlag && (
+                            <div className="sm:col-span-3 text-amber-600 dark:text-amber-400">Flagged: this PAN matches an existing application or partner - review before approving.</div>
+                          )}
                         </div>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => setReviewFor(a.id)} className="rounded bg-[#155EEF] px-3 py-1 text-xs font-semibold text-white">
-                        Review
-                      </button>
-                    ))}
-                </td>
-              </tr>
-            ))}
+                      )}
+
+                      {(a.status === 'SUBMITTED' || a.status === 'UNDER_REVIEW') && (
+                        <div className="mt-3 border-t border-surface-border pt-3">
+                          {reviewFor === a.id ? (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                              <input
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                placeholder="Note (optional / required for reject)"
+                                className="rounded border border-surface-border bg-surface px-2 py-1 text-xs sm:flex-1"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  disabled={review.isPending}
+                                  onClick={() => review.mutate({ applicationId: a.id, decision: 'approve', note: note || undefined })}
+                                  className="rounded bg-[#0B7A48] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={review.isPending || !note.trim()}
+                                  onClick={() => review.mutate({ applicationId: a.id, decision: 'reject', note })}
+                                  className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50"
+                                >
+                                  Reject
+                                </button>
+                                <button type="button" onClick={() => { setReviewFor(null); setNote(''); }} className="px-2 py-1 text-xs text-ink-faint">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => setReviewFor(a.id)} className="rounded bg-[#155EEF] px-3 py-1 text-xs font-semibold text-white">
+                              Review
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
