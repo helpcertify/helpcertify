@@ -334,12 +334,14 @@ function CustomExamBuilderSettingsCard() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { data } = useQuery({ queryKey: ['admin', 'customExamBuilderSettings'], queryFn: adminApi.getCustomExamBuilderSettings });
   const [priceInput, setPriceInput] = useState('');
+  const [originalPriceInput, setOriginalPriceInput] = useState('');
   const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
   const [isEnabled, setIsEnabled] = useState(true);
 
   useEffect(() => {
     if (data) {
       setPriceInput(String(minorToMajor(data.priceMinor)));
+      setOriginalPriceInput(data.originalPriceMinor != null ? String(minorToMajor(data.originalPriceMinor)) : '');
       setCurrency(data.currency);
       setIsEnabled(data.isEnabled);
     }
@@ -349,6 +351,7 @@ function CustomExamBuilderSettingsCard() {
     mutationFn: () =>
       adminApi.updateCustomExamBuilderSettings({
         priceMinor: majorToMinor(Number(priceInput) || 0),
+        originalPriceMinor: originalPriceInput.trim() === '' ? null : majorToMinor(Number(originalPriceInput) || 0),
         currency,
         isEnabled,
       }),
@@ -370,7 +373,9 @@ function CustomExamBuilderSettingsCard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">Price</label>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+            Selling price (what's charged)
+          </label>
           <input
             type="number"
             min={0}
@@ -380,12 +385,31 @@ function CustomExamBuilderSettingsCard() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">Currency</label>
-          <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark w-full">
-            <option value="INR">INR</option>
-            <option value="USD">USD</option>
-          </select>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+            Original price (optional, shown struck through)
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={originalPriceInput}
+            onChange={(e) => setOriginalPriceInput(e.target.value)}
+            placeholder="No offer badge"
+            className="input-dark w-full"
+          />
         </div>
+      </div>
+      <p className="mt-1.5 text-xs text-ink-faint">
+        Leave the original price blank to sell at the selling price with no offer badge. Set it
+        higher than the selling price to show a struck-through "was ₹X" offer - same as a quiz or
+        practice test's discount display. The original price is never charged, only shown.
+      </p>
+
+      <div className="mt-4">
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">Currency</label>
+        <select value={currency} onChange={(e) => setCurrency(e.target.value as 'INR' | 'USD')} className="input-dark w-full sm:w-40">
+          <option value="INR">INR</option>
+          <option value="USD">USD</option>
+        </select>
       </div>
 
       <label className="mt-4 flex items-center gap-2 text-sm text-ink-muted">

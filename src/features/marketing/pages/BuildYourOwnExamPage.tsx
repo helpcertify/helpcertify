@@ -1,13 +1,20 @@
 import { MarketingPage, P, Section, UL } from '../MarketingPage';
 import { downloadTemplate } from '@/lib/downloadTemplate';
+import { useCustomExamBuilderInfo } from '../customExamBuilderStore';
+import { formatMoney } from '@/utils/currency';
 
-// Marketing page for the upcoming Custom Exam Builder feature ("Bring Your
-// Own Question Bank"). Ships ahead of the paid upload/parse feature itself
-// (see the plan) so the format and expectations are documented and
-// discoverable before purchase is wired up. The CTA below deliberately
-// points at /register, not a student-only route, since /home/custom-exams
-// does not exist yet - update this once that route ships.
+// Marketing page for the Custom Exam Builder feature ("Bring Your Own
+// Question Bank"). Price/offer shown below come from the live,
+// admin-editable appSettings/customExamBuilder doc (via
+// useCustomExamBuilderInfo, merged in after hydration - see
+// loadCustomExamBuilderInfo.ts) so an admin price change is reflected here
+// without a deploy; the compile-time default (₹499, no offer) renders
+// immediately during prerender and the first paint, same pattern as
+// useCompany()/COMPANY. The CTA points at /register, not the student-only
+// /home/custom-exams route, since a new visitor needs an account first.
 export function BuildYourOwnExamPage() {
+  const { priceMinor, originalPriceMinor, currency } = useCustomExamBuilderInfo();
+  const hasOffer = !!originalPriceMinor && originalPriceMinor > priceMinor;
   return (
     <MarketingPage
       title="Bring Your Own Question Bank"
@@ -62,9 +69,17 @@ export function BuildYourOwnExamPage() {
       </Section>
 
       <Section heading="Pricing">
+        <div className="flex items-baseline gap-2.5">
+          {hasOffer && (
+            <span className="text-base text-ink-faint line-through">
+              {formatMoney(originalPriceMinor, currency)}
+            </span>
+          )}
+          <span className="text-xl font-bold text-ink">{formatMoney(priceMinor, currency)}</span>
+        </div>
         <P>
-          Custom Exam Builder is a one-time purchase of ₹499. Buy it once and upload and manage
-          as many of your own question banks as you want - there is no per-upload charge.
+          Custom Exam Builder is a one-time purchase. Buy it once and upload and manage as many of
+          your own question banks as you want - there is no per-upload charge.
         </P>
       </Section>
 

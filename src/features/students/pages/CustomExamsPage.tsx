@@ -27,6 +27,7 @@ function useCustomExamBuilderSettings() {
       const data = snap.data();
       return {
         priceMinor: typeof data?.priceMinor === 'number' ? data.priceMinor : 49900,
+        originalPriceMinor: typeof data?.originalPriceMinor === 'number' ? data.originalPriceMinor : null,
         currency: (data?.currency === 'USD' ? 'USD' : 'INR') as 'INR' | 'USD',
         isEnabled: data?.isEnabled !== false,
       };
@@ -99,6 +100,8 @@ export function CustomExamsPage() {
   }
 
   const price = settings?.priceMinor ?? 49900;
+  const originalPrice = settings?.originalPriceMinor ?? null;
+  const hasOffer = !!originalPrice && originalPrice > price;
   const currency = settings?.currency ?? 'INR';
 
   return (
@@ -117,9 +120,15 @@ export function CustomExamsPage() {
             </p>
           ) : (
             <>
-              <p className="text-sm text-ink-muted">
-                A one-time purchase of {formatMoney(price, currency)} unlocks uploading and managing as
-                many of your own question banks as you want - no per-upload charge.
+              <div className="flex items-baseline gap-2.5">
+                {hasOffer && (
+                  <span className="text-sm text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
+                )}
+                <span className="text-lg font-bold text-ink">{formatMoney(price, currency)}</span>
+              </div>
+              <p className="mt-1 text-sm text-ink-muted">
+                One-time purchase - unlocks uploading and managing as many of your own question banks as
+                you want, no per-upload charge.
               </p>
               <button
                 type="button"
@@ -235,7 +244,7 @@ export function CustomExamsPage() {
         <BuyNowModal
           title="Custom Exam Builder"
           price={price}
-          originalPrice={null}
+          originalPrice={originalPrice}
           currency={currency}
           paying={paying}
           summaryItem={{ itemType: 'customExamBuilder', accessPeriodDays: 0 }}
