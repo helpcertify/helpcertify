@@ -10,6 +10,7 @@ import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { useCertificationCatalog } from '../api/certificationCatalogApi';
 import { hasActivePackage } from '../lib/certificationCatalog';
 import { CertificationCard, CertificationCardSkeleton } from '@/components/common/CertificationCard';
+import { Avatar } from '@/components/common/Avatar';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
 import { buildDailyAnsweredMap, sumTrailingDays } from '../lib/studyPlan';
 import { usePrimaryGoal } from '../lib/usePrimaryGoal';
@@ -99,12 +100,15 @@ export function StudentHomePage() {
           a small countdown badge - the same nearest-exam data the sidebar's
           "Your Exams" cards use, just the single soonest one here. */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-2xl font-bold text-ink">
-            {timeOfDayGreeting(new Date().getHours())}
-            {profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}! 👋
-          </h1>
-          <p className="text-sm text-ink-faint">Every question you practice today brings you one step closer to success.</p>
+        <div className="flex items-center gap-3">
+          <Avatar name={profile?.name} avatarUrl={profile?.avatarUrl} size={56} />
+          <div>
+            <h1 className="mb-1 text-2xl font-bold text-ink">
+              {timeOfDayGreeting(new Date().getHours())}
+              {profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}! 👋
+            </h1>
+            <p className="text-sm text-ink-faint">Every question you practice today brings you one step closer to success.</p>
+          </div>
         </div>
         {nearestExam && (
           <div className="flex items-center gap-2.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-2">
