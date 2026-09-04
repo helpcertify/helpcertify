@@ -4,6 +4,7 @@ import { Logo } from '@/components/brand/Logo';
 import { useCompany } from '@/features/marketing/companyInfoStore';
 import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
 import { CertificationGoalSelector } from '@/features/landing/components/CertificationGoalSelector';
+import { LEARNING_DOMAINS, LEARNING_PATH_EXAMPLES } from '@/features/landing/lib/learningPaths';
 
 // Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
 // neither in the initial bundle nor in the build-time prerender module
@@ -30,13 +31,39 @@ const EXAM_PREP_AREAS = [
   'Project-management certification preparation',
 ];
 
-const WHAT_YOU_GET = [
-  'Practice questions',
-  'Mock exams',
-  'Certification exam practice',
-  'Professional certification training',
-  'Exam-readiness analytics',
+// "Designed for every stage of your career" - the audience section
+// immediately below the hero, so a first-time visitor sees in one glance
+// that HelpCertify serves experienced professionals and career
+// starters/switchers alike, not just one of the two.
+const AUDIENCE_CARDS = [
+  {
+    title: 'IT Professionals',
+    subtitle: 'Advance your expertise',
+    body: 'Build advanced technical skills, prepare for professional certifications, practice with realistic assessments and measure your readiness.',
+    cta: 'Explore Professional Learning',
+    href: '#learning-paths',
+  },
+  {
+    title: 'Career Starters & Switchers',
+    subtitle: 'Build the right foundation',
+    body: 'Explore IT career paths, understand prerequisites and build skills progressively from fundamentals to job-ready capability.',
+    cta: 'Explore Career Paths',
+    href: '#learning-paths',
+  },
+  {
+    title: 'Trainers & Experts',
+    subtitle: 'Share what you know',
+    body: 'Create courses, assessments and question banks and make them available to HelpCertify learners.',
+    cta: 'Become a Training Partner',
+    href: '/home/become-a-partner',
+  },
 ];
+
+const LEVEL_BADGE_CLASS: Record<string, string> = {
+  Foundation: 'border-surface-border bg-surface-raised text-ink-muted',
+  Professional: 'border-brand-500/40 bg-brand-500/10 text-brand-ink',
+  Advanced: 'border-brand-500/60 bg-brand-500/20 text-brand-ink',
+};
 
 // Certification Exam Preparation's supporting capability cards.
 const EXAM_PREP_FEATURES = [
@@ -133,55 +160,44 @@ export function LandingPage() {
 
       <main className="mx-auto max-w-4xl px-6 pb-24 pt-10 text-center">
         <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
-          Learning, Certification &amp; Assessment Platform
+          Learning &bull; Certification &bull; Assessment Platform
         </span>
         <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
-          Learn. Practice. Teach. <span className="text-brand-ink">Assess.</span>
+          Learn. Practice. Assess. <span className="text-brand-ink">Advance.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
-          Build job-ready skills, prepare for professional certifications, create and sell
-          courses, or build your own exams - all in one platform.
+          Build and advance your skills, prepare for professional certifications, assess your
+          knowledge, or create and sell learning content - all in one platform.
         </p>
         <p className="mx-auto mt-3 max-w-2xl text-sm text-ink-faint">
           {/* Literal operator name (not the {COMPANY} store value) so this
               ownership sentence is one unbroken string in the prerendered
               HTML for URL-classification crawlers. */}
           <strong className="text-ink-muted">
-            HelpCertify is an online certification exam-preparation and practice platform operated by IndyaBees.
+            HelpCertify is an independent learning, certification-preparation and assessment platform operated by IndyaBees.
           </strong>
         </p>
-
-        <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-sm text-ink-faint">
-          {WHAT_YOU_GET.map((item) => (
-            <li
-              key={item}
-              className="rounded-full border border-surface-border bg-surface-raised px-3 py-1"
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
 
         <CertificationGoalSelector />
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            to="/register"
+          <a
+            href="#learning-paths"
             className="inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
           >
             Explore Learning
+          </a>
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-surface-raised px-6 py-3 font-medium text-ink hover:border-brand-400"
+          >
+            Prepare for Certification
           </Link>
           <Link
             to="/register"
             className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-surface-raised px-6 py-3 font-medium text-ink hover:border-brand-400"
           >
             Start Creating
-          </Link>
-          <Link
-            to="/build-your-own-exam"
-            className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-surface-raised px-6 py-3 font-medium text-ink hover:border-brand-400"
-          >
-            Build an Exam
           </Link>
         </div>
         <p className="mt-4 text-sm text-ink-faint">
@@ -202,6 +218,74 @@ export function LandingPage() {
           ))}
         </div>
       </main>
+
+      {/* Audience section - immediately below the hero, so a first-time
+          visitor sees in one glance that HelpCertify serves experienced
+          professionals and career starters/switchers alike. */}
+      <section className="border-t border-surface-border py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-center text-2xl font-bold text-ink">Designed for every stage of your career</h2>
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {AUDIENCE_CARDS.map((card) => (
+              <div
+                key={card.title}
+                className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left"
+              >
+                <h3 className="font-bold text-ink">{card.title}</h3>
+                <p className="mt-1 text-sm font-medium text-brand-ink">{card.subtitle}</p>
+                <p className="mt-3 flex-1 text-sm text-ink-faint">{card.body}</p>
+                {card.href.startsWith('#') ? (
+                  <a href={card.href} className="mt-4 text-sm font-semibold text-brand-ink hover:underline">
+                    {card.cta} &rarr;
+                  </a>
+                ) : (
+                  <Link to={card.href} className="mt-4 text-sm font-semibold text-brand-ink hover:underline">
+                    {card.cta} &rarr;
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Explore Learning Paths - broad technology/domain filters (kept
+          separate from the intent-selector pills above, which are framed as
+          goals, not technologies) plus a handful of level-tagged example
+          paths so an experienced professional immediately sees
+          Professional/Advanced content, not only Foundation material. */}
+      <section id="learning-paths" className="border-t border-surface-border bg-black/20 py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-2xl font-bold text-ink">Explore Learning Paths</h2>
+          <p className="mt-2 max-w-2xl text-sm text-ink-faint">
+            Foundation, Professional, and Advanced content across every domain - enter where your
+            experience puts you, not necessarily at the beginning.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {LEARNING_DOMAINS.map((d) => (
+              <span
+                key={d}
+                className="rounded-full border border-surface-border bg-surface-raised px-4 py-1.5 text-sm text-ink-muted"
+              >
+                {d}
+              </span>
+            ))}
+          </div>
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {LEARNING_PATH_EXAMPLES.map((p) => (
+              <div key={p.id} className="rounded-lg border border-surface-border bg-surface-raised p-4 text-left">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">{p.domain}</p>
+                <h3 className="mt-1 font-semibold text-ink">{p.title}</h3>
+                <span
+                  className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium ${LEVEL_BADGE_CLASS[p.level]}`}
+                >
+                  {p.level}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Product area 1: Certification Exam Preparation */}
       <section className="border-t border-surface-border py-16">
@@ -297,8 +381,8 @@ export function LandingPage() {
           <div>
             <Logo size="sm" />
             <p className="mt-2 max-w-sm text-sm text-ink-faint">
-              Build job-ready skills, prepare for certifications, create and sell courses, or
-              build your own exams - all in one platform.
+              Build and advance your skills, prepare for professional certifications, assess your
+              knowledge, or create and sell learning content - all in one platform.
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm text-ink-faint sm:items-end">
