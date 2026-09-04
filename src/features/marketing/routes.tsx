@@ -29,7 +29,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     element: <LandingPage />,
     title: 'HelpCertify: Certification Exam Prep',
     description:
-      'HelpCertify is an online certification exam-preparation and practice-test platform operated by IndyaBees: timed mock exams, large resumable practice question banks, and personalized study plans.',
+      'HelpCertify is an online learning, certification exam-preparation, and assessment platform operated by IndyaBees: timed mock exams, large resumable practice question banks, career-skills courses, and tools to create, sell, or build your own exams.',
     priority: 1.0,
   },
   {
