@@ -193,9 +193,13 @@ export function StudentShell() {
           <Link
             to="/home/profile"
             aria-label="My Profile"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#155EEF] text-xs font-semibold text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#155EEF] text-xs font-semibold text-white"
           >
-            {initials(profile?.name)}
+            {profile?.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials(profile?.name)
+            )}
           </Link>
         </div>
       </header>

@@ -410,7 +410,22 @@ async function provisionProfile(req: VercelRequest, body: unknown) {
 
   const userRef = db.collection('users').doc(uid);
   const existing = await userRef.get();
-  if (existing.exists) return { provisioned: false };
+  if (existing.exists) {
+    // Keep the Google-sourced avatar in sync on every fresh Google sign-in,
+    // not just the account's first one - a user who later changes their
+    // Google profile picture should see it reflected here without
+    // re-registering. By the time this runs, Firebase Auth has already
+    // merged the just-completed sign-in's latest provider profile into the
+    // Auth user record, so getUser() reflects the current Google photo.
+    // Only touches avatarUrl and only when it actually changed - every
+    // other profile field is left exactly as the account owner set it.
+    const userRecord = await adminAuth.getUser(uid);
+    const latestAvatarUrl = userRecord.photoURL ?? null;
+    if (latestAvatarUrl && latestAvatarUrl !== existing.data()?.avatarUrl) {
+      await userRef.update({ avatarUrl: latestAvatarUrl, updatedAt: FieldValue.serverTimestamp() });
+    }
+    return { provisioned: false };
+  }
 
   const parsed = provisionProfileSchema.safeParse(body ?? {});
   const referralCode = parsed.success ? parsed.data.referralCode : undefined;
