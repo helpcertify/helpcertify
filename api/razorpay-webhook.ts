@@ -40,7 +40,11 @@ function getAdminApp() {
 const db = getFirestore(getAdminApp());
 db.settings({ ignoreUndefinedProperties: true });
 
-type ItemType = 'quiz' | 'practiceTest' | 'package';
+// Kept in sync with api/checkout.ts's ItemType - this file's finalizeOrder
+// only ever reads order.items back (already written by checkout.ts's
+// createOrder) and falls through its generic non-package branch for
+// 'customExamBuilder', so no other change is needed here.
+type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
 
 // Refer & Earn - the referrer's reward is real HelpCertify credit (not a
 // coupon): non-withdrawable, always a flat money amount (a percentage

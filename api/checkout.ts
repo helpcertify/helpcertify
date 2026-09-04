@@ -60,8 +60,11 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
   return { uid: decoded.uid };
 }
 
-type ItemType = 'quiz' | 'practiceTest' | 'package';
-const collectionFor = (itemType: ItemType) =>
+// 'customExamBuilder' is not passed to collectionFor - it has no backing
+// catalog doc (see createOrder's dedicated branch, which reads its price
+// from appSettings/customExamBuilder instead).
+type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
+const collectionFor = (itemType: 'quiz' | 'practiceTest' | 'package') =>
   itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
 
 // A package is never its own entitlement record - "already own this
@@ -153,7 +156,7 @@ const createOrderSchema = z.object({
   // into the Buy Now dialog, separate from whatever the cart itself has
   // stored.
   buyNowItem: z
-    .object({ itemType: z.enum(['quiz', 'practiceTest', 'package']), itemId: z.string().min(1) })
+    .object({ itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder']), itemId: z.string().min(1) })
     .optional(),
   couponCode: z.string().trim().min(1).optional(),
   // Refer & Earn credit - a separate lever from a coupon code (both can
@@ -486,6 +489,30 @@ async function createOrder(uid: string, body: unknown) {
   }[] = [];
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
+    if (entry.itemType === 'customExamBuilder') {
+      // No backing catalog doc - price/availability live in
+      // appSettings/customExamBuilder (admin-editable, see api/admin.ts's
+      // updateCustomExamBuilderSettings). itemId is always the fixed
+      // sentinel 'capability' - buying this unlocks the capability once,
+      // not a specific piece of content.
+      const purchaseSnap = await db.collection('purchases').doc(`${uid}_customExamBuilder_capability`).get();
+      if (purchaseSnap.exists && !isPurchaseExpired(purchaseSnap.data())) continue; // already owned
+      const settingsSnap = await db.collection('appSettings').doc('customExamBuilder').get();
+      const settings = settingsSnap.data();
+      if (!settings || settings.isEnabled === false) {
+        throw Err.failedPrecondition('Custom Exam Builder is not available for purchase right now');
+      }
+      orderItems.push({
+        itemType: 'customExamBuilder',
+        itemId: 'capability',
+        title: 'Custom Exam Builder',
+        unitPrice: settings.priceMinor ?? 0,
+        certificationId: null,
+        accessPeriodLabel: 'Lifetime access',
+      });
+      currency = settings.currency ?? 'INR';
+      continue;
+    }
     const snap = await db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get();
     if (!snap.exists) continue; // deleted since being added - silently dropped, same as api/cart.ts
     const data = snap.data()!;

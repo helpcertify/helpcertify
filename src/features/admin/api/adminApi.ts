@@ -90,6 +90,14 @@ export const adminApi = {
   getCompanyInfo: () => callAction<CompanyInfoSettings>('admin', 'getCompanyInfo'),
   updateCompanyInfo: (payload: CompanyInfoSettings) =>
     callAction<{ success: true }>('admin', 'updateCompanyInfo', { ...payload }),
+
+  getCustomExamBuilderSettings: () =>
+    callAction<{ priceMinor: number; currency: 'INR' | 'USD'; isEnabled: boolean }>(
+      'admin',
+      'getCustomExamBuilderSettings'
+    ),
+  updateCustomExamBuilderSettings: (payload: { priceMinor: number; currency: 'INR' | 'USD'; isEnabled: boolean }) =>
+    callAction<{ success: true }>('admin', 'updateCustomExamBuilderSettings', payload),
   createAdminAccount: (payload: { name: string; email: string; password: string }) =>
     callAction<{ uid: string }>('admin', 'createAdminAccount', payload),
   listAdminAccounts: () =>

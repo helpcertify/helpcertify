@@ -609,7 +609,13 @@ export interface PackageDoc {
   updatedAt: Timestamp;
 }
 
-export type PurchasableItemType = 'quiz' | 'practiceTest' | 'package';
+// 'customExamBuilder' is the odd one out: it has no backing catalog
+// document (no quizzes/practiceTests/packages doc with a price field) - its
+// price instead lives in appSettings/customExamBuilder, and its itemId is
+// always the fixed sentinel 'capability' (buying it unlocks the capability
+// once, not a specific piece of content). See api/checkout.ts's createOrder
+// for the price-lookup special case this requires.
+export type PurchasableItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
 
 /** carts/{uid} - one cart per student. Items never store a price; the
  * price is always re-read live from the quiz/practiceTest doc so an admin
@@ -775,6 +781,56 @@ export interface PurchaseDoc {
   // `expiresAt && expiresAt < now` as not-owned; buying the package again
   // overwrites this doc with a fresh window.
   expiresAt?: Timestamp | null;
+}
+
+/** customExamSets/{setId} - a student's own uploaded question bank (Custom
+ * Exam Builder). Unlike quizzes/practiceTests (an admin-curated catalog,
+ * gated on isPublished), this is the app's first ownership-scoped content
+ * collection - gated on `ownerId` in firestore.rules, and only ever written
+ * by api/content-admin.ts's createCustomExamSet/deleteMyCustomExamSet
+ * (gated on the purchases/{uid}_customExamBuilder_capability entitlement,
+ * not an admin role). One doc per uploaded file; a student can take it as
+ * either practice or a mock exam, chosen per attempt (see
+ * CustomExamAttemptDoc), not fixed at upload time. */
+export interface CustomExamSetDoc {
+  ownerId: string;
+  title: string;
+  sourceFormat: 'standard' | 'cisa_qa';
+  totalQuestions: number;
+  status: 'ready' | 'failed';
+  parseWarnings: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** customExamSets/{setId}/questions/{questionId} - mirrors
+ * quizzes/{id}/questions' shape exactly (order, questionText, options) so
+ * the existing writeQuestionsBatch helper in api/content-admin.ts works
+ * unchanged against this collection. The correct answer lives in a
+ * private/answerKey subdoc, same as quizzes/practiceTests - never
+ * client-readable, not even by the set's own owner (see firestore.rules);
+ * only api/content-admin.ts's submitCustomExamAttempt reads it, server-side. */
+export interface CustomExamQuestionDoc {
+  order: number;
+  questionText: string;
+  options: { id: string; text: string }[];
+}
+
+/** customExamAttempts/{attemptId} - one scored attempt against a student's
+ * own customExamSets doc. Deliberately minimal compared to
+ * QuizAttemptDoc/PracticeAttemptDoc (no anti-cheat, no resumable batching,
+ * no per-question answer history) - a self-serve personal question set has
+ * no proctoring requirement; this exists to show a score, not to run a
+ * timed, audited exam session. `mode` is display/audit only - both practice
+ * and mock attempts are scored identically. */
+export interface CustomExamAttemptDoc {
+  ownerId: string;
+  setId: string;
+  mode: 'practice' | 'mock';
+  correctCount: number;
+  totalQuestions: number;
+  scorePercent: number;
+  submittedAt: Timestamp;
 }
 
 /** reviews/{uid}_{itemType}_{itemId} - one student's rating/review of one
