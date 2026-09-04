@@ -923,6 +923,115 @@ async function getPartnerKycMasked(body: unknown) {
   };
 }
 
+// PRD 14.4 - the full submitted application, grouped, with PAN/bank masked.
+// Opened from /admin/partners/{partnerId}, not the list page.
+async function getPartnerDetail(body: unknown) {
+  const parsed = z.object({ partnerId: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const partnerId = parsed.data.partnerId;
+
+  const pSnap = await db.collection('partners').doc(partnerId).get();
+  if (!pSnap.exists) throw Err.invalidArgument('Partner not found');
+  const p = pSnap.data()!;
+
+  const [kSnap, appSnap, agreementsSnap, codesSnap, commissionsSnap, payoutsSnap, auditSnap] = await Promise.all([
+    db.collection('partnerKyc').doc(partnerId).get(),
+    db.collection('partnerApplications').where('partnerId', '==', partnerId).limit(1).get(),
+    db.collection('partnerAgreements').where('partnerId', '==', partnerId).get(),
+    db.collection('referralCodes').where('partnerId', '==', partnerId).get(),
+    db.collection('commissions').where('partnerId', '==', partnerId).limit(500).get(),
+    db.collection('payouts').where('partnerId', '==', partnerId).limit(60).get(),
+    db.collection('auditEvents').where('entityId', '==', partnerId).limit(50).get(),
+  ]);
+
+  const k = kSnap.data();
+  const app = appSnap.docs[0]?.data();
+  const userSnap = await db.collection('users').doc(p.linkedUserId as string).get();
+  const user = userSnap.data();
+
+  const money = (pred: (s: string) => boolean) =>
+    commissionsSnap.docs
+      .filter((d) => pred(d.data().status as string))
+      .reduce((t, d) => t + (Number(d.data().netPayableMinor) || 0), 0);
+
+  const referralEventCount = (
+    await Promise.all(
+      codesSnap.docs.map((c) => db.collection('referralEvents').where('code', '==', c.id).limit(500).get()),
+    )
+  ).reduce((t, s) => t + s.size, 0);
+
+  return {
+    partnerId,
+    header: {
+      legalName: (app?.legalName as string) ?? (user?.name as string) ?? '',
+      displayName: p.displayName as string,
+      status: p.status as string,
+      payoutStatus: (p.payoutStatus as string) ?? 'OK',
+      partnerType: p.partnerType as string,
+      createdAt: p.createdAt ?? null,
+      applicationDate: app?.submittedAt ?? null,
+    },
+    contact: {
+      email: (user?.email as string) ?? null,
+      phone: (app?.phone as string) ?? null, // authorised detail view only
+      dateOfBirth: (app?.dateOfBirth as string) ?? null,
+      address: k
+        ? [k.addressLine, k.city, k.state, k.postalCode, k.country].filter(Boolean).join(', ')
+        : null,
+      emailVerified: user?.emailVerified !== false,
+    },
+    tax: {
+      country: (p.country as string) ?? 'IN',
+      panMasked: (p.panMasked as string | null) ?? null,
+      panStatus: (k?.panStatus as string | null) ?? (p.panStatus as string | null) ?? null,
+      panName: (k?.panName as string | null) ?? null,
+      gstinMasked: k?.gstin ? `${String(k.gstin).slice(0, 2)}****${String(k.gstin).slice(-4)}` : null,
+      duplicatePanFlag: app?.duplicatePanFlag === true,
+      verifiedAt: k?.verifiedAt ?? null,
+      verificationRef: (k?.verificationRef as string | null) ?? null,
+    },
+    payout: (() => {
+      const pd = p.payout;
+      if (!pd?.method) return null;
+      return {
+        method: pd.method as string,
+        accountName: (pd.accountName as string) ?? '',
+        bankAccountLast4: pd.bankAccountNumber ? `••••${String(pd.bankAccountNumber).slice(-4)}` : null,
+        bankIfsc: (pd.bankIfsc as string | null) ?? null,
+        upiVpa: pd.upiVpa ? `••••${String(pd.upiVpa).slice(-6)}` : null,
+      };
+    })(),
+    agreements: agreementsSnap.docs.map((d) => ({ version: d.data().version, acceptedAt: d.data().acceptedAt ?? null })),
+    codes: codesSnap.docs.map((d) => ({ code: d.id, active: d.data().active === true })),
+    performance: {
+      referralEventCount,
+      commissionCount: commissionsSnap.size,
+      pendingMinor: money((s) => ['PENDING_HOLD', 'ON_HOLD', 'APPROVED'].includes(s)),
+      payableMinor: money((s) => ['PAYABLE', 'PROCESSING'].includes(s)),
+      paidMinor: money((s) => s === 'PAID'),
+      reversedMinor: money((s) => ['REVERSED', 'RECOVERABLE'].includes(s)),
+    },
+    payouts: payoutsSnap.docs
+      .map((d) => ({
+        id: d.id,
+        periodLabel: d.data().periodLabel as string,
+        netMinor: Number(d.data().netMinor) || 0,
+        currency: (d.data().currency as string) ?? 'INR',
+        status: d.data().status as string,
+        externalReference: (d.data().externalReference as string | null) ?? null,
+      }))
+      .sort((a, b) => (b.periodLabel > a.periodLabel ? 1 : -1)),
+    audit: auditSnap.docs
+      .map((d) => ({
+        action: d.data().action as string,
+        actorId: d.data().actorId as string,
+        reason: (d.data().reason as string | null) ?? null,
+        createdAt: d.data().createdAt ?? null,
+      }))
+      .sort((a, b) => (Number(b.createdAt?.toMillis?.() ?? 0) - Number(a.createdAt?.toMillis?.() ?? 0))),
+  };
+}
+
 const revealPanSchema = z.object({
   partnerId: z.string().trim().min(1),
   reason: z.string().trim().min(5).max(300),
@@ -1658,6 +1767,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getPartnerKycMasked':
         res.status(200).json(await getPartnerKycMasked(data));
+        return;
+      case 'getPartnerDetail':
+        res.status(200).json(await getPartnerDetail(data));
         return;
       case 'revealPartnerPan':
         res.status(200).json(await revealPartnerPan(uid, data));

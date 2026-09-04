@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { partnerAdminApi } from '@/features/partner/api/partnerApi';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { Link } from 'react-router-dom';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -64,6 +65,7 @@ export function PartnerApplicationsPage() {
   });
 
   const [reviewFor, setReviewFor] = useState<string | null>(null);
+  const [partnerSearch, setPartnerSearch] = useState('');
   const [note, setNote] = useState('');
 
   const saveFlags = useMutation({
@@ -208,7 +210,15 @@ export function PartnerApplicationsPage() {
         </table>
       </div>
 
-      <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Approved partners</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Approved partners</h2>
+        <input
+          value={partnerSearch}
+          onChange={(e) => setPartnerSearch(e.target.value)}
+          placeholder="Search name / ID / PAN suffix"
+          className="rounded border border-surface-border bg-surface px-2 py-1 text-xs"
+        />
+      </div>
       <div className="overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
           <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
@@ -224,16 +234,39 @@ export function PartnerApplicationsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">
-            {(partners.data?.partners ?? []).length === 0 && (
+            {(partners.data?.partners ?? [])
+              .filter((p) => {
+                const q = partnerSearch.trim().toLowerCase();
+                if (!q) return true;
+                return (
+                  p.displayName.toLowerCase().includes(q) ||
+                  p.partnerId.toLowerCase().includes(q) ||
+                  (p.panLast4 ?? '').toLowerCase().includes(q)
+                );
+              }).length === 0 && (
               <tr>
                 <td className="px-4 py-6 text-center text-ink-faint" colSpan={8}>
                   No partners yet.
                 </td>
               </tr>
             )}
-            {(partners.data?.partners ?? []).map((p) => (
+            {(partners.data?.partners ?? [])
+              .filter((p) => {
+                const q = partnerSearch.trim().toLowerCase();
+                if (!q) return true;
+                return (
+                  p.displayName.toLowerCase().includes(q) ||
+                  p.partnerId.toLowerCase().includes(q) ||
+                  (p.panLast4 ?? '').toLowerCase().includes(q)
+                );
+              })
+              .map((p) => (
               <tr key={p.partnerId}>
-                <td className="px-4 py-3 font-mono text-xs text-ink">{p.partnerId}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  <Link to={`/admin/partners/${p.partnerId}`} className="text-[#155EEF] hover:underline">
+                    {p.partnerId}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-ink">{p.displayName}</td>
                 <td className="px-4 py-3 capitalize text-ink-faint">{p.partnerType}</td>
                 <td className="px-4 py-3 font-mono text-xs text-ink-faint">
