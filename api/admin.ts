@@ -724,6 +724,41 @@ async function listPartnerApplications(data: unknown) {
   };
 }
 
+// PRD 14.4: the full submitted application must be reviewable BEFORE
+// approval - not just the summary row. Address/PAN-name/GSTIN live in the
+// deny-all partnerApplicationKyc collection (not on the application doc
+// itself, so the applicant's own read-back of their application never sees
+// them); this assembles the reviewer's view, masked the same way the
+// approved-partner KYC view is.
+async function getPartnerApplicationDetail(body: unknown) {
+  const parsed = z.object({ applicationId: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const [appSnap, kSnap] = await Promise.all([
+    db.collection('partnerApplications').doc(parsed.data.applicationId).get(),
+    db.collection('partnerApplicationKyc').doc(parsed.data.applicationId).get(),
+  ]);
+  if (!appSnap.exists) throw Err.invalidArgument('Application not found');
+  const a = appSnap.data()!;
+  const k = kSnap.data();
+  return {
+    id: appSnap.id,
+    legalName: a.legalName as string,
+    displayName: a.displayName as string,
+    dateOfBirth: a.dateOfBirth as string,
+    phone: a.phone as string,
+    partnerType: a.partnerType as string,
+    country: (a.country as string) ?? 'IN',
+    address: k ? [k.addressLine, k.city, k.state, k.postalCode, k.country].filter(Boolean).join(', ') : null,
+    panMasked: (a.panMasked as string | null) ?? null,
+    panName: (k?.panName as string | null) ?? null,
+    gstinMasked: (a.gstinMasked as string | null) ?? null,
+    duplicatePanFlag: a.duplicatePanFlag === true,
+    agreementVersion: (a.agreementVersion as string) ?? null,
+    status: a.status as string,
+    submittedAt: a.submittedAt ?? null,
+  };
+}
+
 const reviewPartnerApplicationSchema = z.object({
   applicationId: z.string().min(1),
   decision: z.enum(['approve', 'reject']),
@@ -1876,6 +1911,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // --- Partner Commission Framework (Phase 1, staff) ---
       case 'listPartnerApplications':
         res.status(200).json(await listPartnerApplications(data));
+        return;
+      case 'getPartnerApplicationDetail':
+        res.status(200).json(await getPartnerApplicationDetail(data));
         return;
       case 'reviewPartnerApplication':
         res.status(200).json(await reviewPartnerApplication(uid, data));
