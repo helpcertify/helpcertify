@@ -12,6 +12,7 @@ import { formatShortDate } from '@/utils/formatDate';
 import { useExamCountdowns, featuredExamCountdown } from '@/features/students/hooks/useExamCountdowns';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { Avatar } from '@/components/common/Avatar';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -36,17 +37,6 @@ const NAV_ITEMS = [
 // Profile directly above it. Both are real routes now (My Profile used to
 // open a modal - moved to its own page/route on request), so both get the
 // same active-state NavLink styling for free.
-
-// First name + last name initials for the header avatar ("Uma Mageshwari" ->
-// "UM"), falling back to a single "?" for a profile that hasn't loaded yet
-// or somehow has no name at all.
-function initials(name?: string): string {
-  if (!name?.trim()) return '?';
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? '';
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
-  return (first + last).toUpperCase() || '?';
-}
 
 // Matches the reference screenshots' "Learning Portal" student shell: a
 // unified top header (brand, search, account-utility icons) that spans the
@@ -190,16 +180,8 @@ export function StudentShell() {
           <button type="button" onClick={handleNotificationsClick} aria-label="Notifications" className="text-ink-muted hover:text-ink">
             <BellIcon className="h-5 w-5" />
           </button>
-          <Link
-            to="/home/profile"
-            aria-label="My Profile"
-            className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#155EEF] text-xs font-semibold text-white"
-          >
-            {profile?.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              initials(profile?.name)
-            )}
+          <Link to="/home/profile" aria-label="My Profile">
+            <Avatar name={profile?.name} avatarUrl={profile?.avatarUrl} size={32} />
           </Link>
         </div>
       </header>
