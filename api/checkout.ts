@@ -499,18 +499,23 @@ async function createOrder(uid: string, body: unknown) {
       if (purchaseSnap.exists && !isPurchaseExpired(purchaseSnap.data())) continue; // already owned
       const settingsSnap = await db.collection('appSettings').doc('customExamBuilder').get();
       const settings = settingsSnap.data();
-      if (!settings || settings.isEnabled === false) {
+      // A doc that doesn't exist yet (no admin has opened Settings and
+      // saved this section) means "use the defaults", not "disabled" - same
+      // semantics as api/admin.ts's getCustomExamBuilderSettings and the
+      // client's read of this same doc. Only an explicit isEnabled: false
+      // blocks a purchase.
+      if (settings?.isEnabled === false) {
         throw Err.failedPrecondition('Custom Exam Builder is not available for purchase right now');
       }
       orderItems.push({
         itemType: 'customExamBuilder',
         itemId: 'capability',
         title: 'Custom Exam Builder',
-        unitPrice: settings.priceMinor ?? 0,
+        unitPrice: typeof settings?.priceMinor === 'number' ? settings.priceMinor : 49900,
         certificationId: null,
         accessPeriodLabel: 'Lifetime access',
       });
-      currency = settings.currency ?? 'INR';
+      currency = settings?.currency === 'USD' ? 'USD' : 'INR';
       continue;
     }
     const snap = await db.collection(collectionFor(entry.itemType)).doc(entry.itemId).get();
