@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
 import { useCompany } from '@/features/marketing/companyInfoStore';
 import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
+import { CertificationGoalSelector } from '@/features/landing/components/CertificationGoalSelector';
 
 // Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
 // neither in the initial bundle nor in the build-time prerender module
@@ -111,6 +112,9 @@ export function LandingPage() {
             </li>
           ))}
         </ul>
+
+        <CertificationGoalSelector />
+
         <Link
           to="/register"
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
