@@ -7,7 +7,7 @@ import { MARKETING_ROUTES } from './routes';
 import { COMPANY } from './companyInfo';
 
 describe('marketing routes', () => {
-  it('registers the home page plus the seven public legal/marketing pages', () => {
+  it('registers the home page plus the public legal/marketing pages', () => {
     expect(MARKETING_ROUTES.map((r) => r.path)).toEqual([
       '/',
       '/about',
@@ -17,6 +17,7 @@ describe('marketing routes', () => {
       '/refund',
       '/support',
       '/disclaimer',
+      '/build-your-own-exam',
     ]);
   });
 

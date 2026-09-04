@@ -18,6 +18,7 @@ const FOOTER_LINKS: { to: string; label: string }[] = [
   { to: '/refund', label: 'Refund Policy' },
   { to: '/support', label: 'Support Policy' },
   { to: '/disclaimer', label: 'Disclaimer' },
+  { to: '/build-your-own-exam', label: 'Bring Your Own Question Bank' },
 ];
 
 export function MarketingPage({
