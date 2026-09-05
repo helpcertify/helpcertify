@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { listAvailableQuizzes } from '../api/studentContentApi';
+import { listAvailableCourses } from '../api/courseApi';
 import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
+import { JumpBackIn } from '../components/JumpBackIn';
+import { RecommendedCourses } from '../components/RecommendedCourses';
+import { CourseRow, type CourseRowItem } from '@/components/common/CourseRow';
 import { cartApi } from '../api/cartApi';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -38,6 +42,7 @@ export function StudentHomePage() {
   const today = new Date();
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
+  const { data: allCourses } = useQuery({ queryKey: ['student', 'availableCourses'], queryFn: listAvailableCourses });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: examCountdowns } = useExamCountdowns();
   const { data: catalog, isLoading: catalogLoading, error: catalogError, refetch: refetchCatalog } = useCertificationCatalog();
@@ -71,6 +76,24 @@ export function StudentHomePage() {
         !attemptByQuizId.get(q.id),
     )
     .slice(0, 4);
+
+  // "New courses" - the most recently created published courses, newest
+  // first. createdAt predates some course docs, so fall back to 0.
+  const newCourses: CourseRowItem[] = [...(allCourses ?? [])]
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    .slice(0, 10)
+    .map((c) => ({
+      id: c.id,
+      title: c.title,
+      category: c.category,
+      skillLevel: c.skillLevel,
+      price: c.price,
+      originalPrice: c.originalPrice,
+      currency: c.currency,
+      ratingAvg: c.ratingAvg,
+      ratingCount: c.ratingCount,
+      coverImageUrl: c.coverImageUrl,
+    }));
 
   const hasMissionData = !!goal;
   const todayPercent = hasMissionData ? Math.min(100, Math.round((todayAnswered / dailyTarget) * 100)) : 0;
@@ -107,9 +130,10 @@ export function StudentHomePage() {
         )}
       </div>
 
-      {/* Refer & Earn - same banner (and same "hide it once it's used"
-          logic) as My Profile's, see WelcomeCouponBanner. */}
-      <WelcomeCouponBanner className="mb-6" />
+      {/* Jump back in - the one place a returning learner continues an
+          unfinished mock, practice session or course. Renders nothing when
+          there's nothing in progress. */}
+      <JumpBackIn />
 
       {/* Today's Mission - today's progress toward the primary goal's daily
           target, distinct from "Continue where you left off" below (which
@@ -152,52 +176,19 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* Choose Your Exam Preparation - replaces the old "Recommended for
-          you" flat item carousel. One card per certification, packages
-          (Mock Exams/Practice Questions/Complete) grouped underneath it
-          instead of showing up as separate, unrelated product cards. See
-          api/cart.ts's getLearnerCatalog for how pricing/owned/in-cart
-          state is resolved server-side. */}
-      <div className="mb-8">
-        <h2 className="mb-1 text-lg font-bold text-ink">Choose Your Exam Preparation</h2>
-        <p className="mb-4 text-sm text-ink-faint">All prices are visible. Select the plan you want and purchase directly.</p>
+      {/* Recommended courses - ranked from the categories the learner is
+          already active in. Hidden when there's nothing to suggest. */}
+      <RecommendedCourses />
 
-        {catalogLoading && (
-          <div className="space-y-4">
-            <CertificationCardSkeleton />
-            <CertificationCardSkeleton />
-          </div>
-        )}
-        {!catalogLoading && catalogError && (
-          <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
-            We couldn't load the available certification packages.{' '}
-            <button type="button" onClick={() => refetchCatalog()} className="font-semibold text-[#155EEF] hover:underline">
-              Retry
-            </button>
-          </div>
-        )}
-        {!catalogLoading && !catalogError && catalog && catalog.certifications.length === 0 && (
-          <p className="text-sm text-ink-faint">No certification packages are available right now.</p>
-        )}
-        {!catalogLoading && !catalogError && catalog && catalog.certifications.length > 0 && (
-          <div className="space-y-4">
-            {catalog.certifications.map((cert) => (
-              <CertificationCard key={cert.id} certification={cert} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* My Active Certifications - the same catalog data, filtered to
-          certifications where the learner already owns a package, so
-          "continue learning" and "browse/buy" stay in visually distinct
-          sections rather than mixed into one list. */}
+      {/* Your certifications - catalog data filtered to certifications the
+          learner already owns a package in, so "continue learning" sits
+          above "browse and buy". */}
       {!catalogLoading &&
         !catalogError &&
         catalog &&
         catalog.certifications.filter(hasActivePackage).length > 0 && (
           <div className="mb-8">
-            <h2 className="mb-4 text-lg font-bold text-ink">My Active Certifications</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Your certifications</h2>
             <div className="space-y-4">
               {catalog.certifications.filter(hasActivePackage).map((cert) => (
                 <CertificationCard key={cert.id} certification={cert} />
@@ -230,6 +221,47 @@ export function StudentHomePage() {
           </div>
         </div>
       )}
+
+      {/* New courses - newest written-lesson courses, for discovery. */}
+      {newCourses.length > 0 && <CourseRow title="New courses" items={newCourses} seeAllHref="/home/courses" />}
+
+      {/* Choose Your Exam Preparation - the browse-and-buy grid, demoted
+          below the fold now that "Jump back in" and recommendations lead
+          the page. See api/cart.ts's getLearnerCatalog for how
+          pricing/owned/in-cart state is resolved server-side. */}
+      <div className="mb-8">
+        <h2 className="mb-1 text-lg font-bold text-ink">Choose Your Exam Preparation</h2>
+        <p className="mb-4 text-sm text-ink-faint">All prices are visible. Select the plan you want and purchase directly.</p>
+
+        {catalogLoading && (
+          <div className="space-y-4">
+            <CertificationCardSkeleton />
+            <CertificationCardSkeleton />
+          </div>
+        )}
+        {!catalogLoading && catalogError && (
+          <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
+            We couldn't load the available certification packages.{' '}
+            <button type="button" onClick={() => refetchCatalog()} className="font-semibold text-[#155EEF] hover:underline">
+              Retry
+            </button>
+          </div>
+        )}
+        {!catalogLoading && !catalogError && catalog && catalog.certifications.length === 0 && (
+          <p className="text-sm text-ink-faint">No certification packages are available right now.</p>
+        )}
+        {!catalogLoading && !catalogError && catalog && catalog.certifications.length > 0 && (
+          <div className="space-y-4">
+            {catalog.certifications.map((cert) => (
+              <CertificationCard key={cert.id} certification={cert} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Refer & Earn - moved to the bottom of the page (still hides itself
+          once the coupon is used), see WelcomeCouponBanner. */}
+      <WelcomeCouponBanner className="mt-2" />
     </div>
   );
 }

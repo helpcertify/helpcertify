@@ -36,8 +36,21 @@ export interface CourseForReading {
   completedLessonIndexes: number[];
 }
 
+export interface MyCourseProgressRow {
+  courseId: string;
+  title: string;
+  coverImageUrl: string | null;
+  totalLessons: number;
+  completedCount: number;
+  updatedAtMs: number;
+}
+
 export const courseApi = {
   getForReading: (courseId: string) => callAction<CourseForReading>('content-admin', 'getCourseForReading', { courseId }),
   markLessonComplete: (courseId: string, lessonIndex: number) =>
     callAction<{ success: true }>('content-admin', 'markLessonComplete', { courseId, lessonIndex }),
+  // In-progress courses for "Jump back in" - server-joined because
+  // courseProgress has no uid field to query on. See api/content-admin.ts.
+  listMyProgress: () =>
+    callAction<{ items: MyCourseProgressRow[] }>('content-admin', 'listMyCourseProgress'),
 };
