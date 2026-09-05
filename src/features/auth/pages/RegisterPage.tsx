@@ -62,7 +62,7 @@ export function RegisterPage() {
   const announceWelcomeCoupon = (welcomeCoupon: WelcomeCoupon | null) => {
     if (!welcomeCoupon) return;
     pushToast(
-      `Welcome bonus! You've got a ${formatReward(welcomeCoupon.type, welcomeCoupon.value)} off coupon (code ${welcomeCoupon.code}) for your first purchase.`,
+      `Welcome bonus! You've got a ${formatReward(welcomeCoupon.type, welcomeCoupon.value)} coupon (code ${welcomeCoupon.code}) for your first purchase.`,
       'success'
     );
   };

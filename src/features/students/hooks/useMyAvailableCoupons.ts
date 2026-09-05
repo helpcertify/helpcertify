@@ -7,7 +7,7 @@ import type { CouponDoc } from '@/types/models';
 
 export interface AvailableCoupon {
   code: string;
-  type: 'flat' | 'percent';
+  type: 'flat' | 'percent' | 'fixed_price';
   value: number;
 }
 

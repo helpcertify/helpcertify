@@ -2,7 +2,7 @@ import { callAction } from '@/lib/vercelApi';
 
 export interface CouponSummary {
   code: string;
-  discountType: 'percent' | 'flat';
+  discountType: 'percent' | 'flat' | 'fixed_price';
   discountValue: number;
   active: boolean;
   expiresAt: unknown;
@@ -12,7 +12,7 @@ export interface CouponSummary {
 
 export interface CreateCouponPayload {
   code: string;
-  discountType: 'percent' | 'flat';
+  discountType: 'percent' | 'flat' | 'fixed_price';
   discountValue: number;
   expiresAt?: string | null;
   maxUses?: number | null;

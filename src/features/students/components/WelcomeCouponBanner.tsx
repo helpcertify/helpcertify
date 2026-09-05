@@ -14,7 +14,7 @@ export function WelcomeCouponBanner({ className = '' }: { className?: string }) 
   return (
     <div className={`rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] p-3 ${className}`}>
       <div className="text-sm font-bold text-[#16A34A]">
-        🎉 You have a {formatReward(myWelcomeCoupon.type, myWelcomeCoupon.value)} off welcome coupon
+        🎉 You have a {formatReward(myWelcomeCoupon.type, myWelcomeCoupon.value)} welcome coupon
       </div>
       <div className="text-xs text-[#64748B]">
         Enter code <span className="font-mono font-semibold text-[#0F172A]">{myWelcomeCoupon.code}</span> at checkout.

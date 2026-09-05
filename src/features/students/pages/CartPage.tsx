@@ -162,7 +162,7 @@ export function CartPage() {
                           onClick={() => applyCouponMutation.mutate(c.code)}
                           className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF] disabled:opacity-50"
                         >
-                          🎁 {c.code} ({formatReward(c.type, c.value)} off)
+                          🎁 {c.code} ({formatReward(c.type, c.value)})
                         </button>
                       ))}
                     </div>
