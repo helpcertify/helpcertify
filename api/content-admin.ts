@@ -3770,25 +3770,37 @@ async function callAiJson(systemPrompt: string, userPrompt: string): Promise<unk
   if (!apiKey) {
     throw Err.failedPrecondition('AI Course Builder is not configured yet. Add GEMINI_API_KEY in Vercel.');
   }
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
-      }),
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
+  });
+
+  // Gemini's free tier returns transient 503 ("high demand") and 429
+  // (rate limit) fairly often - retry once with a short backoff before
+  // giving up. Kept to 2 attempts so that even a whole-batch failure in
+  // generateAllCourseContent (one call per module) stays inside the 60s
+  // function budget.
+  let lastErr = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    if (res.ok) {
+      const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (typeof content !== 'string') throw Err.failedPrecondition('AI generation returned an unexpected response');
+      return parseAiJson(content);
     }
-  );
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw Err.failedPrecondition(`AI generation request failed (${res.status}). ${errText.slice(0, 300)}`);
+    lastErr = (await res.text().catch(() => '')).slice(0, 300);
+    if (res.status !== 429 && res.status !== 503) {
+      throw Err.failedPrecondition(`AI generation request failed (${res.status}). ${lastErr}`);
+    }
   }
-  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof content !== 'string') throw Err.failedPrecondition('AI generation returned an unexpected response');
+  throw Err.failedPrecondition(`The AI service is temporarily overloaded. Please try again in a minute. ${lastErr}`);
+}
+
+function parseAiJson(content: string): unknown {
   try {
     return JSON.parse(content);
   } catch {
@@ -3928,11 +3940,26 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   // typical 4-8 module course, and stays under Gemini's free-tier
   // per-minute request rate limit.
   for (const m of outline) {
+    // A single module failing (transient overload after retries, or an
+    // unexpected shape) records a warning and moves on rather than
+    // killing the whole run - the author can re-run to fill the gaps.
+    let raw: unknown;
+    try {
+      raw = isCourse
+        ? await callAiJson(
+            'You write clear, well-structured written lessons for a certification course. Respond with strict JSON only, matching: {"content":string}. The content should be a complete textbook-style chapter: explanations, examples, and key points, in plain text with paragraph breaks.',
+            `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write the full lesson text for this module.`
+          )
+        : await callAiJson(
+            'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Each question needs exactly 4 options with short ids like "A","B","C","D", and correctOptionId must match one option id.',
+            `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write exactly ${m.questionsPerModule} distinct questions for this module.`
+          );
+    } catch (err) {
+      warnings.push(`Module "${m.title}": ${err instanceof Error ? err.message : 'generation failed'}`);
+      continue;
+    }
+
     if (isCourse) {
-      const raw = await callAiJson(
-        'You write clear, well-structured written lessons for a certification course. Respond with strict JSON only, matching: {"content":string}. The content should be a complete textbook-style chapter: explanations, examples, and key points, in plain text with paragraph breaks.',
-        `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write the full lesson text for this module.`
-      );
       const lessonParsed = aiLessonResponseSchema.safeParse(raw);
       if (!lessonParsed.success) {
         warnings.push(`Module "${m.title}": AI response was in an unexpected shape, skipped.`);
@@ -3942,10 +3969,6 @@ async function generateAllCourseContent(uid: string, body: unknown) {
       continue;
     }
 
-    const raw = await callAiJson(
-      'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Each question needs exactly 4 options with short ids like "A","B","C","D", and correctOptionId must match one option id.',
-      `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write exactly ${m.questionsPerModule} distinct questions for this module.`
-    );
     const moduleParsed = aiModuleQuestionsResponseSchema.safeParse(raw);
     if (!moduleParsed.success) {
       warnings.push(`Module "${m.title}": AI response was in an unexpected shape, skipped.`);
@@ -3963,6 +3986,16 @@ async function generateAllCourseContent(uid: string, body: unknown) {
       options: q.options,
       correctOptionId: q.correctOptionId,
     }));
+  }
+
+  const producedAnything = Object.keys(generatedQuestions).length > 0 || Object.keys(generatedLessons).length > 0;
+  if (!producedAnything) {
+    // Nothing came back at all - leave the draft where it was (still
+    // OUTLINE_READY) and surface why, so a plain retry works cleanly.
+    await ref.update({ status: 'OUTLINE_READY', updatedAt: FieldValue.serverTimestamp() });
+    throw Err.failedPrecondition(
+      warnings[0] ?? 'The AI service did not return any content. Please try again in a minute.'
+    );
   }
 
   await ref.update({ generatedQuestions, generatedLessons, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
