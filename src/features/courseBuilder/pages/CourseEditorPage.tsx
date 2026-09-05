@@ -45,14 +45,15 @@ export function CourseEditorPage() {
   const [lessons, setLessons] = useState<CourseLessonOutline[]>([]);
   const [dirty, setDirty] = useState(false);
 
-  // Seed local editing state once the draft loads (and whenever a fresh
-  // copy arrives after a save).
+  // Seed local editing state from the server copy - but never while the
+  // creator has unsaved edits (a background refetch on window focus must
+  // not wipe their work). After a save, dirty is false again so the fresh
+  // copy seeds normally.
   useEffect(() => {
-    if (!draft) return;
+    if (!draft || dirty) return;
     setMeta(draft.courseMeta ?? { ...BLANK_META });
     setLessons(draft.outline ?? []);
-    setDirty(false);
-  }, [draft]);
+  }, [draft, dirty]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -62,11 +63,26 @@ export function CourseEditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courseBuilder', 'draft', draftId] });
       queryClient.invalidateQueries({ queryKey: ['courseBuilder', 'myDrafts'] });
+      queryClient.invalidateQueries({ queryKey: ['courseBuilder', 'lessonStatuses', draftId] });
       pushToast('Course saved', 'success');
       setDirty(false);
     },
     onError: (err) => pushToast(errorText(err, 'Could not save the course'), 'error'),
   });
+
+  // Opening a lesson editor: persist any pending outline edits first so the
+  // lesson's title / description / objectives the AI generates content from
+  // are the current ones, then navigate.
+  const openLesson = async (lessonKey: string) => {
+    if (dirty) {
+      try {
+        await save.mutateAsync();
+      } catch {
+        return; // save failed - the error toast already fired
+      }
+    }
+    navigate(`${base}/${draftId}/lessons/${lessonKey}`);
+  };
 
   const submit = useMutation({
     mutationFn: () =>
@@ -190,7 +206,7 @@ export function CourseEditorPage() {
 
         <div className="space-y-3">
           {lessons.map((l, i) => (
-            <div key={i} className="rounded-lg border border-surface-border p-3">
+            <div key={l.lessonKey ?? `new-${i}`} className="rounded-lg border border-surface-border p-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-ink-faint">{i + 1}.</span>
                 <input value={l.title} onChange={(e) => patchLesson(i, { title: e.target.value })} className="input-dark flex-1" />
@@ -199,11 +215,16 @@ export function CourseEditorPage() {
                 <button type="button" onClick={() => removeLesson(i)} className="rounded border border-red-300 px-2 py-1 text-xs text-red-500">Remove</button>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {l.lessonKey && !dirty ? (
+                {l.lessonKey ? (
                   <>
-                    <Link to={`${base}/${draftId}/lessons/${l.lessonKey}`} className="text-xs font-semibold text-[#155EEF] hover:underline">
-                      Open lesson editor →
-                    </Link>
+                    <button
+                      type="button"
+                      disabled={save.isPending}
+                      onClick={() => openLesson(l.lessonKey!)}
+                      className="text-xs font-semibold text-[#155EEF] hover:underline disabled:opacity-50"
+                    >
+                      {save.isPending ? 'Saving…' : 'Open lesson editor →'}
+                    </button>
                     {(() => {
                       const st = statuses?.lessons.find((s) => s.lessonKey === l.lessonKey);
                       if (!st) return null;
@@ -227,7 +248,7 @@ export function CourseEditorPage() {
                     })()}
                   </>
                 ) : (
-                  <span className="text-xs text-ink-faint">Save the course to open this lesson's editor.</span>
+                  <span className="text-xs text-ink-faint">Save the course first to edit this new lesson.</span>
                 )}
               </div>
               <textarea
