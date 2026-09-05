@@ -33,7 +33,7 @@ interface CourseRowProps {
 // goes to sign-up). Presentational; owned/price logic stays with the
 // caller.
 export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref, compact }: CourseRowProps) {
-  const { ref, canScrollLeft, canScrollRight, scrollBy } = useHorizontalScroll(items.length);
+  const { ref, canScrollLeft, canScrollRight, hasOverflow, scrollBy } = useHorizontalScroll(items.length);
   const href = hrefFor ?? ((id: string) => `/home/courses/${id}`);
 
   if (items.length === 0) return null;
@@ -52,25 +52,27 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
       {/* relative wrapper is the scroll row only (not the header), so the
           prev/next arrows sit vertically centred on the cards. */}
       <div className="relative">
-        {canScrollLeft && (
-          <button
-            type="button"
-            onClick={() => scrollBy(-1)}
-            aria-label="Scroll left"
-            className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg hover:border-brand-400 hover:text-brand-ink"
-          >
-            &lsaquo;
-          </button>
-        )}
-        {canScrollRight && (
-          <button
-            type="button"
-            onClick={() => scrollBy(1)}
-            aria-label="Scroll right"
-            className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg hover:border-brand-400 hover:text-brand-ink"
-          >
-            &rsaquo;
-          </button>
+        {hasOverflow && (
+          <>
+            <button
+              type="button"
+              onClick={() => scrollBy(-1)}
+              disabled={!canScrollLeft}
+              aria-label="Scroll left"
+              className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg transition-opacity hover:border-brand-400 hover:text-brand-ink disabled:pointer-events-none disabled:opacity-0"
+            >
+              &lsaquo;
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollBy(1)}
+              disabled={!canScrollRight}
+              aria-label="Scroll right"
+              className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg transition-opacity hover:border-brand-400 hover:text-brand-ink disabled:pointer-events-none disabled:opacity-0"
+            >
+              &rsaquo;
+            </button>
+          </>
         )}
 
         <div ref={ref} className="scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1">

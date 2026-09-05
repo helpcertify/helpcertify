@@ -10,7 +10,7 @@ import { useHorizontalScroll } from '@/hooks/useHorizontalScroll';
 export function CertificationPrepSection() {
   const { data: catalog, isLoading, error, refetch } = useCertificationCatalog();
   const certs = catalog?.certifications ?? [];
-  const { ref, canScrollLeft, canScrollRight, scrollBy } = useHorizontalScroll(certs.length);
+  const { ref, canScrollLeft, canScrollRight, hasOverflow, scrollBy } = useHorizontalScroll(certs.length);
 
   return (
     <section className="mb-8">
@@ -49,25 +49,27 @@ export function CertificationPrepSection() {
 
       {!isLoading && !error && certs.length > 0 && (
         <div className="relative">
-          {canScrollLeft && (
-            <button
-              type="button"
-              onClick={() => scrollBy(-1)}
-              aria-label="Scroll left"
-              className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg hover:border-brand-400 hover:text-brand-ink"
-            >
-              &lsaquo;
-            </button>
-          )}
-          {canScrollRight && (
-            <button
-              type="button"
-              onClick={() => scrollBy(1)}
-              aria-label="Scroll right"
-              className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg hover:border-brand-400 hover:text-brand-ink"
-            >
-              &rsaquo;
-            </button>
+          {hasOverflow && (
+            <>
+              <button
+                type="button"
+                onClick={() => scrollBy(-1)}
+                disabled={!canScrollLeft}
+                aria-label="Scroll left"
+                className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg transition-opacity hover:border-brand-400 hover:text-brand-ink disabled:pointer-events-none disabled:opacity-0"
+              >
+                &lsaquo;
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollBy(1)}
+                disabled={!canScrollRight}
+                aria-label="Scroll right"
+                className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg transition-opacity hover:border-brand-400 hover:text-brand-ink disabled:pointer-events-none disabled:opacity-0"
+              >
+                &rsaquo;
+              </button>
+            </>
           )}
           <div ref={ref} className="scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1">
             {certs.map((cert) => (
