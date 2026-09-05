@@ -1,5 +1,6 @@
 import { callAction } from '@/lib/vercelApi';
 import type { SkillLevel } from '@/types/models';
+import type { Storyboard } from '@/features/visualLessons/storyboard';
 
 // AI course creation - the dedicated blueprint -> lessons -> visual
 // lessons flow. Server side lives in api/content-admin.ts alongside the
@@ -50,6 +51,7 @@ export interface DraftLesson {
   narrationScript: string;
   quiz: LessonQuizQuestion[];
   resources: LessonResource[];
+  storyboard: Storyboard | null;
   contentStatus: string;
   storyboardStatus: string;
 }
@@ -106,9 +108,30 @@ export const courseBuilderApi = {
   updateLesson: (
     draftId: string,
     lessonKey: string,
-    patch: { overview?: string; content?: string; narrationScript?: string; resources?: LessonResource[] },
+    patch: {
+      overview?: string;
+      content?: string;
+      narrationScript?: string;
+      resources?: LessonResource[];
+      storyboard?: Storyboard;
+    },
   ) => callAction<{ success: true }>('content-admin', 'updateCourseDraftLesson', { draftId, lessonKey, ...patch }),
 
   generateLessonQuiz: (draftId: string, lessonKey: string, questionCount = 5) =>
     callAction<{ quiz: LessonQuizQuestion[] }>('content-admin', 'generateLessonQuiz', { draftId, lessonKey, questionCount }),
+
+  generateStoryboard: (draftId: string, lessonKey: string, force = false) =>
+    callAction<{ storyboard: Storyboard; cached: boolean }>('content-admin', 'generateLessonStoryboard', {
+      draftId,
+      lessonKey,
+      force,
+    }),
+
+  regenerateScene: (draftId: string, lessonKey: string, sceneId: string, instruction = '') =>
+    callAction<{ storyboard: Storyboard }>('content-admin', 'regenerateStoryboardScene', {
+      draftId,
+      lessonKey,
+      sceneId,
+      instruction,
+    }),
 };
