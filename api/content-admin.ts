@@ -4294,6 +4294,60 @@ async function generateLessonContent(uid: string, body: unknown) {
   return { overview: lc.data.overview, content: lc.data.content, narrationScript: lc.data.narrationScript, cached: false };
 }
 
+// "Narration Script Generation" as an independent step (see the feature's
+// pipeline: Lesson Content -> Narration Script -> Storyboard). Regenerates
+// only the spoken narration from the existing written lesson, without
+// touching the lesson content itself.
+async function regenerateLessonNarration(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = lessonRefSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const entry = resolveLessonOutline(draft, parsed.data.lessonKey);
+  const lessonRef = ref.collection('lessons').doc(parsed.data.lessonKey);
+  const existing = (await lessonRef.get()).data();
+  if (!existing?.content) throw Err.failedPrecondition('Generate the lesson content first');
+
+  await assertAiGenerationQuota(uid);
+  const raw = await callAiJson(
+    'You rewrite one written lesson as spoken narration a presenter reads aloud. Respond with strict JSON only, matching: {"narrationScript":string}. Short sentences, natural spoken rhythm, no markdown.',
+    `Lesson: "${entry.title}".\nWritten lesson:\n${String(existing.content).slice(0, 6000)}`
+  );
+  const np = z.object({ narrationScript: z.string().trim().min(1).max(8000) }).safeParse(raw);
+  if (!np.success) throw Err.failedPrecondition('The AI returned narration in an unexpected shape. Please try again.');
+  await lessonRef.set(
+    { lessonKey: parsed.data.lessonKey, narrationScript: np.data.narrationScript, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+  await incrementAiUsage(uid);
+  return { narrationScript: np.data.narrationScript };
+}
+
+// Per-lesson readiness for the course editor, so a creator can see what
+// still needs generating before submitting - one small read, no AI.
+async function listCourseDraftLessonStatuses(uid: string, body: unknown) {
+  const parsed = draftIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const outline = (draft.outline as CourseOutlineEntry[] | undefined) ?? [];
+  const snaps = await ref.collection('lessons').get();
+  const byKey = new Map(snaps.docs.map((d) => [d.id, d.data()]));
+  const lessons = outline.map((m) => {
+    const l = m.lessonKey ? byKey.get(m.lessonKey) : undefined;
+    const storyboard = l?.storyboard as { scenes?: unknown[] } | undefined;
+    return {
+      lessonKey: m.lessonKey ?? null,
+      title: m.title,
+      hasContent: !!l?.content,
+      hasStoryboard: !!storyboard?.scenes?.length,
+      hasQuiz: Array.isArray(l?.quiz) && (l!.quiz as unknown[]).length > 0,
+    };
+  });
+  return { lessons };
+}
+
 // Mirror of src/features/visualLessons/storyboard.ts's VISUAL_COMPONENT_IDS
 // and VISUAL_TYPES - the api/ tsconfig cannot import from src/, so the
 // vocabulary is duplicated here (and embedded in the AI prompt). Keep in
@@ -4990,6 +5044,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'generateLessonQuiz',
       'generateLessonStoryboard',
       'regenerateStoryboardScene',
+      'regenerateLessonNarration',
+      'listCourseDraftLessonStatuses',
       'submitCourseDraft',
       'submitAiCourseDraft',
       'getCourseForReading',
@@ -5088,6 +5144,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'regenerateStoryboardScene':
         res.status(200).json(await regenerateStoryboardScene(uid, data));
+        return;
+      case 'regenerateLessonNarration':
+        res.status(200).json(await regenerateLessonNarration(uid, data));
+        return;
+      case 'listCourseDraftLessonStatuses':
+        res.status(200).json(await listCourseDraftLessonStatuses(uid, data));
         return;
       case 'submitCourseDraft':
         res.status(200).json(await submitCourseDraft(uid, data));
