@@ -4,6 +4,9 @@ import { Logo } from '@/components/brand/Logo';
 import { useCompany } from '@/features/marketing/companyInfoStore';
 import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
 import { CertificationGoalSelector } from '@/features/landing/components/CertificationGoalSelector';
+import { SearchBar } from '@/components/common/SearchBar';
+import { TeachBand } from '@/features/landing/components/TeachBand';
+import { TESTIMONIALS } from '@/features/landing/lib/testimonials';
 import { LEARNING_DOMAINS, LEARNING_PATH_EXAMPLES } from '@/features/landing/lib/learningPaths';
 
 // Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
@@ -16,6 +19,18 @@ const AdminAccessModal = lazy(() =>
   })),
 );
 
+// Same reasoning: the catalog carousels fetch real published content
+// through a dynamic import() of publicCatalogApi (Firebase at module
+// scope). Kept behind a lazy() boundary so the prerender never reaches it;
+// the prerendered HTML keeps its own crawlable text sections below.
+const LandingCatalogRows = lazy(() =>
+  import('@/features/landing/components/LandingCatalogRows').then((m) => ({
+    default: m.LandingCatalogRows,
+  })),
+);
+
+// Broad domain filters. Each links into the public /search page's category
+// filter so a visitor can browse real content without an account.
 const DOMAINS = ['Cybersecurity', 'Cloud', 'IT & Infrastructure', 'AI & Machine Learning', 'Project Management'];
 
 // Kept in the prerendered HTML (not behind JavaScript) so URL-classification
@@ -55,7 +70,7 @@ const AUDIENCE_CARDS = [
     subtitle: 'Share what you know',
     body: 'Create courses, assessments and question banks and make them available to HelpCertify learners.',
     cta: 'Become a Training Partner',
-    href: '/home/become-a-partner',
+    href: '/register',
   },
 ];
 
@@ -81,55 +96,6 @@ const EXAM_PREP_FEATURES = [
   },
 ];
 
-const LEARN_SKILLS_CAPABILITIES = [
-  'Structured courses',
-  'Learning content',
-  'Quizzes',
-  'Progress tracking',
-  'Skill assessments',
-  'Completion certificates',
-];
-
-const CREATE_SELL_CAPABILITIES = [
-  'Create courses',
-  'Upload learning content',
-  'Create quizzes',
-  'Create question banks',
-  'Create practice tests',
-  'Create mock exams',
-  'Set pricing',
-  'Publish content',
-  'Track learner performance',
-];
-
-const BUILD_EXAM_CAPABILITIES = [
-  'Upload question banks',
-  'Practice mode',
-  'Mock exam mode',
-  'Exam duration',
-  'Pass marks',
-  'Randomized questions',
-  'Private or public exams',
-  'Candidate scorecards',
-  'Performance analytics',
-  'Certificates where applicable',
-];
-
-function CapabilityPills({ items }: { items: string[] }) {
-  return (
-    <ul className="mt-4 flex flex-wrap gap-2">
-      {items.map((item) => (
-        <li
-          key={item}
-          className="rounded-full border border-surface-border bg-surface-raised px-3 py-1 text-sm text-ink-muted"
-        >
-          {item}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function LandingPage() {
   const [showAdminAccess, setShowAdminAccess] = useState(false);
   const COMPANY = useCompany();
@@ -137,16 +103,25 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <header className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-6">
         <Logo />
+        <div className="order-3 w-full sm:order-2 sm:w-auto sm:flex-1">
+          <SearchBar to="/search" className="mx-auto max-w-md" />
+        </div>
         {/* No theme toggle here on request - it moved to the login screens
             (Admin Access modal and the student LoginPage) instead. */}
-        <div className="flex items-center gap-2">
+        <div className="order-2 ml-auto flex items-center gap-2 sm:order-3">
           <Link
             to="/login"
             className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink"
           >
             Log in
+          </Link>
+          <Link
+            to="/register"
+            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-surface"
+          >
+            Sign up
           </Link>
           <button
             type="button"
@@ -158,7 +133,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 pb-24 pt-10 text-center">
+      <main className="mx-auto max-w-4xl px-6 pb-20 pt-10 text-center">
         <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
           Learning &bull; Certification &bull; Assessment Platform
         </span>
@@ -169,36 +144,11 @@ export function LandingPage() {
           Build and advance your skills, prepare for professional certifications, assess your
           knowledge, or create and sell learning content - all in one platform.
         </p>
-        <p className="mx-auto mt-3 max-w-2xl text-sm text-ink-faint">
-          {/* Literal operator name (not the {COMPANY} store value) so this
-              ownership sentence is one unbroken string in the prerendered
-              HTML for URL-classification crawlers. */}
-          <strong className="text-ink-muted">
-            HelpCertify is an independent learning, certification-preparation and assessment platform operated by IndyaBees.
-          </strong>
-        </p>
 
         <CertificationGoalSelector />
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="#learning-paths"
-            className="inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
-          >
-            Explore Learning
-          </a>
-          <Link
-            to="/register"
-            className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-surface-raised px-6 py-3 font-medium text-ink hover:border-brand-400"
-          >
-            Prepare for Certification
-          </Link>
-          <Link
-            to="/register"
-            className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-surface-raised px-6 py-3 font-medium text-ink hover:border-brand-400"
-          >
-            Start Creating
-          </Link>
+        <div className="mx-auto mt-8 max-w-xl">
+          <SearchBar to="/search" variant="block" placeholder="Search courses, practice tests and certifications" />
         </div>
         <p className="mt-4 text-sm text-ink-faint">
           Already have an account?{' '}
@@ -209,19 +159,26 @@ export function LandingPage() {
 
         <div className="mt-14 flex flex-wrap justify-center gap-2">
           {DOMAINS.map((d) => (
-            <span
+            <Link
               key={d}
-              className="rounded-full border border-surface-border bg-surface-raised px-4 py-1.5 text-sm text-ink-muted"
+              to={`/search?category=${encodeURIComponent(d)}`}
+              className="rounded-full border border-surface-border bg-surface-raised px-4 py-1.5 text-sm text-ink-muted hover:border-brand-400"
             >
               {d}
-            </span>
+            </Link>
           ))}
         </div>
       </main>
 
-      {/* Audience section - immediately below the hero, so a first-time
-          visitor sees in one glance that HelpCertify serves experienced
-          professionals and career starters/switchers alike. */}
+      {/* Real published content - JS-rendered enhancement on top of the
+          crawlable text sections below. Renders nothing if it can't load. */}
+      <Suspense fallback={null}>
+        <LandingCatalogRows />
+      </Suspense>
+
+      {/* Audience section - so a first-time visitor sees in one glance that
+          HelpCertify serves experienced professionals and career
+          starters/switchers alike. */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-2xl font-bold text-ink">Designed for every stage of your career</h2>
@@ -249,11 +206,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Explore Learning Paths - broad technology/domain filters (kept
-          separate from the intent-selector pills above, which are framed as
-          goals, not technologies) plus a handful of level-tagged example
-          paths so an experienced professional immediately sees
-          Professional/Advanced content, not only Foundation material. */}
+      {/* Explore Learning Paths - broad technology/domain filters plus a
+          handful of level-tagged example paths so an experienced
+          professional immediately sees Professional/Advanced content, not
+          only Foundation material. */}
       <section id="learning-paths" className="border-t border-surface-border bg-black/20 py-16">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-2xl font-bold text-ink">Explore Learning Paths</h2>
@@ -287,7 +243,8 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Product area 1: Certification Exam Preparation */}
+      {/* Certification Exam Preparation - the crawlable exam-prep-areas text
+          stays here (not behind JavaScript). */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-2xl font-bold text-ink">Certification Exam Preparation</h2>
@@ -322,67 +279,50 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Product area 2: Learn Career Skills */}
-      <section className="border-t border-surface-border bg-black/20 py-16">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">Learn Career Skills</h2>
-          <p className="mt-2 max-w-2xl text-sm text-ink-faint">
-            Take structured training in cybersecurity, IT, cloud, software development and other
-            career-focused skills.
-          </p>
-          <CapabilityPills items={LEARN_SKILLS_CAPABILITIES} />
-          <Link
-            to="/register"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
-          >
-            Explore Courses
-          </Link>
-        </div>
-      </section>
-
-      {/* Product area 3: Create & Sell Courses */}
+      {/* What learners say */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">Create &amp; Sell Courses</h2>
-          <p className="mt-2 max-w-2xl text-sm text-ink-faint">
-            Enable trainers, professionals and subject-matter experts to create and sell their
-            knowledge through HelpCertify.
-          </p>
-          <CapabilityPills items={CREATE_SELL_CAPABILITIES} />
-          <Link
-            to="/register"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
-          >
-            Start Creating
-          </Link>
+          <h2 className="text-2xl font-bold text-ink">What learners say</h2>
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {TESTIMONIALS.map((t) => (
+              <figure key={t.attribution} className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left">
+                <blockquote className="flex-1 text-sm text-ink-muted">"{t.quote}"</blockquote>
+                <figcaption className="mt-4 text-xs font-medium text-ink-faint">{t.attribution}</figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Product area 4: Build Your Own Exams */}
-      <section className="border-t border-surface-border bg-black/20 py-16">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">Your Questions. Your Exam. Your Learners.</h2>
-          <p className="mt-2 max-w-2xl text-sm text-ink-faint">
-            Upload your own question bank and create professional practice tests, mock exams,
-            quizzes or private assessments without building your own examination platform.
+      <TeachBand />
+
+      {/* Build Your Own Exams - now a one-line promo band. */}
+      <section className="border-t border-surface-border py-10">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink-muted">
+            <span className="font-semibold text-ink">Your questions. Your exam. Your learners.</span>{' '}
+            Upload a question bank and run professional practice tests, mock exams or private
+            assessments.
           </p>
-          <CapabilityPills items={BUILD_EXAM_CAPABILITIES} />
-          <Link
-            to="/build-your-own-exam"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
-          >
-            Build an Exam
+          <Link to="/build-your-own-exam" className="shrink-0 text-sm font-semibold text-brand-ink hover:underline">
+            Bring your own question bank &rarr;
           </Link>
         </div>
       </section>
 
       <footer className="border-t border-surface-border py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <Logo size="sm" />
             <p className="mt-2 max-w-sm text-sm text-ink-faint">
               Build and advance your skills, prepare for professional certifications, assess your
               knowledge, or create and sell learning content - all in one platform.
+            </p>
+            <p className="mt-3 max-w-sm text-xs text-ink-faint">
+              {/* Literal operator name so this ownership sentence is one
+                  unbroken string in the prerendered HTML for
+                  URL-classification crawlers. */}
+              HelpCertify is an independent learning, certification-preparation and assessment platform operated by IndyaBees.
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm text-ink-faint sm:items-end">
