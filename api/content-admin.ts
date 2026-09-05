@@ -4001,6 +4001,10 @@ const blueprintResponseSchema = z.object({
   lessons: z.array(blueprintLessonSchema).min(1).max(20),
 });
 
+function courseLessonKey(): string {
+  return randomBytes(9).toString('hex');
+}
+
 function courseMetaFrom(d: z.infer<typeof courseBlueprintSchema>, parsed: z.infer<typeof blueprintResponseSchema>) {
   return {
     title: parsed.improvedTitle,
@@ -4031,6 +4035,10 @@ async function generateCourseBlueprint(uid: string, body: unknown) {
 
   const outline = bp.data.lessons.map((l, i) => ({
     moduleIndex: i,
+    // Stable per-lesson id, preserved across reorder/add/remove, so the
+    // per-lesson artifacts subcollection (content, storyboard, quiz) never
+    // gets misattributed when the creator reorders lessons.
+    lessonKey: courseLessonKey(),
     title: l.title,
     description: l.description,
     objectives: l.objectives,
@@ -4073,6 +4081,7 @@ const courseMetaSchema = z.object({
 });
 const courseOutlineEntrySchema = z.object({
   moduleIndex: z.number().int().min(0),
+  lessonKey: z.string().trim().min(1).max(40).optional(),
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(600).default(''),
   objectives: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
@@ -4099,8 +4108,14 @@ async function updateCourseDraft(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { ref } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
   // Renumber moduleIndex to the array position so add / remove / reorder
-  // on the client can't leave gaps or collisions.
-  const outline = parsed.data.outline.map((m, i) => ({ ...m, moduleIndex: i, questionsPerModule: 10 }));
+  // on the client can't leave gaps or collisions. Keep each lesson's
+  // stable lessonKey (mint one for lessons the creator just added).
+  const outline = parsed.data.outline.map((m, i) => ({
+    ...m,
+    moduleIndex: i,
+    lessonKey: m.lessonKey || courseLessonKey(),
+    questionsPerModule: 10,
+  }));
   await ref.update({
     courseMeta: parsed.data.courseMeta,
     topic: parsed.data.courseMeta.title,
@@ -4140,6 +4155,185 @@ async function listMyCourseDrafts(uid: string) {
     }))
     .sort((a, b) => b.updatedAtMs - a.updatedAtMs);
   return { drafts };
+}
+
+// --- AI course creation, PR 2: per-lesson artifacts -----------------------
+// Each lesson's generated content lives in aiCourseDrafts/{id}/lessons/
+// {lessonKey} (see firestore.rules) rather than on the draft doc, because
+// a storyboard (PR 3) can be large. Generation is lazy and per lesson -
+// nothing here runs at course-creation time.
+
+interface CourseOutlineEntry {
+  moduleIndex: number;
+  lessonKey?: string;
+  title: string;
+  description: string;
+  objectives?: string[];
+  estimatedMinutes?: number;
+}
+
+function resolveLessonOutline(draft: FirebaseFirestore.DocumentData, lessonKey: string): CourseOutlineEntry {
+  const outline = (draft.outline as CourseOutlineEntry[] | undefined) ?? [];
+  const entry = outline.find((m) => m.lessonKey === lessonKey);
+  if (!entry) throw Err.notFound('Lesson not found in this course');
+  return entry;
+}
+
+// A cheap fingerprint of the inputs a lesson's content is derived from, so
+// a repeated "Generate" with nothing changed returns the cached result and
+// does not spend a generation.
+function lessonContentInputHash(draft: FirebaseFirestore.DocumentData, entry: CourseOutlineEntry): string {
+  const meta = (draft.courseMeta as Record<string, unknown> | undefined) ?? {};
+  return JSON.stringify({
+    t: entry.title,
+    d: entry.description,
+    o: entry.objectives ?? [],
+    ct: meta.title ?? draft.topic ?? '',
+    df: meta.difficulty ?? draft.skillLevel ?? '',
+    lg: meta.language ?? 'English',
+  });
+}
+
+const lessonRefSchema = z.object({
+  draftId: z.string().trim().min(1),
+  lessonKey: z.string().trim().min(1).max(40),
+});
+
+async function getCourseDraftLesson(uid: string, body: unknown) {
+  const parsed = lessonRefSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const entry = resolveLessonOutline(draft, parsed.data.lessonKey);
+  const lessonSnap = await ref.collection('lessons').doc(parsed.data.lessonKey).get();
+  const l = lessonSnap.data() ?? {};
+  return {
+    lessonKey: parsed.data.lessonKey,
+    title: entry.title,
+    description: entry.description,
+    objectives: entry.objectives ?? [],
+    estimatedMinutes: entry.estimatedMinutes ?? 10,
+    overview: (l.overview as string | undefined) ?? '',
+    content: (l.content as string | undefined) ?? '',
+    narrationScript: (l.narrationScript as string | undefined) ?? '',
+    quiz: (l.quiz as unknown[] | undefined) ?? [],
+    resources: (l.resources as unknown[] | undefined) ?? [],
+    contentStatus: (l.contentStatus as string | undefined) ?? 'EMPTY',
+    storyboardStatus: (l.storyboardStatus as string | undefined) ?? 'EMPTY',
+  };
+}
+
+const lessonContentResponseSchema = z.object({
+  overview: z.string().trim().min(1).max(2000),
+  content: z.string().trim().min(1).max(12000),
+  narrationScript: z.string().trim().min(1).max(8000),
+});
+
+async function generateLessonContent(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = lessonRefSchema.extend({ force: z.boolean().default(false) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const entry = resolveLessonOutline(draft, parsed.data.lessonKey);
+  const lessonRef = ref.collection('lessons').doc(parsed.data.lessonKey);
+
+  const inputHash = lessonContentInputHash(draft, entry);
+  const existing = (await lessonRef.get()).data();
+  if (!parsed.data.force && existing?.content && existing.contentInputHash === inputHash) {
+    return {
+      overview: existing.overview as string,
+      content: existing.content as string,
+      narrationScript: existing.narrationScript as string,
+      cached: true,
+    };
+  }
+
+  await assertAiGenerationQuota(uid);
+  const meta = (draft.courseMeta as Record<string, unknown> | undefined) ?? {};
+  const raw = await callAiJson(
+    'You write one written lesson for an online course. Respond with strict JSON only, matching: {"overview":string,"content":string,"narrationScript":string}. "overview" is 2-3 sentences on what the lesson covers and why. "content" is the lesson itself, 250-500 words, plain text with paragraph breaks (no markdown headers): plain-language explanation, one concrete example, key takeaways. "narrationScript" is the same lesson rewritten as spoken narration a presenter would read aloud, in short sentences.',
+    `Course: "${meta.title ?? draft.topic}" (${meta.difficulty ?? draft.skillLevel}, ${meta.language ?? 'English'}).\nLesson: "${entry.title}".\nLesson description: ${entry.description || '(none)'}.\nObjectives: ${(entry.objectives ?? []).join('; ') || '(none)'}.`
+  );
+  const lc = lessonContentResponseSchema.safeParse(raw);
+  if (!lc.success) throw Err.failedPrecondition('The AI returned lesson content in an unexpected shape. Please try again.');
+
+  await lessonRef.set(
+    {
+      lessonKey: parsed.data.lessonKey,
+      overview: lc.data.overview,
+      content: lc.data.content,
+      narrationScript: lc.data.narrationScript,
+      contentInputHash: inputHash,
+      contentStatus: 'READY',
+      updatedAt: FieldValue.serverTimestamp(),
+      ...(existing ? {} : { createdAt: FieldValue.serverTimestamp() }),
+    },
+    { merge: true }
+  );
+  await incrementAiUsage(uid);
+  return { overview: lc.data.overview, content: lc.data.content, narrationScript: lc.data.narrationScript, cached: false };
+}
+
+const updateLessonSchema = lessonRefSchema.extend({
+  overview: z.string().trim().max(2000).optional(),
+  content: z.string().trim().max(12000).optional(),
+  narrationScript: z.string().trim().max(8000).optional(),
+  resources: z
+    .array(z.object({ label: z.string().trim().min(1).max(200), url: z.string().trim().url().max(2000) }))
+    .max(20)
+    .optional(),
+});
+
+async function updateCourseDraftLesson(uid: string, body: unknown) {
+  const parsed = updateLessonSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  resolveLessonOutline(draft, parsed.data.lessonKey);
+  const patch: Record<string, unknown> = { lessonKey: parsed.data.lessonKey, updatedAt: FieldValue.serverTimestamp() };
+  for (const k of ['overview', 'content', 'narrationScript', 'resources'] as const) {
+    if (parsed.data[k] !== undefined) patch[k] = parsed.data[k];
+  }
+  await ref.collection('lessons').doc(parsed.data.lessonKey).set(patch, { merge: true });
+  return { success: true };
+}
+
+async function generateLessonQuiz(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = lessonRefSchema.extend({ questionCount: z.number().int().min(1).max(10).default(5) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const entry = resolveLessonOutline(draft, parsed.data.lessonKey);
+  const lessonRef = ref.collection('lessons').doc(parsed.data.lessonKey);
+  const existing = (await lessonRef.get()).data();
+
+  await assertAiGenerationQuota(uid);
+  const raw = await callAiJson(
+    'You write multiple-choice self-check questions for one course lesson. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Exactly 4 options per question with ids "A","B","C","D"; correctOptionId must match one option id.',
+    `Lesson: "${entry.title}".\n${existing?.content ? `Lesson content:\n${String(existing.content).slice(0, 4000)}` : `Lesson description: ${entry.description}`}\nWrite ${parsed.data.questionCount} distinct questions.`
+  );
+  const qp = z
+    .object({ questions: z.array(aiModuleQuestionSchema).min(1).max(10) })
+    .safeParse(raw);
+  if (!qp.success) throw Err.failedPrecondition('The AI returned quiz questions in an unexpected shape. Please try again.');
+  const quiz = qp.data.questions
+    .filter((q) => q.options.some((o) => o.id === q.correctOptionId))
+    .map((q, i) => ({ order: i, questionText: q.questionText, options: q.options, correctOptionId: q.correctOptionId }));
+  if (quiz.length === 0) throw Err.failedPrecondition('The AI did not return any usable questions. Please try again.');
+
+  await lessonRef.set(
+    {
+      lessonKey: parsed.data.lessonKey,
+      quiz,
+      updatedAt: FieldValue.serverTimestamp(),
+      ...(existing ? {} : { createdAt: FieldValue.serverTimestamp() }),
+    },
+    { merge: true }
+  );
+  await incrementAiUsage(uid);
+  return { quiz };
 }
 
 const draftIdSchema = z.object({ draftId: z.string().trim().min(1) });
@@ -4538,6 +4732,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'updateCourseDraft',
       'getCourseDraft',
       'listMyCourseDrafts',
+      'getCourseDraftLesson',
+      'generateLessonContent',
+      'updateCourseDraftLesson',
+      'generateLessonQuiz',
       'submitAiCourseDraft',
       'getCourseForReading',
       'markLessonComplete',
@@ -4617,6 +4815,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyCourseDrafts':
         res.status(200).json(await listMyCourseDrafts(uid));
+        return;
+      case 'getCourseDraftLesson':
+        res.status(200).json(await getCourseDraftLesson(uid, data));
+        return;
+      case 'generateLessonContent':
+        res.status(200).json(await generateLessonContent(uid, data));
+        return;
+      case 'updateCourseDraftLesson':
+        res.status(200).json(await updateCourseDraftLesson(uid, data));
+        return;
+      case 'generateLessonQuiz':
+        res.status(200).json(await generateLessonQuiz(uid, data));
         return;
       case 'submitAiCourseDraft':
         res.status(200).json(await submitAiCourseDraft(uid, data));

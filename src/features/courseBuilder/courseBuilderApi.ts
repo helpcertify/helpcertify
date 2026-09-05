@@ -18,10 +18,40 @@ export interface CourseMeta {
 
 export interface CourseLessonOutline {
   moduleIndex: number;
+  // Assigned server-side on the first save; absent on a lesson the creator
+  // just added and has not saved yet.
+  lessonKey?: string;
   title: string;
   description: string;
   objectives: string[];
   estimatedMinutes: number;
+}
+
+export interface LessonQuizQuestion {
+  order: number;
+  questionText: string;
+  options: { id: string; text: string }[];
+  correctOptionId: string;
+}
+
+export interface LessonResource {
+  label: string;
+  url: string;
+}
+
+export interface DraftLesson {
+  lessonKey: string;
+  title: string;
+  description: string;
+  objectives: string[];
+  estimatedMinutes: number;
+  overview: string;
+  content: string;
+  narrationScript: string;
+  quiz: LessonQuizQuestion[];
+  resources: LessonResource[];
+  contentStatus: string;
+  storyboardStatus: string;
 }
 
 export interface CourseDraftListRow {
@@ -62,4 +92,23 @@ export const courseBuilderApi = {
 
   updateDraft: (draftId: string, courseMeta: CourseMeta, outline: CourseLessonOutline[]) =>
     callAction<{ success: true }>('content-admin', 'updateCourseDraft', { draftId, courseMeta, outline }),
+
+  getLesson: (draftId: string, lessonKey: string) =>
+    callAction<DraftLesson>('content-admin', 'getCourseDraftLesson', { draftId, lessonKey }),
+
+  generateLessonContent: (draftId: string, lessonKey: string, force = false) =>
+    callAction<{ overview: string; content: string; narrationScript: string; cached: boolean }>(
+      'content-admin',
+      'generateLessonContent',
+      { draftId, lessonKey, force },
+    ),
+
+  updateLesson: (
+    draftId: string,
+    lessonKey: string,
+    patch: { overview?: string; content?: string; narrationScript?: string; resources?: LessonResource[] },
+  ) => callAction<{ success: true }>('content-admin', 'updateCourseDraftLesson', { draftId, lessonKey, ...patch }),
+
+  generateLessonQuiz: (draftId: string, lessonKey: string, questionCount = 5) =>
+    callAction<{ quiz: LessonQuizQuestion[] }>('content-admin', 'generateLessonQuiz', { draftId, lessonKey, questionCount }),
 };
