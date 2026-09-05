@@ -57,6 +57,12 @@ export interface AdminUserRow {
   emailVerified: boolean;
   createdAt: Timestamp;
   purchaseCount: number;
+  // Derived at read time from trainer/partner/creator-role data plus
+  // approved custom-category memberships - see api/admin.ts's
+  // listUsersAdmin. Built-in keys: 'trainer' | 'creator' | 'salesPartner';
+  // any other value is a custom userCategories key. Empty = "Users" (no
+  // category badge applies).
+  categories: string[];
 }
 
 export interface AdminOrderRow {
@@ -87,16 +93,51 @@ export interface CompanyInfoSettings {
 
 // Feature Access - see api/admin.ts's getFeatureAccessConfig/
 // updateFeatureAccessConfig and src/features/admin/lib/featureAccess.ts's
-// pure decision logic. roles are the app's actual capability model
-// (admin/trainer/creator), not the Role type.
+// pure decision logic. roles are keyed by category: the four built-ins
+// (admin/trainer/creator/salesPartner - not the Role type) plus any
+// admin-created custom userCategories key, so this is an open string-keyed
+// map, not a fixed shape.
 export const FEATURE_KEYS = ['ai_course_builder'] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
+export const BUILTIN_CATEGORY_KEYS = ['admin', 'trainer', 'creator', 'salesPartner'] as const;
+export const BUILTIN_CATEGORY_LABELS: Record<(typeof BUILTIN_CATEGORY_KEYS)[number], string> = {
+  admin: 'Admin',
+  trainer: 'Trainer',
+  creator: 'Content Partner',
+  salesPartner: 'Sales Partner',
+};
 export interface FeatureAccessEntry {
-  roles: { admin: boolean; trainer: boolean; creator: boolean };
+  roles: Record<string, boolean>;
   allowUserIds: string[];
   denyUserIds: string[];
 }
 export type FeatureAccessConfig = { features: Record<FeatureKey, FeatureAccessEntry> };
+
+export interface UserCategory {
+  key: string;
+  label: string;
+  createdBy: string;
+  createdAt: unknown;
+}
+
+export interface TrainerApplicationRow {
+  id: string;
+  uid: string;
+  message: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewNote: string | null;
+  requestedAt: unknown;
+}
+
+export interface UserCategoryRequestRow {
+  id: string;
+  uid: string;
+  categoryKey: string;
+  message: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewNote: string | null;
+  requestedAt: unknown;
+}
 
 export const adminApi = {
   getDashboardStats: () => callAction<DashboardStats>('admin', 'getDashboardStats'),
@@ -163,4 +204,20 @@ export const adminApi = {
   getFeatureAccessConfig: () => callAction<FeatureAccessConfig>('admin', 'getFeatureAccessConfig'),
   updateFeatureAccessConfig: (features: Record<FeatureKey, FeatureAccessEntry>) =>
     callAction<{ success: true }>('admin', 'updateFeatureAccessConfig', { features }),
+
+  // User Categories - admin-created segments beyond the four built-ins,
+  // see api/admin.ts's own header comment above listUserCategories.
+  listUserCategories: () => callAction<{ categories: UserCategory[] }>('admin', 'listUserCategories'),
+  createUserCategory: (label: string) => callAction<{ key: string }>('admin', 'createUserCategory', { label }),
+  deleteUserCategory: (key: string) => callAction<{ success: true }>('admin', 'deleteUserCategory', { key }),
+
+  listTrainerApplications: (status?: string) =>
+    callAction<{ applications: TrainerApplicationRow[] }>('admin', 'listTrainerApplications', status ? { status } : {}),
+  reviewTrainerApplication: (payload: { applicationId: string; decision: 'approve' | 'reject'; note?: string }) =>
+    callAction<{ success: true }>('admin', 'reviewTrainerApplication', payload),
+
+  listUserCategoryRequests: (status?: string) =>
+    callAction<{ requests: UserCategoryRequestRow[] }>('admin', 'listUserCategoryRequests', status ? { status } : {}),
+  reviewUserCategoryRequest: (payload: { membershipId: string; decision: 'approve' | 'reject'; note?: string }) =>
+    callAction<{ success: true }>('admin', 'reviewUserCategoryRequest', payload),
 };

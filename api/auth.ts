@@ -1187,6 +1187,105 @@ async function getMyCreatorAssignment(req: VercelRequest, body: unknown) {
   };
 }
 
+// --- Trainer self-request + custom User Category self-request -----------
+// Trainer status has always been admin-grants-only (see api/admin.ts's
+// grantTrainerStatus/TrainerDoc's own comment) - this adds the
+// self-request half so it matches Creator/Partner's existing
+// apply-then-admin-approves pattern. Custom user categories (admin-created
+// beyond the built-in Users/Trainer/Content Partner/Sales Partner ones,
+// see api/admin.ts's userCategories) use the exact same shape. Neither
+// needs requirePartner - just a valid signed-in account, same base check
+// updateProfile above already uses.
+async function requireSignedInUid(req: VercelRequest): Promise<string> {
+  const token = await requireIdToken(req);
+  try {
+    const { uid } = await adminAuth.verifyIdToken(token);
+    return uid;
+  } catch {
+    throw Err.unauthenticated('Invalid or expired token');
+  }
+}
+
+const requestTrainerStatusSchema = z.object({ message: z.string().trim().max(1000).optional() });
+
+async function requestTrainerStatus(req: VercelRequest, body: unknown) {
+  const uid = await requireSignedInUid(req);
+  const parsed = requestTrainerStatusSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const userSnap = await db.collection('users').doc(uid).get();
+  const trainerId = userSnap.data()?.trainerId as string | undefined;
+  if (trainerId) {
+    const trainerSnap = await db.collection('trainers').doc(trainerId).get();
+    if (trainerSnap.data()?.status === 'ACTIVE') throw new HttpError(409, 'You already have trainer access.');
+  }
+
+  const ref = db.collection('trainerApplications').doc(uid);
+  const existing = (await ref.get()).data();
+  if (existing && existing.status === 'PENDING') {
+    throw new HttpError(409, 'You already have a pending trainer request.');
+  }
+
+  const now = FieldValue.serverTimestamp();
+  await ref.set({
+    uid,
+    message: parsed.data.message ?? null,
+    status: 'PENDING',
+    reviewerUid: null,
+    reviewNote: null,
+    requestedAt: now,
+    updatedAt: now,
+  });
+  return { status: 'PENDING' as const };
+}
+
+const requestUserCategorySchema = z.object({
+  categoryKey: z.string().trim().min(1),
+  message: z.string().trim().max(1000).optional(),
+});
+
+async function requestUserCategory(req: VercelRequest, body: unknown) {
+  const uid = await requireSignedInUid(req);
+  const parsed = requestUserCategorySchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { categoryKey } = parsed.data;
+
+  const categorySnap = await db.collection('userCategories').doc(categoryKey).get();
+  if (!categorySnap.exists) throw Err.invalidArgument('That category does not exist');
+
+  const docId = `${uid}__${categoryKey}`;
+  const ref = db.collection('userCategoryMemberships').doc(docId);
+  const existing = (await ref.get()).data();
+  if (existing && existing.status !== 'REJECTED') {
+    throw new HttpError(409, `You already hold or have applied for the "${categorySnap.data()!.label}" category.`);
+  }
+
+  const now = FieldValue.serverTimestamp();
+  await ref.set({
+    uid,
+    categoryKey,
+    status: 'PENDING',
+    message: parsed.data.message ?? null,
+    reviewerUid: null,
+    reviewNote: null,
+    requestedAt: existing?.requestedAt ?? now,
+    updatedAt: now,
+  });
+  return { status: 'PENDING' as const };
+}
+
+async function getMyCategoryStatus(req: VercelRequest) {
+  const uid = await requireSignedInUid(req);
+  const [trainerAppSnap, membershipsSnap] = await Promise.all([
+    db.collection('trainerApplications').doc(uid).get(),
+    db.collection('userCategoryMemberships').where('uid', '==', uid).get(),
+  ]);
+  return {
+    trainerApplication: trainerAppSnap.exists ? { id: trainerAppSnap.id, ...trainerAppSnap.data() } : null,
+    categoryMemberships: membershipsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+  };
+}
+
 // --- Content submissions (Phase 4b-2), creator-facing ------------------
 // Tested spec: src/features/creator/lib/{submissionState,reviewGuards}.ts.
 const SUB_ITEM_SCHEMA = z.object({
@@ -1520,6 +1619,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getMyCreatorRoles':
         res.status(200).json(await getMyCreatorRoles(req));
+        return;
+      case 'requestTrainerStatus':
+        res.status(200).json(await requestTrainerStatus(req, data));
+        return;
+      case 'requestUserCategory':
+        res.status(200).json(await requestUserCategory(req, data));
+        return;
+      case 'getMyCategoryStatus':
+        res.status(200).json(await getMyCategoryStatus(req));
         return;
       case 'listMyCreatorAssignments':
         res.status(200).json(await listMyCreatorAssignments(req));

@@ -327,6 +327,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- User Categories --- admin-created segments beyond the built-in
+    // Users/Trainer/Content Partner/Sales Partner ones (those are derived
+    // from existing trainer/partner/creator-role data, never stored here).
+    // See api/admin.ts's userCategories/userCategoryMemberships and
+    // api/auth.ts's requestUserCategory/requestTrainerStatus.
+    match /userCategories/{key} {
+      // Signed-in read so a student can see what's available to request.
+      allow read: if isSignedIn();
+      allow write: if false; // api/admin.ts only
+    }
+    match /userCategoryMemberships/{id} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false; // api/auth.ts (request) / api/admin.ts (review) only
+    }
+    match /trainerApplications/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow write: if false; // api/auth.ts (request) / api/admin.ts (review) only
+    }
+
     // Full PAN / GSTIN / address. Admin-SDK only - no client, not even the
     // owning partner or staff, reads these directly. Staff see a masked
     // view through api/admin.ts; a full-PAN reveal is a dedicated audited

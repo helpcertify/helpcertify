@@ -88,6 +88,15 @@ export interface UserDoc {
   // partners/{partnerId} doc. Absent for non-partners. Never read by any
   // learner paywall - it only gates the partner portal (Phase 3).
   partnerId?: string;
+  // Trainer / Mentored Learning - set by api/admin.ts's grantTrainerStatus
+  // (direct grant) or api/admin.ts's reviewTrainerApplication (approved
+  // self-request, see api/auth.ts's requestTrainerStatus); the id of this
+  // account's trainers/{trainerId} doc. Absent for non-trainers. Formalizing
+  // a field that was already read/written throughout api/admin.ts and
+  // api/content-admin.ts's requireCatalogAuthor before this interface
+  // declared it - see TrainerDoc's own comment for why this stays an
+  // additive capability, not a role change.
+  trainerId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -916,16 +925,64 @@ export interface CustomExamAttemptDoc {
 
 /** trainers/{trainerId} - Trainer / Mentored Learning, Phase 1A. Mirrors
  * PartnerDoc's shape but deliberately minimal - no KYC, no payouts, no
- * agreement: an admin grants this directly (see api/admin.ts's
- * grantTrainerStatus), there is no application/approval queue. A trainer
- * is still `role: 'student'` (see users/{uid}.trainerId on SafeUser) -
- * this is an additive capability, not a replacement role. */
+ * agreement. An admin can still grant this directly (api/admin.ts's
+ * grantTrainerStatus) or approve a self-request (see TrainerApplicationDoc
+ * below, added alongside User Categories so Trainer gets the same
+ * request-then-approve flow Creator/Partner already had). A trainer is
+ * still `role: 'student'` (see users/{uid}.trainerId) - this is an
+ * additive capability, not a replacement role. */
 export interface TrainerDoc {
   linkedUserId: string;
   displayName: string;
   status: 'ACTIVE' | 'SUSPENDED';
   createdBy: string; // granting admin uid
   createdAt: Timestamp;
+}
+
+/** trainerApplications/{uid} - a user's self-request for Trainer status
+ * (api/auth.ts's requestTrainerStatus), reviewed by an admin
+ * (api/admin.ts's reviewTrainerApplication, which grants via the same
+ * internal logic grantTrainerStatus uses). Doc id is the requester's own
+ * uid - a user has at most one trainer relationship, unlike
+ * UserCategoryMembershipDoc's per-category composite keys below. */
+export interface TrainerApplicationDoc {
+  uid: string;
+  message: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewerUid: string | null;
+  reviewNote: string | null;
+  requestedAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** userCategories/{key} - an admin-created segment beyond the four
+ * built-in categories (Users/Trainer/Content Partner/Sales Partner -
+ * those are intrinsic, derived from existing trainer/partner/creator-role
+ * data, never stored here). Exists so Feature Access
+ * (appSettings/featureAccess, api/admin.ts) can gate a feature to it, and
+ * so admin can filter the Users list by it. `key` (the doc id) is a
+ * slugified, stable version of `label`, generated once at creation - see
+ * api/admin.ts's slugifyCategoryKey. */
+export interface UserCategoryDoc {
+  label: string;
+  createdBy: string;
+  createdAt: Timestamp;
+}
+
+/** userCategoryMemberships/{uid}__{key} - a user's request to join a
+ * custom userCategories/{key} (api/auth.ts's requestUserCategory),
+ * reviewed by an admin (api/admin.ts's reviewUserCategoryRequest). Mirrors
+ * PartnerRoleDoc's composite-id convention - a user has at most one row
+ * per category. */
+export interface UserCategoryMembershipDoc {
+  uid: string;
+  categoryKey: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  message: string | null;
+  reviewerUid: string | null;
+  reviewNote: string | null;
+  requestedAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 /** trainingPrograms/{programId} - a trainer-owned program with a learner
