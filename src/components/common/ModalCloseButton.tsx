@@ -6,7 +6,7 @@ export function ModalCloseButton({ onClose, label = 'Close' }: { onClose: () => 
       type="button"
       onClick={onClose}
       aria-label={label}
-      className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-lg leading-none text-ink-muted transition-colors hover:bg-black/10 hover:text-ink dark:bg-white/10 dark:hover:bg-white/20"
+      className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-surface-sunken text-lg leading-none text-ink-faint transition-colors hover:bg-surface-border hover:text-ink"
     >
       &times;
     </button>
