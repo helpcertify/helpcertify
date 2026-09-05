@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { db } from '@/lib/firebase';
 import { callAction } from '@/lib/vercelApi';
 import type { CourseDoc } from '@/types/models';
+import type { Storyboard } from '@/features/visualLessons/storyboard';
 
 // Direct Firestore reads for the catalog list/detail, same pattern as
 // studentContentApi.ts's listAvailableQuizzes/getQuizById - firestore.rules
@@ -26,6 +27,12 @@ export interface CourseLessonView {
   order: number;
   title: string;
   content: string | null;
+  // Richer artifacts from the AI course creation flow - null / empty for
+  // a locked lesson (same rule as content) and for older plain lessons.
+  overview?: string | null;
+  storyboard?: Storyboard | null;
+  resources?: { label: string; url: string }[];
+  quiz?: { order: number; questionText: string; options: { id: string; text: string }[]; correctOptionId: string }[];
   locked: boolean;
 }
 

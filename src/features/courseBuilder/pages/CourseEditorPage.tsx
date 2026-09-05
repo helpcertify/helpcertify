@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { majorToMinor } from '@/utils/currency';
 import { SKILL_LEVELS, type SkillLevel } from '@/types/models';
 import { courseBuilderApi, type CourseLessonOutline, type CourseMeta } from '../courseBuilderApi';
 import { StringListEditor } from '../components/StringListEditor';
@@ -22,8 +23,10 @@ const BLANK_META: CourseMeta = {
 // later PR.
 export function CourseEditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
+  const navigate = useNavigate();
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
+  const [priceInput, setPriceInput] = useState('0');
 
   const { data: draft, isLoading } = useQuery({
     queryKey: ['courseBuilder', 'draft', draftId],
@@ -56,6 +59,22 @@ export function CourseEditorPage() {
       setDirty(false);
     },
     onError: (err) => pushToast(errorText(err, 'Could not save the course'), 'error'),
+  });
+
+  const submit = useMutation({
+    mutationFn: () =>
+      courseBuilderApi.submitDraft(draftId!, { suggestedPrice: majorToMinor(Number(priceInput) || 0), currency: 'INR' }),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ['courseBuilder', 'myDrafts'] });
+      pushToast(
+        r.autoApproved
+          ? `Submitted and auto-approved (${r.totalLessons} lessons). Publish it from the Creators admin page.`
+          : `Submitted for review: ${r.totalLessons} lessons.`,
+        'success',
+      );
+      navigate('/home/creator/courses');
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not submit this course'), 'error'),
   });
 
   const patchMeta = (patch: Partial<CourseMeta>) => {
@@ -214,10 +233,30 @@ export function CourseEditorPage() {
         </div>
       </section>
 
-      <p className="text-xs text-ink-faint">
-        Lesson content, quizzes and visual lessons are generated per lesson in the lesson editor, arriving in the
-        next update. Save your structure here first.
-      </p>
+      <section className="space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Submit for publishing</h2>
+        <p className="text-sm text-ink-faint">
+          Every lesson needs generated content first (open each lesson editor). Visual lessons and quizzes are
+          optional. An admin sets the final price and publishes.
+        </p>
+        <label className="block text-xs font-medium uppercase tracking-wide text-ink-faint">Suggested price (₹)</label>
+        <input
+          type="number"
+          min={0}
+          value={priceInput}
+          onChange={(e) => setPriceInput(e.target.value)}
+          className="input-dark w-full sm:w-40"
+        />
+        <button
+          type="button"
+          disabled={submit.isPending || dirty || lessons.length === 0}
+          onClick={() => submit.mutate()}
+          className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-50"
+        >
+          {submit.isPending ? 'Submitting…' : 'Submit course'}
+        </button>
+        {dirty && <p className="text-xs text-ink-faint">Save your changes before submitting.</p>}
+      </section>
     </div>
   );
 }

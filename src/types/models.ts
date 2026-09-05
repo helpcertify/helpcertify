@@ -428,6 +428,27 @@ export interface LessonDoc {
   order: number;
   title: string;
   content: string;
+  // Optional richer artifacts from the AI course creation flow (blueprint
+  // -> lessons -> visual lessons). All additive; older lesson docs simply
+  // omit them. `storyboard` is a src/features/visualLessons Storyboard.
+  overview?: string;
+  storyboard?: {
+    scenes: {
+      id: string;
+      order: number;
+      title: string;
+      narration: string;
+      onScreenText: string;
+      visualType: string;
+      components: string[];
+      animation: string;
+      durationSeconds: number;
+    }[];
+    voice: string;
+    generatedAt: number;
+  } | null;
+  resources?: { label: string; url: string }[];
+  quiz?: { order: number; questionText: string; options: { id: string; text: string }[]; correctOptionId: string }[];
 }
 
 /** courseProgress/{uid}_{courseId} - a student's reading progress through
