@@ -8,6 +8,7 @@ import { listAvailableQuizzes, listPracticeTestsBucketed } from '@/features/stud
 import { trainerApi, listProgramLearners, type TrainingProgramSummary } from '../api/trainerApi';
 import { CatalogSubmissionForm } from '@/features/catalogSubmissions/components/CatalogSubmissionForm';
 import { AiCourseBuilderFlow } from '@/features/catalogSubmissions/components/AiCourseBuilderFlow';
+import { CourseBuilderEntryCard } from '@/features/courseBuilder/components/CourseBuilderEntryCard';
 import { categoryApi } from '@/features/students/api/categoryApi';
 
 // Trainer Workspace ("/home/trainer") - Phase 1A: create a training
@@ -112,7 +113,8 @@ export function TrainerWorkspacePage() {
         <CatalogSubmissionForm />
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-8">
+        <CourseBuilderEntryCard />
         <AiCourseBuilderFlow />
       </div>
     </div>

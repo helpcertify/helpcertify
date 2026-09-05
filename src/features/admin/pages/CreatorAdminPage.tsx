@@ -7,6 +7,7 @@ import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
 import { catalogSubmissionAdminApi } from '@/features/catalogSubmissions/api/catalogSubmissionApi';
 import { AiCourseBuilderFlow } from '@/features/catalogSubmissions/components/AiCourseBuilderFlow';
+import { CourseBuilderEntryCard } from '@/features/courseBuilder/components/CourseBuilderEntryCard';
 
 const ROLE_LABEL: Record<string, string> = {
   course_creator: 'Course Creator',
@@ -367,6 +368,8 @@ export function CreatorAdminPage() {
           </table>
         </div>
       </section>
+
+      <CourseBuilderEntryCard />
 
       <AiCourseBuilderFlow isAdmin />
 
