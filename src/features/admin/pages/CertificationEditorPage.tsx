@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { confirmDialog } from '@/store/useDialogStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   contentAdminApi,
@@ -106,8 +107,18 @@ export function CertificationEditorPage() {
     queryClient.invalidateQueries({ queryKey: ['admin', 'packages', certificationId] });
   };
 
-  const cancelSafely = () => {
-    if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+  const cancelSafely = async () => {
+    if (
+      dirty &&
+      !(await confirmDialog({
+        title: 'Leave without saving?',
+        message: 'You have unsaved changes on this certification. They will be lost.',
+        confirmLabel: 'Leave',
+        cancelLabel: 'Keep editing',
+        danger: true,
+      }))
+    )
+      return;
     navigate('/admin/products');
   };
 
@@ -1284,7 +1295,7 @@ function PackageList({ packages, onChanged }: { packages: PackageAdminRow[]; onC
               <button type="button" onClick={() => act(() => contentAdminApi.archivePackage(pkg.id), 'Package archived')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
             )}
             {pkg.status === 'draft' && (
-              <button type="button" onClick={() => window.confirm(`Delete "${pkg.name}"?`) && act(() => contentAdminApi.deletePackage(pkg.id), 'Package deleted')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-red-500/50 hover:text-red-400">Delete</button>
+              <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete "${pkg.name}"?` })) act(() => contentAdminApi.deletePackage(pkg.id), 'Package deleted'); }} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-red-500/50 hover:text-red-400">Delete</button>
             )}
           </div>
         </div>
@@ -1426,7 +1437,7 @@ function StepReview({
           <button
             type="button"
             disabled={blockers.length > 0 || publishMutation.isPending}
-            onClick={() => window.confirm('Publish this exam preparation and its packages now?') && publishMutation.mutate()}
+            onClick={async () => { if (await confirmDialog({ title: 'Publish this exam preparation and its packages now?' })) publishMutation.mutate(); }}
             className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {publishMutation.isPending ? 'Publishing…' : 'Publish'}
@@ -1455,7 +1466,7 @@ function StepReview({
               {certification.status === 'archived' ? (
                 <button type="button" onClick={() => lifecycle(() => contentAdminApi.restoreCertification(certification.id), 'Restored to Draft')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Restore</button>
               ) : (
-                <button type="button" onClick={() => window.confirm('Archive this exam preparation?') && lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
+                <button type="button" onClick={async () => { if (await confirmDialog({ title: 'Archive this exam preparation?' })) lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived'); }} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
               )}
               <button type="button" onClick={() => setShowHistory((v) => !v)} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">{showHistory ? 'Hide' : 'View'} history</button>
             </div>

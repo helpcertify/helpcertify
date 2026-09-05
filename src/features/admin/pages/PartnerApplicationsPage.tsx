@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { partnerAdminApi } from '@/features/partner/api/partnerApi';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { promptDialog } from '@/store/useDialogStore';
 import { Link } from 'react-router-dom';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
@@ -30,8 +31,8 @@ export function PartnerApplicationsPage() {
   });
 
   const revealPan = async (partnerId: string) => {
-    const reason = window.prompt('Reason for revealing this PAN (recorded in the audit log):');
-    if (!reason || reason.trim().length < 5) return;
+    const reason = await promptDialog({ title: 'Reveal PAN', message: 'The reason is recorded in the audit log.', label: 'Reason', required: true, validate: (v) => (v.trim().length < 5 ? 'Give a fuller reason (at least 5 characters).' : null) });
+    if (reason === null) return;
     try {
       const { pan } = await partnerAdminApi.revealPartnerPan({ partnerId, reason: reason.trim() });
       window.alert(`PAN: ${pan}\n\nThis reveal has been logged.`);

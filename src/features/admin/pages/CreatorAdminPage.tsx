@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { creatorAdminApi } from '@/features/creator/api/creatorApi';
 import type { CreatorRole } from '@/features/creator/lib/creatorRole';
 import { useUiStore } from '@/store/useUiStore';
+import { promptDialog } from '@/store/useDialogStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
 import { catalogSubmissionAdminApi } from '@/features/catalogSubmissions/api/catalogSubmissionApi';
@@ -165,13 +166,13 @@ export function CreatorAdminPage() {
                           <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'approve' })} className="rounded bg-success px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
                             Approve
                           </button>
-                          <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50">
+                          <button type="button" disabled={review.isPending} onClick={async () => review.mutate({ roleDocId: a.id, decision: 'reject', note: (await promptDialog({ title: 'Reason?' })) || undefined })} className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50">
                             Reject
                           </button>
                         </>
                       )}
                       {a.status === 'APPROVED' && (
-                        <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'suspend', note: window.prompt('Reason?') || undefined })} className="rounded border border-surface-border px-3 py-1 text-xs text-ink-muted disabled:opacity-50">
+                        <button type="button" disabled={review.isPending} onClick={async () => review.mutate({ roleDocId: a.id, decision: 'suspend', note: (await promptDialog({ title: 'Reason?' })) || undefined })} className="rounded border border-surface-border px-3 py-1 text-xs text-ink-muted disabled:opacity-50">
                           Suspend
                         </button>
                       )}
@@ -321,10 +322,10 @@ export function CreatorAdminPage() {
                     <div className="flex flex-wrap gap-2">
                       {s.status === 'FLAGGED' && (
                         <>
-                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_cleared', note: window.prompt('Note (optional)') || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
+                          <button type="button" disabled={decide.isPending} onClick={async () => decide.mutate({ submissionId: s.id, decision: 'flag_cleared', note: (await promptDialog({ title: 'Note (optional)' })) || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
                             Clear flag
                           </button>
-                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_upheld', note: window.prompt('Reason?') || undefined })} className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50">
+                          <button type="button" disabled={decide.isPending} onClick={async () => decide.mutate({ submissionId: s.id, decision: 'flag_upheld', note: (await promptDialog({ title: 'Reason?' })) || undefined })} className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50">
                             Uphold / reject
                           </button>
                         </>
@@ -334,9 +335,10 @@ export function CreatorAdminPage() {
                           <button
                             type="button"
                             disabled={decide.isPending}
-                            onClick={() => {
-                              const raw = window.prompt(`Accepted item count (max ${s.itemCount}, blank = all)`);
-                              const n = raw && raw.trim() ? parseInt(raw.trim(), 10) : undefined;
+                            onClick={async () => {
+                              const raw = await promptDialog({ title: `Accepted item count (max ${s.itemCount})`, label: 'Count', placeholder: 'Blank = accept all' });
+                              if (raw === null) return;
+                              const n = raw.trim() ? parseInt(raw.trim(), 10) : undefined;
                               decide.mutate({
                                 submissionId: s.id,
                                 decision: 'approve',
@@ -347,10 +349,10 @@ export function CreatorAdminPage() {
                           >
                             Approve
                           </button>
-                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'changes', note: window.prompt('What needs to change?') || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
+                          <button type="button" disabled={decide.isPending} onClick={async () => decide.mutate({ submissionId: s.id, decision: 'changes', note: (await promptDialog({ title: 'What needs to change?' })) || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
                             Changes
                           </button>
-                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50">
+                          <button type="button" disabled={decide.isPending} onClick={async () => decide.mutate({ submissionId: s.id, decision: 'reject', note: (await promptDialog({ title: 'Reason?' })) || undefined })} className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50">
                             Reject
                           </button>
                         </>
@@ -458,8 +460,8 @@ function CatalogSubmissionsSection() {
                           <button
                             type="button"
                             disabled={decide.isPending}
-                            onClick={() =>
-                              decide.mutate({ submissionId: s.id, decision: 'changes', note: window.prompt('What needs to change?') || undefined })
+                            onClick={async () =>
+                              decide.mutate({ submissionId: s.id, decision: 'changes', note: (await promptDialog({ title: 'What needs to change?' })) || undefined })
                             }
                             className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50"
                           >
@@ -468,8 +470,8 @@ function CatalogSubmissionsSection() {
                           <button
                             type="button"
                             disabled={decide.isPending}
-                            onClick={() =>
-                              decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })
+                            onClick={async () =>
+                              decide.mutate({ submissionId: s.id, decision: 'reject', note: (await promptDialog({ title: 'Reason?' })) || undefined })
                             }
                             className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50"
                           >
@@ -481,8 +483,14 @@ function CatalogSubmissionsSection() {
                         <button
                           type="button"
                           disabled={publish.isPending}
-                          onClick={() => {
-                            const raw = window.prompt(`Selling price in rupees (suggested: ${formatMoney(s.suggestedPrice, s.currency)})`, String(s.suggestedPrice / 100));
+                          onClick={async () => {
+                            const raw = await promptDialog({
+                              title: 'Set the selling price',
+                              message: `Suggested by the author: ${formatMoney(s.suggestedPrice, s.currency)}`,
+                              label: 'Price in rupees',
+                              defaultValue: String(s.suggestedPrice / 100),
+                              required: true,
+                            });
                             if (raw === null) return;
                             const rupees = Number(raw);
                             if (!Number.isFinite(rupees) || rupees < 0) {

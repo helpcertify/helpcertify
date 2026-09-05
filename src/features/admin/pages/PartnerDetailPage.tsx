@@ -5,6 +5,7 @@ import { partnerAdminApi } from '@/features/partner/api/partnerApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { promptDialog } from '@/store/useDialogStore';
 import { formatMoney } from '@/utils/currency';
 import { toDate } from '@/utils/formatDate';
 import { whatsAppLink } from '@/lib/phoneLinks';
@@ -55,8 +56,8 @@ export function PartnerDetailPage() {
   });
 
   const reveal = async () => {
-    const reason = window.prompt('Reason for revealing this PAN (recorded in the audit log):');
-    if (!reason || reason.trim().length < 5) return;
+    const reason = await promptDialog({ title: 'Reveal PAN', message: 'The reason is recorded in the audit log.', label: 'Reason', required: true, validate: (v) => (v.trim().length < 5 ? 'Give a fuller reason (at least 5 characters).' : null) });
+    if (reason === null) return;
     try {
       const res = await partnerAdminApi.revealPartnerPan({ partnerId, reason: reason.trim() });
       setRevealed(res.pan);
