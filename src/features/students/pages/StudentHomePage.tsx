@@ -201,7 +201,7 @@ export function StudentHomePage() {
       {upcomingMockExams.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-3 text-lg font-bold text-ink">Upcoming Mock Exams</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {upcomingMockExams.map((q) => (
               <div key={q.id} className="flex h-full flex-col rounded-xl border border-surface-border border-t-4 border-t-blue-400 bg-surface-raised p-4">
                 <div className="mb-1 line-clamp-2 font-semibold text-ink">{q.title}</div>

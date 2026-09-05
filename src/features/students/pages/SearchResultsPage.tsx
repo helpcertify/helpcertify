@@ -91,7 +91,7 @@ export function SearchResultsPage() {
           {matchedCourses.length > 0 && (
             <div className="mb-8">
               <h2 className="mb-3 text-lg font-bold text-ink">Courses</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {matchedCourses.map((c) => (
                   <ResultCard
                     key={c.id}
@@ -109,7 +109,7 @@ export function SearchResultsPage() {
           {matchedQuizzes.length > 0 && (
             <div className="mb-8">
               <h2 className="mb-3 text-lg font-bold text-ink">Mock Exams</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {matchedQuizzes.map((q) => (
                   <ResultCard
                     key={q.id}
@@ -127,7 +127,7 @@ export function SearchResultsPage() {
           {matchedTests.length > 0 && (
             <div className="mb-8">
               <h2 className="mb-3 text-lg font-bold text-ink">Practice Exams</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {matchedTests.map((t) => (
                   <ResultCard
                     key={t.id}

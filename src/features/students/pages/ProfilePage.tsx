@@ -53,7 +53,7 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
+    <div className="mx-auto w-full max-w-[1640px]">
       <h1 className="mb-1 text-[28px] font-bold text-ink">My Profile</h1>
       <p className="mb-6 text-sm text-ink-faint">Manage your profile and learning journey.</p>
 

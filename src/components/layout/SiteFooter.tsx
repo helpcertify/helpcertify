@@ -19,7 +19,7 @@ export function SiteFooter() {
   const COMPANY = useCompany();
   return (
     <footer className="sticky bottom-0 z-10 mt-auto border-t border-surface-border bg-surface-raised">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-xs text-ink-faint sm:flex-row sm:items-center sm:justify-between lg:px-8">
+      <div className="mx-auto flex max-w-[1640px] flex-col gap-2 px-4 py-4 text-xs text-ink-faint sm:flex-row sm:items-center sm:justify-between lg:px-10">
         <nav className="flex flex-wrap gap-x-5 gap-y-1">
           {LINKS.map((l) => (
             <a key={l.href} href={l.href} target="_blank" rel="noopener" className="hover:text-ink-muted">

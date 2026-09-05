@@ -142,7 +142,7 @@ export function CreatorWorkspacePage() {
   const applicable = CREATOR_ROLES.filter((r) => !held.has(r));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <h1 className="text-2xl font-bold text-ink">Creator workspace</h1>
       <p className="text-sm text-ink-faint">
         Apply for a creator role to contribute courses, practice questions or mock tests. Creator earnings are separate

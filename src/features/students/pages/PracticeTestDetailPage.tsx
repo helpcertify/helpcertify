@@ -206,7 +206,7 @@ export function PracticeTestDetailPage() {
     // 1440px cap) instead of centering a much-narrower fixed column inside
     // it - that mismatch was the source of the large dead margins either
     // side of the page.
-    <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
+    <div className="mx-auto w-full max-w-[1640px]">
       <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Practice Exams
       </Link>

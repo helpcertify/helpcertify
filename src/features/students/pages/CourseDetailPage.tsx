@@ -75,7 +75,7 @@ export function CourseDetailPage() {
   const activeLesson = lessons[activeLessonIndex];
 
   return (
-    <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
+    <div className="mx-auto w-full max-w-[1640px]">
       <Link to="/home/courses" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         ← Back to Courses
       </Link>

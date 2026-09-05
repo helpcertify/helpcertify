@@ -72,7 +72,7 @@ export function PartnerDetailPage() {
   const d = data;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-5xl space-y-5">
       <Link to="/admin/partners" className="text-sm text-brand-ink hover:underline">
         ← Partners
       </Link>
