@@ -3900,7 +3900,15 @@ function parseAiJson(content: string): unknown {
 async function resolveAiCourseAuthor(uid: string): Promise<{ authorType: 'admin' | 'trainer' | 'creator'; authorId: string }> {
   const userSnap = await db.collection('users').doc(uid).get();
   if (userSnap.data()?.role === 'admin') return { authorType: 'admin', authorId: uid };
-  return requireCatalogAuthor(uid);
+  try {
+    return await requireCatalogAuthor(uid);
+  } catch {
+    // hasFeatureAccess already let this account through - it just is not a
+    // formal Trainer or approved Creator (an admin extra-granted the
+    // feature directly). Attribute the draft to them as a creator; their
+    // submission still goes through admin review (autoApprove is admin-only).
+    return { authorType: 'creator', authorId: uid };
+  }
 }
 
 const generateCourseOutlineSchema = z.object({
