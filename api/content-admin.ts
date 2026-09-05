@@ -3866,27 +3866,40 @@ async function callAiJson(systemPrompt: string, userPrompt: string): Promise<unk
     generationConfig: { temperature: 0.7, responseMimeType: 'application/json', maxOutputTokens: 32768 },
   });
 
-  // Gemini's free tier returns transient 503 ("high demand") and 429
-  // (rate limit) fairly often - retry twice with a short backoff before
-  // giving up. Each course/quiz generates all its modules in ONE call
-  // (see generateAllCourseContent) so there's budget for these retries
-  // inside the 60s function limit.
-  let lastErr = '';
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 3000));
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  // Gemini's free tier returns transient 429 (rate limit), 500 and 503
+  // ("high demand") fairly often - retry with exponential backoff before
+  // giving up. Backoff is 1.5s, 3s, 6s, 12s (~22s worst case, inside the
+  // 60s function limit). Raw provider error bodies go to the log, never to
+  // the end user.
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * 2 ** (attempt - 1)));
+    let res: Response;
+    try {
+      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    } catch (err) {
+      lastStatus = 0;
+      console.warn('[callAiJson] network error', (err as Error).message);
+      continue;
+    }
     if (res.ok) {
       const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
       const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof content !== 'string') throw Err.failedPrecondition('AI generation returned an unexpected response');
+      if (typeof content !== 'string') throw Err.failedPrecondition('The AI returned an unexpected response. Please try again.');
       return parseAiJson(content);
     }
-    lastErr = (await res.text().catch(() => '')).slice(0, 300);
-    if (res.status !== 429 && res.status !== 503) {
-      throw Err.failedPrecondition(`AI generation request failed (${res.status}). ${lastErr}`);
+    lastStatus = res.status;
+    const bodyText = (await res.text().catch(() => '')).slice(0, 500);
+    console.warn(`[callAiJson] Gemini ${res.status}: ${bodyText}`);
+    if (res.status !== 429 && res.status !== 500 && res.status !== 503) {
+      throw Err.failedPrecondition('The AI service rejected the request. Please try again in a moment.');
     }
   }
-  throw Err.failedPrecondition(`The AI service is temporarily overloaded. Please try again in a minute. ${lastErr}`);
+  throw Err.failedPrecondition(
+    lastStatus === 429
+      ? 'The AI generation limit has been hit for now. Please wait a minute and try again.'
+      : 'The AI service is busy right now. Please try again in a minute.'
+  );
 }
 
 function parseAiJson(content: string): unknown {
