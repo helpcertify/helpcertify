@@ -54,5 +54,5 @@ export function RecommendedCourses() {
 
   const heading = activeCategories.length > 0 ? `Because you're learning ${activeCategories[0]}` : 'Courses to explore';
 
-  return <CourseRow title={heading} items={items} seeAllHref="/home/courses" />;
+  return <CourseRow title={heading} items={items} seeAllHref="/home/courses" compact />;
 }

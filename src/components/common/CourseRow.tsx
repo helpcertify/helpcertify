@@ -22,6 +22,8 @@ interface CourseRowProps {
   hrefFor?: (id: string) => string;
   ctaLabel?: string;
   seeAllHref?: string;
+  // Shorter cards + tighter vertical rhythm for the home-page discovery rows.
+  compact?: boolean;
 }
 
 // A horizontally-scrolling row of course cards (ProductCardShell,
@@ -30,14 +32,14 @@ interface CourseRowProps {
 // links (a signed-in learner goes to the reader; a logged-out visitor
 // goes to sign-up). Presentational; owned/price logic stays with the
 // caller.
-export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref }: CourseRowProps) {
+export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref, compact }: CourseRowProps) {
   const { ref, canScrollLeft, canScrollRight, scrollBy } = useHorizontalScroll(items.length);
   const href = hrefFor ?? ((id: string) => `/home/courses/${id}`);
 
   if (items.length === 0) return null;
 
   return (
-    <div className="relative mb-8">
+    <div className={`relative ${compact ? 'mb-6' : 'mb-8'}`}>
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-lg font-bold text-ink">{title}</h2>
         {seeAllHref && (
@@ -83,6 +85,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
             originalPrice={c.originalPrice}
             currency={c.currency}
             coverImageUrl={c.coverImageUrl}
+            compact={compact}
             detailHref={href(c.id)}
             footer={
               <Link

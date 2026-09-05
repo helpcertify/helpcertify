@@ -459,6 +459,32 @@ async function fetchCourseCoverImage(queries: string[]): Promise<{ url: string; 
   return null;
 }
 
+// Topic-aware Pexels search terms for a certification's cover photo. Maps
+// the provider / category / name onto safe, generic, professional visuals
+// (never trademarked brand artwork) - cloud for AWS/Azure, locks & shields
+// for security, server racks for infrastructure, QA imagery for testing -
+// then falls back through the raw category and a generic exam-prep term.
+function certificationCoverQueries(cert: Record<string, unknown>): string[] {
+  const hay = [cert.name, cert.shortName, cert.provider, cert.category]
+    .filter((v): v is string => typeof v === 'string')
+    .join(' ')
+    .toLowerCase();
+  const topical: string[] = [];
+  const add = (q: string) => {
+    if (!topical.includes(q)) topical.push(q);
+  };
+  if (/\baws\b|amazon web|\bgcp\b|google cloud|\bazure\b|\bcloud\b/.test(hay)) add('cloud computing technology');
+  if (/azure|microsoft/.test(hay)) add('data center servers blue');
+  if (/security|\bcism\b|\bcisa\b|\bcissp\b|cyber|infosec|\bsoc\b|privacy|\bgrc\b/.test(hay)) {
+    add('cyber security lock shield');
+    add('data encryption padlock');
+  }
+  if (/server|infrastructure|network|sysadmin|\brhcsa\b|\brhce\b|linux|devops/.test(hay)) add('server racks data center');
+  if (/test|\bqa\b|automation|selenium|\bsdet\b|quality assurance/.test(hay)) add('software testing automation code');
+  if (/data\b|analytics|\bsql\b|database|\bbi\b/.test(hay)) add('data analytics dashboard');
+  return [...topical, typeof cert.category === 'string' ? cert.category : '', 'certification exam preparation study'];
+}
+
 // Deletes every doc in a question subcollection plus each one's private
 // answerKey. Used to read each question's own private/ subcollection first
 // to discover what to delete there - one sequential await per question,
@@ -1376,10 +1402,27 @@ async function publishCertification(uid: string, body: unknown) {
 
   const isScheduled = !!scheduledFor && new Date(scheduledFor).getTime() > Date.now();
   const nextStatus = isScheduled ? 'scheduled' : 'published';
+
+  // Cache a topic-relevant cover photo on first publish so the learner-facing
+  // "Prepare for Your Certification" cards have an image (never re-fetched per
+  // page load; an admin can refresh it with regenerateCertificationCover).
+  let coverPatch: Record<string, unknown> = {};
+  if (!existing.coverImageUrl) {
+    const cover = await fetchCourseCoverImage(certificationCoverQueries(existing));
+    if (cover) {
+      coverPatch = {
+        coverImageUrl: cover.url,
+        coverImageCredit: cover.credit,
+        coverImageSourceUrl: cover.sourceUrl,
+      };
+    }
+  }
+
   await ref.update({
     status: nextStatus,
     isPublished: !isScheduled,
     effectiveFrom: isScheduled ? Timestamp.fromDate(new Date(scheduledFor!)) : existing.effectiveFrom ?? null,
+    ...coverPatch,
     updatedAt: FieldValue.serverTimestamp(),
   });
   await writeAdminLog({
@@ -3670,6 +3713,67 @@ async function regenerateCourseCover(uid: string, body: unknown) {
   return { coverImageUrl: cover.url };
 }
 
+const regenerateCertificationCoverSchema = z.object({ certificationId: z.string().trim().min(1) });
+
+// Admin-only: (re)fetch a certification's topic-relevant cover photo - for
+// one published before covers existed, or when the auto match wasn't a good
+// fit. Same Pexels source and attribution fields as course covers.
+async function regenerateCertificationCover(uid: string, body: unknown) {
+  const parsed = regenerateCertificationCoverSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('certifications').doc(parsed.data.certificationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Certification not found');
+  const c = snap.data()!;
+
+  const cover = await fetchCourseCoverImage(certificationCoverQueries(c));
+  if (!cover) throw Err.failedPrecondition('No cover photo could be found (or PEXELS_API_KEY is not set).');
+
+  await ref.update({
+    coverImageUrl: cover.url,
+    coverImageCredit: cover.credit,
+    coverImageSourceUrl: cover.sourceUrl,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'regenerateCertificationCover',
+    targetType: 'certification',
+    targetId: parsed.data.certificationId,
+    description: `Regenerated cover for "${c.name}"`,
+  });
+  return { coverImageUrl: cover.url };
+}
+
+// Admin-only: one-shot backfill of covers for every published certification
+// that still has none. Bounded to 25 per call (each is one Pexels round
+// trip) - re-run until `remaining` is 0.
+async function backfillCertificationCovers(uid: string) {
+  const snap = await db.collection('certifications').where('isPublished', '==', true).get();
+  const missing = snap.docs.filter((d) => !d.data().coverImageUrl);
+  const batch = missing.slice(0, 25);
+  let updated = 0;
+  for (const d of batch) {
+    const cover = await fetchCourseCoverImage(certificationCoverQueries(d.data()));
+    if (!cover) continue;
+    await d.ref.update({
+      coverImageUrl: cover.url,
+      coverImageCredit: cover.credit,
+      coverImageSourceUrl: cover.sourceUrl,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    updated += 1;
+  }
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'backfillCertificationCovers',
+    targetType: 'certification',
+    targetId: 'batch',
+    description: `Backfilled ${updated} certification cover(s)`,
+  });
+  return { updated, remaining: Math.max(0, missing.length - updated) };
+}
+
 // ---------------------------------------------------------------------------
 // Feature Access - a small general-purpose gate so an admin can turn any
 // registered feature on/off per category (the four built-ins - admin/
@@ -5216,6 +5320,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'regenerateCourseCover':
         res.status(200).json(await regenerateCourseCover(uid, data));
+        return;
+      case 'regenerateCertificationCover':
+        res.status(200).json(await regenerateCertificationCover(uid, data));
+        return;
+      case 'backfillCertificationCovers':
+        res.status(200).json(await backfillCertificationCovers(uid));
         return;
       case 'createQuiz':
         res.status(200).json(await createQuiz(uid, data));

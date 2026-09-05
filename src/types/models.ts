@@ -603,6 +603,14 @@ export interface CertificationDoc {
   // Admin-controlled ordering on the learner home page; ties broken by
   // createdAt.
   displayOrder: number;
+  // Auto-matched topic-relevant cover photo (Pexels) for the learner-facing
+  // "Prepare for Your Certification" cards. Fetched once on first publish and
+  // cached here (never re-fetched per page load); an admin can force a
+  // refresh with the regenerateCertificationCover action. null = none found
+  // yet, in which case the card falls back to a category gradient + icon.
+  coverImageUrl?: string | null;
+  coverImageCredit?: string | null;
+  coverImageSourceUrl?: string | null;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
