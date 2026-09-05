@@ -57,7 +57,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
             type="button"
             onClick={() => scrollBy(-1)}
             aria-label="Scroll left"
-            className="absolute -left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
+            className="absolute left-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg hover:border-brand-400 hover:text-brand-ink"
           >
             &lsaquo;
           </button>
@@ -67,7 +67,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
             type="button"
             onClick={() => scrollBy(1)}
             aria-label="Scroll right"
-            className="absolute -right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
+            className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-xl text-ink shadow-lg hover:border-brand-400 hover:text-brand-ink"
           >
             &rsaquo;
           </button>
