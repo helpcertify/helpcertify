@@ -156,6 +156,13 @@ export function AppRouter() {
           <Route path="/admin/partners" element={<PartnerApplicationsPage />} />
           <Route path="/admin/partners/:partnerId" element={<PartnerDetailPage />} />
           <Route path="/admin/creators" element={<CreatorAdminPage />} />
+          {/* Same AI course builder pages as /home/creator/courses, reachable
+              by an admin (who is not a 'student' and so cannot open the
+              /home/* routes). CourseDraftsPage/CourseEditorPage/LessonEditorPage
+              derive their link base from the current path. */}
+          <Route path="/admin/creators/courses" element={<CourseDraftsPage />} />
+          <Route path="/admin/creators/courses/:draftId" element={<CourseEditorPage />} />
+          <Route path="/admin/creators/courses/:draftId/lessons/:lessonKey" element={<LessonEditorPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

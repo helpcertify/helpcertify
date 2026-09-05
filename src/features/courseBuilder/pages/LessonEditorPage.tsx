@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { courseBuilderApi, type LessonResource } from '../courseBuilderApi';
+import { courseBuilderBase } from '../basePath';
 import { VisualLessonPanel } from '../components/VisualLessonPanel';
 import { webSpeechSpeaker } from '@/features/visualLessons/tts';
 
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string }[] = [
 // the in-browser player land in the next increment.
 export function LessonEditorPage() {
   const { draftId, lessonKey } = useParams<{ draftId: string; lessonKey: string }>();
+  const base = courseBuilderBase(useLocation().pathname);
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('overview');
@@ -97,7 +99,7 @@ export function LessonEditorPage() {
     return (
       <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
         <p className="mb-4 text-ink-faint">This lesson could not be found.</p>
-        <Link to={`/home/creator/courses/${draftId}`} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+        <Link to={`${base}/${draftId}`} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
           Back to the course
         </Link>
       </div>
@@ -108,7 +110,7 @@ export function LessonEditorPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Link to={`/home/creator/courses/${draftId}`} className="text-sm text-brand-ink hover:underline">
+      <Link to={`${base}/${draftId}`} className="text-sm text-brand-ink hover:underline">
         ← {lesson.title ? 'Back to course' : 'Back'}
       </Link>
       <div>

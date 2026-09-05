@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { majorToMinor } from '@/utils/currency';
 import { SKILL_LEVELS, type SkillLevel } from '@/types/models';
 import { courseBuilderApi, type CourseLessonOutline, type CourseMeta } from '../courseBuilderApi';
+import { courseBuilderBase } from '../basePath';
 import { StringListEditor } from '../components/StringListEditor';
 
 const BLANK_META: CourseMeta = {
@@ -24,6 +25,7 @@ const BLANK_META: CourseMeta = {
 export function CourseEditorPage() {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
+  const base = courseBuilderBase(useLocation().pathname);
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [priceInput, setPriceInput] = useState('0');
@@ -77,7 +79,7 @@ export function CourseEditorPage() {
           : `Submitted for review: ${r.totalLessons} lessons.`,
         'success',
       );
-      navigate('/home/creator/courses');
+      navigate(base);
     },
     onError: (err) => pushToast(errorText(err, 'Could not submit this course'), 'error'),
   });
@@ -117,7 +119,7 @@ export function CourseEditorPage() {
     return (
       <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
         <p className="mb-4 text-ink-faint">This course draft could not be found.</p>
-        <Link to="/home/creator/courses" className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+        <Link to={base} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
           Back to my courses
         </Link>
       </div>
@@ -127,7 +129,7 @@ export function CourseEditorPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between gap-4">
-        <Link to="/home/creator/courses" className="text-sm text-brand-ink hover:underline">
+        <Link to={base} className="text-sm text-brand-ink hover:underline">
           ← My courses
         </Link>
         <button
@@ -199,7 +201,7 @@ export function CourseEditorPage() {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {l.lessonKey && !dirty ? (
                   <>
-                    <Link to={`/home/creator/courses/${draftId}/lessons/${l.lessonKey}`} className="text-xs font-semibold text-[#155EEF] hover:underline">
+                    <Link to={`${base}/${draftId}/lessons/${l.lessonKey}`} className="text-xs font-semibold text-[#155EEF] hover:underline">
                       Open lesson editor →
                     </Link>
                     {(() => {
