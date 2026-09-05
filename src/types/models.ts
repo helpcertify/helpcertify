@@ -670,6 +670,29 @@ export interface CouponDoc {
   // has it. Absent on every admin-created coupon (those stay usable by any
   // signed-in learner, same as before this field existed).
   restrictedToUserId?: string;
+  // When true, this coupon does nothing on its own - a buyer must also
+  // supply a valid, unused couponUnlockCodes/{CODE} doc whose
+  // parentCouponCode matches this coupon (see api/coupons.ts's
+  // generateUnlockCodes). Lets an admin hand a different one-time code to
+  // each salesperson-referred customer while sharing one discount rule,
+  // so the shared code alone (e.g. "49") is useless if it leaks - each
+  // unlock code only works once. Absent/false = works standalone, exactly
+  // like every coupon before this field existed.
+  requiresUnlockCode?: boolean;
+  createdBy: string;
+  createdAt: Timestamp;
+}
+
+/** couponUnlockCodes/{CODE} - doc id is the uppercased code itself, same
+ * O(1)-lookup convention as coupons/{CODE}. One-time-use companion code
+ * for a coupon with requiresUnlockCode: true (see CouponDoc's comment) -
+ * server-only, never read directly by a client; validated and marked used
+ * only inside api/checkout.ts's createOrder/finalizeOrder. */
+export interface CouponUnlockCodeDoc {
+  parentCouponCode: string;
+  used: boolean;
+  usedBy: string | null;
+  usedAt: Timestamp | null;
   createdBy: string;
   createdAt: Timestamp;
 }

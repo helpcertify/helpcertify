@@ -123,13 +123,27 @@ interface HydratedItem {
   accessPeriodDays: number;
 }
 
+// See CouponDoc's own comment - true means the coupon does nothing on its
+// own until paired with a valid, unused, matching couponUnlockCodes/{CODE}
+// doc. Duplicated from api/checkout.ts per the no-shared-code-across-
+// api/*.ts convention.
+async function isUnlockCodeValid(couponCode: string, unlockCode: string | null | undefined): Promise<boolean> {
+  if (!unlockCode) return false;
+  const snap = await db.collection('couponUnlockCodes').doc(unlockCode.toUpperCase()).get();
+  const data = snap.data();
+  return !!data && data.used !== true && data.parentCouponCode === couponCode.toUpperCase();
+}
+
 // Re-reads every item's live price/title and drops anything deleted or
 // already purchased through some other path - the cart is never trusted as
 // a price source, only as a list of item references.
-async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; couponCode: string | null; dirty: boolean }> {
+async function hydrateCart(
+  uid: string
+): Promise<{ items: HydratedItem[]; couponCode: string | null; unlockCode: string | null; dirty: boolean }> {
   const cartSnap = await db.collection('carts').doc(uid).get();
   const stored = cartSnap.exists ? (cartSnap.data()!.items as { itemType: ItemType; itemId: string }[]) : [];
   let storedCoupon: string | null = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
+  let storedUnlockCode: string | null = cartSnap.exists ? (cartSnap.data()!.unlockCode ?? null) : null;
 
   const items: HydratedItem[] = [];
   let dirty = false;
@@ -182,7 +196,14 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
     const coupon = await validateCoupon(storedCoupon, uid);
     if (!coupon) {
       storedCoupon = null;
+      storedUnlockCode = null;
       dirty = true; // coupon expired/deactivated since being applied - drop it silently
+    } else if (coupon.requiresUnlockCode && !(await isUnlockCodeValid(storedCoupon, storedUnlockCode))) {
+      // The unlock code was consumed elsewhere (another tab/device) since
+      // being applied here - drop both silently, same as an expired coupon.
+      storedCoupon = null;
+      storedUnlockCode = null;
+      dirty = true;
     }
   }
 
@@ -195,25 +216,28 @@ async function hydrateCart(uid: string): Promise<{ items: HydratedItem[]; coupon
           userId: uid,
           items: items.map((i) => ({ itemType: i.itemType, itemId: i.itemId, addedAt: Timestamp.now() })),
           couponCode: storedCoupon,
+          unlockCode: storedUnlockCode,
           updatedAt: Timestamp.now(),
         },
         { merge: true }
       );
   }
 
-  return { items, couponCode: storedCoupon, dirty };
+  return { items, couponCode: storedCoupon, unlockCode: storedUnlockCode, dirty };
 }
 
 async function summarize(uid: string) {
-  const { items, couponCode } = await hydrateCart(uid);
+  const { items, couponCode, unlockCode } = await hydrateCart(uid);
   const currency: Currency = items[0]?.currency ?? 'INR';
   const subtotal = items.reduce((sum, i) => sum + i.price, 0);
   let discount = 0;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode, uid);
-    if (coupon) discount = computeDiscount(coupon, subtotal);
+    if (coupon && (!coupon.requiresUnlockCode || (await isUnlockCodeValid(couponCode, unlockCode)))) {
+      discount = computeDiscount(coupon, subtotal);
+    }
   }
-  return { items, couponCode, currency, subtotal, discount, total: subtotal - discount };
+  return { items, couponCode, unlockCode, currency, subtotal, discount, total: subtotal - discount };
 }
 
 async function getCart(uid: string) {
@@ -267,6 +291,7 @@ async function addItem(uid: string, body: unknown) {
       userId: uid,
       items: [...existing, { itemType, itemId, addedAt: Timestamp.now() }],
       couponCode: snap.exists ? (snap.data()!.couponCode ?? null) : null,
+      unlockCode: snap.exists ? (snap.data()!.unlockCode ?? null) : null,
       updatedAt: Timestamp.now(),
     },
     { merge: true }
@@ -290,7 +315,12 @@ async function removeItem(uid: string, body: unknown) {
   return summarize(uid);
 }
 
-const couponCodeSchema = z.object({ code: z.string().trim().min(1).max(40) });
+const couponCodeSchema = z.object({
+  code: z.string().trim().min(1).max(40),
+  // Companion one-time code for a coupon created with requiresUnlockCode:
+  // true (see CouponDoc). Ignored entirely if this coupon doesn't need one.
+  unlockCode: z.string().trim().min(1).max(40).optional(),
+});
 
 async function applyCoupon(uid: string, body: unknown) {
   const parsed = couponCodeSchema.safeParse(body);
@@ -300,12 +330,21 @@ async function applyCoupon(uid: string, body: unknown) {
   const coupon = await validateCoupon(code, uid);
   if (!coupon) throw Err.invalidArgument('This coupon code is invalid or has expired');
 
+  let unlockCode: string | null = null;
+  if (coupon.requiresUnlockCode) {
+    if (!parsed.data.unlockCode) throw Err.invalidArgument('This code needs a personal unlock code to be used.');
+    if (!(await isUnlockCodeValid(code, parsed.data.unlockCode))) {
+      throw Err.invalidArgument('This unlock code is invalid, already used, or does not match this coupon.');
+    }
+    unlockCode = parsed.data.unlockCode.toUpperCase();
+  }
+
   const ref = db.collection('carts').doc(uid);
   const snap = await ref.get();
   const existing = (snap.exists ? snap.data()!.items : []) as unknown[];
   if (existing.length === 0) throw Err.invalidArgument('Your cart is empty');
 
-  await ref.set({ userId: uid, items: existing, couponCode: code, updatedAt: Timestamp.now() }, { merge: true });
+  await ref.set({ userId: uid, items: existing, couponCode: code, unlockCode, updatedAt: Timestamp.now() }, { merge: true });
   return summarize(uid);
 }
 
@@ -328,7 +367,7 @@ async function listMyPurchases(uid: string) {
 async function removeCoupon(uid: string) {
   const ref = db.collection('carts').doc(uid);
   const snap = await ref.get();
-  if (snap.exists) await ref.update({ couponCode: null, updatedAt: Timestamp.now() });
+  if (snap.exists) await ref.update({ couponCode: null, unlockCode: null, updatedAt: Timestamp.now() });
   return summarize(uid);
 }
 

@@ -8,6 +8,7 @@ export interface CouponSummary {
   expiresAt: unknown;
   maxUses: number | null;
   usedCount: number;
+  requiresUnlockCode?: boolean;
 }
 
 export interface CreateCouponPayload {
@@ -16,6 +17,16 @@ export interface CreateCouponPayload {
   discountValue: number;
   expiresAt?: string | null;
   maxUses?: number | null;
+  requiresUnlockCode?: boolean;
+}
+
+export interface UnlockCodeRow {
+  code: string;
+  parentCouponCode: string;
+  used: boolean;
+  usedBy: string | null;
+  usedAt: unknown;
+  createdAt: unknown;
 }
 
 export const couponsApi = {
@@ -24,4 +35,10 @@ export const couponsApi = {
   updateCoupon: (payload: { code: string; active?: boolean; expiresAt?: string | null; maxUses?: number | null }) =>
     callAction<{ success: true }>('coupons', 'updateCoupon', { ...payload }),
   deleteCoupon: (code: string) => callAction<{ success: true }>('coupons', 'deleteCoupon', { code }),
+  // Companion one-time codes for a requiresUnlockCode coupon - see
+  // CouponDoc's own comment.
+  generateUnlockCodes: (parentCouponCode: string, count: number) =>
+    callAction<{ codes: string[] }>('coupons', 'generateUnlockCodes', { parentCouponCode, count }),
+  listUnlockCodes: (parentCouponCode: string) =>
+    callAction<{ codes: UnlockCodeRow[] }>('coupons', 'listUnlockCodes', { parentCouponCode }),
 };

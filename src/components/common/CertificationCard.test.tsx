@@ -116,6 +116,7 @@ describe('CertificationCard', () => {
     vi.mocked(cartApi.addItem).mockResolvedValue({
       items: [],
       couponCode: null,
+      unlockCode: null,
       currency: 'INR',
       subtotal: 0,
       discount: 0,

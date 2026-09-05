@@ -28,6 +28,9 @@ export interface CartItemView {
 export interface CartSummary {
   items: CartItemView[];
   couponCode: string | null;
+  // Companion one-time code for a coupon that requires one - see
+  // CouponDoc.requiresUnlockCode. null on every ordinary coupon.
+  unlockCode: string | null;
   currency: 'INR' | 'USD';
   subtotal: number;
   discount: number;
@@ -39,7 +42,8 @@ export const cartApi = {
   addItem: (itemType: PurchasableItemType, itemId: string) => callAction<CartSummary>('cart', 'addItem', { itemType, itemId }),
   removeItem: (itemType: PurchasableItemType, itemId: string) =>
     callAction<CartSummary>('cart', 'removeItem', { itemType, itemId }),
-  applyCoupon: (code: string) => callAction<CartSummary>('cart', 'applyCoupon', { code }),
+  applyCoupon: (code: string, unlockCode?: string) =>
+    callAction<CartSummary>('cart', 'applyCoupon', { code, ...(unlockCode ? { unlockCode } : {}) }),
   removeCoupon: () => callAction<CartSummary>('cart', 'removeCoupon'),
   listMyPurchases: () =>
     callAction<{
@@ -64,12 +68,14 @@ export const checkoutApi = {
     consent: CheckoutConsentState;
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
     couponCode?: string;
+    unlockCode?: string;
     useCredit?: boolean;
     referralCode?: string;
   }) =>
     callAction<CreateOrderResult>('checkout', 'createOrder', {
       ...(opts.buyNowItem ? { buyNowItem: opts.buyNowItem } : {}),
       ...(opts.couponCode ? { couponCode: opts.couponCode } : {}),
+      ...(opts.unlockCode ? { unlockCode: opts.unlockCode } : {}),
       ...(opts.useCredit ? { useCredit: opts.useCredit } : {}),
       // Partner Commission Framework: forward the opaque signed token
       // captured from a ?ref= link (sessionStorage 'hc:ref') and any code

@@ -168,6 +168,11 @@ const createOrderSchema = z.object({
     .object({ itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder']), itemId: z.string().min(1) })
     .optional(),
   couponCode: z.string().trim().min(1).optional(),
+  // Companion one-time code for a coupon created with requiresUnlockCode:
+  // true (see CouponDoc) - typed directly into Buy Now, same as
+  // couponCode above. Ignored entirely if the applied coupon doesn't
+  // require one.
+  unlockCode: z.string().trim().min(1).max(40).optional(),
   // Refer & Earn credit - a separate lever from a coupon code (both can
   // apply to the same order); see applyMyCredit below.
   useCredit: z.boolean().optional(),
@@ -469,6 +474,7 @@ async function createOrder(uid: string, body: unknown) {
 
   let cartItems: { itemType: ItemType; itemId: string }[];
   let couponCode: string | null;
+  let unlockCode: string | null;
   // A coupon typed directly into Buy Now was never checked anywhere before
   // now, so an invalid one should fail loudly here rather than silently
   // charging full price - the cart path already validated (or self-healed)
@@ -479,11 +485,13 @@ async function createOrder(uid: string, body: unknown) {
   if (buyNowItem) {
     cartItems = [buyNowItem];
     couponCode = parsed.data.couponCode ?? null;
+    unlockCode = parsed.data.unlockCode ?? null;
   } else {
     const cartSnap = await db.collection('carts').doc(uid).get();
     cartItems = (cartSnap.exists ? cartSnap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
     if (cartItems.length === 0) throw Err.failedPrecondition('Your cart is empty');
     couponCode = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
+    unlockCode = cartSnap.exists ? (cartSnap.data()!.unlockCode ?? null) : null;
   }
 
   // Recompute everything from the live docs - never trust the cart (or any
@@ -564,9 +572,25 @@ async function createOrder(uid: string, body: unknown) {
   const subtotal = orderItems.reduce((sum, i) => sum + i.unitPrice, 0);
   let discount = 0;
   let appliedCoupon: string | null = null;
+  // Set only when the applied coupon required a companion unlock code and
+  // one was validated - finalizeOrder marks this doc used, in the same
+  // batch as the coupon's own usedCount bump, once payment is confirmed.
+  let appliedUnlockCode: string | null = null;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode, uid);
     if (coupon) {
+      if (coupon.requiresUnlockCode) {
+        // This coupon does nothing on its own (see CouponDoc's own
+        // comment) - a valid, unused, matching couponUnlockCodes/{CODE}
+        // doc must be presented alongside it.
+        if (!unlockCode) throw Err.invalidArgument('This code needs a personal unlock code to be used.');
+        const unlockRef = db.collection('couponUnlockCodes').doc(unlockCode.toUpperCase());
+        const unlockData = (await unlockRef.get()).data();
+        if (!unlockData || unlockData.used === true || unlockData.parentCouponCode !== couponCode.toUpperCase()) {
+          throw Err.invalidArgument('This unlock code is invalid, already used, or does not match this coupon.');
+        }
+        appliedUnlockCode = unlockRef.id;
+      }
       discount = computeDiscount(coupon, subtotal);
       // Store the normalized id (coupon docs are keyed by the upper-cased
       // code, see validateCoupon) so finalizeOrder's usedCount bump hits
@@ -635,6 +659,7 @@ async function createOrder(uid: string, body: unknown) {
     userId: uid,
     items: orderItems,
     couponCode: appliedCoupon,
+    unlockCode: appliedUnlockCode,
     creditAppliedMinor: credit.appliedMinor,
     creditEntryIdsUsed: credit.entryIdsUsed,
     subtotal,
@@ -868,6 +893,16 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
     batch.set(
       db.collection('coupons').doc(String(order.couponCode).toUpperCase()),
       { usedCount: FieldValue.increment(1) },
+      { merge: true },
+    );
+  }
+  if (order.unlockCode) {
+    // Same set+merge reasoning as the coupon bump above. Marked used only
+    // now (payment confirmed), not at order-creation time, so an
+    // abandoned Razorpay checkout never burns a one-time code for nothing.
+    batch.set(
+      db.collection('couponUnlockCodes').doc(String(order.unlockCode).toUpperCase()),
+      { used: true, usedBy: order.userId, usedAt: Timestamp.now() },
       { merge: true },
     );
   }

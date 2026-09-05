@@ -198,6 +198,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- couponUnlockCodes/{CODE} --- one-time-use companion codes for a
+    // coupon with requiresUnlockCode: true (see CouponDoc). Never read
+    // directly by a client, even the buyer who redeems one - the backend
+    // validates and marks it used entirely server-side.
+    match /couponUnlockCodes/{code} {
+      allow read, write: if false;
+    }
+
     // --- creditLedgerEntries/{orderId} ---
     // Refer & Earn's non-withdrawable credit ledger (the referrer's own
     // reward — see CreditLedgerEntryDoc). Written only by api/checkout.ts/
