@@ -405,12 +405,23 @@ interface ParsedLesson {
   order: number;
   title: string;
   content: string;
+  // Optional richer artifacts from the AI course creation flow. Only
+  // written when present so old-flow lessons stay a plain {order,title,content}.
+  overview?: string;
+  storyboard?: unknown;
+  resources?: { label: string; url: string }[];
+  quiz?: unknown[];
 }
 async function writeLessonsBatch(parentRef: DocumentReference, lessons: ParsedLesson[]): Promise<void> {
   for (const group of chunk(lessons, 400)) {
     const batch: WriteBatch = db.batch();
     for (const l of group) {
-      batch.set(parentRef.collection('lessons').doc(), { order: l.order, title: l.title, content: l.content });
+      const doc: Record<string, unknown> = { order: l.order, title: l.title, content: l.content };
+      if (l.overview) doc.overview = l.overview;
+      if (l.storyboard) doc.storyboard = l.storyboard;
+      if (l.resources && l.resources.length) doc.resources = l.resources;
+      if (l.quiz && l.quiz.length) doc.quiz = l.quiz;
+      batch.set(parentRef.collection('lessons').doc(), doc);
     }
     await batch.commit();
   }
@@ -3492,11 +3503,18 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
 
   if (s.itemType === 'course') {
     const lessonsSnap = await ref.collection('lessons').orderBy('order').get();
-    const lessons: ParsedLesson[] = lessonsSnap.docs.map((l) => ({
-      order: l.data().order as number,
-      title: l.data().title as string,
-      content: l.data().content as string,
-    }));
+    const lessons: ParsedLesson[] = lessonsSnap.docs.map((l) => {
+      const ld = l.data();
+      return {
+        order: ld.order as number,
+        title: ld.title as string,
+        content: ld.content as string,
+        overview: ld.overview as string | undefined,
+        storyboard: ld.storyboard ?? undefined,
+        resources: ld.resources as { label: string; url: string }[] | undefined,
+        quiz: ld.quiz as unknown[] | undefined,
+      };
+    });
 
     const cover = await fetchCourseCoverImage([s.title as string, s.category as string, 'online learning course']);
     const courseRef = db.collection('courses').doc();
@@ -4413,6 +4431,72 @@ async function regenerateStoryboardScene(uid: string, body: unknown) {
   return { storyboard };
 }
 
+const submitCourseDraftSchema = z.object({
+  draftId: z.string().trim().min(1),
+  suggestedPrice: z.number().int().min(0).default(0),
+  currency: z.enum(['INR', 'USD']).default('INR'),
+});
+
+// The blueprint-flow submit: turns a course draft (courseMeta + outline +
+// the per-lesson artifacts subcollection) into a catalogSubmission, the
+// same review/publish pipeline the older AiCourseBuilderFlow uses. An
+// admin's own draft auto-approves so it can be published immediately.
+async function submitCourseDraft(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = submitCourseDraftSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const meta = draft.courseMeta as Record<string, unknown> | undefined;
+  if (!meta?.title) throw Err.failedPrecondition('Generate a course blueprint before submitting');
+
+  const outline = (draft.outline as CourseOutlineEntry[] | undefined) ?? [];
+  if (outline.length === 0) throw Err.failedPrecondition('This course has no lessons');
+
+  const lessonSnaps = await ref.collection('lessons').get();
+  const byKey = new Map(lessonSnaps.docs.map((d) => [d.id, d.data()]));
+
+  const lessons: ParsedLesson[] = [];
+  const missing: string[] = [];
+  outline.forEach((m, i) => {
+    const l = m.lessonKey ? byKey.get(m.lessonKey) : undefined;
+    if (!l?.content) {
+      missing.push(`${i + 1}. ${m.title}`);
+      return;
+    }
+    lessons.push({
+      order: lessons.length,
+      title: m.title,
+      content: l.content as string,
+      overview: (l.overview as string | undefined) || undefined,
+      storyboard: l.storyboard ?? undefined,
+      resources: (l.resources as { label: string; url: string }[] | undefined) || undefined,
+      quiz: (l.quiz as unknown[] | undefined) || undefined,
+    });
+  });
+  if (missing.length) {
+    throw Err.failedPrecondition(`Generate lesson content for every lesson first. Missing: ${missing.join(', ')}`);
+  }
+
+  const authorType = draft.authorType as 'admin' | 'trainer' | 'creator';
+  const { submissionId, totalLessons } = await createCatalogSubmissionFromLessons(uid, {
+    authorType,
+    authorId: draft.authorId as string,
+    title: meta.title as string,
+    category: (draft.category as string) ?? 'Other',
+    skillLevel: draft.skillLevel as (typeof SKILL_LEVELS)[number],
+    description: (meta.description as string) ?? '',
+    suggestedPrice: parsed.data.suggestedPrice,
+    currency: parsed.data.currency,
+    lessons,
+    autoApprove: authorType === 'admin',
+  });
+
+  await ref.update({ status: 'SUBMITTED', updatedAt: FieldValue.serverTimestamp() });
+  return { submissionId, totalLessons, autoApproved: authorType === 'admin' };
+}
+
 const updateLessonSchema = lessonRefSchema.extend({
   overview: z.string().trim().max(2000).optional(),
   content: z.string().trim().max(12000).optional(),
@@ -4755,6 +4839,11 @@ async function getCourseForReading(uid: string, body: unknown) {
       order,
       title: data.title as string,
       content: unlocked ? (data.content as string) : null,
+      // Same lock rule as content - a locked lesson leaks nothing.
+      overview: unlocked ? ((data.overview as string | undefined) ?? null) : null,
+      storyboard: unlocked ? (data.storyboard ?? null) : null,
+      resources: unlocked ? ((data.resources as { label: string; url: string }[] | undefined) ?? []) : [],
+      quiz: unlocked ? ((data.quiz as unknown[] | undefined) ?? []) : [],
       locked: !unlocked,
     };
   });
@@ -4901,6 +4990,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'generateLessonQuiz',
       'generateLessonStoryboard',
       'regenerateStoryboardScene',
+      'submitCourseDraft',
       'submitAiCourseDraft',
       'getCourseForReading',
       'markLessonComplete',
@@ -4998,6 +5088,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'regenerateStoryboardScene':
         res.status(200).json(await regenerateStoryboardScene(uid, data));
+        return;
+      case 'submitCourseDraft':
+        res.status(200).json(await submitCourseDraft(uid, data));
         return;
       case 'submitAiCourseDraft':
         res.status(200).json(await submitAiCourseDraft(uid, data));

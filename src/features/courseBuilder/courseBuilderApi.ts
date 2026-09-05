@@ -134,4 +134,11 @@ export const courseBuilderApi = {
       sceneId,
       instruction,
     }),
+
+  submitDraft: (draftId: string, payload: { suggestedPrice: number; currency: 'INR' | 'USD' }) =>
+    callAction<{ submissionId: string; totalLessons: number; autoApproved: boolean }>(
+      'content-admin',
+      'submitCourseDraft',
+      { draftId, ...payload },
+    ),
 };

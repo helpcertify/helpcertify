@@ -11,6 +11,7 @@ import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
+import { CourseLessonReader } from '../components/CourseLessonReader';
 import { errorText } from '@/lib/errorMessages';
 
 // Structural sibling of QuizDetailPage - same header/Course-Access-card
@@ -219,17 +220,14 @@ export function CourseDetailPage() {
               </div>
             ) : (
               <>
-                <h2 className="mb-3 text-lg font-semibold text-ink">{activeLesson?.title}</h2>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-muted">{activeLesson?.content}</p>
-                {owned && (
-                  <button
-                    type="button"
-                    disabled={markCompleteMutation.isPending}
-                    onClick={() => markCompleteMutation.mutate(activeLessonIndex)}
-                    className="mt-6 rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400 disabled:opacity-50"
-                  >
-                    {(reading?.completedLessonIndexes ?? []).includes(activeLessonIndex) ? '✓ Completed' : 'Mark as Read'}
-                  </button>
+                {activeLesson && (
+                  <CourseLessonReader
+                    lesson={activeLesson}
+                    owned={owned}
+                    isRead={(reading?.completedLessonIndexes ?? []).includes(activeLessonIndex)}
+                    marking={markCompleteMutation.isPending}
+                    onMarkRead={() => markCompleteMutation.mutate(activeLessonIndex)}
+                  />
                 )}
                 <div className="mt-4 flex justify-between">
                   <button
