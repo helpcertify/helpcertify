@@ -146,7 +146,7 @@ export function CertificationEditorPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto w-full max-w-4xl lg:max-w-5xl">
       <div className="mb-1 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">
           {certification ? certification.name : 'New Exam Preparation'}
@@ -155,7 +155,7 @@ export function CertificationEditorPage() {
           Close
         </button>
       </div>
-      <p className="mb-5 text-sm text-ink-faint">
+      <p className="mb-5 max-w-2xl text-sm text-ink-faint">
         Four short steps. Everything technical is filled in for you - open “Adjust” only if you need to.
       </p>
 
@@ -507,7 +507,7 @@ function StepBasics({
             <ValiditySelect days={Number(defaultValidityDays) || 0} onChange={(d) => { setDefaultValidityDays(String(d)); touched(); }} />
           </Field>
           <Field label="Full description">
-            <textarea value={description} onChange={(e) => { setDescription(e.target.value); touched(); }} rows={4} className="input-dark" />
+            <textarea value={description} onChange={(e) => { setDescription(e.target.value); touched(); }} rows={4} className="input-dark max-w-2xl" />
           </Field>
           <Field label="Product icon" hint="Shown on the product card. Defaults to a match for the certification body.">
             <select
@@ -553,7 +553,7 @@ function StepBasics({
                   value={disclaimerTouched ? disclaimer : effectiveDisclaimer}
                   onChange={(e) => { setDisclaimer(e.target.value); setDisclaimerTouched(true); touched(); }}
                   rows={4}
-                  className="input-dark"
+                  className="input-dark max-w-2xl"
                 />
               </Field>
               {certification && <ContentVersionsPanel certification={certification} onDirty={onDirty} />}
@@ -1140,7 +1140,7 @@ function TemplateCard({
 
           <Disclosure label="Adjust">
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field label="Regular price (₹, optional)" hint="Shown struck-through as the 'was' price.">
                   <input type="number" min={0} value={money(v.regularPrice)} onChange={(e) => setMoney('regularPrice', e.target.value)} className="input-dark" />
                 </Field>
@@ -1192,14 +1192,14 @@ function TemplateCard({
                   value={(v.benefitsOverride ?? benefits).join('\n')}
                   onChange={(e) => onValue('benefitsOverride', e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
                   rows={6}
-                  className="input-dark"
+                  className="input-dark max-w-2xl"
                 />
               </Field>
               <button type="button" onClick={() => onValue('benefitsOverride', null)} className="text-xs text-brand-ink hover:underline">
                 Reset benefits to auto
               </button>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field label="Offer price (₹, optional)">
                   <input type="number" min={0} value={money(v.offerPrice)} onChange={(e) => setMoney('offerPrice', e.target.value)} className="input-dark" />
                 </Field>
@@ -1384,9 +1384,9 @@ function StepPublish({
         <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card">
           <div className="text-xs uppercase tracking-wide text-ink-faint">{certification.provider}</div>
           <div className="text-lg font-semibold text-ink">{certification.name}</div>
-          <p className="mt-1 text-sm text-ink-faint">{certification.shortDescription || certification.description}</p>
+          <p className="mt-1 max-w-2xl text-sm text-ink-faint">{certification.shortDescription || certification.description}</p>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sorted.map((pkg) => {
               const offer = computeOfferStatus(
                 { offerPrice: pkg.offerPrice, offerStart: pkg.offerStart ? toDate(pkg.offerStart) : null, offerEnd: pkg.offerEnd ? toDate(pkg.offerEnd) : null, offerCancelledAt: pkg.offerCancelledAt ? toDate(pkg.offerCancelledAt) : null },
@@ -1416,7 +1416,7 @@ function StepPublish({
             })}
           </div>
 
-          <p className="mt-4 border-t border-surface-border pt-3 text-[11px] leading-relaxed text-ink-faint">{certification.independentPrepDisclaimer}</p>
+          <p className="mt-4 max-w-3xl border-t border-surface-border pt-3 text-[11px] leading-relaxed text-ink-faint">{certification.independentPrepDisclaimer}</p>
         </div>
       </div>
 
