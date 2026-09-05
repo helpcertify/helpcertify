@@ -53,7 +53,7 @@ export function CourseDraftsPage() {
 
   if (access && !access.allowed) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-4xl">
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
           AI course creation is not enabled on this account. An admin can grant access under Settings, Feature Access.
         </p>
@@ -62,7 +62,7 @@ export function CourseDraftsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Create a course with AI</h1>
         <p className="mt-1 text-sm text-ink-faint">

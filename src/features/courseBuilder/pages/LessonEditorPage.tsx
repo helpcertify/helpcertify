@@ -109,7 +109,7 @@ export function LessonEditorPage() {
   const hasContent = content.trim().length > 0;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       <Link to={`${base}/${draftId}`} className="text-sm text-brand-ink hover:underline">
         ← {lesson.title ? 'Back to course' : 'Back'}
       </Link>

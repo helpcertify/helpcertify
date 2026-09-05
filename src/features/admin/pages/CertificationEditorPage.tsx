@@ -1133,7 +1133,7 @@ function TemplateCard({
               <ComboSavingField value={v.comboDiscount} onChange={(d) => onValue('comboDiscount', d)} />
             </div>
           )}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             <Field label="Selling price (₹)">
               <input type="number" min={0} value={money(v.sellingPrice) || ''} onChange={(e) => setMoney('sellingPrice', e.target.value)} className="input-dark" />
             </Field>
@@ -1384,7 +1384,7 @@ function StepReview({
           <div className="text-lg font-semibold text-ink">{certification.name}</div>
           <p className="mt-1 text-sm text-ink-faint">{certification.shortDescription || certification.description}</p>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {sorted.map((pkg) => {
               const offer = computeOfferStatus(
                 { offerPrice: pkg.offerPrice, offerStart: pkg.offerStart ? toDate(pkg.offerStart) : null, offerEnd: pkg.offerEnd ? toDate(pkg.offerEnd) : null, offerCancelledAt: pkg.offerCancelledAt ? toDate(pkg.offerCancelledAt) : null },
@@ -1614,7 +1614,7 @@ function ContentVersionsPanel({ certification, onDirty }: { certification: Certi
           ))}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <Field label="Version name"><input value={versionName} onChange={(e) => setVersionName(e.target.value)} className="input-dark" /></Field>
         <Field label="Version code"><input value={versionCode} onChange={(e) => setVersionCode(e.target.value)} className="input-dark" /></Field>
         <Field label="Bank type">
@@ -1766,7 +1766,7 @@ function StepMockRules({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <Field label="Question-repeat policy">
           <select value={repeatPolicy} onChange={(e) => setRepeatPolicy(e.target.value as typeof repeatPolicy)} className="input-dark">
             <option value="minimize_repeats">Prioritise unseen, minimize repeats</option>
@@ -1907,7 +1907,7 @@ function CustomPackageForm({ certificationId, onChanged }: { certificationId: st
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <Field label="Package type"><input value={form.packageType} onChange={(e) => set('packageType', e.target.value)} className="input-dark" /></Field>
         <Field label="Display name"><input value={form.name} onChange={(e) => set('name', e.target.value)} className="input-dark" /></Field>
         <Field label="Badge text (optional)"><input value={form.badgeText} onChange={(e) => set('badgeText', e.target.value)} className="input-dark" /></Field>

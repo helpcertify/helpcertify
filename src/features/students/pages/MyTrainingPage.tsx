@@ -16,7 +16,7 @@ export function MyTrainingPage() {
   const programs = data?.programs ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-5xl">
       <h1 className="text-2xl font-bold text-ink">My Training</h1>
       <p className="mt-1 text-sm text-ink-faint">Training programs a trainer has added you to.</p>
 

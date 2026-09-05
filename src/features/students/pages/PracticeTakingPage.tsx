@@ -732,7 +732,7 @@ function PracticeReviewScreen({
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         {certData && <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />}
         <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 text-center shadow-card">
           <h1 className="mb-5 text-[22px] font-bold text-ink">Practice Complete</h1>

@@ -214,7 +214,7 @@ export function QuizTakingPage() {
 
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">{quiz.title}</h1>
           <div className="flex items-center gap-3">

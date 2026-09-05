@@ -50,7 +50,7 @@ export function PublicSearchPage() {
   return (
     <div className="min-h-screen bg-surface text-ink">
       <header className="border-b border-surface-border">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-6 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-4">
           <Link to="/" aria-label="HelpCertify home" className="flex items-center">
             <img src={logoLockup} alt="HelpCertify" className="h-8 w-auto object-contain" width={175} height={80} />
           </Link>
@@ -68,7 +68,7 @@ export function PublicSearchPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-6xl px-6 py-10">
         <h1 className="mb-1 text-2xl font-bold text-ink">{heading}</h1>
         <p className="mb-8 text-sm text-ink-faint">
           {isLoading ? 'Loading catalog...' : `${count} result${count === 1 ? '' : 's'}`}
@@ -152,7 +152,7 @@ function ResultSection({ heading, items }: { heading: string; items: Card[] }) {
   return (
     <section>
       <h2 className="mb-3 text-lg font-bold text-ink">{heading}</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {items.map((c) => (
           <Link
             key={c.id}

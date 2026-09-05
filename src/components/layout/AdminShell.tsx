@@ -51,7 +51,7 @@ export function AdminShell() {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="sticky top-0 z-20 border-b border-surface-border bg-surface-raised">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1640px] items-center justify-between px-4 py-3 sm:px-6 lg:px-10">
           <div className="flex items-center gap-8">
             <Logo to="/admin" size="sm" />
             <nav className="hidden gap-1 sm:flex">
@@ -107,7 +107,7 @@ export function AdminShell() {
           </nav>
         )}
       </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[1640px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 xl:px-14">
         <ErrorBoundary title="This admin page hit an error">
           <Outlet />
         </ErrorBoundary>

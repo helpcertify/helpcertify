@@ -105,7 +105,7 @@ export function CustomExamsPage() {
   const currency = settings?.currency ?? 'INR';
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-5xl">
       <h1 className="text-2xl font-bold text-ink">Custom Exam Builder</h1>
       <p className="mt-1 text-sm text-ink-faint">
         Upload your own question bank for a certification HelpCertify doesn&apos;t stock, and take it

@@ -234,7 +234,7 @@ export function StudentShell() {
         </aside>
 
         <div className="flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-1 flex-col">
-          <main className="flex-1 p-4 lg:p-8">
+          <main className="mx-auto w-full max-w-[1640px] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-14">
             <ErrorBoundary title="This page hit an error">
               <Outlet />
             </ErrorBoundary>

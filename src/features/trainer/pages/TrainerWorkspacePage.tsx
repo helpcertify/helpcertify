@@ -52,7 +52,7 @@ export function TrainerWorkspacePage() {
   const programs = data?.programs ?? [];
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-5xl">
       <h1 className="text-2xl font-bold text-ink">Trainer Workspace</h1>
       <p className="mt-1 text-sm text-ink-faint">
         Create a training program, add your learners, and assign existing HelpCertify content for
