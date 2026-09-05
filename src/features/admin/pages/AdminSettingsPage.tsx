@@ -542,22 +542,22 @@ function FeatureAccessCard() {
             </div>
 
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
-              Extra grants (user IDs, comma-separated)
+              Extra grants (user ID or email, comma-separated)
             </label>
             <input
               value={row.allowText}
               onChange={(e) => setRows((cur) => (cur ? { ...cur, [key]: { ...cur[key], allowText: e.target.value } } : cur))}
-              placeholder="e.g. uid1, uid2"
+              placeholder="e.g. jane@example.com, uid2"
               className="input-dark w-full"
             />
 
             <label className="mb-1.5 mt-3 block text-xs font-medium uppercase tracking-wide text-ink-faint">
-              Exceptions (user IDs, comma-separated)
+              Exceptions (user ID or email, comma-separated)
             </label>
             <input
               value={row.denyText}
               onChange={(e) => setRows((cur) => (cur ? { ...cur, [key]: { ...cur[key], denyText: e.target.value } } : cur))}
-              placeholder="e.g. uid3"
+              placeholder="e.g. blocked@example.com"
               className="input-dark w-full"
             />
           </div>

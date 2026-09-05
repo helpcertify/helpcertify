@@ -3707,14 +3707,18 @@ async function hasFeatureAccess(uid: string, featureKey: FeatureKey): Promise<bo
 
   // Deny wins over everything, then an explicit allow wins over role, so
   // an admin can carve out an exception either way without touching the
-  // category toggle everyone else relies on.
-  if (denyUserIds.includes(uid)) return false;
-  if (allowUserIds.includes(uid)) return true;
+  // category toggle everyone else relies on. The allow/deny lists are
+  // matched against the account's uid OR its email (case-insensitive) -
+  // admins routinely paste an email into the "user IDs" field.
+  const user = userSnap.data();
+  const email = (user?.email as string | undefined)?.trim().toLowerCase();
+  const listMatches = (list: string[]) =>
+    list.some((entry) => entry === uid || (!!email && entry.trim().toLowerCase() === email));
+  if (listMatches(denyUserIds)) return false;
+  if (listMatches(allowUserIds)) return true;
 
   const enabledKeys = Object.keys(roles).filter((k) => roles[k]);
   if (enabledKeys.length === 0) return false;
-
-  const user = userSnap.data();
   if (enabledKeys.includes('admin') && user?.role === 'admin') return true;
 
   if (enabledKeys.includes('trainer') || enabledKeys.includes('creator')) {
