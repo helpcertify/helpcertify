@@ -42,9 +42,10 @@ export function CertificationPrepCard({ certification }: Props) {
 
   return (
     <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
-      {/* Fixed 4:3 box - the image takes roughly the top half of the card. */}
+      {/* Fixed-height cover - the top ~half of the card, matching the course
+          cards' cover so every card on the page keeps the same footprint. */}
       {certification.coverImageUrl ? (
-        <div className="aspect-[4/3] overflow-hidden">
+        <div className="h-32 overflow-hidden">
           <img
             src={certification.coverImageUrl}
             alt=""
@@ -53,7 +54,7 @@ export function CertificationPrepCard({ certification }: Props) {
           />
         </div>
       ) : (
-        <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
+        <div className="flex h-32 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
           <svg viewBox="0 0 24 24" className="h-12 w-12 text-brand-500" fill="currentColor" aria-hidden="true">
             <path d={iconPath} />
           </svg>
