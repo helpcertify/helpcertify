@@ -7,6 +7,7 @@ import { parseQaText } from '../lib/parseQa';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
+import { CatalogSubmissionForm } from '@/features/catalogSubmissions/components/CatalogSubmissionForm';
 
 const ROLE_LABEL: Record<string, string> = {
   course_creator: 'Course Creator',
@@ -356,6 +357,17 @@ export function CreatorWorkspacePage() {
           </table>
         )}
       </section>
+
+      {(roles.data?.roles ?? []).some((r) => r.status === 'APPROVED') && (
+        <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">Publish to the catalog</h2>
+          <p className="mb-4 text-sm text-ink-faint">
+            Submit a full course/quiz for admin review. Once approved and published, it appears in
+            the public catalog for any student to find and buy.
+          </p>
+          <CatalogSubmissionForm />
+        </section>
+      )}
     </div>
   );
 }

@@ -3161,6 +3161,270 @@ async function listMyTrainingProgramMemberships(uid: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Catalog Submissions - a Trainer or an approved Creator authors a full
+// question bank (uploaded the same .docx way as an admin's own quiz or
+// Custom Exam Builder) and submits it for admin review; once approved and
+// published it becomes a real quizzes/{id} or practiceTests/{id} doc,
+// indistinguishable from admin-authored content from that point on. This
+// is the pipeline that actually produces live catalog content - unlike
+// the older contentSubmissions/contentItems pipeline above, which only
+// ever produces individually-reviewed questions with nowhere for them to
+// go. Nothing is published without an explicit admin approve + publish
+// step. Reuses fetchAndParse/writeQuestionsBatch unchanged.
+// ---------------------------------------------------------------------------
+
+async function requireCatalogAuthor(uid: string): Promise<{ authorType: 'trainer' | 'creator'; authorId: string }> {
+  const userSnap = await db.collection('users').doc(uid).get();
+  const user = userSnap.data();
+
+  const trainerId = user?.trainerId as string | undefined;
+  if (trainerId) {
+    const trainerSnap = await db.collection('trainers').doc(trainerId).get();
+    if (trainerSnap.data()?.status === 'ACTIVE') return { authorType: 'trainer', authorId: trainerId };
+  }
+
+  const partnerId = user?.partnerId as string | undefined;
+  if (partnerId) {
+    const roleIds = ['course_creator', 'practice_test_creator', 'mock_test_creator'].map((r) => `${partnerId}__${r}`);
+    const roleSnaps = await db.getAll(...roleIds.map((id) => db.collection('partnerRoles').doc(id)));
+    if (roleSnaps.some((s) => s.data()?.status === 'APPROVED')) return { authorType: 'creator', authorId: partnerId };
+  }
+
+  throw Err.permissionDenied('This account is not an approved Trainer or Creator');
+}
+
+const createCatalogSubmissionSchema = z.object({
+  itemType: z.enum(['quiz', 'practiceTest']),
+  title: z.string().trim().min(2).max(200),
+  category: z.string().trim().min(1).max(100).default('Other'),
+  skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
+  description: z.string().trim().max(5000).default(''),
+  suggestedPrice: z.number().int().min(0).default(0),
+  currency: z.enum(['INR', 'USD']).default('INR'),
+  fileUrl: z.string().url(),
+});
+
+async function createCatalogSubmission(uid: string, body: unknown) {
+  const parsed = createCatalogSubmissionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const { authorType, authorId } = await requireCatalogAuthor(uid);
+
+  const {
+    result: { valid, errors, warnings },
+    detectedFormat,
+  } = await fetchAndParse(d.fileUrl);
+  if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
+
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('catalogSubmissions').doc();
+  await ref.set({
+    authorUid: uid,
+    authorType,
+    authorId,
+    itemType: d.itemType,
+    title: d.title,
+    category: d.category,
+    skillLevel: d.skillLevel,
+    description: d.description,
+    suggestedPrice: d.suggestedPrice,
+    currency: d.currency,
+    sourceFormat: detectedFormat,
+    totalQuestions: valid.length,
+    parseWarnings: warnings,
+    status: 'PENDING_REVIEW',
+    reviewerUid: null,
+    reviewNote: null,
+    publishedItemId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeQuestionsBatch(ref, valid);
+
+  return { submissionId: ref.id, totalQuestions: valid.length, parseErrors: errors, parseWarnings: warnings };
+}
+
+async function listMyCatalogSubmissions(uid: string) {
+  const snap = await db.collection('catalogSubmissions').where('authorUid', '==', uid).orderBy('createdAt', 'desc').get();
+  return { submissions: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+const submissionIdSchema = z.object({ submissionId: z.string().trim().min(1) });
+
+async function withdrawCatalogSubmission(uid: string, body: unknown) {
+  const parsed = submissionIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('catalogSubmissions').doc(parsed.data.submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) return { success: true };
+  const s = snap.data()!;
+  if (s.authorUid !== uid) throw Err.permissionDenied();
+  if (!['PENDING_REVIEW', 'CHANGES_REQUESTED'].includes(s.status as string)) {
+    throw Err.failedPrecondition(`Cannot withdraw a submission that is ${String(s.status).toLowerCase()}.`);
+  }
+  await deleteSubcollection(ref, 'questions');
+  await ref.delete();
+  return { success: true };
+}
+
+async function listCatalogSubmissionsAdmin(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q = db.collection('catalogSubmissions').orderBy('createdAt', 'desc') as FirebaseFirestore.Query;
+  if (status) q = q.where('status', '==', status);
+  const snap = await q.get();
+  return { submissions: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+const decideCatalogSubmissionSchema = z.object({
+  submissionId: z.string().trim().min(1),
+  decision: z.enum(['approve', 'changes', 'reject']),
+  note: z.string().trim().max(2000).optional(),
+});
+
+async function decideCatalogSubmission(uid: string, body: unknown) {
+  const parsed = decideCatalogSubmissionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { submissionId, decision, note } = parsed.data;
+
+  const ref = db.collection('catalogSubmissions').doc(submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const cur = snap.data()!.status as string;
+
+  const TRANSITIONS: Record<string, { from: string[]; to: string }> = {
+    approve: { from: ['PENDING_REVIEW', 'CHANGES_REQUESTED'], to: 'APPROVED' },
+    changes: { from: ['PENDING_REVIEW'], to: 'CHANGES_REQUESTED' },
+    reject: { from: ['PENDING_REVIEW', 'CHANGES_REQUESTED'], to: 'REJECTED' },
+  };
+  const t = TRANSITIONS[decision];
+  if (!t.from.includes(cur)) throw Err.failedPrecondition(`Cannot ${decision} a submission that is ${cur}.`);
+
+  await ref.update({
+    status: t.to,
+    reviewerUid: uid,
+    reviewNote: note ?? null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'decideCatalogSubmission',
+    targetType: 'catalogSubmission',
+    targetId: submissionId,
+    description: `${decision} (now ${t.to})${note ? `: ${note}` : ''}`,
+  });
+  return { status: t.to };
+}
+
+const publishCatalogSubmissionSchema = z.object({
+  submissionId: z.string().trim().min(1),
+  price: z.number().int().min(0),
+  originalPrice: z.number().int().min(0).nullable().optional(),
+  accessPeriodDays: z.number().int().min(0).max(3650).default(0),
+  passMarkPercent: z.number().int().min(1).max(100).default(60),
+  // Quiz-only. Practice tests get a wide-open availability window since
+  // the author never set one - an admin can narrow it later via the
+  // existing updatePracticeTest action, same as any other practice test.
+  durationMinutes: z.number().int().min(1).max(600).default(60),
+});
+
+async function publishCatalogSubmission(uid: string, body: unknown) {
+  const parsed = publishCatalogSubmissionSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const ref = db.collection('catalogSubmissions').doc(d.submissionId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Submission not found');
+  const s = snap.data()!;
+  if (s.status !== 'APPROVED') throw Err.failedPrecondition('Only an approved submission can be published');
+
+  const qSnap = await ref.collection('questions').orderBy('order').get();
+  const answerKeySnaps = await db.getAll(...qSnap.docs.map((q) => q.ref.collection('private').doc('answerKey')));
+  const questions: ParsedQuestion[] = qSnap.docs.map((q, i) => ({
+    order: q.data().order as number,
+    questionText: q.data().questionText as string,
+    options: q.data().options as ParsedOption[],
+    correctOptionId: answerKeySnaps[i].data()?.correctOptionId as string,
+  }));
+
+  const now = FieldValue.serverTimestamp();
+  let publishedItemId: string;
+
+  if (s.itemType === 'quiz') {
+    const quizRef = db.collection('quizzes').doc();
+    await quizRef.set({
+      title: s.title,
+      code: generateCode(),
+      sourceFormat: s.sourceFormat,
+      totalQuestions: s.totalQuestions,
+      enforceSequentialNav: false,
+      showImmediateResult: false,
+      showFinalScore: true,
+      durationType: 'overall',
+      durationMinutes: d.durationMinutes,
+      scheduledStart: null,
+      isPublished: true,
+      antiCheat: { blockAltTab: true },
+      price: d.price,
+      originalPrice: d.originalPrice ?? null,
+      currency: s.currency,
+      category: s.category,
+      skillLevel: s.skillLevel,
+      description: s.description,
+      ratingAvg: 0,
+      ratingCount: 0,
+      passMarkPercent: d.passMarkPercent,
+      previewQuestionCount: 5,
+      maxAttempts: 1,
+      accessPeriodDays: d.accessPeriodDays,
+      createdBy: s.authorUid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeQuestionsBatch(quizRef, questions);
+    publishedItemId = quizRef.id;
+  } else {
+    const testRef = db.collection('practiceTests').doc();
+    const tenYearsFromNow = Timestamp.fromMillis(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000);
+    await testRef.set({
+      title: s.title,
+      availableFrom: now,
+      availableUntil: tenYearsFromNow,
+      durationPerSessionMinutes: null,
+      defaultInitialBatchSize: Math.min(50, s.totalQuestions),
+      sourceFormat: s.sourceFormat,
+      totalQuestions: s.totalQuestions,
+      price: d.price,
+      originalPrice: d.originalPrice ?? null,
+      currency: s.currency,
+      category: s.category,
+      skillLevel: s.skillLevel,
+      description: s.description,
+      ratingAvg: 0,
+      ratingCount: 0,
+      previewQuestionCount: 5,
+      accessPeriodDays: d.accessPeriodDays,
+      createdBy: s.authorUid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeQuestionsBatch(testRef, questions);
+    publishedItemId = testRef.id;
+  }
+
+  await ref.update({ status: 'PUBLISHED', publishedItemId, updatedAt: now });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'publishCatalogSubmission',
+    targetType: s.itemType as string,
+    targetId: publishedItemId,
+    description: `Published "${s.title}" from a ${s.authorType} submission (${s.totalQuestions} questions)`,
+  });
+
+  return { publishedItemId, itemType: s.itemType as 'quiz' | 'practiceTest' };
+}
+
+// ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -3190,6 +3454,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'assignContentToProgram',
       'unassignContentFromProgram',
       'listMyTrainingProgramMemberships',
+      'createCatalogSubmission',
+      'listMyCatalogSubmissions',
+      'withdrawCatalogSubmission',
     ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
       ? await verifyAuthedUser(req)
@@ -3231,6 +3498,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyTrainingProgramMemberships':
         res.status(200).json(await listMyTrainingProgramMemberships(uid));
+        return;
+      case 'createCatalogSubmission':
+        res.status(200).json(await createCatalogSubmission(uid, data));
+        return;
+      case 'listMyCatalogSubmissions':
+        res.status(200).json(await listMyCatalogSubmissions(uid));
+        return;
+      case 'withdrawCatalogSubmission':
+        res.status(200).json(await withdrawCatalogSubmission(uid, data));
+        return;
+      case 'listCatalogSubmissionsAdmin':
+        res.status(200).json(await listCatalogSubmissionsAdmin(data));
+        return;
+      case 'decideCatalogSubmission':
+        res.status(200).json(await decideCatalogSubmission(uid, data));
+        return;
+      case 'publishCatalogSubmission':
+        res.status(200).json(await publishCatalogSubmission(uid, data));
         return;
       case 'createQuiz':
         res.status(200).json(await createQuiz(uid, data));

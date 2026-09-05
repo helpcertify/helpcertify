@@ -884,6 +884,55 @@ export interface ProgramLearnerDoc {
   joinedAt: Timestamp | null;
 }
 
+/** catalogSubmissions/{id} - a Trainer or an approved Creator authoring a
+ * full question bank (a whole quiz or practice test, uploaded the same
+ * .docx way as an admin's own or Custom Exam Builder's) for admin review,
+ * to become a real, live quizzes/{id} or practiceTests/{id} doc once
+ * published - discoverable/purchasable like any admin-authored content,
+ * attributed to the author. Distinct from the older
+ * contentSubmissions/ContentItemDoc pipeline (individually-reviewed
+ * questions that only ever land in the standalone contentItems collection,
+ * never wired into a real quiz/practice test) - this is the pipeline that
+ * actually produces live catalog content. Nothing is published without an
+ * admin's explicit approve + publish step (see api/content-admin.ts's
+ * decideCatalogSubmission / publishCatalogSubmission). */
+export interface CatalogSubmissionDoc {
+  authorUid: string;
+  authorType: 'trainer' | 'creator';
+  authorId: string; // trainerId or partnerId
+  itemType: 'quiz' | 'practiceTest';
+  title: string;
+  category: string;
+  skillLevel: string;
+  description: string;
+  // Minor units - what the author suggests; the admin sets the actual
+  // charged price at publish time and may override this.
+  suggestedPrice: number;
+  currency: 'INR' | 'USD';
+  sourceFormat: 'standard' | 'cisa_qa';
+  totalQuestions: number;
+  parseWarnings: string[];
+  status: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED' | 'PUBLISHED';
+  reviewerUid: string | null;
+  reviewNote: string | null;
+  // Set only once status is PUBLISHED - the id of the real quizzes/{id} or
+  // practiceTests/{id} doc this submission became.
+  publishedItemId: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** catalogSubmissions/{id}/questions/{qId} - identical shape to
+ * quizzes/{id}/questions, so writeQuestionsBatch (api/content-admin.ts)
+ * works against this collection unchanged. The private/answerKey subdoc
+ * here is readable by the submission's own author (unlike a published
+ * quiz's) - they wrote the answers themselves, there's nothing to leak. */
+export interface CatalogSubmissionQuestionDoc {
+  order: number;
+  questionText: string;
+  options: { id: string; text: string }[];
+}
+
 /** reviews/{uid}_{itemType}_{itemId} - one student's rating/review of one
  * item. Composite doc id (same convention as PurchaseDoc/PracticeProgressDoc)
  * makes "does this user already have a review for this item" an O(1)
