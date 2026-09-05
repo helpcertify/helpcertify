@@ -27,10 +27,9 @@ const NAV_ITEMS = [
 // FINANCE_ADMIN_ACTIONS allowlist), so it sees just that one nav item.
 const FINANCE_NAV_ITEMS = [{ to: '/admin/payouts', label: 'Partner Payouts', end: true }];
 
-// The nav links were `hidden sm:flex` with no mobile fallback at all -
-// confirmed live: below that breakpoint they just vanished, leaving no way
-// to reach Question Bank/Practice Exams/Learner Analytics on a phone. A
-// hamburger toggle now takes their place below sm:.
+// Same shell shape as the learner's StudentShell (unified top header +
+// left sidebar nav on lg: and up, a dropdown under the header on mobile) -
+// the admin nav used to sit as tabs in the header itself.
 export function AdminShell() {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -44,75 +43,81 @@ export function AdminShell() {
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     clsx(
-      'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-      isActive ? 'bg-brand-50 text-brand-ink' : 'text-ink-muted hover:bg-surface-sunken hover:text-ink'
+      'rounded-lg px-3 py-2 text-sm transition-colors',
+      isActive ? 'bg-brand-50 font-semibold text-brand-ink' : 'text-ink hover:bg-surface-sunken',
     );
 
+  const navLinks = (onNavigate: () => void) => (
+    <>
+      {navItems.map((item) => (
+        <NavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} className={navLinkClass}>
+          {item.label}
+        </NavLink>
+      ))}
+    </>
+  );
+
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
-      <header className="sticky top-0 z-20 border-b border-surface-border bg-surface-raised">
-        <div className="mx-auto flex max-w-[1640px] items-center justify-between px-4 py-3 sm:px-6 lg:px-10">
-          <div className="flex items-center gap-8">
-            <Logo to="/admin" size="sm" />
-            <nav className="hidden gap-1 sm:flex">
-              {navItems.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle className="hidden sm:block" />
+    <div className="min-h-screen bg-surface">
+      {/* Unified header - brand, theme toggle, sign out. Fixed height (h-14)
+          so the sidebar below can offset its sticky position by an exact
+          amount. Nav links no longer live here. */}
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-surface-border bg-surface-raised px-4 lg:px-8">
+        <button
+          type="button"
+          onClick={() => setMobileNavOpen((v) => !v)}
+          aria-label="Toggle menu"
+          className="shrink-0 rounded-lg border border-surface-border-strong px-2.5 py-1.5 text-base text-ink-muted lg:hidden"
+        >
+          {mobileNavOpen ? '✕' : '☰'}
+        </button>
+        <Logo to="/admin" size="sm" className="shrink-0" />
+
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ThemeToggle className="hidden sm:block" />
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="hidden rounded-lg border border-surface-border-strong px-3 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:border-danger hover:text-danger sm:block"
+          >
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile nav dropdown - below lg: only, opened by the header hamburger. */}
+      {mobileNavOpen && (
+        <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
+          {navLinks(() => setMobileNavOpen(false))}
+          <div className="mt-2 flex items-center gap-2">
+            <ThemeToggle />
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden rounded-lg border border-surface-border-strong px-3 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:border-danger hover:text-danger sm:block"
+              className="flex-1 rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
             >
               Sign Out
             </button>
-            <button
-              type="button"
-              onClick={() => setMobileNavOpen((v) => !v)}
-              aria-label="Toggle menu"
-              className="rounded-lg border border-surface-border-strong px-3 py-1.5 text-lg text-ink-muted sm:hidden"
-            >
-              {mobileNavOpen ? '✕' : '☰'}
-            </button>
           </div>
+        </nav>
+      )}
+
+      <div className="lg:flex">
+        {/* Desktop sidebar - lg: and up only, offset below the fixed-height
+            header (top-14 / h-[calc(100vh-3.5rem)] both match h-14 above). */}
+        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border bg-surface-raised p-6 lg:flex">
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
+        </aside>
+
+        <div className="flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-1 flex-col">
+          <main className="mx-auto w-full max-w-[1640px] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8 xl:px-14">
+            <ErrorBoundary title="This admin page hit an error">
+              <Outlet />
+            </ErrorBoundary>
+          </main>
+          <SiteFooter />
         </div>
-        {mobileNavOpen && (
-          <nav className="flex flex-col gap-1 border-t border-surface-border p-4 sm:hidden">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setMobileNavOpen(false)}
-                className={navLinkClass}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-            <div className="mt-2 flex items-center gap-2">
-              <ThemeToggle />
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="flex-1 rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
-              >
-                Sign Out
-              </button>
-            </div>
-          </nav>
-        )}
-      </header>
-      <main className="mx-auto w-full max-w-[1640px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 xl:px-14">
-        <ErrorBoundary title="This admin page hit an error">
-          <Outlet />
-        </ErrorBoundary>
-      </main>
-      <SiteFooter />
+      </div>
     </div>
   );
 }
