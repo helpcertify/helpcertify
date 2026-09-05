@@ -99,7 +99,7 @@ export function ProfileActivitySections() {
     (t) =>
       t.studyPlannerEnabled !== false &&
       !plannedTestIds.has(t.id) &&
-      ((t.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${t.id}`))
+      (((t.price ?? 0) === 0 && !t.requiresEntitlement) || purchasedSet.has(`practiceTest_${t.id}`))
   );
 
   // My Exams - everything owned (free or purchased), as horizontal cards.
@@ -118,7 +118,13 @@ export function ProfileActivitySections() {
   }
   const ownedItems: OwnedItem[] = [];
   for (const q of quizzes ?? []) {
-    if (!((q.price ?? 0) === 0 || purchasedSet.has(`quiz_${q.id}`))) continue;
+    // price === 0 alone doesn't mean "free": a series batch sold only
+    // inside a certification package is also price: 0, gated instead by
+    // requiresEntitlement (see api/quiz-session.ts's startAttempt, which
+    // checks the same combination) - without that check here, an
+    // unpurchased package's mock exams were showing as already owned.
+    const isActuallyFree = (q.price ?? 0) === 0 && !q.requiresEntitlement;
+    if (!(isActuallyFree || purchasedSet.has(`quiz_${q.id}`))) continue;
     const attempt = attemptByQuizId.get(q.id);
     const totalQuestions = attempt?.totalQuestions || q.totalQuestions;
     const answered = attempt?.answeredCount ?? 0;
@@ -137,7 +143,10 @@ export function ProfileActivitySections() {
     });
   }
   for (const t of practiceBuckets?.available ?? []) {
-    if (!((t.price ?? 0) === 0 || purchasedSet.has(`practiceTest_${t.id}`))) continue;
+    // Same reasoning as the quiz loop above - price 0 does not mean free
+    // when requiresEntitlement is set.
+    const isActuallyFree = (t.price ?? 0) === 0 && !t.requiresEntitlement;
+    if (!(isActuallyFree || purchasedSet.has(`practiceTest_${t.id}`))) continue;
     const progress = (practiceProgressDocs ?? []).find((p) => p.testId === t.id);
     const answered = progress?.answeredQuestionIds.length ?? 0;
     const done = answered >= t.totalQuestions;
