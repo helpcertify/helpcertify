@@ -5,6 +5,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { courseBuilderApi, type LessonResource } from '../courseBuilderApi';
 import { VisualLessonPanel } from '../components/VisualLessonPanel';
+import { webSpeechSpeaker } from '@/features/visualLessons/tts';
 
 type Tab = 'overview' | 'content' | 'visual' | 'quiz' | 'resources';
 const TABS: { id: Tab; label: string }[] = [
@@ -68,6 +69,17 @@ export function LessonEditorPage() {
       pushToast('Saved', 'success');
     },
     onError: (err) => pushToast(errorText(err, 'Could not save'), 'error'),
+  });
+
+  const regenNarration = useMutation({
+    mutationFn: () => courseBuilderApi.regenerateNarration(draftId!, lessonKey!),
+    onSuccess: (r) => {
+      setNarration(r.narrationScript);
+      queryClient.invalidateQueries({ queryKey: ['aiCourseBuilder', 'myUsage'] });
+      invalidate();
+      pushToast('Narration script regenerated.', 'success');
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not regenerate narration'), 'error'),
   });
 
   const genQuiz = useMutation({
@@ -154,7 +166,29 @@ export function LessonEditorPage() {
             </button>
           </div>
           <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12} className="input-dark w-full" placeholder="The lesson body a learner reads" />
-          <label className="block text-xs font-medium uppercase tracking-wide text-ink-faint">Narration script</label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-medium uppercase tracking-wide text-ink-faint">Narration script</label>
+            <div className="flex gap-2">
+              {webSpeechSpeaker.supported && (
+                <button
+                  type="button"
+                  onClick={() => webSpeechSpeaker.speak(narration)}
+                  disabled={!narration.trim()}
+                  className="rounded-lg border border-surface-border px-3 py-1 text-xs text-ink-muted hover:border-brand-400 disabled:opacity-40"
+                >
+                  ▶ Preview narration
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => regenNarration.mutate()}
+                disabled={regenNarration.isPending || !content.trim()}
+                className="rounded-lg border border-surface-border px-3 py-1 text-xs text-ink-muted hover:border-brand-400 disabled:opacity-40"
+              >
+                {regenNarration.isPending ? 'Regenerating…' : 'Regenerate narration only'}
+              </button>
+            </div>
+          </div>
           <textarea value={narration} onChange={(e) => setNarration(e.target.value)} rows={8} className="input-dark w-full" placeholder="The lesson rewritten as spoken narration" />
           <button
             type="button"

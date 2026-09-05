@@ -135,6 +135,14 @@ export const courseBuilderApi = {
       instruction,
     }),
 
+  regenerateNarration: (draftId: string, lessonKey: string) =>
+    callAction<{ narrationScript: string }>('content-admin', 'regenerateLessonNarration', { draftId, lessonKey }),
+
+  listLessonStatuses: (draftId: string) =>
+    callAction<{
+      lessons: { lessonKey: string | null; title: string; hasContent: boolean; hasStoryboard: boolean; hasQuiz: boolean }[];
+    }>('content-admin', 'listCourseDraftLessonStatuses', { draftId }),
+
   submitDraft: (draftId: string, payload: { suggestedPrice: number; currency: 'INR' | 'USD' }) =>
     callAction<{ submissionId: string; totalLessons: number; autoApproved: boolean }>(
       'content-admin',

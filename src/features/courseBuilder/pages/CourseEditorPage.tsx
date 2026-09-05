@@ -33,6 +33,11 @@ export function CourseEditorPage() {
     queryFn: () => courseBuilderApi.getDraft(draftId!),
     enabled: !!draftId,
   });
+  const { data: statuses } = useQuery({
+    queryKey: ['courseBuilder', 'lessonStatuses', draftId],
+    queryFn: () => courseBuilderApi.listLessonStatuses(draftId!),
+    enabled: !!draftId,
+  });
 
   const [meta, setMeta] = useState<CourseMeta>(BLANK_META);
   const [lessons, setLessons] = useState<CourseLessonOutline[]>([]);
@@ -191,11 +196,34 @@ export function CourseEditorPage() {
                 <button type="button" onClick={() => moveLesson(i, 1)} disabled={i === lessons.length - 1} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-40">↓</button>
                 <button type="button" onClick={() => removeLesson(i)} className="rounded border border-red-300 px-2 py-1 text-xs text-red-500">Remove</button>
               </div>
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {l.lessonKey && !dirty ? (
-                  <Link to={`/home/creator/courses/${draftId}/lessons/${l.lessonKey}`} className="text-xs font-semibold text-[#155EEF] hover:underline">
-                    Open lesson editor (content, quiz, visual lesson) →
-                  </Link>
+                  <>
+                    <Link to={`/home/creator/courses/${draftId}/lessons/${l.lessonKey}`} className="text-xs font-semibold text-[#155EEF] hover:underline">
+                      Open lesson editor →
+                    </Link>
+                    {(() => {
+                      const st = statuses?.lessons.find((s) => s.lessonKey === l.lessonKey);
+                      if (!st) return null;
+                      const chip = (ok: boolean, label: string) => (
+                        <span
+                          key={label}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-black/10 text-ink-faint'
+                          }`}
+                        >
+                          {ok ? '✓' : '○'} {label}
+                        </span>
+                      );
+                      return (
+                        <span className="flex gap-1">
+                          {chip(st.hasContent, 'Content')}
+                          {chip(st.hasStoryboard, 'Visual')}
+                          {chip(st.hasQuiz, 'Quiz')}
+                        </span>
+                      );
+                    })()}
+                  </>
                 ) : (
                   <span className="text-xs text-ink-faint">Save the course to open this lesson's editor.</span>
                 )}
@@ -256,6 +284,11 @@ export function CourseEditorPage() {
           {submit.isPending ? 'Submitting…' : 'Submit course'}
         </button>
         {dirty && <p className="text-xs text-ink-faint">Save your changes before submitting.</p>}
+        {!dirty && statuses && statuses.lessons.some((s) => !s.hasContent) && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {statuses.lessons.filter((s) => !s.hasContent).length} lesson(s) still need generated content.
+          </p>
+        )}
       </section>
     </div>
   );

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { ScenePlayer } from '@/features/visualLessons/components/ScenePlayer';
+import { webSpeechSpeaker } from '@/features/visualLessons/tts';
 import { VISUAL_COMPONENT_IDS, type Scene, type Storyboard } from '@/features/visualLessons/storyboard';
 import { courseBuilderApi } from '../courseBuilderApi';
 
@@ -131,6 +132,16 @@ export function VisualLessonPanel({ draftId, lessonKey, hasContent, storyboard }
             <div className="mb-2 flex items-center gap-2">
               <span className="text-xs font-semibold text-ink-faint">{i + 1}.</span>
               <input value={s.title} onChange={(e) => patchScene(s.id, { title: e.target.value })} className="input-dark flex-1" />
+              {webSpeechSpeaker.supported && (
+                <button
+                  type="button"
+                  onClick={() => webSpeechSpeaker.speak(s.narration, { voice: draft.voice || undefined })}
+                  disabled={!s.narration.trim()}
+                  className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted hover:border-brand-400 disabled:opacity-40"
+                >
+                  ▶
+                </button>
+              )}
               <button
                 type="button"
                 disabled={regen.isPending}
