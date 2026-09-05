@@ -4217,6 +4217,7 @@ async function getCourseDraftLesson(uid: string, body: unknown) {
     narrationScript: (l.narrationScript as string | undefined) ?? '',
     quiz: (l.quiz as unknown[] | undefined) ?? [],
     resources: (l.resources as unknown[] | undefined) ?? [],
+    storyboard: (l.storyboard as unknown) ?? null,
     contentStatus: (l.contentStatus as string | undefined) ?? 'EMPTY',
     storyboardStatus: (l.storyboardStatus as string | undefined) ?? 'EMPTY',
   };
@@ -4275,6 +4276,143 @@ async function generateLessonContent(uid: string, body: unknown) {
   return { overview: lc.data.overview, content: lc.data.content, narrationScript: lc.data.narrationScript, cached: false };
 }
 
+// Mirror of src/features/visualLessons/storyboard.ts's VISUAL_COMPONENT_IDS
+// and VISUAL_TYPES - the api/ tsconfig cannot import from src/, so the
+// vocabulary is duplicated here (and embedded in the AI prompt). Keep in
+// sync with that file.
+const STORYBOARD_COMPONENT_IDS = [
+  'laptop', 'browser', 'server', 'database', 'dnsServer', 'router', 'switch', 'firewall',
+  'cloud', 'certificate', 'user', 'api', 'requestPacket', 'responsePacket', 'dataPacket', 'encryptionIndicator',
+] as const;
+const STORYBOARD_VISUAL_TYPES = ['diagram', 'flow', 'sequence', 'comparison', 'timeline'] as const;
+const STORYBOARD_COMPONENT_ALIASES: Record<string, string> = {
+  pc: 'laptop', computer: 'laptop', desktop: 'laptop', dns: 'dnsServer', resolver: 'dnsServer',
+  nameserver: 'dnsServer', db: 'database', gateway: 'router', internet: 'cloud', cert: 'certificate',
+  client: 'user', person: 'user', service: 'api', request: 'requestPacket', query: 'requestPacket',
+  response: 'responsePacket', reply: 'responsePacket', packet: 'dataPacket', data: 'dataPacket',
+  lock: 'encryptionIndicator', encryption: 'encryptionIndicator', tls: 'encryptionIndicator',
+};
+function normalizeStoryboardComponent(raw: string): string | null {
+  const key = raw.trim().toLowerCase().replace(/[\s_-]+/g, '');
+  const direct = STORYBOARD_COMPONENT_IDS.find((id) => id.toLowerCase() === key);
+  if (direct) return direct;
+  return STORYBOARD_COMPONENT_ALIASES[key] ?? null;
+}
+
+const storyboardSceneSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  narration: z.string().trim().min(1).max(1400),
+  onScreenText: z.string().trim().max(300).default(''),
+  visualType: z.string().trim().max(40).default('diagram'),
+  components: z.array(z.string().trim().min(1).max(60)).max(10).default([]),
+  animation: z.string().trim().max(700).default(''),
+  durationSeconds: z.number().min(2).max(40).default(8),
+});
+const storyboardResponseSchema = z.object({ scenes: z.array(storyboardSceneSchema).min(1).max(16) });
+
+function coerceScene(s: z.infer<typeof storyboardSceneSchema>, order: number) {
+  const visualType = (STORYBOARD_VISUAL_TYPES as readonly string[]).includes(s.visualType.toLowerCase())
+    ? s.visualType.toLowerCase()
+    : 'diagram';
+  const components = Array.from(
+    new Set(s.components.map(normalizeStoryboardComponent).filter((c): c is string => c !== null))
+  ).slice(0, 8);
+  return {
+    id: randomBytes(6).toString('hex'),
+    order,
+    title: s.title,
+    narration: s.narration,
+    onScreenText: s.onScreenText,
+    visualType,
+    components,
+    animation: s.animation,
+    durationSeconds: Math.round(s.durationSeconds),
+  };
+}
+
+const STORYBOARD_SYSTEM_PROMPT =
+  'You turn one course lesson into a storyboard of short animated technical scenes. Prioritise technical understanding over decoration. Respond with strict JSON only, matching: {"scenes":[{"title":string,"narration":string,"onScreenText":string,"visualType":string,"components":string[],"animation":string,"durationSeconds":number}]}. ' +
+  `visualType is one of: ${STORYBOARD_VISUAL_TYPES.join(', ')}. ` +
+  `components may ONLY use these ids: ${STORYBOARD_COMPONENT_IDS.join(', ')}. ` +
+  'animation is short newline-separated directives using the component ids, e.g. "fadeIn:laptop\\narrow:laptop->dnsServer\\nhighlight:dnsServer". narration is 1-3 spoken sentences. onScreenText is a short caption. durationSeconds is 5-12. Aim for 5-9 scenes.';
+
+async function generateLessonStoryboard(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = lessonRefSchema.extend({ force: z.boolean().default(false) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const entry = resolveLessonOutline(draft, parsed.data.lessonKey);
+  const lessonRef = ref.collection('lessons').doc(parsed.data.lessonKey);
+  const existing = (await lessonRef.get()).data();
+  if (!existing?.content) {
+    throw Err.failedPrecondition('Generate the lesson content before building a visual lesson');
+  }
+  if (!parsed.data.force && existing.storyboard) {
+    return { storyboard: existing.storyboard, cached: true };
+  }
+
+  await assertAiGenerationQuota(uid);
+  const raw = await callAiJson(
+    STORYBOARD_SYSTEM_PROMPT,
+    `Lesson: "${entry.title}".\nLesson content:\n${String(existing.content).slice(0, 5000)}\n\nNarration script:\n${String(existing.narrationScript ?? '').slice(0, 3000)}`
+  );
+  const sb = storyboardResponseSchema.safeParse(raw);
+  if (!sb.success) throw Err.failedPrecondition('The AI returned a storyboard in an unexpected shape. Please try again.');
+
+  const storyboard = {
+    scenes: sb.data.scenes.map((s, i) => coerceScene(s, i)),
+    voice: (existing.storyboard as { voice?: string } | undefined)?.voice ?? '',
+    generatedAt: Date.now(),
+  };
+  await lessonRef.set(
+    { lessonKey: parsed.data.lessonKey, storyboard, storyboardStatus: 'READY', updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+  await incrementAiUsage(uid);
+  return { storyboard, cached: false };
+}
+
+const regenerateSceneSchema = lessonRefSchema.extend({
+  sceneId: z.string().trim().min(1).max(40),
+  instruction: z.string().trim().max(500).default(''),
+});
+
+async function regenerateStoryboardScene(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = regenerateSceneSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  const entry = resolveLessonOutline(draft, parsed.data.lessonKey);
+  const lessonRef = ref.collection('lessons').doc(parsed.data.lessonKey);
+  const existing = (await lessonRef.get()).data();
+  const current = existing?.storyboard as { scenes: { id: string; order: number; title: string }[]; voice?: string } | undefined;
+  if (!current?.scenes?.length) throw Err.failedPrecondition('This lesson has no storyboard yet');
+  const idx = current.scenes.findIndex((s) => s.id === parsed.data.sceneId);
+  if (idx === -1) throw Err.notFound('Scene not found');
+
+  await assertAiGenerationQuota(uid);
+  const around = current.scenes.map((s, i) => `${i + 1}. ${s.title}${i === idx ? '  <-- regenerate this one' : ''}`).join('\n');
+  const raw = await callAiJson(
+    STORYBOARD_SYSTEM_PROMPT + ' Return exactly ONE scene in the "scenes" array.',
+    `Lesson: "${entry.title}".\nLesson content:\n${String(existing?.content ?? '').slice(0, 4000)}\n\nScene list:\n${around}\n\nRegenerate scene ${idx + 1}${parsed.data.instruction ? `. Creator instruction: ${parsed.data.instruction}` : ''}.`
+  );
+  const sb = storyboardResponseSchema.safeParse(raw);
+  if (!sb.success || sb.data.scenes.length === 0) {
+    throw Err.failedPrecondition('The AI returned an unexpected scene. Please try again.');
+  }
+  const replacement = coerceScene(sb.data.scenes[0], idx);
+  replacement.id = parsed.data.sceneId; // keep the stable id
+  const scenes = current.scenes.map((s, i) => (i === idx ? replacement : s));
+  const storyboard = { scenes, voice: current.voice ?? '', generatedAt: Date.now() };
+  await lessonRef.set({ storyboard, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await incrementAiUsage(uid);
+  return { storyboard };
+}
+
 const updateLessonSchema = lessonRefSchema.extend({
   overview: z.string().trim().max(2000).optional(),
   content: z.string().trim().max(12000).optional(),
@@ -4282,6 +4420,31 @@ const updateLessonSchema = lessonRefSchema.extend({
   resources: z
     .array(z.object({ label: z.string().trim().min(1).max(200), url: z.string().trim().url().max(2000) }))
     .max(20)
+    .optional(),
+  // Full storyboard object - saved as-is after client scene edits
+  // (narration / on-screen text / duration / voice). Shape is validated
+  // structurally but not re-coerced; regeneration is the path that adds
+  // new scenes.
+  storyboard: z
+    .object({
+      scenes: z
+        .array(
+          z.object({
+            id: z.string().trim().min(1).max(40),
+            order: z.number().int().min(0),
+            title: z.string().trim().min(1).max(200),
+            narration: z.string().trim().max(1400),
+            onScreenText: z.string().trim().max(300),
+            visualType: z.string().trim().max(40),
+            components: z.array(z.string().trim().max(60)).max(10),
+            animation: z.string().trim().max(700),
+            durationSeconds: z.number().min(2).max(40),
+          })
+        )
+        .max(16),
+      voice: z.string().trim().max(120).default(''),
+      generatedAt: z.number().default(0),
+    })
     .optional(),
 });
 
@@ -4291,7 +4454,7 @@ async function updateCourseDraftLesson(uid: string, body: unknown) {
   const { ref, draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
   resolveLessonOutline(draft, parsed.data.lessonKey);
   const patch: Record<string, unknown> = { lessonKey: parsed.data.lessonKey, updatedAt: FieldValue.serverTimestamp() };
-  for (const k of ['overview', 'content', 'narrationScript', 'resources'] as const) {
+  for (const k of ['overview', 'content', 'narrationScript', 'resources', 'storyboard'] as const) {
     if (parsed.data[k] !== undefined) patch[k] = parsed.data[k];
   }
   await ref.collection('lessons').doc(parsed.data.lessonKey).set(patch, { merge: true });
@@ -4736,6 +4899,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'generateLessonContent',
       'updateCourseDraftLesson',
       'generateLessonQuiz',
+      'generateLessonStoryboard',
+      'regenerateStoryboardScene',
       'submitAiCourseDraft',
       'getCourseForReading',
       'markLessonComplete',
@@ -4827,6 +4992,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'generateLessonQuiz':
         res.status(200).json(await generateLessonQuiz(uid, data));
+        return;
+      case 'generateLessonStoryboard':
+        res.status(200).json(await generateLessonStoryboard(uid, data));
+        return;
+      case 'regenerateStoryboardScene':
+        res.status(200).json(await regenerateStoryboardScene(uid, data));
         return;
       case 'submitAiCourseDraft':
         res.status(200).json(await submitAiCourseDraft(uid, data));

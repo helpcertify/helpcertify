@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { courseBuilderApi, type LessonResource } from '../courseBuilderApi';
+import { VisualLessonPanel } from '../components/VisualLessonPanel';
 
 type Tab = 'overview' | 'content' | 'visual' | 'quiz' | 'resources';
 const TABS: { id: Tab; label: string }[] = [
@@ -167,22 +168,7 @@ export function LessonEditorPage() {
       )}
 
       {tab === 'visual' && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-ink-faint">Visual lesson</h2>
-          <p className="text-sm text-ink-faint">
-            A visual lesson is a storyboard of animated technical scenes (diagrams, arrows, labelled components)
-            with synced narration. Generate the lesson content first, then build the storyboard.
-          </p>
-          <button
-            type="button"
-            disabled
-            title={hasContent ? 'Storyboard generation arrives in the next update' : 'Generate the lesson content first'}
-            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white opacity-50"
-          >
-            Generate Visual Lesson
-          </button>
-          {!hasContent && <p className="text-xs text-ink-faint">Add lesson content before generating a visual lesson.</p>}
-        </section>
+        <VisualLessonPanel draftId={draftId!} lessonKey={lessonKey!} hasContent={hasContent} storyboard={lesson.storyboard} />
       )}
 
       {tab === 'quiz' && (
