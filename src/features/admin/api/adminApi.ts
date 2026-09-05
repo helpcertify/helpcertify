@@ -120,6 +120,16 @@ export interface UserCategory {
   createdAt: unknown;
 }
 
+// Per-category monthly caps on AI Course Builder generations - see
+// api/admin.ts's getAiUsageLimits/updateAiUsageLimits. -1 = unlimited,
+// 0 = blocked. Keys in categoryLimits are category keys (built-in or
+// custom); keys in userOverrides are uids.
+export interface AiUsageLimits {
+  defaultLimit: number;
+  categoryLimits: Record<string, number>;
+  userOverrides: Record<string, number>;
+}
+
 export interface TrainerApplicationRow {
   id: string;
   uid: string;
@@ -220,4 +230,7 @@ export const adminApi = {
     callAction<{ requests: UserCategoryRequestRow[] }>('admin', 'listUserCategoryRequests', status ? { status } : {}),
   reviewUserCategoryRequest: (payload: { membershipId: string; decision: 'approve' | 'reject'; note?: string }) =>
     callAction<{ success: true }>('admin', 'reviewUserCategoryRequest', payload),
+
+  getAiUsageLimits: () => callAction<AiUsageLimits>('admin', 'getAiUsageLimits'),
+  updateAiUsageLimits: (payload: AiUsageLimits) => callAction<{ success: true }>('admin', 'updateAiUsageLimits', { ...payload }),
 };

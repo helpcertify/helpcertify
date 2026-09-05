@@ -27,6 +27,9 @@ export interface AiParsedQuestion {
 export const aiCourseBuilderApi = {
   checkMyAccess: () => callAction<{ allowed: boolean }>('content-admin', 'checkMyFeatureAccess', { featureKey: 'ai_course_builder' }),
 
+  // Per-user monthly generation quota - `limit` of -1 means unlimited.
+  getMyUsage: () => callAction<{ used: number; limit: number; period: string }>('content-admin', 'getMyAiUsage'),
+
   generateOutline: (payload: {
     topic: string;
     itemType: 'quiz' | 'practiceTest' | 'course';

@@ -731,6 +731,50 @@ async function updateFeatureAccessConfig(uid: string, body: unknown) {
   return { success: true };
 }
 
+// --- AI Usage Limits (appSettings/aiUsageLimits) ------------------------
+// Per-category monthly caps on AI Course Builder generations, since the
+// one shared OpenAI key has no per-end-user limit of its own. This file
+// owns the CRUD; api/content-admin.ts enforces it (assertAiGenerationQuota)
+// and counts usage (aiUsage/{uid}_{YYYYMM}). -1 = unlimited, 0 = blocked.
+const AI_USAGE_DEFAULT_LIMIT = 20;
+
+async function getAiUsageLimits() {
+  const snap = await db.collection('appSettings').doc('aiUsageLimits').get();
+  const d = snap.data();
+  return {
+    defaultLimit: typeof d?.defaultLimit === 'number' ? d.defaultLimit : AI_USAGE_DEFAULT_LIMIT,
+    categoryLimits: (d?.categoryLimits as Record<string, number>) ?? {},
+    userOverrides: (d?.userOverrides as Record<string, number>) ?? {},
+  };
+}
+
+const aiLimitValue = z.number().int().min(-1).max(100000);
+const updateAiUsageLimitsSchema = z.object({
+  defaultLimit: aiLimitValue,
+  categoryLimits: z.record(z.string(), aiLimitValue),
+  userOverrides: z.record(z.string(), aiLimitValue),
+});
+
+async function updateAiUsageLimits(uid: string, body: unknown) {
+  const parsed = updateAiUsageLimitsSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  await db
+    .collection('appSettings')
+    .doc('aiUsageLimits')
+    .set({ ...parsed.data, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updateAiUsageLimits',
+    targetType: 'appSettings',
+    targetId: 'aiUsageLimits',
+    description: `Set AI generation limits (default ${parsed.data.defaultLimit}/month)`,
+  });
+
+  return { success: true };
+}
+
 // --- Users list (Learner Analytics' "Users" tab) ------------------------
 // One read of every user doc plus one read of every purchase doc, joined
 // in memory by userId - simpler than N per-user count queries, and fine
@@ -2354,6 +2398,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'reviewUserCategoryRequest':
         res.status(200).json(await reviewUserCategoryRequest(uid, data));
+        return;
+      case 'getAiUsageLimits':
+        res.status(200).json(await getAiUsageLimits());
+        return;
+      case 'updateAiUsageLimits':
+        res.status(200).json(await updateAiUsageLimits(uid, data));
         return;
       case 'getAppSettings':
         res.status(200).json(await getAppSettings());

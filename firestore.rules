@@ -346,6 +346,14 @@ service cloud.firestore {
       allow write: if false; // api/auth.ts (request) / api/admin.ts (review) only
     }
 
+    // --- aiUsage/{uid}_{YYYYMM} --- per-user monthly AI Course Builder
+    // generation count, enforced against appSettings/aiUsageLimits. Written
+    // only by api/content-admin.ts after a successful generation.
+    match /aiUsage/{id} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+
     // Full PAN / GSTIN / address. Admin-SDK only - no client, not even the
     // owning partner or staff, reads these directly. Staff see a masked
     // view through api/admin.ts; a full-PAN reveal is a dedicated audited

@@ -3681,6 +3681,85 @@ async function checkMyFeatureAccess(uid: string, body: unknown) {
 // set yet - the same deployed code starts working once it is.
 // ---------------------------------------------------------------------------
 
+// --- AI generation quota (per-user monthly cap) ------------------------
+// The one shared OPENAI_API_KEY has no per-end-user limit, so it's
+// enforced here: each generateCourseOutline / generateAllCourseContent run
+// counts as one, against a per-category monthly cap an admin sets on
+// appSettings/aiUsageLimits (see api/admin.ts). -1 = unlimited, 0 =
+// blocked. A user in several categories gets the highest of their caps; a
+// per-user override wins; admins are always unlimited.
+function currentUsagePeriod(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+async function getUserCategoryKeys(uid: string): Promise<string[]> {
+  const keys: string[] = [];
+  try {
+    const { authorType } = await requireCatalogAuthor(uid);
+    keys.push(authorType); // 'trainer' | 'creator'
+  } catch {
+    // Neither - fine, just no trainer/creator key.
+  }
+  const [userSnap, memSnap] = await Promise.all([
+    db.collection('users').doc(uid).get(),
+    db.collection('userCategoryMemberships').where('uid', '==', uid).where('status', '==', 'APPROVED').get(),
+  ]);
+  const partnerId = userSnap.data()?.partnerId as string | undefined;
+  if (partnerId) {
+    const pSnap = await db.collection('partners').doc(partnerId).get();
+    if (pSnap.data()?.status === 'ACTIVE') keys.push('salesPartner');
+  }
+  for (const m of memSnap.docs) keys.push(m.data().categoryKey as string);
+  return keys;
+}
+
+async function resolveAiLimit(uid: string): Promise<number> {
+  const [userSnap, limitsSnap] = await Promise.all([
+    db.collection('users').doc(uid).get(),
+    db.collection('appSettings').doc('aiUsageLimits').get(),
+  ]);
+  if (userSnap.data()?.role === 'admin') return -1;
+  const limits = limitsSnap.data();
+  const defaultLimit = typeof limits?.defaultLimit === 'number' ? limits.defaultLimit : 20;
+  const userOverrides = (limits?.userOverrides as Record<string, number>) ?? {};
+  if (uid in userOverrides) return userOverrides[uid];
+  const categoryLimits = (limits?.categoryLimits as Record<string, number>) ?? {};
+  const keys = await getUserCategoryKeys(uid);
+  const applicable = keys.map((k) => categoryLimits[k]).filter((v): v is number => typeof v === 'number');
+  if (applicable.length === 0) return defaultLimit;
+  if (applicable.some((v) => v < 0)) return -1;
+  return Math.max(...applicable);
+}
+
+async function assertAiGenerationQuota(uid: string): Promise<void> {
+  const limit = await resolveAiLimit(uid);
+  if (limit < 0) return;
+  const usageSnap = await db.collection('aiUsage').doc(`${uid}_${currentUsagePeriod()}`).get();
+  const used = (usageSnap.data()?.count as number) ?? 0;
+  if (used >= limit) {
+    throw Err.failedPrecondition(
+      `You've used all ${limit} AI generation${limit === 1 ? '' : 's'} for this month. Your limit resets on the 1st.`
+    );
+  }
+}
+
+async function incrementAiUsage(uid: string): Promise<void> {
+  const period = currentUsagePeriod();
+  await db
+    .collection('aiUsage')
+    .doc(`${uid}_${period}`)
+    .set({ uid, period, count: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+}
+
+async function getMyAiUsage(uid: string) {
+  const [limit, usageSnap] = await Promise.all([
+    resolveAiLimit(uid),
+    db.collection('aiUsage').doc(`${uid}_${currentUsagePeriod()}`).get(),
+  ]);
+  return { used: (usageSnap.data()?.count as number) ?? 0, limit, period: currentUsagePeriod() };
+}
+
 async function callOpenAiJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -3741,6 +3820,7 @@ async function generateCourseOutline(uid: string, body: unknown) {
   if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
     throw Err.permissionDenied('The AI Course Builder is not available on this account');
   }
+  await assertAiGenerationQuota(uid);
   const parsed = generateCourseOutlineSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
@@ -3776,6 +3856,7 @@ async function generateCourseOutline(uid: string, body: unknown) {
     updatedAt: now,
   });
 
+  await incrementAiUsage(uid);
   return { draftId: ref.id, outline };
 }
 
@@ -3819,6 +3900,7 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
     throw Err.permissionDenied('The AI Course Builder is not available on this account');
   }
+  await assertAiGenerationQuota(uid);
   const parsed = draftIdSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const ref = db.collection('aiCourseDrafts').doc(parsed.data.draftId);
@@ -3880,6 +3962,7 @@ async function generateAllCourseContent(uid: string, body: unknown) {
 
   await ref.update({ generatedQuestions, generatedLessons, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
 
+  await incrementAiUsage(uid);
   return { draftId: ref.id, generatedQuestions, generatedLessons, warnings };
 }
 
@@ -4128,6 +4211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'submitAiCourseDraft',
       'getCourseForReading',
       'markLessonComplete',
+      'getMyAiUsage',
     ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
       ? await verifyAuthedUser(req)
@@ -4193,6 +4277,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'submitAiCourseDraft':
         res.status(200).json(await submitAiCourseDraft(uid, data));
+        return;
+      case 'getMyAiUsage':
+        res.status(200).json(await getMyAiUsage(uid));
         return;
       case 'getCourseForReading':
         res.status(200).json(await getCourseForReading(uid, data));
