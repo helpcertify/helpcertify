@@ -4,9 +4,6 @@ import { RecommendedCourses } from '../components/RecommendedCourses';
 import { CourseRow, type CourseRowItem } from '@/components/common/CourseRow';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useExamCountdowns } from '../hooks/useExamCountdowns';
-import { useCertificationCatalog } from '../api/certificationCatalogApi';
-import { hasActivePackage } from '../lib/certificationCatalog';
-import { CertificationCard } from '@/components/common/CertificationCard';
 import { CertificationPrepSection } from '../components/CertificationPrepSection';
 import { Avatar } from '@/components/common/Avatar';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
@@ -32,7 +29,6 @@ export function StudentHomePage() {
 
   const { data: allCourses } = useQuery({ queryKey: ['student', 'availableCourses'], queryFn: listAvailableCourses });
   const { data: examCountdowns } = useExamCountdowns();
-  const { data: catalog, isLoading: catalogLoading, error: catalogError } = useCertificationCatalog();
 
   const nearestExam = examCountdowns?.[0] ?? null;
 
@@ -90,28 +86,11 @@ export function StudentHomePage() {
           does not dominate the page. Hidden when there's nothing to suggest. */}
       <RecommendedCourses />
 
-      {/* Prepare for Your Certification - the browse-and-buy grid, driven
+      {/* Prepare for Your Certification - the browse-and-buy row, driven
           from the certification catalog (product data). See
           api/cart.ts's getLearnerCatalog for how pricing/owned/in-cart
           state is resolved server-side. */}
       <CertificationPrepSection />
-
-      {/* Your certifications - catalog data filtered to certifications the
-          learner already owns a package in, so "continue learning" sits
-          above "browse and buy". */}
-      {!catalogLoading &&
-        !catalogError &&
-        catalog &&
-        catalog.certifications.filter(hasActivePackage).length > 0 && (
-          <div className="mb-8">
-            <h2 className="mb-4 text-lg font-bold text-ink">Your certifications</h2>
-            <div className="space-y-4">
-              {catalog.certifications.filter(hasActivePackage).map((cert) => (
-                <CertificationCard key={cert.id} certification={cert} />
-              ))}
-            </div>
-          </div>
-        )}
 
       {/* New courses - newest written-lesson courses, for discovery. Compact
           row, kept near the bottom of the page. */}
