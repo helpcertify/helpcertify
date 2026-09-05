@@ -56,9 +56,16 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
   return { uid: decoded.uid };
 }
 
-type ItemType = 'quiz' | 'practiceTest' | 'package';
-const collectionFor = (itemType: ItemType) =>
-  itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
+type ItemType = 'quiz' | 'practiceTest' | 'package' | 'course';
+// Was a two-way ternary defaulting to 'packages' - an explicit chain now
+// that a fourth item type exists, so a 'course' can never silently fall
+// through to the packages collection.
+const collectionFor = (itemType: ItemType) => {
+  if (itemType === 'quiz') return 'quizzes';
+  if (itemType === 'practiceTest') return 'practiceTests';
+  if (itemType === 'course') return 'courses';
+  return 'packages';
+};
 
 // A package is never its own entitlement record (see PackageDoc's own
 // comment in src/types/models.ts) - "already own this package" means every
@@ -244,7 +251,7 @@ async function getCart(uid: string) {
   return summarize(uid);
 }
 
-const addItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest', 'package']), itemId: z.string().min(1) });
+const addItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest', 'package', 'course']), itemId: z.string().min(1) });
 
 async function addItem(uid: string, body: unknown) {
   const parsed = addItemSchema.safeParse(body);
@@ -561,8 +568,9 @@ async function getWishlist(uid: string) {
 // Wishlist deliberately never supports 'package' (out of scope this
 // phase - see PackageDoc's own comment) - its own narrower schema instead
 // of reusing addItemSchema, since hydrateWishlist reads `title` off the
-// item doc and a PackageDoc has no such field (it's `name`).
-const wishlistItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest']), itemId: z.string().min(1) });
+// item doc and a PackageDoc has no such field (it's `name`). A CourseDoc
+// does have `title`, so it's fine to include here.
+const wishlistItemSchema = z.object({ itemType: z.enum(['quiz', 'practiceTest', 'course']), itemId: z.string().min(1) });
 
 async function addWishlistItem(uid: string, body: unknown) {
   const parsed = wishlistItemSchema.safeParse(body);

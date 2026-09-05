@@ -90,6 +90,30 @@ service cloud.firestore {
       }
     }
 
+    // --- courses/{courseId} --- written-lesson course (AI Course Builder
+    // output, see api/content-admin.ts's publishCatalogSubmission). Unlike
+    // a quiz's questions (free text, only the answer key is gated), a
+    // lesson's whole body IS the paid product, so the lessons subcollection
+    // is never client-readable - always proxied through getCourseForReading,
+    // which strips content for a locked lesson.
+    match /courses/{courseId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.isPublished == true);
+      allow write: if false; // api/content-admin.ts only
+
+      match /lessons/{lessonId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // --- courseProgress/{uid}_{courseId} --- a student's reading progress
+    // through one course. Written only by api/content-admin.ts's
+    // markLessonComplete.
+    match /courseProgress/{progressId} {
+      allow read: if isAdmin() || (isSignedIn() && progressId.split('_')[0] == request.auth.uid);
+      allow write: if false;
+    }
+
     // --- customExamSets/{setId} (Custom Exam Builder) --- the app's first
     // ownership-scoped (not admin-catalog) content collection: gated on
     // resource.data.ownerId matching the caller, not an isPublished flag

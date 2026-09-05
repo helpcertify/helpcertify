@@ -16,7 +16,8 @@ function hashString(s: string): number {
 
 type IconKind = 'shieldLock' | 'shieldCheck' | 'book' | 'clipboard';
 
-function pickIcon(id: string, title: string, itemType: 'quiz' | 'practiceTest'): IconKind {
+function pickIcon(id: string, title: string, itemType: 'quiz' | 'practiceTest' | 'course'): IconKind {
+  if (itemType === 'course') return 'book';
   const t = title.toLowerCase();
   if (t.includes('audit')) return 'shieldCheck';
   if (t.includes('security') || t.includes('manager')) return 'shieldLock';
@@ -67,7 +68,7 @@ export function CourseIcon({
 }: {
   id: string;
   title: string;
-  itemType: 'quiz' | 'practiceTest';
+  itemType: 'quiz' | 'practiceTest' | 'course';
   className?: string;
 }) {
   const kind = pickIcon(id, title, itemType);

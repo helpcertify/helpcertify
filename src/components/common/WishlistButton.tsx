@@ -7,7 +7,7 @@ import { errorText } from '@/lib/errorMessages';
 interface WishlistButtonProps {
   // Never 'package' - a certification/package card has no wishlist heart
   // this phase (see CertificationCard.tsx).
-  itemType: 'quiz' | 'practiceTest';
+  itemType: 'quiz' | 'practiceTest' | 'course';
   itemId: string;
   className?: string;
   // 'overlay' (default): white icon + dark scrim, for sitting on top of a

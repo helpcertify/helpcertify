@@ -370,6 +370,57 @@ export interface PracticeTestDoc {
   updatedAt: Timestamp;
 }
 
+/** courses/{courseId} - a written-lesson course (pure instructional
+ *  content a student reads, no attached quiz in this phase). Mirrors
+ *  QuizDoc/PracticeTestDoc's catalog-item shape so it slots into the same
+ *  cart/checkout/purchase pipeline with almost no new branching there -
+ *  see api/cart.ts's and api/checkout.ts's collectionFor(). The only
+ *  content-authoring path today is the AI Course Builder (see
+ *  api/content-admin.ts's generateAllCourseContent/publishCatalogSubmission) -
+ *  there is no manual/docx upload path for a course. */
+export interface CourseDoc {
+  title: string;
+  sourceFormat: 'ai_generated';
+  totalLessons: number;
+  isPublished: boolean;
+  // See QuizDoc's price/originalPrice/currency comment - same convention.
+  price: number;
+  originalPrice: number | null;
+  currency: 'INR' | 'USD';
+  category: CertificationCategory;
+  skillLevel: SkillLevel;
+  description: string;
+  ratingAvg: number;
+  ratingCount: number;
+  // First N lessons (by `order`) readable in full without an entitlement -
+  // same role as QuizDoc.previewQuestionCount.
+  previewLessonCount: number;
+  // See QuizDoc.accessPeriodDays - same convention (0 = lifetime).
+  accessPeriodDays: number;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** courses/{courseId}/lessons/{lessonId} - one written lesson. Never
+ *  client-read directly (see firestore.rules) - a lesson's prose IS the
+ *  paid product, unlike a quiz question whose text is free and only the
+ *  answer is gated. Always proxied through api/content-admin.ts's
+ *  getCourseForReading, which strips `content` for a locked lesson. */
+export interface LessonDoc {
+  order: number;
+  title: string;
+  content: string;
+}
+
+/** courseProgress/{uid}_{courseId} - a student's reading progress through
+ *  one course. Written only by api/content-admin.ts's markLessonComplete. */
+export interface CourseProgressDoc {
+  completedLessonIndexes: number[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 /** contentSeries/{seriesId} - the manifest for one uploaded question doc
  *  that api/content-admin.ts's createBatchedSeries split into several
  *  practice-test batches and several mock-exam batches. Lets the admin
@@ -550,6 +601,7 @@ export interface PackageDoc {
   description: string;
   includedQuizIds: string[];
   includedPracticeTestIds: string[];
+  // Deferred: a package cannot yet bundle a Course (no includedCourseIds).
 
   // --- Access configuration ---
   practiceAccessEnabled: boolean;
@@ -614,8 +666,11 @@ export interface PackageDoc {
 // price instead lives in appSettings/customExamBuilder, and its itemId is
 // always the fixed sentinel 'capability' (buying it unlocks the capability
 // once, not a specific piece of content). See api/checkout.ts's createOrder
-// for the price-lookup special case this requires.
-export type PurchasableItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
+// for the price-lookup special case this requires. 'course' has a real
+// backing CourseDoc and needs no special case, same as quiz/practiceTest -
+// see api/cart.ts's/api/checkout.ts's collectionFor(). Not yet
+// package-includable (no PackageDoc.includedCourseIds).
+export type PurchasableItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder' | 'course';
 
 /** carts/{uid} - one cart per student. Items never store a price; the
  * price is always re-read live from the quiz/practiceTest doc so an admin
@@ -924,9 +979,15 @@ export interface ProgramLearnerDoc {
  * decideCatalogSubmission / publishCatalogSubmission). */
 export interface CatalogSubmissionDoc {
   authorUid: string;
-  authorType: 'trainer' | 'creator';
-  authorId: string; // trainerId or partnerId
-  itemType: 'quiz' | 'practiceTest';
+  // 'admin' - an admin's own AI-generated draft, auto-approved by
+  // submitAiCourseDraft so publishCatalogSubmission can be called right
+  // away (see that function's own comment).
+  authorType: 'admin' | 'trainer' | 'creator';
+  authorId: string; // trainerId or partnerId (uid for authorType 'admin')
+  // 'course' - a written-lesson course from the AI Course Builder; see
+  // CourseDoc. Has a lessons/{lessonId} subcollection instead of
+  // questions/{qId}, and totalLessons instead of totalQuestions.
+  itemType: 'quiz' | 'practiceTest' | 'course';
   title: string;
   category: string;
   skillLevel: string;
@@ -935,14 +996,16 @@ export interface CatalogSubmissionDoc {
   // charged price at publish time and may override this.
   suggestedPrice: number;
   currency: 'INR' | 'USD';
-  sourceFormat: 'standard' | 'cisa_qa';
+  sourceFormat: 'standard' | 'cisa_qa' | 'ai_generated';
   totalQuestions: number;
+  // Only set when itemType is 'course' - see the comment on itemType above.
+  totalLessons?: number;
   parseWarnings: string[];
   status: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED' | 'PUBLISHED';
   reviewerUid: string | null;
   reviewNote: string | null;
-  // Set only once status is PUBLISHED - the id of the real quizzes/{id} or
-  // practiceTests/{id} doc this submission became.
+  // Set only once status is PUBLISHED - the id of the real quizzes/{id},
+  // practiceTests/{id}, or courses/{id} doc this submission became.
   publishedItemId: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
