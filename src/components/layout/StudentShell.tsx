@@ -110,11 +110,12 @@ export function StudentShell() {
           Become a Partner
         </NavLink>
       )}
-      {profile?.trainerId && (
-        <NavLink to="/home/trainer" onClick={onNavigate} className={navLinkClass}>
-          Trainer Workspace
-        </NavLink>
-      )}
+      {/* Always shown, not just once trainerId is set - a non-trainer sees
+          a "Request Trainer Access" prompt on this page instead of a dead
+          end (see TrainerWorkspacePage.tsx's RequestTrainerAccess). */}
+      <NavLink to="/home/trainer" onClick={onNavigate} className={navLinkClass}>
+        {profile?.trainerId ? 'Trainer Workspace' : 'Become a Trainer'}
+      </NavLink>
       <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>
         My Profile
       </NavLink>

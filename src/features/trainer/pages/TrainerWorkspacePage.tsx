@@ -8,6 +8,7 @@ import { listAvailableQuizzes, listPracticeTestsBucketed } from '@/features/stud
 import { trainerApi, listProgramLearners, type TrainingProgramSummary } from '../api/trainerApi';
 import { CatalogSubmissionForm } from '@/features/catalogSubmissions/components/CatalogSubmissionForm';
 import { AiCourseBuilderFlow } from '@/features/catalogSubmissions/components/AiCourseBuilderFlow';
+import { categoryApi } from '@/features/students/api/categoryApi';
 
 // Trainer Workspace ("/home/trainer") - Phase 1A: create a training
 // program, add learners by email, and assign existing HelpCertify quizzes/
@@ -44,11 +45,7 @@ export function TrainerWorkspacePage() {
   });
 
   if (!profile?.trainerId) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-ink-muted">This account does not have trainer access.</p>
-      </div>
-    );
+    return <RequestTrainerAccess />;
   }
 
   const programs = data?.programs ?? [];
@@ -315,6 +312,52 @@ function ProgramCard({
         }}
         onCancel={() => setPendingRemove(null)}
       />
+    </div>
+  );
+}
+
+// Trainer status has always been admin-grants-only - this is the
+// self-request half added so it matches Creator/Partner's own
+// apply-then-admin-approves pattern (see api/auth.ts's
+// requestTrainerStatus / api/admin.ts's reviewTrainerApplication).
+function RequestTrainerAccess() {
+  const pushToast = useUiStore((s) => s.pushToast);
+  const [message, setMessage] = useState('');
+  const { data: status } = useQuery({ queryKey: ['student', 'myCategoryStatus'], queryFn: categoryApi.getMyCategoryStatus });
+
+  const requestMutation = useMutation({
+    mutationFn: () => categoryApi.requestTrainerStatus(message.trim() || undefined),
+    onSuccess: () => pushToast('Request sent - an admin will review it.', 'success'),
+    onError: (err) => pushToast(errorText(err, 'Could not send that request'), 'error'),
+  });
+
+  const pending = status?.trainerApplication?.status === 'PENDING';
+  const rejected = status?.trainerApplication?.status === 'REJECTED';
+
+  return (
+    <div className="mx-auto max-w-md px-4 py-16 text-center">
+      <p className="mb-4 text-ink-muted">This account does not have trainer access.</p>
+      {pending ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+          Your request is pending review.
+        </p>
+      ) : (
+        <div className="rounded-xl border border-surface-border bg-surface-raised p-5 text-left">
+          {rejected && <p className="mb-3 text-sm text-red-500">Your previous request was not approved. You can request again.</p>}
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+            Why do you want trainer access? (optional)
+          </label>
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className="input-dark w-full" />
+          <button
+            type="button"
+            disabled={requestMutation.isPending}
+            onClick={() => requestMutation.mutate()}
+            className="mt-3 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+          >
+            {requestMutation.isPending ? 'Sending…' : 'Request Trainer Access'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

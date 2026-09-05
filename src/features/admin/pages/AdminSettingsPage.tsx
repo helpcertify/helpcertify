@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   adminApi,
   FEATURE_KEYS,
+  BUILTIN_CATEGORY_KEYS,
+  BUILTIN_CATEGORY_LABELS,
   type AppSettings,
   type CompanyInfoSettings,
   type FeatureAccessEntry,
@@ -442,18 +444,26 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
   ai_course_builder: 'AI Course Builder',
 };
 
-// Lets an admin turn any registered feature on/off per capability
-// (Admin/Trainer/Creator) and grant or exclude specific user IDs
-// regardless of capability - see api/admin.ts's getFeatureAccessConfig/
-// updateFeatureAccessConfig and src/features/admin/lib/featureAccess.ts's
-// decision logic. Starts with just the AI Course Builder; a future gated
-// feature only needs a new entry in FEATURE_KEYS/FEATURE_LABELS here and
-// in api/admin.ts's/api/content-admin.ts's own FEATURE_KEYS.
+// Lets an admin turn any registered feature on/off per category (the four
+// built-ins - Admin/Trainer/Content Partner/Sales Partner - plus any
+// admin-created custom category, see User Categories on the Users page)
+// and grant or exclude specific user IDs regardless of category - see
+// api/admin.ts's getFeatureAccessConfig/updateFeatureAccessConfig and
+// src/features/admin/lib/featureAccess.ts's decision logic. Starts with
+// just the AI Course Builder; a future gated feature only needs a new
+// entry in FEATURE_KEYS/FEATURE_LABELS here and in api/admin.ts's/
+// api/content-admin.ts's own FEATURE_KEYS.
 function FeatureAccessCard() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const { data } = useQuery({ queryKey: ['admin', 'featureAccess'], queryFn: adminApi.getFeatureAccessConfig });
+  const { data: categoriesData } = useQuery({ queryKey: ['admin', 'userCategories'], queryFn: adminApi.listUserCategories });
   const [rows, setRows] = useState<Record<FeatureKey, FeatureAccessEntry & { allowText: string; denyText: string }> | null>(null);
+
+  const categoryOptions = [
+    ...BUILTIN_CATEGORY_KEYS.map((key) => ({ key, label: BUILTIN_CATEGORY_LABELS[key] })),
+    ...(categoriesData?.categories ?? []).map((c) => ({ key: c.key, label: c.label })),
+  ];
 
   useEffect(() => {
     if (!data) return;
@@ -501,9 +511,9 @@ function FeatureAccessCard() {
     <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
       <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">Feature Access</h2>
       <p className="mb-4 text-sm text-ink-faint">
-        Control which roles can use each gated feature, and grant or exclude specific accounts by
-        their user ID regardless of role. A denied ID always wins; an allowed ID always works even
-        if its role is off below.
+        Control which categories can use each gated feature, and grant or exclude specific accounts
+        by their user ID regardless of category. A denied ID always wins; an allowed ID always works
+        even if its category is off below. Create custom categories from the Users page.
       </p>
 
       {FEATURE_KEYS.map((key) => {
@@ -513,17 +523,19 @@ function FeatureAccessCard() {
             <div className="mb-3 font-medium text-ink">{FEATURE_LABELS[key]}</div>
 
             <div className="mb-3 flex flex-wrap gap-4">
-              {(['admin', 'trainer', 'creator'] as const).map((cap) => (
-                <label key={cap} className="flex items-center gap-2 text-sm text-ink-muted">
+              {categoryOptions.map((cap) => (
+                <label key={cap.key} className="flex items-center gap-2 text-sm text-ink-muted">
                   <input
                     type="checkbox"
-                    checked={row.roles[cap]}
+                    checked={row.roles[cap.key] ?? false}
                     onChange={(e) =>
-                      setRows((cur) => (cur ? { ...cur, [key]: { ...cur[key], roles: { ...cur[key].roles, [cap]: e.target.checked } } } : cur))
+                      setRows((cur) =>
+                        cur ? { ...cur, [key]: { ...cur[key], roles: { ...cur[key].roles, [cap.key]: e.target.checked } } } : cur
+                      )
                     }
                     className="h-4 w-4"
                   />
-                  <span className="capitalize">{cap}</span>
+                  <span>{cap.label}</span>
                 </label>
               ))}
             </div>

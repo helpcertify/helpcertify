@@ -163,13 +163,11 @@ async function listAdminLogs() {
 // grants this directly on an existing user's account. See
 // src/types/models.ts's TrainerDoc for why this is a capability layered on
 // a student account, not a new Role.
-const grantTrainerStatusSchema = z.object({ userId: z.string().trim().min(1) });
-
-async function grantTrainerStatus(uid: string, body: unknown) {
-  const parsed = grantTrainerStatusSchema.safeParse(body);
-  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { userId } = parsed.data;
-
+// Shared by the direct-grant action below and reviewTrainerApplication's
+// approve branch (self-request flow) above, so both paths stay in sync -
+// see src/types/models.ts's TrainerDoc comment for why re-granting reuses
+// the same trainerId instead of minting a new one.
+async function applyTrainerGrant(userId: string, grantedBy: string): Promise<string> {
   const userRef = db.collection('users').doc(userId);
   const userSnap = await userRef.get();
   if (!userSnap.exists) throw Err.invalidArgument('User not found');
@@ -184,13 +182,13 @@ async function grantTrainerStatus(uid: string, body: unknown) {
     // (owned by that same trainerId) come back with it.
     await db.collection('trainers').doc(existingTrainerId).update({ status: 'ACTIVE' });
     await writeAdminLog({
-      performedBy: uid,
+      performedBy: grantedBy,
       action: 'grantTrainerStatus',
       targetType: 'trainer',
       targetId: existingTrainerId,
       description: `Reactivated trainer status for ${user.email ?? userId}`,
     });
-    return { trainerId: existingTrainerId };
+    return existingTrainerId;
   }
 
   const trainerRef = db.collection('trainers').doc();
@@ -198,20 +196,29 @@ async function grantTrainerStatus(uid: string, body: unknown) {
     linkedUserId: userId,
     displayName: (user.name as string) ?? 'Trainer',
     status: 'ACTIVE',
-    createdBy: uid,
+    createdBy: grantedBy,
     createdAt: now,
   });
   await userRef.update({ trainerId: trainerRef.id, updatedAt: now });
 
   await writeAdminLog({
-    performedBy: uid,
+    performedBy: grantedBy,
     action: 'grantTrainerStatus',
     targetType: 'trainer',
     targetId: trainerRef.id,
     description: `Granted trainer status to ${user.email ?? userId}`,
   });
 
-  return { trainerId: trainerRef.id };
+  return trainerRef.id;
+}
+
+const grantTrainerStatusSchema = z.object({ userId: z.string().trim().min(1) });
+
+async function grantTrainerStatus(uid: string, body: unknown) {
+  const parsed = grantTrainerStatusSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const trainerId = await applyTrainerGrant(parsed.data.userId, uid);
+  return { trainerId };
 }
 
 const revokeTrainerStatusSchema = z.object({ userId: z.string().trim().min(1) });
@@ -487,40 +494,199 @@ async function updateCustomExamBuilderSettings(uid: string, body: unknown) {
   return { success: true };
 }
 
+// --- User Categories (userCategories/{key}) -------------------------------
+// Admin-created segments beyond the four built-in ones (Users/Trainer/
+// Content Partner/Sales Partner - those are intrinsic, derived from
+// existing trainer/partner/creator-role data, never stored here). A custom
+// category exists purely so Feature Access below can gate a feature to it,
+// and so an admin can see/filter the Users list by it. Membership is a
+// request-then-approve flow, same shape as Trainer/Creator/Partner.
+function slugifyCategoryKey(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60);
+}
+
+async function listUserCategories() {
+  const snap = await db.collection('userCategories').orderBy('createdAt', 'desc').get();
+  return { categories: snap.docs.map((d) => ({ key: d.id, ...d.data() })) };
+}
+
+const createUserCategorySchema = z.object({ label: z.string().trim().min(2).max(60) });
+
+async function createUserCategory(uid: string, body: unknown) {
+  const parsed = createUserCategorySchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const key = slugifyCategoryKey(parsed.data.label);
+  if (!key) throw Err.invalidArgument('That label produces an empty category key - try adding letters or numbers');
+  if (['admin', 'trainer', 'creator', 'salespartner'].includes(key)) {
+    throw Err.conflict('That name collides with a built-in category');
+  }
+
+  const ref = db.collection('userCategories').doc(key);
+  if ((await ref.get()).exists) throw Err.conflict('A category with that name already exists');
+
+  const now = FieldValue.serverTimestamp();
+  await ref.set({ label: parsed.data.label, createdBy: uid, createdAt: now });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'createUserCategory',
+    targetType: 'userCategory',
+    targetId: key,
+    description: `Created category "${parsed.data.label}"`,
+  });
+  return { key };
+}
+
+const deleteUserCategorySchema = z.object({ key: z.string().trim().min(1) });
+
+async function deleteUserCategory(uid: string, body: unknown) {
+  const parsed = deleteUserCategorySchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  await db.collection('userCategories').doc(parsed.data.key).delete();
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'deleteUserCategory',
+    targetType: 'userCategory',
+    targetId: parsed.data.key,
+    description: `Deleted category "${parsed.data.key}"`,
+  });
+  return { success: true };
+}
+
+async function listUserCategoryRequests(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q = db.collection('userCategoryMemberships').orderBy('requestedAt', 'desc') as FirebaseFirestore.Query;
+  if (status) q = q.where('status', '==', status);
+  const snap = await q.get();
+  return { requests: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+const reviewUserCategoryRequestSchema = z.object({
+  membershipId: z.string().trim().min(1),
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().max(2000).optional(),
+});
+
+async function reviewUserCategoryRequest(uid: string, body: unknown) {
+  const parsed = reviewUserCategoryRequestSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { membershipId, decision, note } = parsed.data;
+
+  const ref = db.collection('userCategoryMemberships').doc(membershipId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Request not found');
+  if (snap.data()!.status !== 'PENDING') throw Err.conflict('This request has already been reviewed');
+
+  await ref.update({
+    status: decision === 'approve' ? 'APPROVED' : 'REJECTED',
+    reviewerUid: uid,
+    reviewNote: note ?? null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'reviewUserCategoryRequest',
+    targetType: 'userCategoryMembership',
+    targetId: membershipId,
+    description: `${decision} category request "${snap.data()!.categoryKey}" for ${snap.data()!.uid}${note ? `: ${note}` : ''}`,
+  });
+  return { success: true };
+}
+
+async function listTrainerApplications(data: unknown) {
+  const status = (data as { status?: string })?.status;
+  let q = db.collection('trainerApplications').orderBy('requestedAt', 'desc') as FirebaseFirestore.Query;
+  if (status) q = q.where('status', '==', status);
+  const snap = await q.get();
+  return { applications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+}
+
+const reviewTrainerApplicationSchema = z.object({
+  applicationId: z.string().trim().min(1),
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().max(2000).optional(),
+});
+
+async function reviewTrainerApplication(uid: string, body: unknown) {
+  const parsed = reviewTrainerApplicationSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { applicationId, decision, note } = parsed.data;
+
+  const ref = db.collection('trainerApplications').doc(applicationId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.invalidArgument('Application not found');
+  const app = snap.data()!;
+  if (app.status !== 'PENDING') throw Err.conflict('This application has already been reviewed');
+
+  if (decision === 'approve') {
+    await applyTrainerGrant(app.uid as string, uid);
+  }
+  await ref.update({
+    status: decision === 'approve' ? 'APPROVED' : 'REJECTED',
+    reviewerUid: uid,
+    reviewNote: note ?? null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'reviewTrainerApplication',
+    targetType: 'trainerApplication',
+    targetId: applicationId,
+    description: `${decision} trainer application for ${app.uid}${note ? `: ${note}` : ''}`,
+  });
+  return { success: true };
+}
+
 // --- Feature Access (appSettings/featureAccess) ---------------------------
 // A small general-purpose gate: for any registered feature key, an admin
-// can turn it on/off per capability (admin/trainer/creator - the app's
-// actual capability model, not the Role type) and grant or exclude
-// specific user IDs regardless of capability. Server-only doc (falls under
-// the appSettings/{id} catch-all in firestore.rules). This file only owns
-// the CRUD; api/content-admin.ts duplicates FEATURE_KEYS/FEATURE_DEFAULTS
-// and does the actual gating check (hasFeatureAccess) where the gated
-// actions live - no shared code across api/*.ts files, same as everywhere
-// else in this codebase.
+// can turn it on/off per category (the four built-ins - admin/trainer/
+// creator/salesPartner - plus any admin-created userCategories key) and
+// grant or exclude specific user IDs regardless of category. Server-only
+// doc (falls under the appSettings/{id} catch-all in firestore.rules).
+// This file only owns the CRUD; api/content-admin.ts duplicates
+// FEATURE_KEYS/FEATURE_DEFAULTS and does the actual gating check
+// (hasFeatureAccess) where the gated actions live - no shared code across
+// api/*.ts files, same as everywhere else in this codebase.
 const FEATURE_KEYS = ['ai_course_builder'] as const;
 type FeatureKey = (typeof FEATURE_KEYS)[number];
-const FEATURE_DEFAULTS: Record<
-  FeatureKey,
-  { roles: Record<'admin' | 'trainer' | 'creator', boolean>; allowUserIds: string[]; denyUserIds: string[] }
-> = {
-  ai_course_builder: { roles: { admin: true, trainer: true, creator: true }, allowUserIds: [], denyUserIds: [] },
+// 'creator' is the Content Partner capability, 'salesPartner' is the
+// referral/commission Partner program - see src/types/models.ts's
+// PartnerDoc/PartnerRoleDoc comments for why these are two capabilities on
+// the same underlying partner identity, not two separate ones.
+const BUILTIN_CATEGORY_KEYS = ['admin', 'trainer', 'creator', 'salesPartner'] as const;
+const FEATURE_DEFAULTS: Record<FeatureKey, { roles: Record<string, boolean>; allowUserIds: string[]; denyUserIds: string[] }> = {
+  ai_course_builder: {
+    roles: { admin: true, trainer: true, creator: true, salesPartner: false },
+    allowUserIds: [],
+    denyUserIds: [],
+  },
 };
 
 async function getFeatureAccessConfig() {
-  const snap = await db.collection('appSettings').doc('featureAccess').get();
+  const [snap, categoriesSnap] = await Promise.all([
+    db.collection('appSettings').doc('featureAccess').get(),
+    db.collection('userCategories').get(),
+  ]);
   const stored = snap.data()?.features as
     | Record<string, { roles?: Record<string, boolean>; allowUserIds?: string[]; denyUserIds?: string[] }>
     | undefined;
+  const customKeys = categoriesSnap.docs.map((d) => d.id);
 
-  const features: Record<
-    FeatureKey,
-    { roles: Record<'admin' | 'trainer' | 'creator', boolean>; allowUserIds: string[]; denyUserIds: string[] }
-  > = {} as never;
+  const features: Record<FeatureKey, { roles: Record<string, boolean>; allowUserIds: string[]; denyUserIds: string[] }> = {} as never;
   for (const key of FEATURE_KEYS) {
     const defaults = FEATURE_DEFAULTS[key];
     const s = stored?.[key];
+    const roles: Record<string, boolean> = { ...defaults.roles, ...(s?.roles ?? {}) };
+    // A category created after this feature already existed defaults to
+    // off, not on - a brand-new group should never silently inherit access
+    // to something that was already gated before it existed.
+    for (const customKey of customKeys) if (!(customKey in roles)) roles[customKey] = false;
     features[key] = {
-      roles: { ...defaults.roles, ...(s?.roles ?? {}) } as Record<'admin' | 'trainer' | 'creator', boolean>,
+      roles,
       allowUserIds: s?.allowUserIds ?? defaults.allowUserIds,
       denyUserIds: s?.denyUserIds ?? defaults.denyUserIds,
     };
@@ -529,7 +695,7 @@ async function getFeatureAccessConfig() {
 }
 
 const featureAccessFeatureSchema = z.object({
-  roles: z.object({ admin: z.boolean(), trainer: z.boolean(), creator: z.boolean() }),
+  roles: z.record(z.string(), z.boolean()),
   allowUserIds: z.array(z.string().trim().min(1)).max(500),
   denyUserIds: z.array(z.string().trim().min(1)).max(500),
 });
@@ -540,6 +706,14 @@ const updateFeatureAccessConfigSchema = z.object({
 async function updateFeatureAccessConfig(uid: string, body: unknown) {
   const parsed = updateFeatureAccessConfigSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const categoriesSnap = await db.collection('userCategories').get();
+  const knownKeys = new Set<string>([...BUILTIN_CATEGORY_KEYS, ...categoriesSnap.docs.map((d) => d.id)]);
+  for (const entry of Object.values(parsed.data.features)) {
+    for (const key of Object.keys(entry.roles)) {
+      if (!knownKeys.has(key)) throw Err.invalidArgument(`Unknown category "${key}"`);
+    }
+  }
 
   await db.collection('appSettings').doc('featureAccess').set(
     { features: parsed.data.features, updatedAt: FieldValue.serverTimestamp() },
@@ -564,6 +738,14 @@ async function updateFeatureAccessConfig(uid: string, body: unknown) {
 // helpers across api/*.ts, so this pattern is duplicated rather than
 // imported wherever a listing needs a purchase count per user).
 
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+const CREATOR_ROLE_TYPES = ['course_creator', 'practice_test_creator', 'mock_test_creator'];
+
 async function listUsersAdmin() {
   const [usersSnap, purchasesSnap] = await Promise.all([
     db.collection('users').orderBy('createdAt', 'desc').get(),
@@ -576,11 +758,58 @@ async function listUsersAdmin() {
     purchaseCountByUser.set(userId, (purchaseCountByUser.get(userId) ?? 0) + 1);
   }
 
-  return {
-    users: usersSnap.docs.map((d) => {
+  // Category badges (Trainer / Content Partner / Sales Partner / custom) -
+  // derived at read time from existing trainer/partner/creator-role data
+  // and approved custom-category memberships, never backfilled onto
+  // users/{uid} itself. Bounded by the distinct trainerId/partnerId/uid
+  // values actually present on this page's users, not the whole
+  // trainers/partners/partnerRoles collections.
+  const users = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as FirebaseFirestore.DocumentData & { id: string });
+  const trainerIds = [...new Set(users.map((u) => u.trainerId as string | undefined).filter((v): v is string => !!v))];
+  const partnerIds = [...new Set(users.map((u) => u.partnerId as string | undefined).filter((v): v is string => !!v))];
+  const uids = users.map((u) => u.id);
+
+  const [trainerSnaps, partnerSnaps, roleSnaps, membershipSnaps] = await Promise.all([
+    trainerIds.length ? db.getAll(...trainerIds.map((id) => db.collection('trainers').doc(id))) : Promise.resolve([]),
+    partnerIds.length ? db.getAll(...partnerIds.map((id) => db.collection('partners').doc(id))) : Promise.resolve([]),
+    partnerIds.length
+      ? db.getAll(
+          ...partnerIds.flatMap((pid) => CREATOR_ROLE_TYPES.map((role) => db.collection('partnerRoles').doc(`${pid}__${role}`)))
+        )
+      : Promise.resolve([]),
+    Promise.all(
+      chunkArray(uids, 10).map((group) =>
+        group.length ? db.collection('userCategoryMemberships').where('uid', 'in', group).where('status', '==', 'APPROVED').get() : null
+      )
+    ),
+  ]);
+
+  const activeTrainerIds = new Set(trainerSnaps.filter((s) => s.data()?.status === 'ACTIVE').map((s) => s.id));
+  const activePartnerIds = new Set(partnerSnaps.filter((s) => s.data()?.status === 'ACTIVE').map((s) => s.id));
+  const approvedCreatorPartnerIds = new Set(
+    roleSnaps.filter((s) => s.data()?.status === 'APPROVED').map((s) => (s.data()!.partnerId as string) ?? s.id.split('__')[0])
+  );
+  const customCategoriesByUid = new Map<string, string[]>();
+  for (const snap of membershipSnaps) {
+    if (!snap) continue;
+    for (const d of snap.docs) {
       const data = d.data();
+      const list = customCategoriesByUid.get(data.uid as string) ?? [];
+      list.push(data.categoryKey as string);
+      customCategoriesByUid.set(data.uid as string, list);
+    }
+  }
+
+  return {
+    users: users.map((data) => {
+      const categories: string[] = [];
+      if (data.trainerId && activeTrainerIds.has(data.trainerId as string)) categories.push('trainer');
+      if (data.partnerId && approvedCreatorPartnerIds.has(data.partnerId as string)) categories.push('creator');
+      if (data.partnerId && activePartnerIds.has(data.partnerId as string)) categories.push('salesPartner');
+      categories.push(...(customCategoriesByUid.get(data.id) ?? []));
+
       return {
-        id: d.id,
+        id: data.id,
         name: data.name as string,
         email: data.email as string,
         role: data.role as string,
@@ -590,7 +819,8 @@ async function listUsersAdmin() {
         // verified rather than shown as a false alarm.
         emailVerified: data.emailVerified !== false,
         createdAt: data.createdAt,
-        purchaseCount: purchaseCountByUser.get(d.id) ?? 0,
+        purchaseCount: purchaseCountByUser.get(data.id) ?? 0,
+        categories,
       };
     }),
   };
@@ -2103,6 +2333,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listTrainersAdmin':
         res.status(200).json(await listTrainersAdmin());
+        return;
+      case 'listTrainerApplications':
+        res.status(200).json(await listTrainerApplications(data));
+        return;
+      case 'reviewTrainerApplication':
+        res.status(200).json(await reviewTrainerApplication(uid, data));
+        return;
+      case 'listUserCategories':
+        res.status(200).json(await listUserCategories());
+        return;
+      case 'createUserCategory':
+        res.status(200).json(await createUserCategory(uid, data));
+        return;
+      case 'deleteUserCategory':
+        res.status(200).json(await deleteUserCategory(uid, data));
+        return;
+      case 'listUserCategoryRequests':
+        res.status(200).json(await listUserCategoryRequests(data));
+        return;
+      case 'reviewUserCategoryRequest':
+        res.status(200).json(await reviewUserCategoryRequest(uid, data));
         return;
       case 'getAppSettings':
         res.status(200).json(await getAppSettings());

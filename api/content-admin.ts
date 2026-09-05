@@ -3587,9 +3587,11 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
 
 // ---------------------------------------------------------------------------
 // Feature Access - a small general-purpose gate so an admin can turn any
-// registered feature on/off per capability (admin/trainer/creator) and
-// grant or exclude specific user IDs regardless of capability. Stored on
-// appSettings/featureAccess - api/admin.ts's getFeatureAccessConfig/
+// registered feature on/off per category (the four built-ins - admin/
+// trainer/creator/salesPartner - plus any admin-created userCategories
+// key, see api/admin.ts's User Categories section) and grant or exclude
+// specific user IDs regardless of category. Stored on appSettings/
+// featureAccess - api/admin.ts's getFeatureAccessConfig/
 // updateFeatureAccessConfig own that doc (admin-only CRUD); this file only
 // reads it to gate actions. Starts with just the AI Course Builder below;
 // a future gated feature adds a sibling key to FEATURE_DEFAULTS.
@@ -3597,11 +3599,12 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
 
 const FEATURE_KEYS = ['ai_course_builder'] as const;
 type FeatureKey = (typeof FEATURE_KEYS)[number];
-const FEATURE_DEFAULTS: Record<
-  FeatureKey,
-  { roles: Record<'admin' | 'trainer' | 'creator', boolean>; allowUserIds: string[]; denyUserIds: string[] }
-> = {
-  ai_course_builder: { roles: { admin: true, trainer: true, creator: true }, allowUserIds: [], denyUserIds: [] },
+const FEATURE_DEFAULTS: Record<FeatureKey, { roles: Record<string, boolean>; allowUserIds: string[]; denyUserIds: string[] }> = {
+  ai_course_builder: {
+    roles: { admin: true, trainer: true, creator: true, salesPartner: false },
+    allowUserIds: [],
+    denyUserIds: [],
+  },
 };
 
 async function hasFeatureAccess(uid: string, featureKey: FeatureKey): Promise<boolean> {
@@ -3613,28 +3616,46 @@ async function hasFeatureAccess(uid: string, featureKey: FeatureKey): Promise<bo
     | { roles?: Record<string, boolean>; allowUserIds?: string[]; denyUserIds?: string[] }
     | undefined;
   const defaults = FEATURE_DEFAULTS[featureKey];
-  const roles = { ...defaults.roles, ...(stored?.roles ?? {}) };
+  const roles: Record<string, boolean> = { ...defaults.roles, ...(stored?.roles ?? {}) };
   const allowUserIds = stored?.allowUserIds ?? defaults.allowUserIds;
   const denyUserIds = stored?.denyUserIds ?? defaults.denyUserIds;
 
   // Deny wins over everything, then an explicit allow wins over role, so
   // an admin can carve out an exception either way without touching the
-  // role toggle everyone else relies on.
+  // category toggle everyone else relies on.
   if (denyUserIds.includes(uid)) return false;
   if (allowUserIds.includes(uid)) return true;
 
-  const user = userSnap.data();
-  if (user?.role === 'admin' && roles.admin) return true;
+  const enabledKeys = Object.keys(roles).filter((k) => roles[k]);
+  if (enabledKeys.length === 0) return false;
 
-  if (roles.trainer || roles.creator) {
+  const user = userSnap.data();
+  if (enabledKeys.includes('admin') && user?.role === 'admin') return true;
+
+  if (enabledKeys.includes('trainer') || enabledKeys.includes('creator')) {
     try {
       const { authorType } = await requireCatalogAuthor(uid);
-      if (authorType === 'trainer' && roles.trainer) return true;
-      if (authorType === 'creator' && roles.creator) return true;
+      if (authorType === 'trainer' && enabledKeys.includes('trainer')) return true;
+      if (authorType === 'creator' && enabledKeys.includes('creator')) return true;
     } catch {
-      // Not an active Trainer or approved Creator - falls through to false.
+      // Not an active Trainer or approved Creator - falls through.
     }
   }
+
+  if (enabledKeys.includes('salesPartner')) {
+    const partnerId = user?.partnerId as string | undefined;
+    if (partnerId) {
+      const partnerSnap = await db.collection('partners').doc(partnerId).get();
+      if (partnerSnap.data()?.status === 'ACTIVE') return true;
+    }
+  }
+
+  const customKeys = enabledKeys.filter((k) => !['admin', 'trainer', 'creator', 'salesPartner'].includes(k));
+  if (customKeys.length > 0) {
+    const memberSnaps = await db.getAll(...customKeys.map((k) => db.collection('userCategoryMemberships').doc(`${uid}__${k}`)));
+    if (memberSnaps.some((s) => s.data()?.status === 'APPROVED')) return true;
+  }
+
   return false;
 }
 
