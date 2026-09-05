@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
@@ -7,6 +7,7 @@ import { CategorySelect } from '@/components/common/CategorySelect';
 import { SKILL_LEVELS, type SkillLevel } from '@/types/models';
 import { aiCourseBuilderApi } from '@/features/catalogSubmissions/api/aiCourseBuilderApi';
 import { courseBuilderApi } from '../courseBuilderApi';
+import { courseBuilderBase } from '../basePath';
 
 // Stage 1 of AI course creation: the brief form + a list of the creator's
 // existing course drafts. "Generate Course with AI" creates a draft and
@@ -14,6 +15,7 @@ import { courseBuilderApi } from '../courseBuilderApi';
 // AiCourseBuilderFlow - renders nothing without ai_course_builder access.
 export function CourseDraftsPage() {
   const navigate = useNavigate();
+  const base = courseBuilderBase(useLocation().pathname);
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
 
@@ -44,7 +46,7 @@ export function CourseDraftsPage() {
       queryClient.invalidateQueries({ queryKey: ['aiCourseBuilder', 'myUsage'] });
       queryClient.invalidateQueries({ queryKey: ['courseBuilder', 'myDrafts'] });
       pushToast(`Blueprint ready: ${r.outline.length} lesson(s). Review and edit before generating content.`, 'success');
-      navigate(`/home/creator/courses/${r.draftId}`);
+      navigate(`${base}/${r.draftId}`);
     },
     onError: (err) => pushToast(errorText(err, 'Could not generate the course'), 'error'),
   });
@@ -126,14 +128,14 @@ export function CourseDraftsPage() {
             {(drafts?.drafts ?? []).map((d) => (
               <li key={d.draftId} className="flex items-center justify-between py-2.5">
                 <div className="min-w-0">
-                  <Link to={`/home/creator/courses/${d.draftId}`} className="font-medium text-ink hover:text-[#155EEF]">
+                  <Link to={`${base}/${d.draftId}`} className="font-medium text-ink hover:text-[#155EEF]">
                     {d.title}
                   </Link>
                   <div className="text-xs text-ink-faint">
                     {d.lessonCount} lesson{d.lessonCount === 1 ? '' : 's'} · {d.status}
                   </div>
                 </div>
-                <Link to={`/home/creator/courses/${d.draftId}`} className="shrink-0 text-sm font-semibold text-[#155EEF] hover:underline">
+                <Link to={`${base}/${d.draftId}`} className="shrink-0 text-sm font-semibold text-[#155EEF] hover:underline">
                   Open
                 </Link>
               </li>

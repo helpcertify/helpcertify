@@ -7,6 +7,7 @@ import { Logo } from '@/components/brand/Logo';
 import { cartApi } from '@/features/students/api/cartApi';
 import { CartIcon, HeartIcon, BellIcon } from '@/components/common/icons';
 import { SearchBar } from '@/components/common/SearchBar';
+import { aiCourseBuilderApi } from '@/features/catalogSubmissions/api/aiCourseBuilderApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatShortDate } from '@/utils/formatDate';
@@ -67,6 +68,15 @@ export function StudentShell() {
   const { data: examCountdowns } = useExamCountdowns();
   const featuredExam = featuredExamCountdown(examCountdowns);
 
+  // The AI course builder nav link appears only for accounts that actually
+  // have the feature (admin / trainer / content partner by default, plus
+  // any account an admin has extra-granted under Settings, Feature Access).
+  const { data: aiCourseAccess } = useQuery({
+    queryKey: ['aiCourseBuilder', 'myAccess'],
+    queryFn: aiCourseBuilderApi.checkMyAccess,
+    staleTime: 5 * 60_000,
+  });
+
   const handleSignOut = async () => {
     await authApi.logout();
     navigate('/login');
@@ -110,6 +120,11 @@ export function StudentShell() {
       <NavLink to="/home/trainer" onClick={onNavigate} className={navLinkClass}>
         {profile?.trainerId ? 'Trainer Workspace' : 'Become a Trainer'}
       </NavLink>
+      {aiCourseAccess?.allowed && (
+        <NavLink to="/home/creator/courses" onClick={onNavigate} className={navLinkClass}>
+          AI Course Builder
+        </NavLink>
+      )}
       <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>
         My Profile
       </NavLink>

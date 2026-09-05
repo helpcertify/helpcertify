@@ -371,13 +371,15 @@ export function CreatorWorkspacePage() {
         </section>
       )}
 
+      {/* Self-gates on ai_course_builder feature access (renders nothing
+          without it), so it does not need the APPROVED-role check the
+          older inline flow below sits behind. */}
+      <CourseBuilderEntryCard />
+
       {(roles.data?.roles ?? []).some((r) => r.status === 'APPROVED') && (
-        <>
-          <CourseBuilderEntryCard />
-          <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
-            <AiCourseBuilderFlow />
-          </section>
-        </>
+        <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
+          <AiCourseBuilderFlow />
+        </section>
       )}
     </div>
   );

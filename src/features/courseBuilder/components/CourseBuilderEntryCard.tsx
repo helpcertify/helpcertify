@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { aiCourseBuilderApi } from '@/features/catalogSubmissions/api/aiCourseBuilderApi';
+import { courseBuilderBase } from '../basePath';
 
 // Entry point to the dedicated AI course creation flow (blueprint ->
 // lessons -> visual lessons), shown on the Creator / Trainer workspaces
@@ -9,6 +10,7 @@ import { aiCourseBuilderApi } from '@/features/catalogSubmissions/api/aiCourseBu
 // ai_course_builder access, same as AiCourseBuilderFlow.
 export function CourseBuilderEntryCard() {
   const { data: access } = useQuery({ queryKey: ['aiCourseBuilder', 'myAccess'], queryFn: aiCourseBuilderApi.checkMyAccess });
+  const base = courseBuilderBase(useLocation().pathname);
   if (access && !access.allowed) return null;
 
   return (
@@ -19,7 +21,7 @@ export function CourseBuilderEntryCard() {
         content and visual lessons one at a time, on demand.
       </p>
       <Link
-        to="/home/creator/courses"
+        to={base}
         className="inline-block rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB]"
       >
         Open course builder
