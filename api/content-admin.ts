@@ -3969,6 +3969,179 @@ async function updateDraftOutline(uid: string, body: unknown) {
   return { success: true };
 }
 
+// --- AI course creation (blueprint -> lessons -> visual lessons) ---------
+// A richer authoring flow than generateCourseOutline above: it takes a
+// full course brief (audience, difficulty, lesson count, language),
+// returns an editable blueprint (improved title/description, learning
+// objectives, per-lesson objectives + duration), and stores it on the
+// same aiCourseDrafts doc so the existing submit/publish path keeps
+// working. Everything past the blueprint (lesson content, storyboards) is
+// generated lazily per lesson - see the PR 2/3 actions.
+
+const courseBlueprintSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  description: z.string().trim().max(2000).default(''),
+  targetAudience: z.string().trim().max(300).default(''),
+  difficulty: z.enum(SKILL_LEVELS).default('Foundation'),
+  lessonCount: z.number().int().min(1).max(20).default(8),
+  language: z.string().trim().min(2).max(40).default('English'),
+  category: z.string().trim().min(1).max(100).default('Other'),
+});
+
+const blueprintLessonSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(600).default(''),
+  objectives: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
+  estimatedMinutes: z.number().int().min(1).max(180).default(10),
+});
+const blueprintResponseSchema = z.object({
+  improvedTitle: z.string().trim().min(1).max(200),
+  description: z.string().trim().min(1).max(3000),
+  learningObjectives: z.array(z.string().trim().min(1).max(300)).min(1).max(12),
+  lessons: z.array(blueprintLessonSchema).min(1).max(20),
+});
+
+function courseMetaFrom(d: z.infer<typeof courseBlueprintSchema>, parsed: z.infer<typeof blueprintResponseSchema>) {
+  return {
+    title: parsed.improvedTitle,
+    description: parsed.description,
+    targetAudience: d.targetAudience,
+    difficulty: d.difficulty,
+    language: d.language,
+    learningObjectives: parsed.learningObjectives,
+  };
+}
+
+async function generateCourseBlueprint(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  await assertAiGenerationQuota(uid);
+  const parsed = courseBlueprintSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const { authorType, authorId } = await resolveAiCourseAuthor(uid);
+
+  const raw = await callAiJson(
+    'You design structured online courses. Respond with strict JSON only, matching: {"improvedTitle":string,"description":string,"learningObjectives":string[],"lessons":[{"title":string,"description":string,"objectives":string[],"estimatedMinutes":number}]}. Keep the improved title close to the creator\'s intent - only refine wording. Each lesson is one focused topic taught in sequence.',
+    `Course title: "${d.title}".\nCreator description: "${d.description || '(none)'}".\nTarget audience: ${d.targetAudience || 'general learners'}.\nDifficulty: ${d.difficulty}.\nLanguage: ${d.language}.\nCategory: ${d.category}.\nPropose exactly ${d.lessonCount} lessons that together teach this course, each with 2-4 objectives and a realistic duration in minutes.`
+  );
+  const bp = blueprintResponseSchema.safeParse(raw);
+  if (!bp.success) throw Err.failedPrecondition('The AI returned a blueprint in an unexpected shape. Please try again.');
+
+  const outline = bp.data.lessons.map((l, i) => ({
+    moduleIndex: i,
+    title: l.title,
+    description: l.description,
+    objectives: l.objectives,
+    estimatedMinutes: l.estimatedMinutes,
+    // Kept for compatibility with the quiz-oriented outline shape that
+    // updateDraftOutline / generateAllCourseContent still expect.
+    questionsPerModule: 10,
+  }));
+
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('aiCourseDrafts').doc();
+  await ref.set({
+    authorUid: uid,
+    authorType,
+    authorId,
+    itemType: 'course',
+    topic: bp.data.improvedTitle,
+    category: d.category,
+    skillLevel: d.difficulty,
+    courseMeta: courseMetaFrom(d, bp.data),
+    status: 'OUTLINE_READY',
+    outline,
+    generatedQuestions: {},
+    generatedLessons: {},
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await incrementAiUsage(uid);
+  return { draftId: ref.id, courseMeta: courseMetaFrom(d, bp.data), outline };
+}
+
+const courseMetaSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  description: z.string().trim().max(5000).default(''),
+  targetAudience: z.string().trim().max(300).default(''),
+  difficulty: z.enum(SKILL_LEVELS).default('Foundation'),
+  language: z.string().trim().min(2).max(40).default('English'),
+  learningObjectives: z.array(z.string().trim().min(1).max(300)).max(12).default([]),
+});
+const courseOutlineEntrySchema = z.object({
+  moduleIndex: z.number().int().min(0),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(600).default(''),
+  objectives: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
+  estimatedMinutes: z.number().int().min(1).max(180).default(10),
+});
+const updateCourseDraftSchema = z.object({
+  draftId: z.string().trim().min(1),
+  courseMeta: courseMetaSchema,
+  outline: z.array(courseOutlineEntrySchema).min(1).max(20),
+});
+
+async function loadOwnedCourseDraft(uid: string, draftId: string) {
+  const ref = db.collection('aiCourseDrafts').doc(draftId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Draft not found');
+  const draft = snap.data()!;
+  if (draft.authorUid !== uid) throw Err.permissionDenied();
+  if (draft.itemType !== 'course') throw Err.failedPrecondition('This draft is not a course');
+  return { ref, draft };
+}
+
+async function updateCourseDraft(uid: string, body: unknown) {
+  const parsed = updateCourseDraftSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { ref } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  // Renumber moduleIndex to the array position so add / remove / reorder
+  // on the client can't leave gaps or collisions.
+  const outline = parsed.data.outline.map((m, i) => ({ ...m, moduleIndex: i, questionsPerModule: 10 }));
+  await ref.update({
+    courseMeta: parsed.data.courseMeta,
+    topic: parsed.data.courseMeta.title,
+    skillLevel: parsed.data.courseMeta.difficulty,
+    outline,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { success: true };
+}
+
+async function getCourseDraft(uid: string, body: unknown) {
+  const parsed = draftIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { draft } = await loadOwnedCourseDraft(uid, parsed.data.draftId);
+  return {
+    draftId: parsed.data.draftId,
+    status: draft.status as string,
+    category: (draft.category as string) ?? 'Other',
+    courseMeta: (draft.courseMeta as Record<string, unknown> | undefined) ?? null,
+    outline: (draft.outline as unknown[]) ?? [],
+  };
+}
+
+async function listMyCourseDrafts(uid: string) {
+  // authorUid-only query (single-field index) then filter to courses in
+  // the function - a creator has at most a handful of drafts.
+  const snap = await db.collection('aiCourseDrafts').where('authorUid', '==', uid).get();
+  const drafts = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as FirebaseFirestore.DocumentData & { id: string })
+    .filter((d) => d.itemType === 'course')
+    .map((d) => ({
+      draftId: d.id,
+      title: (d.courseMeta?.title as string | undefined) ?? (d.topic as string | undefined) ?? 'Untitled course',
+      status: (d.status as string) ?? 'OUTLINE_READY',
+      lessonCount: Array.isArray(d.outline) ? d.outline.length : 0,
+      updatedAtMs: (d.updatedAt as Timestamp | undefined)?.toMillis?.() ?? 0,
+    }))
+    .sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+  return { drafts };
+}
+
 const draftIdSchema = z.object({ draftId: z.string().trim().min(1) });
 
 const aiModuleQuestionSchema = z.object({
@@ -4361,6 +4534,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'generateCourseOutline',
       'updateDraftOutline',
       'generateAllCourseContent',
+      'generateCourseBlueprint',
+      'updateCourseDraft',
+      'getCourseDraft',
+      'listMyCourseDrafts',
       'submitAiCourseDraft',
       'getCourseForReading',
       'markLessonComplete',
@@ -4428,6 +4605,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'generateAllCourseContent':
         res.status(200).json(await generateAllCourseContent(uid, data));
+        return;
+      case 'generateCourseBlueprint':
+        res.status(200).json(await generateCourseBlueprint(uid, data));
+        return;
+      case 'updateCourseDraft':
+        res.status(200).json(await updateCourseDraft(uid, data));
+        return;
+      case 'getCourseDraft':
+        res.status(200).json(await getCourseDraft(uid, data));
+        return;
+      case 'listMyCourseDrafts':
+        res.status(200).json(await listMyCourseDrafts(uid));
         return;
       case 'submitAiCourseDraft':
         res.status(200).json(await submitAiCourseDraft(uid, data));

@@ -325,6 +325,17 @@ service cloud.firestore {
     match /aiCourseDrafts/{draftId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.authorUid == request.auth.uid);
       allow write: if false;
+
+      // Per-lesson generated artifacts (overview, content, narration
+      // script, storyboard, quiz, resources) for the AI course creation
+      // flow - readable by the draft's own author or staff, server-only
+      // write (api/content-admin.ts). Kept in a subcollection rather than
+      // on the draft doc because storyboards can be large.
+      match /lessons/{lessonId} {
+        allow read: if isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/aiCourseDrafts/$(draftId)).data.authorUid == request.auth.uid);
+        allow write: if false;
+      }
     }
 
     // --- User Categories --- admin-created segments beyond the built-in
