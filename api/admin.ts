@@ -733,7 +733,7 @@ async function updateFeatureAccessConfig(uid: string, body: unknown) {
 
 // --- AI Usage Limits (appSettings/aiUsageLimits) ------------------------
 // Per-category monthly caps on AI Course Builder generations, since the
-// one shared OpenAI key has no per-end-user limit of its own. This file
+// one shared Gemini key has no per-end-user limit of its own. This file
 // owns the CRUD; api/content-admin.ts enforces it (assertAiGenerationQuota)
 // and counts usage (aiUsage/{uid}_{YYYYMM}). -1 = unlimited, 0 = blocked.
 const AI_USAGE_DEFAULT_LIMIT = 20;
