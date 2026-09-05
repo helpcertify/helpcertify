@@ -42,6 +42,7 @@ import { WishlistPage } from '@/features/students/pages/WishlistPage';
 import { ProfilePage } from '@/features/students/pages/ProfilePage';
 import { SettingsPage } from '@/features/students/pages/SettingsPage';
 import { SearchResultsPage } from '@/features/students/pages/SearchResultsPage';
+import { PublicSearchPage } from '@/features/students/pages/PublicSearchPage';
 import { HelpPage } from '@/features/students/pages/HelpPage';
 import { CouponsPage } from '@/features/admin/pages/CouponsPage';
 import { AdminSettingsPage } from '@/features/admin/pages/AdminSettingsPage';
@@ -83,6 +84,8 @@ export function AppRouter() {
       <Route path="/support" element={<SupportPage />} />
       <Route path="/disclaimer" element={<DisclaimerPage />} />
       <Route path="/build-your-own-exam" element={<BuildYourOwnExamPage />} />
+      {/* Public catalog search - no login. Cards route through /register. */}
+      <Route path="/search" element={<PublicSearchPage />} />
       {/* Public certificate verification - no login required, matching how
           a real credential-verification page works for a third party
           checking a certificate a learner shared with them. */}

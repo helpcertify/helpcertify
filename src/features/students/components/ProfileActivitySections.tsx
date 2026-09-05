@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
+import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { toDate } from '@/utils/formatDate';
 import { calendarDaysBetween } from '../lib/studyPlan';
@@ -29,22 +30,7 @@ export function ProfileActivitySections() {
   const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
 
-  const { data: myAttempts } = useQuery({
-    queryKey: ['student', 'myQuizAttemptsFull', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'quizAttempts'), where('userId', '==', uid)));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          quizId: data.quizId as string,
-          status: data.status as string,
-          answeredCount: (data.answeredCount as number) ?? 0,
-          totalQuestions: (data.totalQuestions as number) ?? 0,
-        };
-      });
-    },
-    enabled: !!uid,
-  });
+  const { data: myAttempts } = useMyQuizAttempts();
 
   const { data: practiceProgressDocs } = useQuery({
     queryKey: ['student', 'practiceProgressFull', uid],

@@ -477,6 +477,105 @@ async function getLearnerCatalog(uid: string) {
   return { certifications };
 }
 
+// Unauthenticated, no per-user state - the logged-out landing page and the
+// public /search page read this trimmed published catalog. Certifications/
+// packages/reviews have no client-readable Firestore rule (Admin-SDK only),
+// which is exactly why this lives as a server action rather than a client
+// read. Every list is capped to card-sized fields.
+async function getPublicCatalog() {
+  const [certSnap, pkgSnap, coursesSnap, testsSnap, quizzesSnap] = await Promise.all([
+    db.collection('certifications').where('isPublished', '==', true).get(),
+    db.collection('packages').where('isPublished', '==', true).get(),
+    db.collection('courses').where('isPublished', '==', true).get(),
+    db.collection('practiceTests').get(),
+    db.collection('quizzes').where('isPublished', '==', true).get(),
+  ]);
+
+  const pkgByCert = new Map<string, FirebaseFirestore.DocumentData[]>();
+  for (const d of pkgSnap.docs) {
+    const p = d.data();
+    const list = pkgByCert.get(p.certificationId as string) ?? [];
+    list.push(p);
+    pkgByCert.set(p.certificationId as string, list);
+  }
+
+  const certifications = certSnap.docs
+    .map((d) => {
+      const c = d.data();
+      const pkgs = pkgByCert.get(d.id) ?? [];
+      const prices = pkgs
+        .filter((p) => !p.isFree)
+        .map((p) => p.sellingPrice as number)
+        .filter((n) => typeof n === 'number' && n > 0);
+      return {
+        id: d.id,
+        name: (c.name as string) ?? 'Certification',
+        shortName: (c.shortName as string) ?? (c.name as string) ?? '',
+        provider: (c.provider as string) ?? (c.category as string) ?? 'Other',
+        shortDescription: (c.shortDescription as string) ?? '',
+        packageCount: pkgs.length,
+        fromPriceMinor: prices.length ? Math.min(...prices) : 0,
+        currency: (pkgs[0]?.currency as 'INR' | 'USD') ?? 'INR',
+      };
+    })
+    .filter((c) => c.packageCount > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const courses = coursesSnap.docs.map((d) => {
+    const c = d.data();
+    return {
+      id: d.id,
+      title: (c.title as string) ?? 'Course',
+      category: (c.category as string) ?? 'Other',
+      skillLevel: (c.skillLevel as string) ?? 'Foundation',
+      price: (c.price as number) ?? 0,
+      originalPrice: (c.originalPrice as number | null) ?? null,
+      currency: (c.currency as 'INR' | 'USD') ?? 'INR',
+      ratingAvg: (c.ratingAvg as number) ?? 0,
+      ratingCount: (c.ratingCount as number) ?? 0,
+      totalLessons: (c.totalLessons as number) ?? 0,
+      coverImageUrl: (c.coverImageUrl as string | null) ?? null,
+      createdAtMs: c.createdAt ? (c.createdAt as Timestamp).toMillis() : 0,
+    };
+  });
+
+  const practiceTests = testsSnap.docs.map((d) => {
+    const t = d.data();
+    return {
+      id: d.id,
+      title: (t.title as string) ?? 'Practice Test',
+      category: (t.category as string) ?? 'Other',
+      examName: (t.examName as string | null) ?? null,
+      skillLevel: (t.skillLevel as string) ?? 'Foundation',
+      price: (t.price as number) ?? 0,
+      originalPrice: (t.originalPrice as number | null) ?? null,
+      currency: (t.currency as 'INR' | 'USD') ?? 'INR',
+      ratingAvg: (t.ratingAvg as number) ?? 0,
+      ratingCount: (t.ratingCount as number) ?? 0,
+      totalQuestions: (t.totalQuestions as number) ?? 0,
+    };
+  });
+
+  const quizzes = quizzesSnap.docs.map((d) => {
+    const q = d.data();
+    return {
+      id: d.id,
+      title: (q.title as string) ?? 'Mock Exam',
+      category: (q.category as string) ?? 'Other',
+      skillLevel: (q.skillLevel as string) ?? 'Foundation',
+      price: (q.price as number) ?? 0,
+      originalPrice: (q.originalPrice as number | null) ?? null,
+      currency: (q.currency as 'INR' | 'USD') ?? 'INR',
+      ratingAvg: (q.ratingAvg as number) ?? 0,
+      ratingCount: (q.ratingCount as number) ?? 0,
+      totalQuestions: (q.totalQuestions as number) ?? 0,
+      durationMinutes: (q.durationMinutes as number | null) ?? null,
+    };
+  });
+
+  return { certifications, courses, practiceTests, quizzes };
+}
+
 // ---------------------------------------------------------------------------
 // Wishlist actions - folded into this file rather than a separate
 // api/wishlist.ts. Vercel's Hobby plan caps a deployment at 12 Serverless
@@ -625,6 +724,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
   try {
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
+
+    // The only unauthenticated action - runs before requireStudent so the
+    // logged-out landing page / public /search can call it with no token.
+    if (action === 'getPublicCatalog') {
+      res.status(200).json(await getPublicCatalog());
+      return;
+    }
+
     const { uid } = await requireStudent(req);
 
     switch (action) {

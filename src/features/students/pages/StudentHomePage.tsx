@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { listAvailableQuizzes } from '../api/studentContentApi';
+import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
 import { cartApi } from '../api/cartApi';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -35,7 +34,6 @@ function timeOfDayGreeting(hour: number): string {
 // page is "today's next action for your main goal," not a second full
 // history/analytics view.
 export function StudentHomePage() {
-  const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const profile = useAuthStore((s) => s.profile);
   const today = new Date();
 
@@ -44,23 +42,7 @@ export function StudentHomePage() {
   const { data: examCountdowns } = useExamCountdowns();
   const { data: catalog, isLoading: catalogLoading, error: catalogError, refetch: refetchCatalog } = useCertificationCatalog();
 
-  const { data: myAttempts } = useQuery({
-    queryKey: ['student', 'myQuizAttemptsFull', uid],
-    queryFn: async () => {
-      const snap = await getDocs(query(collection(db, 'quizAttempts'), where('userId', '==', uid)));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          quizId: data.quizId as string,
-          status: data.status as string,
-          answeredCount: (data.answeredCount as number) ?? 0,
-          totalQuestions: (data.totalQuestions as number) ?? 0,
-          startedAt: data.startedAt as { toMillis?: () => number } | undefined,
-        };
-      });
-    },
-    enabled: !!uid,
-  });
+  const { data: myAttempts } = useMyQuizAttempts();
 
   // The learner's single primary study goal (per-test or whole-series) and
   // everything Today's Mission needs off it - see usePrimaryGoal.

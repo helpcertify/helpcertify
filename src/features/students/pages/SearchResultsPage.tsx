@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
+import { listAvailableCourses } from '../api/courseApi';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { formatMoney } from '@/utils/currency';
 
@@ -25,11 +26,13 @@ export function SearchResultsPage() {
 
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
   const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
+  const { data: courses } = useQuery({ queryKey: ['student', 'availableCourses'], queryFn: listAvailableCourses });
 
   const term = initialQuery.trim().toLowerCase();
   const matchedQuizzes = term ? (quizzes ?? []).filter((q) => q.title.toLowerCase().includes(term)) : [];
   const matchedTests = term ? (practiceBuckets?.available ?? []).filter((t) => t.title.toLowerCase().includes(term)) : [];
-  const totalMatches = matchedQuizzes.length + matchedTests.length;
+  const matchedCourses = term ? (courses ?? []).filter((c) => c.title.toLowerCase().includes(term)) : [];
+  const totalMatches = matchedQuizzes.length + matchedTests.length + matchedCourses.length;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +80,7 @@ export function SearchResultsPage() {
 
       {!term ? (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
-          Type something above to search Mock Exams and Practice Exams by title.
+          Type something above to search Courses, Mock Exams and Practice Exams by title.
         </p>
       ) : totalMatches === 0 ? (
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
@@ -85,6 +88,24 @@ export function SearchResultsPage() {
         </p>
       ) : (
         <>
+          {matchedCourses.length > 0 && (
+            <div className="mb-8">
+              <h2 className="mb-3 text-lg font-bold text-ink">Courses</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {matchedCourses.map((c) => (
+                  <ResultCard
+                    key={c.id}
+                    id={c.id}
+                    href={`/home/courses/${c.id}`}
+                    title={c.title}
+                    category={c.category ?? 'Other'}
+                    price={c.price ?? 0}
+                    currency={c.currency ?? 'INR'}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           {matchedQuizzes.length > 0 && (
             <div className="mb-8">
               <h2 className="mb-3 text-lg font-bold text-ink">Mock Exams</h2>

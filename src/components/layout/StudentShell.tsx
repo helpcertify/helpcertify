@@ -5,7 +5,8 @@ import clsx from 'clsx';
 import { authApi } from '@/features/auth/api/authApi';
 import { Logo } from '@/components/brand/Logo';
 import { cartApi } from '@/features/students/api/cartApi';
-import { CartIcon, HeartIcon, BellIcon, SearchIcon } from '@/components/common/icons';
+import { CartIcon, HeartIcon, BellIcon } from '@/components/common/icons';
+import { SearchBar } from '@/components/common/SearchBar';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatShortDate } from '@/utils/formatDate';
@@ -53,7 +54,6 @@ export function StudentShell() {
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
   // staleTime keeps this from refetching on every focus/route-change - the
   // count only actually changes from an add/remove/checkout, and those
   // mutations already invalidate this same query key themselves.
@@ -70,12 +70,6 @@ export function StudentShell() {
   const handleSignOut = async () => {
     await authApi.logout();
     navigate('/login');
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const term = searchValue.trim();
-    navigate(term ? `/home/search?q=${encodeURIComponent(term)}` : '/home/search');
   };
 
   // There's no notifications backend/collection anywhere in this data
@@ -141,28 +135,7 @@ export function StudentShell() {
         </button>
         <Logo size="sm" className="shrink-0" />
 
-        <form onSubmit={handleSearchSubmit} className="hidden min-w-0 flex-1 sm:block">
-          <div className="relative mx-auto max-w-xl">
-            <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-            <input
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              placeholder="Search certifications, exams and topics"
-              aria-label="Search certifications, exams and topics"
-              className="input-dark w-full rounded-full pl-9 pr-9"
-            />
-            {searchValue && (
-              <button
-                type="button"
-                onClick={() => setSearchValue('')}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </form>
+        <SearchBar to="/home/search" placeholder="Search certifications, exams and topics" className="hidden min-w-0 flex-1 sm:block [&>div]:mx-auto [&>div]:max-w-xl" />
 
         <div className="ml-auto flex shrink-0 items-center gap-4">
           <Link to="/home/help" className="hidden text-sm font-medium text-ink-muted hover:text-ink sm:inline">
