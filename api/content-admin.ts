@@ -3760,7 +3760,7 @@ async function getMyAiUsage(uid: string) {
   return { used: (usageSnap.data()?.count as number) ?? 0, limit, period: currentUsagePeriod() };
 }
 
-// Google Gemini (gemini-2.0-flash) via its REST API - has a genuine free
+// Google Gemini (gemini-3.6-flash) via its REST API - has a genuine free
 // tier through Google AI Studio, unlike OpenAI. responseMimeType
 // 'application/json' is Gemini's equivalent of forcing JSON output. This
 // is a server-side fetch from a Vercel function, so it's not subject to
@@ -3771,7 +3771,7 @@ async function callAiJson(systemPrompt: string, userPrompt: string): Promise<unk
     throw Err.failedPrecondition('AI Course Builder is not configured yet. Add GEMINI_API_KEY in Vercel.');
   }
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
