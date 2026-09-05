@@ -6,6 +6,7 @@ import { errorText } from '@/lib/errorMessages';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '@/features/students/api/studentContentApi';
 import { trainerApi, listProgramLearners, type TrainingProgramSummary } from '../api/trainerApi';
+import { CatalogSubmissionForm } from '@/features/catalogSubmissions/components/CatalogSubmissionForm';
 
 // Trainer Workspace ("/home/trainer") - Phase 1A: create a training
 // program, add learners by email, and assign existing HelpCertify quizzes/
@@ -101,6 +102,16 @@ export function TrainerWorkspacePage() {
             />
           ))}
         </div>
+      </div>
+
+      <div className="mt-10 border-t border-surface-border pt-8">
+        <h2 className="mb-1 text-lg font-semibold text-ink">Publish to the catalog</h2>
+        <p className="mb-4 text-sm text-ink-faint">
+          Submit a full course/quiz for admin review. Once approved and published, it appears in the
+          public catalog for any student to find and buy - separate from the programs above, which
+          are only visible to your own learners.
+        </p>
+        <CatalogSubmissionForm />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import type { CreatorRole } from '@/features/creator/lib/creatorRole';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
+import { catalogSubmissionAdminApi } from '@/features/catalogSubmissions/api/catalogSubmissionApi';
 
 const ROLE_LABEL: Record<string, string> = {
   course_creator: 'Course Creator',
@@ -365,6 +366,138 @@ export function CreatorAdminPage() {
           </table>
         </div>
       </section>
+
+      <CatalogSubmissionsSection />
     </div>
+  );
+}
+
+// Catalog Submissions - a separate, newer pipeline from the
+// contentSubmissions one above: a Trainer or approved Creator submits a
+// FULL question bank (a whole quiz/practice test), and publishing here
+// creates a real quizzes/{id} or practiceTests/{id} doc directly - unlike
+// the older pipeline's publishSubmission, which only ever writes into the
+// standalone contentItems collection.
+function CatalogSubmissionsSection() {
+  const pushToast = useUiStore((s) => s.pushToast);
+  const qc = useQueryClient();
+
+  const subs = useQuery({ queryKey: ['admin', 'catalogSubmissions'], queryFn: () => catalogSubmissionAdminApi.list() });
+
+  const decide = useMutation({
+    mutationFn: (v: { submissionId: string; decision: 'approve' | 'changes' | 'reject'; note?: string }) =>
+      catalogSubmissionAdminApi.decide(v),
+    onSuccess: () => {
+      pushToast('Review recorded.', 'success');
+      qc.invalidateQueries({ queryKey: ['admin', 'catalogSubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not record the review'), 'error'),
+  });
+
+  const publish = useMutation({
+    mutationFn: (v: { submissionId: string; price: number }) => catalogSubmissionAdminApi.publish(v),
+    onSuccess: () => {
+      pushToast('Published to the catalog.', 'success');
+      qc.invalidateQueries({ queryKey: ['admin', 'catalogSubmissions'] });
+    },
+    onError: (e) => pushToast(errorText(e, 'Could not publish this'), 'error'),
+  });
+
+  const submissions = subs.data?.submissions ?? [];
+
+  return (
+    <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">Catalog Submissions</h2>
+      <p className="mb-4 text-sm text-ink-faint">
+        Full courses/quizzes submitted by trainers and creators. Approving and publishing here
+        creates a real, live catalog item.
+      </p>
+      {submissions.length === 0 ? (
+        <p className="text-sm text-ink-faint">Nothing submitted yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-ink-faint">
+              <tr>
+                <th className="py-2">Title</th>
+                <th className="py-2">Author</th>
+                <th className="py-2">Type</th>
+                <th className="py-2">Questions</th>
+                <th className="py-2">Status</th>
+                <th className="py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border/60">
+              {submissions.map((s) => (
+                <tr key={s.id}>
+                  <td className="py-2 text-ink">{s.title}</td>
+                  <td className="py-2 text-ink-faint capitalize">{s.authorType}</td>
+                  <td className="py-2 text-ink-faint">{s.itemType === 'quiz' ? 'Mock Exam' : 'Practice Test'}</td>
+                  <td className="py-2 text-ink-faint">{s.totalQuestions}</td>
+                  <td className="py-2">
+                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{s.status}</span>
+                  </td>
+                  <td className="py-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {(s.status === 'PENDING_REVIEW' || s.status === 'CHANGES_REQUESTED') && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={decide.isPending}
+                            onClick={() => decide.mutate({ submissionId: s.id, decision: 'approve' })}
+                            className="rounded bg-[#0B7A48] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={decide.isPending}
+                            onClick={() =>
+                              decide.mutate({ submissionId: s.id, decision: 'changes', note: window.prompt('What needs to change?') || undefined })
+                            }
+                            className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50"
+                          >
+                            Changes
+                          </button>
+                          <button
+                            type="button"
+                            disabled={decide.isPending}
+                            onClick={() =>
+                              decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })
+                            }
+                            className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {s.status === 'APPROVED' && (
+                        <button
+                          type="button"
+                          disabled={publish.isPending}
+                          onClick={() => {
+                            const raw = window.prompt(`Selling price in rupees (suggested: ${formatMoney(s.suggestedPrice, s.currency)})`, String(s.suggestedPrice / 100));
+                            if (raw === null) return;
+                            const rupees = Number(raw);
+                            if (!Number.isFinite(rupees) || rupees < 0) {
+                              pushToast('Enter a valid price', 'error');
+                              return;
+                            }
+                            publish.mutate({ submissionId: s.id, price: Math.round(rupees * 100) });
+                          }}
+                          className="rounded bg-[#155EEF] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          Publish
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

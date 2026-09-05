@@ -268,6 +268,22 @@ service cloud.firestore {
       }
     }
 
+    // --- Catalog Submissions (Trainer/Creator-authored courses/quizzes,
+    // pending admin review before becoming real quizzes/practiceTests) ---
+    // Readable by the submission's own author or staff - including the
+    // private/answerKey subdoc, unlike a published quiz's: the author
+    // wrote the answers themselves, so there's nothing to leak there.
+    match /catalogSubmissions/{submissionId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.authorUid == request.auth.uid);
+      allow write: if false;
+
+      match /questions/{questionId}/{document=**} {
+        allow read: if isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/catalogSubmissions/$(submissionId)).data.authorUid == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
     // Full PAN / GSTIN / address. Admin-SDK only - no client, not even the
     // owning partner or staff, reads these directly. Staff see a masked
     // view through api/admin.ts; a full-PAN reveal is a dedicated audited
