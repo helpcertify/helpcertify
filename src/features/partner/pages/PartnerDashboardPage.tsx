@@ -139,7 +139,7 @@ export function PartnerDashboardPage() {
       <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Commissions</h2>
       <div className="overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
-          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+          <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th className="px-4 py-3">Order</th>
               <th className="px-4 py-3">Base</th>
@@ -157,7 +157,7 @@ export function PartnerDashboardPage() {
               </tr>
             )}
             {(commissions.data?.commissions ?? []).map((c) => {
-              const s = STATUS_LABEL[c.status] ?? { text: c.status, cls: 'bg-black/20 text-ink-faint' };
+              const s = STATUS_LABEL[c.status] ?? { text: c.status, cls: 'bg-surface-sunken text-ink-faint text-ink-faint' };
               return (
                 <tr key={c.id}>
                   <td className="px-4 py-3 font-mono text-xs text-ink-faint">{c.orderId.slice(0, 10)}…</td>
@@ -209,7 +209,7 @@ export function PartnerDashboardPage() {
           type="button"
           disabled={savePayout.isPending || accountName.trim().length < 2}
           onClick={() => savePayout.mutate()}
-          className="mt-3 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="mt-3 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           {savePayout.isPending ? 'Saving…' : 'Save payout details'}
         </button>
@@ -218,7 +218,7 @@ export function PartnerDashboardPage() {
       <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Payout statements</h2>
       <div className="overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
-          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+          <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th className="px-4 py-3">Period</th>
               <th className="px-4 py-3">Commissions</th>

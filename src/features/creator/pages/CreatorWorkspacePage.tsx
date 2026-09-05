@@ -160,7 +160,7 @@ export function CreatorWorkspacePage() {
             {(roles.data?.roles ?? []).map((r) => (
               <li key={r.role} className="flex items-center justify-between">
                 <span className="text-ink">{ROLE_LABEL[r.role] ?? r.role}</span>
-                <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{r.status}</span>
+                <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{r.status}</span>
               </li>
             ))}
           </ul>
@@ -184,7 +184,7 @@ export function CreatorWorkspacePage() {
             <input type="checkbox" className="mt-1" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
             <span>
               I accept the{' '}
-              <Link to="/terms" className="text-[#155EEF] hover:underline">
+              <Link to="/terms" className="text-brand-ink hover:underline">
                 creator agreement
               </Link>{' '}
               including its originality, accuracy and no-leaked-exam-content terms.
@@ -194,7 +194,7 @@ export function CreatorWorkspacePage() {
             type="button"
             disabled={!accept || expertise.trim().length < 2 || apply.isPending}
             onClick={() => apply.mutate()}
-            className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
           >
             {apply.isPending ? 'Submitting…' : 'Submit application'}
           </button>
@@ -214,7 +214,7 @@ export function CreatorWorkspacePage() {
                   <td className="py-2 text-ink-faint">{a.targetType}</td>
                   <td className="py-2 text-ink-faint">{a.dueAt ? new Date(a.dueAt).toLocaleDateString() : '-'}</td>
                   <td className="py-2">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{a.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{a.status}</span>
                   </td>
                 </tr>
               ))}
@@ -246,7 +246,7 @@ export function CreatorWorkspacePage() {
         <p className="text-xs text-ink-faint">
           Parsed {parsed.items.length} item(s).
           {parsed.errors.length > 0 && (
-            <span className="text-[#B32D1A]"> {parsed.errors.length} block(s) need fixing: {parsed.errors.map((e) => `#${e.block} ${e.message}`).join('; ')}</span>
+            <span className="text-danger"> {parsed.errors.length} block(s) need fixing: {parsed.errors.map((e) => `#${e.block} ${e.message}`).join('; ')}</span>
           )}
         </p>
         <div className="space-y-1.5 text-xs text-ink">
@@ -279,7 +279,7 @@ export function CreatorWorkspacePage() {
             type="button"
             disabled={!canSubmit || submitForReview.isPending}
             onClick={() => submitForReview.mutate()}
-            className="rounded bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
           >
             Submit for review
           </button>
@@ -305,11 +305,11 @@ export function CreatorWorkspacePage() {
                     {s.reviewNote && <span className="block text-xs text-amber-600 dark:text-amber-400">Reviewer: {s.reviewNote}</span>}
                   </td>
                   <td className="py-2">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{s.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{s.status}</span>
                   </td>
                   <td className="py-2 text-right">
                     {['DRAFT', 'SUBMITTED', 'SME_REVIEW', 'CHANGES_REQUIRED', 'FLAGGED'].includes(s.status) && (
-                      <button type="button" onClick={() => withdraw.mutate(s.id)} className="text-xs text-[#B32D1A] hover:underline">
+                      <button type="button" onClick={() => withdraw.mutate(s.id)} className="text-xs text-danger hover:underline">
                         withdraw
                       </button>
                     )}
@@ -351,7 +351,7 @@ export function CreatorWorkspacePage() {
                   <td className="py-2 font-semibold text-ink">{formatMoney(e.netMinor, 'INR')}</td>
                   <td className="py-2 text-ink-faint">{e.holdUntil ? new Date(e.holdUntil).toLocaleDateString() : '-'}</td>
                   <td className="py-2">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{e.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{e.status}</span>
                   </td>
                 </tr>
               ))}

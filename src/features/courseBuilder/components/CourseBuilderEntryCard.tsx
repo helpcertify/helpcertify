@@ -22,7 +22,7 @@ export function CourseBuilderEntryCard() {
       </p>
       <Link
         to={base}
-        className="inline-block rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB]"
+        className="inline-block rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
       >
         Open course builder
       </Link>

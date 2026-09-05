@@ -81,7 +81,7 @@ export function TrainerWorkspacePage() {
           type="button"
           onClick={() => createMutation.mutate()}
           disabled={createMutation.isPending || newTitle.trim().length < 2}
-          className="mt-4 rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+          className="mt-4 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
         >
           {createMutation.isPending ? 'Creating…' : 'Create program'}
         </button>
@@ -244,7 +244,7 @@ function ProgramCard({
               type="button"
               onClick={() => addLearnerMutation.mutate()}
               disabled={addLearnerMutation.isPending || !email.trim()}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               Add
             </button>
@@ -354,7 +354,7 @@ function RequestTrainerAccess() {
             type="button"
             disabled={requestMutation.isPending}
             onClick={() => requestMutation.mutate()}
-            className="mt-3 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+            className="mt-3 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
           >
             {requestMutation.isPending ? 'Sending…' : 'Request Trainer Access'}
           </button>

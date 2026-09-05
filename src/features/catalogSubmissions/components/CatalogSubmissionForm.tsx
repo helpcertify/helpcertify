@@ -169,7 +169,7 @@ export function CatalogSubmissionForm() {
           type="button"
           onClick={handleSubmit}
           disabled={uploading || !file}
-          className="mt-4 rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+          className="mt-4 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
         >
           {uploading ? 'Submitting…' : 'Submit for review'}
         </button>

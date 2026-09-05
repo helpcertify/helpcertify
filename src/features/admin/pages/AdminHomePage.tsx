@@ -76,7 +76,7 @@ export function AdminHomePage() {
         <StatCard label="Scheduled Offers" value={activeOfferCount} />
         <Link
           to="/admin/products"
-          className="flex flex-col justify-center rounded-xl border border-surface-border bg-surface-raised p-5 text-sm font-medium text-[#155EEF] hover:border-brand-400"
+          className="flex flex-col justify-center rounded-xl border border-surface-border bg-surface-raised p-5 text-sm font-medium text-brand-ink hover:border-brand-400"
         >
           Manage Products & Pricing →
         </Link>

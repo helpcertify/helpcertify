@@ -60,7 +60,7 @@ export function ForgotPasswordPage() {
             </p>
             <Link
               to="/login"
-              className="block w-full rounded-lg bg-[#155EEF] py-2 text-center font-medium text-white"
+              className="block w-full rounded-lg bg-brand-500 py-2 text-center font-medium text-white"
             >
               Back to log in
             </Link>
@@ -101,7 +101,7 @@ export function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={mutation.isPending}
-                className="w-full rounded-lg bg-[#155EEF] py-2 font-medium text-surface disabled:opacity-60"
+                className="w-full rounded-lg bg-brand-500 py-2 font-medium text-surface disabled:opacity-60"
               >
                 {mutation.isPending ? 'Sending…' : 'Send reset link'}
               </button>

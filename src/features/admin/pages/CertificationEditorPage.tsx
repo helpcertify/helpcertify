@@ -194,7 +194,7 @@ export function CertificationEditorPage() {
             disabled={s > 1 && !certificationId}
             onClick={() => setStep(s)}
             className={`border-b-2 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
-              step === s ? 'border-[#155EEF] text-[#155EEF]' : 'border-transparent text-ink-faint hover:text-ink'
+              step === s ? 'border-brand-500 text-brand-ink' : 'border-transparent text-ink-faint hover:text-ink'
             }`}
           >
             {s}. {STEP_LABELS[s]}
@@ -234,7 +234,7 @@ export function CertificationEditorPage() {
             type="button"
             disabled={!certificationId}
             onClick={() => setStep((s) => (s + 1) as Step)}
-            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             Next →
           </button>
@@ -436,13 +436,13 @@ function BatchedSeriesPanel({
   });
 
   return (
-    <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 dark:bg-[#155EEF]/10">
+    <div className="rounded-xl border border-brand-500/30 bg-brand-50 p-4 dark:bg-brand-500/10">
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-sm font-bold text-ink">Generate batched question set</h3>
         <button
           type="button"
           onClick={() => downloadTemplate(sourceFormat)}
-          className="shrink-0 rounded-lg border border-[#155EEF] px-2.5 py-1 text-xs text-[#155EEF] hover:opacity-80"
+          className="shrink-0 rounded-lg border border-brand-500 px-2.5 py-1 text-xs text-brand-ink hover:opacity-80"
         >
           ↓ Template
         </button>
@@ -498,7 +498,7 @@ function BatchedSeriesPanel({
           type="button"
           disabled={!file || !canCreate || gen.isPending || uploading}
           onClick={() => gen.mutate()}
-          className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {uploading ? 'Uploading...' : gen.isPending ? 'Generating...' : 'Generate batches'}
         </button>
@@ -809,7 +809,7 @@ function StepProductDetails({
         type="button"
         disabled={!canSave || saveMutation.isPending}
         onClick={() => saveMutation.mutate()}
-        className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save Draft'}
       </button>
@@ -1097,7 +1097,7 @@ function TemplateCard({
   const priceBad = !hasPublishablePrice(v.sellingPrice, false);
 
   return (
-    <div className={`rounded-xl border p-5 ${state.enabled ? 'border-[#155EEF] bg-[#155EEF]/5' : 'border-surface-border bg-surface'}`}>
+    <div className={`rounded-xl border p-5 ${state.enabled ? 'border-brand-500 bg-brand-500/5' : 'border-surface-border bg-surface'}`}>
       <label className="flex items-start gap-3">
         <input type="checkbox" checked={state.enabled} onChange={(e) => onToggle(e.target.checked)} className="mt-1 h-4 w-4" />
         <span>
@@ -1114,7 +1114,7 @@ function TemplateCard({
             </p>
           )}
           {id === 'complete' && (
-            <div className="space-y-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-xs text-[#155EEF] dark:bg-[#155EEF]/10">
+            <div className="space-y-3 rounded-lg border border-brand-500/30 bg-brand-50 p-3 text-xs text-brand-ink dark:bg-brand-500/10">
               <p>
                 The price is kept as Practice Questions + Mock Exams (₹{minorToMajor(partsSellingMinor)}) minus the combo
                 saving below, until you type a price by hand.
@@ -1174,7 +1174,7 @@ function TemplateCard({
                 className="input-dark"
               />
             </Field>
-            <button type="button" onClick={() => onValue('benefitsOverride', null)} className="mt-2 text-xs text-[#155EEF] hover:underline">
+            <button type="button" onClick={() => onValue('benefitsOverride', null)} className="mt-2 text-xs text-brand-ink hover:underline">
               Reset to auto-generated
             </button>
           </Disclosure>
@@ -1214,7 +1214,7 @@ function TemplateCard({
             type="button"
             disabled={saving || priceBad || offerBad}
             onClick={onSave}
-            className="rounded-lg bg-[#155EEF] px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {saving ? 'Saving…' : existing ? 'Update package' : 'Save package'}
           </button>
@@ -1264,7 +1264,7 @@ function PackageList({ packages, onChanged }: { packages: PackageAdminRow[]; onC
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-ink">{pkg.name}</span>
-              {pkg.isRecommended && <span className="rounded-full bg-[#E8F0FF] px-2 py-0.5 text-xs font-semibold text-[#155EEF]">Recommended</span>}
+              {pkg.isRecommended && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-ink">Recommended</span>}
               <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${pkg.status === 'published' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-neutral-500/15 text-ink-faint'}`}>{pkg.status}</span>
             </div>
             <div className="mt-1 text-xs text-ink-faint">
@@ -1278,7 +1278,7 @@ function PackageList({ packages, onChanged }: { packages: PackageAdminRow[]; onC
             ) : pkg.status === 'archived' ? (
               <button type="button" onClick={() => act(() => contentAdminApi.restorePackage(pkg.id), 'Package restored')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-brand-400">Restore</button>
             ) : (
-              <button type="button" onClick={() => act(() => contentAdminApi.publishPackage(pkg.id), 'Package published')} className="rounded-lg bg-[#155EEF] px-3 py-1.5 text-white hover:bg-[#004EEB]">Publish</button>
+              <button type="button" onClick={() => act(() => contentAdminApi.publishPackage(pkg.id), 'Package published')} className="rounded-lg bg-brand-500 px-3 py-1.5 text-white hover:bg-brand-600">Publish</button>
             )}
             {pkg.status !== 'archived' && (
               <button type="button" onClick={() => act(() => contentAdminApi.archivePackage(pkg.id), 'Package archived')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
@@ -1368,10 +1368,10 @@ function StepReview({
     <div className="space-y-6">
       <div>
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">What learners will see</h3>
-        <div className="rounded-xl border border-[#DCE7FF] bg-white p-5 shadow-sm dark:bg-surface-raised">
-          <div className="text-xs uppercase tracking-wide text-[#64748B]">{certification.provider}</div>
-          <div className="text-lg font-semibold text-[#0F172A]">{certification.name}</div>
-          <p className="mt-1 text-sm text-[#64748B]">{certification.shortDescription || certification.description}</p>
+        <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-sm">
+          <div className="text-xs uppercase tracking-wide text-ink-faint">{certification.provider}</div>
+          <div className="text-lg font-semibold text-ink">{certification.name}</div>
+          <p className="mt-1 text-sm text-ink-faint">{certification.shortDescription || certification.description}</p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sorted.map((pkg) => {
@@ -1381,19 +1381,19 @@ function StepReview({
               );
               const price = offer === 'active' ? pkg.offerPrice! : pkg.sellingPrice;
               return (
-                <div key={pkg.id} className={`rounded-lg border p-3 text-sm ${pkg.id === recommended?.id ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#DCE7FF]'}`}>
-                  <div className="font-semibold text-[#0F172A]">
+                <div key={pkg.id} className={`rounded-lg border p-3 text-sm ${pkg.id === recommended?.id ? 'border-brand-500 bg-brand-50' : 'border-surface-border'}`}>
+                  <div className="font-semibold text-ink">
                     {pkg.name}
-                    {pkg.id === recommended?.id && <span className="ml-1 rounded-full bg-[#155EEF] px-2 py-0.5 text-[10px] font-bold uppercase text-white">Recommended</span>}
+                    {pkg.id === recommended?.id && <span className="ml-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Recommended</span>}
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5">
-                    {pkg.regularPrice > price && <span className="text-xs text-[#94A3B8] line-through">{formatMoney(pkg.regularPrice, pkg.currency)}</span>}
-                    <span className="font-bold text-[#0F172A]">{pkg.isFree ? 'Free' : formatMoney(price, pkg.currency)}</span>
+                    {pkg.regularPrice > price && <span className="text-xs text-ink-faint line-through">{formatMoney(pkg.regularPrice, pkg.currency)}</span>}
+                    <span className="font-bold text-ink">{pkg.isFree ? 'Free' : formatMoney(price, pkg.currency)}</span>
                   </div>
-                  <ul className="mt-2 space-y-0.5 text-xs text-[#475569]">
+                  <ul className="mt-2 space-y-0.5 text-xs text-ink-muted">
                     {visibleBenefits(pkg.includedFeatures).map((f) => <li key={f}>• {f}</li>)}
                   </ul>
-                  <div className="mt-2 text-xs text-[#64748B]">
+                  <div className="mt-2 text-xs text-ink-faint">
                     {pkg.accessValidityDays} days access
                     {pkg.mockAccessEnabled ? ` · ${pkg.fullMockAttempts} mock attempts` : ''}
                     {pkg.practiceAccessEnabled ? ` · ${pkg.accessibleQuestionCount.toLocaleString()} questions` : ''}
@@ -1403,7 +1403,7 @@ function StepReview({
             })}
           </div>
 
-          <p className="mt-4 border-t border-[#E2E8F0] pt-3 text-[11px] leading-relaxed text-[#94A3B8]">{certification.independentPrepDisclaimer}</p>
+          <p className="mt-4 border-t border-surface-border pt-3 text-[11px] leading-relaxed text-ink-faint">{certification.independentPrepDisclaimer}</p>
         </div>
       </div>
 
@@ -1417,7 +1417,7 @@ function StepReview({
       <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
         <div className="mb-4 flex items-center gap-2 text-sm">
           <span className="text-ink-faint">Status:</span>
-          <span className="rounded-full bg-[#E8F0FF] px-2 py-0.5 font-semibold capitalize text-[#155EEF]">{certification.status}</span>
+          <span className="rounded-full bg-brand-50 px-2 py-0.5 font-semibold capitalize text-brand-ink">{certification.status}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {onBack && (
@@ -1427,7 +1427,7 @@ function StepReview({
             type="button"
             disabled={blockers.length > 0 || publishMutation.isPending}
             onClick={() => window.confirm('Publish this exam preparation and its packages now?') && publishMutation.mutate()}
-            className="rounded-lg bg-[#155EEF] px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {publishMutation.isPending ? 'Publishing…' : 'Publish'}
           </button>
@@ -1739,7 +1739,7 @@ function StepMockRules({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase tracking-wide text-ink-faint">Domain allocation</h4>
-          <button type="button" onClick={autofill} className="text-xs font-medium text-[#155EEF] hover:underline">Auto-fill from question bank</button>
+          <button type="button" onClick={autofill} className="text-xs font-medium text-brand-ink hover:underline">Auto-fill from question bank</button>
         </div>
         <div className="space-y-2">
           {domains.map((d, i) => (
@@ -1789,7 +1789,7 @@ function StepMockRules({
         type="button"
         disabled={!validation.valid || saveMutation.isPending || domains.length === 0}
         onClick={() => saveMutation.mutate()}
-        className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save Mock Rules'}
       </button>
@@ -1965,7 +1965,7 @@ function CustomPackageForm({ certificationId, onChanged }: { certificationId: st
         type="button"
         disabled={!form.name.trim() || saveMutation.isPending}
         onClick={() => saveMutation.mutate()}
-        className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Add custom package'}
       </button>

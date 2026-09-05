@@ -16,8 +16,8 @@ const PARTNER_TYPES: { value: PartnerType; label: string; hint: string }[] = [
 ];
 
 const field =
-  'w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#155EEF] dark:bg-transparent';
-const labelCls = 'mb-1 block text-xs font-semibold text-[#64748B]';
+  'w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 dark:bg-transparent';
+const labelCls = 'mb-1 block text-xs font-semibold text-ink-faint';
 
 const STATUS_COPY: Record<string, { title: string; body: string; tone: string }> = {
   SUBMITTED: { title: 'Application received', body: "We're reviewing your application. You'll hear back by email.", tone: '#155EEF' },
@@ -132,20 +132,20 @@ export function BecomePartnerPage() {
         <p className="text-sm text-ink-faint">Loading…</p>
       ) : existing ? (
         <div
-          className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-card dark:bg-surface-raised"
+          className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card"
           style={{ borderLeft: `3px solid ${STATUS_COPY[existing.status]?.tone ?? '#155EEF'}` }}
         >
           <h2 className="text-base font-bold text-ink">{STATUS_COPY[existing.status]?.title ?? existing.status}</h2>
           <p className="mt-1 text-sm text-ink-faint">{STATUS_COPY[existing.status]?.body}</p>
           {existing.reviewNote && <p className="mt-2 text-sm text-ink-faint">Note: {existing.reviewNote}</p>}
           {existing.status === 'APPROVED' && (
-            <Link to="/home" className="mt-4 inline-block text-sm font-semibold text-[#155EEF] hover:underline">
+            <Link to="/home" className="mt-4 inline-block text-sm font-semibold text-brand-ink hover:underline">
               Back to home →
             </Link>
           )}
         </div>
       ) : (
-        <div className="space-y-4 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-card dark:bg-surface-raised">
+        <div className="space-y-4 rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Full legal name</label>
@@ -158,7 +158,7 @@ export function BecomePartnerPage() {
             <div>
               <label className={labelCls}>Date of birth</label>
               <input className={field} type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
-              {!adultOk && <p className="mt-1 text-xs text-[#B32D1A]">You must be at least 18.</p>}
+              {!adultOk && <p className="mt-1 text-xs text-danger">You must be at least 18.</p>}
             </div>
             <div>
               <label className={labelCls}>Phone</label>
@@ -196,7 +196,7 @@ export function BecomePartnerPage() {
           </div>
 
           {needsPan && (
-            <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-surface-border dark:bg-transparent">
+            <div className="rounded-lg border border-surface-border bg-surface-sunken p-4 dark:border-surface-border dark:bg-transparent">
               <p className="mb-3 text-xs text-ink-faint">
                 PAN is required to pay commission to an India-based partner (tax identity, TDS compliance and payout
                 reconciliation). It is stored securely, shown masked to staff, and never used for anything else.
@@ -211,7 +211,7 @@ export function BecomePartnerPage() {
                     maxLength={10}
                     placeholder="AAAAA9999A"
                   />
-                  {pan && !panOk && <p className="mt-1 text-xs text-[#B32D1A]">That PAN is not in a valid format.</p>}
+                  {pan && !panOk && <p className="mt-1 text-xs text-danger">That PAN is not in a valid format.</p>}
                 </div>
                 <div>
                   <label className={labelCls}>Name on PAN (optional)</label>
@@ -227,7 +227,7 @@ export function BecomePartnerPage() {
                 <span>
                   I understand my PAN is collected for partner identity and tax validation, TDS compliance, payout
                   processing and legally required records, as described in the{' '}
-                  <Link to="/privacy" className="text-[#155EEF] hover:underline">privacy notice</Link>.
+                  <Link to="/privacy" className="text-brand-ink hover:underline">privacy notice</Link>.
                 </span>
               </label>
             </div>
@@ -240,7 +240,7 @@ export function BecomePartnerPage() {
                 <label
                   key={t.value}
                   className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm ${
-                    partnerType === t.value ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'
+                    partnerType === t.value ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'
                   }`}
                 >
                   <input
@@ -263,7 +263,7 @@ export function BecomePartnerPage() {
             <input type="checkbox" className="mt-1" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
             <span>
               I am 18 or older and I accept the{' '}
-              <Link to="/terms" className="text-[#155EEF] hover:underline">
+              <Link to="/terms" className="text-brand-ink hover:underline">
                 partner agreement
               </Link>
               . I will not make false certification, employment or income claims.
@@ -274,7 +274,7 @@ export function BecomePartnerPage() {
             type="button"
             disabled={!canSubmit}
             onClick={() => submit.mutate()}
-            className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
           >
             {submit.isPending ? 'Submitting…' : 'Submit application'}
           </button>

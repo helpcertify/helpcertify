@@ -301,7 +301,7 @@ export function AdminSettingsPage() {
           type="button"
           disabled={!dirty || saveMutation.isPending}
           onClick={() => saveMutation.mutate()}
-          className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {saveMutation.isPending ? 'Saving…' : 'Save Changes'}
         </button>
@@ -433,7 +433,7 @@ function CustomExamBuilderSettingsCard() {
         type="button"
         disabled={saveMutation.isPending}
         onClick={() => saveMutation.mutate()}
-        className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save'}
       </button>
@@ -568,7 +568,7 @@ function FeatureAccessCard() {
         type="button"
         disabled={saveMutation.isPending}
         onClick={() => saveMutation.mutate()}
-        className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save Feature Access'}
       </button>
@@ -679,7 +679,7 @@ function AiUsageLimitsCard() {
         type="button"
         disabled={saveMutation.isPending}
         onClick={() => saveMutation.mutate()}
-        className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save AI Usage Limits'}
       </button>
@@ -734,7 +734,7 @@ function CompanyDetailsCard() {
         type="button"
         disabled={!dirty || saveMutation.isPending}
         onClick={() => saveMutation.mutate()}
-        className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save Company Details'}
       </button>

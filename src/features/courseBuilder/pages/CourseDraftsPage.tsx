@@ -113,7 +113,7 @@ export function CourseDraftsPage() {
           type="button"
           disabled={generate.isPending || title.trim().length < 3}
           onClick={() => generate.mutate()}
-          className="mt-2 rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+          className="mt-2 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
         >
           {generate.isPending ? 'Generating course…' : 'Generate Course with AI'}
         </button>
@@ -128,14 +128,14 @@ export function CourseDraftsPage() {
             {(drafts?.drafts ?? []).map((d) => (
               <li key={d.draftId} className="flex items-center justify-between py-2.5">
                 <div className="min-w-0">
-                  <Link to={`${base}/${d.draftId}`} className="font-medium text-ink hover:text-[#155EEF]">
+                  <Link to={`${base}/${d.draftId}`} className="font-medium text-ink hover:text-brand-ink">
                     {d.title}
                   </Link>
                   <div className="text-xs text-ink-faint">
                     {d.lessonCount} lesson{d.lessonCount === 1 ? '' : 's'} · {d.status}
                   </div>
                 </div>
-                <Link to={`${base}/${d.draftId}`} className="shrink-0 text-sm font-semibold text-[#155EEF] hover:underline">
+                <Link to={`${base}/${d.draftId}`} className="shrink-0 text-sm font-semibold text-brand-ink hover:underline">
                   Open
                 </Link>
               </li>

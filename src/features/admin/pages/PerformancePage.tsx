@@ -71,7 +71,7 @@ export function PerformancePage() {
             type="button"
             disabled={attempts.length === 0}
             onClick={() => exportResultsToExcel(activeQuiz?.title ?? 'quiz', attempts)}
-            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-surface disabled:opacity-50"
           >
             ↓ Export to Excel
           </button>
@@ -79,7 +79,7 @@ export function PerformancePage() {
 
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-4 py-3">Rank</th>
                 <th className="px-4 py-3">Name</th>

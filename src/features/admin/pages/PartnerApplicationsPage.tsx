@@ -137,7 +137,7 @@ export function PartnerApplicationsPage() {
       <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Applications</h2>
       <div className="mb-10 overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
-          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+          <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th className="px-4 py-3">Applicant</th>
               <th className="px-4 py-3">Type</th>
@@ -164,7 +164,7 @@ export function PartnerApplicationsPage() {
                     <button
                       type="button"
                       onClick={() => setDetailFor(expanded ? null : a.id)}
-                      className="text-left text-[#155EEF] hover:underline"
+                      className="text-left text-brand-ink hover:underline"
                     >
                       {a.legalName}
                     </button>
@@ -181,7 +181,7 @@ export function PartnerApplicationsPage() {
                   </td>
                   <td className="px-4 py-3 text-ink-faint">{fmt(a.submittedAt)}</td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{a.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{a.status}</span>
                   </td>
                   <td className="px-4 py-3">
                     <button
@@ -194,7 +194,7 @@ export function PartnerApplicationsPage() {
                   </td>
                 </tr>
                 {expanded && (
-                  <tr className="bg-black/10">
+                  <tr className="bg-surface-sunken">
                     <td colSpan={6} className="px-4 py-4">
                       {detail.isLoading || detail.data?.id !== a.id ? (
                         <p className="text-xs text-ink-faint">Loading full application…</p>
@@ -211,7 +211,7 @@ export function PartnerApplicationsPage() {
                                 target="_blank"
                                 rel="noreferrer"
                                 title="Open WhatsApp to verify this partner"
-                                className="text-[#0B7A48] hover:underline"
+                                className="text-success hover:underline"
                               >
                                 {detail.data.phone} (WhatsApp)
                               </a>
@@ -249,7 +249,7 @@ export function PartnerApplicationsPage() {
                                   type="button"
                                   disabled={review.isPending}
                                   onClick={() => review.mutate({ applicationId: a.id, decision: 'approve', note: note || undefined })}
-                                  className="rounded bg-[#0B7A48] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                                  className="rounded bg-success px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                                 >
                                   Approve
                                 </button>
@@ -257,7 +257,7 @@ export function PartnerApplicationsPage() {
                                   type="button"
                                   disabled={review.isPending || !note.trim()}
                                   onClick={() => review.mutate({ applicationId: a.id, decision: 'reject', note })}
-                                  className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50"
+                                  className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50"
                                 >
                                   Reject
                                 </button>
@@ -267,7 +267,7 @@ export function PartnerApplicationsPage() {
                               </div>
                             </div>
                           ) : (
-                            <button type="button" onClick={() => setReviewFor(a.id)} className="rounded bg-[#155EEF] px-3 py-1 text-xs font-semibold text-white">
+                            <button type="button" onClick={() => setReviewFor(a.id)} className="rounded bg-brand-500 px-3 py-1 text-xs font-semibold text-white">
                               Review
                             </button>
                           )}
@@ -294,7 +294,7 @@ export function PartnerApplicationsPage() {
       </div>
       <div className="overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
-          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+          <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th className="px-4 py-3">Partner ID</th>
               <th className="px-4 py-3">Name</th>
@@ -336,7 +336,7 @@ export function PartnerApplicationsPage() {
               .map((p) => (
               <tr key={p.partnerId}>
                 <td className="px-4 py-3 font-mono text-xs">
-                  <Link to={`/admin/partners/${p.partnerId}`} className="text-[#155EEF] hover:underline">
+                  <Link to={`/admin/partners/${p.partnerId}`} className="text-brand-ink hover:underline">
                     {p.partnerId}
                   </Link>
                 </td>
@@ -345,7 +345,7 @@ export function PartnerApplicationsPage() {
                 <td className="px-4 py-3 font-mono text-xs text-ink-faint">
                   {p.panMasked ?? '-'}
                   {canRevealPan && p.panMasked && (
-                    <button type="button" onClick={() => revealPan(p.partnerId)} className="ml-2 text-[10px] text-[#155EEF] hover:underline">
+                    <button type="button" onClick={() => revealPan(p.partnerId)} className="ml-2 text-[10px] text-brand-ink hover:underline">
                       reveal
                     </button>
                   )}
@@ -377,7 +377,7 @@ export function PartnerApplicationsPage() {
                       type="button"
                       disabled={kycAction.isPending}
                       onClick={() => kycAction.mutate({ partnerId: p.partnerId, payoutStatus: 'OK' })}
-                      className="ml-2 text-[10px] text-[#0B7A48] hover:underline"
+                      className="ml-2 text-[10px] text-success hover:underline"
                     >
                       clear
                     </button>
@@ -387,7 +387,7 @@ export function PartnerApplicationsPage() {
                       type="button"
                       disabled={kycAction.isPending}
                       onClick={() => kycAction.mutate({ partnerId: p.partnerId, payoutStatus: 'PAYOUT_BLOCKED' })}
-                      className="ml-2 text-[10px] text-[#B32D1A] hover:underline"
+                      className="ml-2 text-[10px] text-danger hover:underline"
                     >
                       block
                     </button>
@@ -422,7 +422,7 @@ export function PartnerApplicationsPage() {
       </div>
       <div className="overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
-          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+          <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th className="px-4 py-3">Order</th>
               <th className="px-4 py-3">Partner</th>
@@ -449,7 +449,7 @@ export function PartnerApplicationsPage() {
                 <td className="px-4 py-3 font-semibold text-ink">{formatMoney(c.netPayableMinor, c.currency as 'INR' | 'USD')}</td>
                 <td className="px-4 py-3 text-ink-faint">{c.holdUntil ? new Date(c.holdUntil).toLocaleDateString() : '-'}</td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{c.status}</span>
+                  <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{c.status}</span>
                 </td>
                 <td className="px-4 py-3">
                   {c.status === 'ON_HOLD' ? (

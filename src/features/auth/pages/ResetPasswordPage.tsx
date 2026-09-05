@@ -76,7 +76,7 @@ export function ResetPasswordPage() {
             <p className="mb-6 text-center text-sm text-ink-faint">
               Open the reset link from your email on this device, or request a new one.
             </p>
-            <Link to="/forgot-password" className="block w-full rounded-lg bg-[#155EEF] py-2 text-center font-medium text-white">
+            <Link to="/forgot-password" className="block w-full rounded-lg bg-brand-500 py-2 text-center font-medium text-white">
               Send a reset link
             </Link>
             <Link to="/login" className="mt-3 block w-full text-center text-sm text-brand-ink underline">
@@ -87,7 +87,7 @@ export function ResetPasswordPage() {
           <>
             <h1 className="mb-2 text-center text-xl font-bold text-ink">Password updated</h1>
             <p className="mb-6 text-center text-sm text-ink-faint">Taking you to the login page&hellip;</p>
-            <Link to="/login" className="block w-full rounded-lg bg-[#155EEF] py-2 text-center font-medium text-white">
+            <Link to="/login" className="block w-full rounded-lg bg-brand-500 py-2 text-center font-medium text-white">
               Log in now
             </Link>
           </>
@@ -100,7 +100,7 @@ export function ResetPasswordPage() {
               Password reset links can only be used once and expire after a while. Request a
               fresh one.
             </p>
-            <Link to="/forgot-password" className="block w-full rounded-lg bg-[#155EEF] py-2 text-center font-medium text-white">
+            <Link to="/forgot-password" className="block w-full rounded-lg bg-brand-500 py-2 text-center font-medium text-white">
               Send a new reset link
             </Link>
             <Link to="/login" className="mt-3 block w-full text-center text-sm text-brand-ink underline">
@@ -141,7 +141,7 @@ export function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={mutation.isPending}
-                className="w-full rounded-lg bg-[#155EEF] py-2 font-medium text-surface disabled:opacity-60"
+                className="w-full rounded-lg bg-brand-500 py-2 font-medium text-surface disabled:opacity-60"
               >
                 {mutation.isPending ? 'Updating…' : 'Update password'}
               </button>

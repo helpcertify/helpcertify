@@ -73,7 +73,7 @@ export function PayoutsPage() {
       <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Payable now</h2>
       <div className="mb-4 overflow-x-auto rounded-xl border border-surface-border">
         <table className="w-full text-left text-sm">
-          <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+          <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
             <tr>
               <th className="px-4 py-3"></th>
               <th className="px-4 py-3">Partner</th>
@@ -137,7 +137,7 @@ export function PayoutsPage() {
           type="button"
           disabled={create.isPending || groups.filter((g) => g.meetsMinimum).length === 0}
           onClick={() => create.mutate()}
-          className="rounded bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+          className="rounded bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
         >
           Create batch{Object.values(selected).some(Boolean) ? ' (selected)' : ' (all eligible)'}
         </button>
@@ -159,7 +159,7 @@ export function PayoutsPage() {
                   {b.commissionCount} commissions · {formatMoney(b.grossMinor, b.currency as 'INR' | 'USD')}
                 </span>
               </span>
-              <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{b.status}</span>
+              <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{b.status}</span>
             </button>
 
             {openBatch === b.id && (
@@ -189,10 +189,10 @@ export function PayoutsPage() {
 
                 {b.status === 'DRAFT' && (
                   <div className="flex gap-2">
-                    <button type="button" disabled={act.isPending} onClick={() => act.mutate({ kind: 'approve', batchId: b.id })} className="rounded bg-[#0B7A48] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                    <button type="button" disabled={act.isPending} onClick={() => act.mutate({ kind: 'approve', batchId: b.id })} className="rounded bg-success px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
                       Approve (as a different staff member)
                     </button>
-                    <button type="button" disabled={act.isPending} onClick={() => act.mutate({ kind: 'cancel', batchId: b.id })} className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50">
+                    <button type="button" disabled={act.isPending} onClick={() => act.mutate({ kind: 'cancel', batchId: b.id })} className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50">
                       Cancel
                     </button>
                   </div>
@@ -200,10 +200,10 @@ export function PayoutsPage() {
                 {b.status === 'APPROVED' && (
                   <div className="flex flex-wrap items-center gap-2">
                     <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Bank UTR / transfer reference" className="rounded border border-surface-border bg-surface px-2 py-1 text-xs" />
-                    <button type="button" disabled={act.isPending || !ref.trim()} onClick={() => act.mutate({ kind: 'paid', batchId: b.id })} className="rounded bg-[#155EEF] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                    <button type="button" disabled={act.isPending || !ref.trim()} onClick={() => act.mutate({ kind: 'paid', batchId: b.id })} className="rounded bg-brand-500 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
                       Mark paid
                     </button>
-                    <button type="button" disabled={act.isPending} onClick={() => act.mutate({ kind: 'cancel', batchId: b.id })} className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50">
+                    <button type="button" disabled={act.isPending} onClick={() => act.mutate({ kind: 'cancel', batchId: b.id })} className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50">
                       Cancel
                     </button>
                   </div>

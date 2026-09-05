@@ -60,7 +60,7 @@ export function AdminReferralAuditPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-4 py-3">Referrer</th>
                 <th className="px-4 py-3">Referee</th>
@@ -80,7 +80,7 @@ export function AdminReferralAuditPage() {
                 <tr
                   key={r.id}
                   onClick={() => setSelectedId(r.id)}
-                  className={`cursor-pointer border-t border-surface-border hover:bg-black/10 ${
+                  className={`cursor-pointer border-t border-surface-border hover:bg-surface-sunken ${
                     selectedId === r.id ? 'bg-brand-500/10' : ''
                   }`}
                 >

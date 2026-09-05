@@ -90,7 +90,7 @@ export function BuildYourOwnExamPage() {
         </P>
         <a
           href="/register"
-          className="inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-white"
+          className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-6 py-3 font-medium text-white"
         >
           Create an account
         </a>
