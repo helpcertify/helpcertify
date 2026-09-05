@@ -13,7 +13,7 @@ export default {
         // See the HelpCertify design-system spec: 500 is "Primary Electric
         // Blue" (#155EEF), 600 is "Primary Hover" (#004EEB).
         brand: {
-          50: '#eff6ff', // "Light Blue Surface"
+          50: 'rgb(var(--color-brand-50) / <alpha-value>)', // theme-aware "Light Blue Surface"
           300: '#8bb4f8',
           400: '#5b93f5',
           500: '#155EEF', // Primary Electric Blue
@@ -30,13 +30,33 @@ export default {
         surface: {
           DEFAULT: 'rgb(var(--color-surface) / <alpha-value>)',
           raised: 'rgb(var(--color-surface-raised) / <alpha-value>)',
+          sunken: 'rgb(var(--color-surface-sunken) / <alpha-value>)',
           border: 'rgb(var(--color-surface-border) / <alpha-value>)',
+          'border-strong': 'rgb(var(--color-surface-border-strong) / <alpha-value>)',
         },
         ink: {
           DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)', // primary text — replaces text-white
           muted: 'rgb(var(--color-ink-muted) / <alpha-value>)', // secondary text — replaces text-neutral-300
           faint: 'rgb(var(--color-ink-faint) / <alpha-value>)', // tertiary/label text — replaces text-neutral-400/500
         },
+        // Semantic status colours (theme-aware). `-soft` is the tinted
+        // background pair for a badge / callout in that tone.
+        success: {
+          DEFAULT: 'rgb(var(--color-success) / <alpha-value>)',
+          soft: 'rgb(var(--color-success-soft) / <alpha-value>)',
+        },
+        warning: {
+          DEFAULT: 'rgb(var(--color-warning) / <alpha-value>)',
+          soft: 'rgb(var(--color-warning-soft) / <alpha-value>)',
+        },
+        danger: {
+          DEFAULT: 'rgb(var(--color-danger) / <alpha-value>)',
+          soft: 'rgb(var(--color-danger-soft) / <alpha-value>)',
+        },
+      },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        pop: 'var(--shadow-pop)',
       },
       backgroundImage: {
         'brand-gradient': 'linear-gradient(90deg, #5b93f5 0%, #155EEF 100%)',

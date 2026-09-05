@@ -91,7 +91,10 @@ export function StudentShell() {
   // feedback that nav tab labels needed to read as solidly dark, not a
   // secondary/muted gray, to stay clearly visible.
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    clsx('rounded-lg px-3 py-2 text-sm', isActive ? 'bg-[#E8F0FF] text-[#155EEF] font-medium' : 'text-ink hover:bg-white/5');
+    clsx(
+      'rounded-lg px-3 py-2 text-sm transition-colors',
+      isActive ? 'bg-brand-50 font-semibold text-brand-ink' : 'text-ink hover:bg-surface-sunken',
+    );
 
   const navLinks = (onNavigate: () => void) => (
     <>
@@ -139,12 +142,12 @@ export function StudentShell() {
       {/* Unified header - logo, search, Help, Saved Items, Cart (amber
           count), Notifications, avatar. Fixed height (h-14) so the sidebar
           below can offset its own sticky position by an exact amount. */}
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-surface-border bg-surface px-4 lg:px-8">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-surface-border bg-surface-raised px-4 lg:px-8">
         <button
           type="button"
           onClick={() => setMobileNavOpen((v) => !v)}
           aria-label="Toggle menu"
-          className="shrink-0 rounded-lg border border-surface-border px-2.5 py-1.5 text-base text-ink-muted lg:hidden"
+          className="shrink-0 rounded-lg border border-surface-border-strong px-2.5 py-1.5 text-base text-ink-muted lg:hidden"
         >
           {mobileNavOpen ? '✕' : '☰'}
         </button>
@@ -164,11 +167,11 @@ export function StudentShell() {
           <Link
             to="/home/cart"
             aria-label="Cart"
-            className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#155EEF] text-[#155EEF] hover:bg-[#155EEF]/10"
+            className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-brand-500 text-brand-500 hover:bg-brand-500/10"
           >
             <CartIcon className="h-4 w-4" />
             {cartCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d87f1d] text-[10px] font-semibold text-white ring-2 ring-surface">
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-warning text-[10px] font-semibold text-white ring-2 ring-surface-raised">
                 {cartCount}
               </span>
             )}
@@ -197,7 +200,7 @@ export function StudentShell() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="mt-2 rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
+            className="mt-2 rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
           >
             Sign Out
           </button>
@@ -210,7 +213,7 @@ export function StudentShell() {
             Nav-only now; the brand mark moved up into the header so it
             isn't shown twice. Sign Out stays pinned at the bottom via
             mt-auto, same as before. */}
-        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border p-6 lg:flex">
+        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border bg-surface-raised p-6 lg:flex">
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
           <div className="mt-auto shrink-0">
             {featuredExam && (
@@ -223,7 +226,7 @@ export function StudentShell() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="w-full rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
+              className="w-full rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
             >
               Sign Out
             </button>
@@ -249,19 +252,19 @@ export function StudentShell() {
 // reminder/entry point, same role the exam countdown cards play above it.
 function ReferAndEarnCard({ className = '' }: { className?: string }) {
   return (
-    <Link to="/home/profile" className={`block w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 text-left ${className}`}>
+    <Link to="/home/profile" className={`block w-full rounded-lg border border-brand-500/30 bg-brand-50 p-3 text-left ${className}`}>
       <div className="flex items-center gap-2.5">
         <span className="text-xl" aria-hidden="true">
           🎁
         </span>
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-[#0F172A]">Refer & Earn</div>
-          <div className="text-xs text-[#64748B]">Invite friends and earn up to</div>
+          <div className="text-sm font-semibold text-ink">Refer & Earn</div>
+          <div className="text-xs text-ink-faint">Invite friends and earn up to</div>
         </div>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <span className="text-base font-bold text-[#155EEF]">₹500</span>
-        <span className="text-sm text-[#155EEF]">→</span>
+        <span className="text-base font-bold text-brand-ink">₹500</span>
+        <span className="text-sm text-brand-ink">→</span>
       </div>
     </Link>
   );

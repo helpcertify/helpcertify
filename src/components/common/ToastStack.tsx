@@ -25,17 +25,17 @@ export function ToastStack() {
           key={toast.id}
           role="status"
           className={clsx(
-            'flex items-center gap-3 rounded-lg border border-l-4 border-surface-border bg-surface-raised px-4 py-3 text-sm text-ink shadow-lg',
-            toast.variant === 'success' && 'border-l-emerald-500',
-            toast.variant === 'error' && 'border-l-red-500',
+            'flex items-center gap-3 rounded-lg border border-l-4 border-surface-border bg-surface-raised px-4 py-3 text-sm text-ink shadow-pop',
+            toast.variant === 'success' && 'border-l-success',
+            toast.variant === 'error' && 'border-l-danger',
             toast.variant === 'info' && 'border-l-brand-500'
           )}
         >
           <span
             className={clsx(
               'text-base leading-none',
-              toast.variant === 'success' && 'text-emerald-500',
-              toast.variant === 'error' && 'text-red-500',
+              toast.variant === 'success' && 'text-success',
+              toast.variant === 'error' && 'text-danger',
               toast.variant === 'info' && 'text-brand-500'
             )}
           >

@@ -2,40 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light theme (default) and dark theme (.dark on <html>, toggled by
-   useThemeStore) - both defined here as RGB-channel-triple CSS variables so
-   Tailwind's `rgb(var(--x) / <alpha-value>)` color functions (see
-   tailwind.config.js) can still support opacity modifiers like
-   bg-surface-raised/50. Every existing bg-surface/bg-surface-raised/
-   border-surface-border/text-ink* usage across the app repaints correctly
-   from these two blocks alone - no per-component edits needed for those.
-   Only the plain Tailwind-default utilities some components used directly
-   instead of these tokens (text-white, text-neutral-300/400/500) needed a
-   one-time sweep to the new ink/ink-muted/ink-faint tokens. */
+/* Light (default) and dark (.dark on <html>, toggled by useThemeStore) as
+   RGB-channel-triple CSS variables so Tailwind's `rgb(var(--x) / <alpha>)`
+   color functions (tailwind.config.js) keep supporting opacity modifiers.
+   Every bg-surface* / border-surface-border / text-ink* usage repaints per
+   theme from these two blocks alone.
+
+   Redesign (2026-09): page and card colours swapped so a card sits ON a
+   lightly-tinted page with a soft shadow (it reads as a distinct object),
+   plus semantic status colours and an elevation scale. All token NAMES are
+   unchanged; three new ones added (surface-sunken, surface-border-strong,
+   success/warning/danger + -soft). */
 :root {
   color-scheme: light;
-  --color-surface: 255 255 255;
-  --color-surface-raised: 248 250 252;
+  --color-surface: 245 247 251;        /* page background - lightly tinted */
+  --color-surface-raised: 255 255 255; /* cards / panels - pure white */
+  --color-surface-sunken: 238 241 247; /* wells, table headers, inset areas */
   --color-surface-border: 226 232 240;
+  --color-surface-border-strong: 203 213 225;
   --color-ink: 15 23 42;
-  /* Both bumped one step darker on the slate scale (were 600/500) - real
-     user feedback that nav tabs and card stat lines (which lean on these
-     two tokens everywhere) read as too washed-out on the light theme, even
-     though the old values technically passed WCAG AA. */
-  --color-ink-muted: 51 65 85; /* slate-700, was slate-600 (71 85 105) */
-  --color-ink-faint: 71 85 105; /* slate-600, was slate-500 (100 116 139) */
-  --color-brand-ink: 21 94 239; /* #155EEF - the HelpCertify design-system's Primary Electric Blue */
+  /* Both a step darker than the slate defaults - real user feedback that
+     nav tabs and card stat lines read as too washed-out on light. */
+  --color-ink-muted: 51 65 85;  /* slate-700 */
+  --color-ink-faint: 91 100 116;
+  --color-brand-ink: 21 94 239; /* #155EEF - Primary Electric Blue */
+  --color-brand-50: 239 246 255; /* light blue surface (bg-brand-50) */
+  --color-success: 15 122 74;
+  --color-success-soft: 230 246 238;
+  --color-warning: 180 83 9;
+  --color-warning-soft: 253 241 227;
+  --color-danger: 194 45 28;
+  --color-danger-soft: 253 236 235;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px -4px rgb(15 23 42 / 0.08);
+  --shadow-pop: 0 8px 28px -6px rgb(15 23 42 / 0.18);
 }
 
 .dark {
   color-scheme: dark;
-  --color-surface: 5 7 10;
-  --color-surface-raised: 13 17 23;
-  --color-surface-border: 31 41 55;
-  --color-ink: 255 255 255;
-  --color-ink-muted: 212 212 212;
-  --color-ink-faint: 163 163 163;
-  --color-brand-ink: 96 165 250; /* blue-400 - bright enough for text on a near-black card */
+  --color-surface: 10 13 19;
+  --color-surface-raised: 18 24 33;
+  --color-surface-sunken: 13 18 25;
+  --color-surface-border: 35 44 57;
+  --color-surface-border-strong: 51 65 85;
+  --color-ink: 242 245 250;
+  --color-ink-muted: 195 203 217;
+  --color-ink-faint: 139 149 167;
+  --color-brand-ink: 124 168 251; /* bright enough on a near-black card */
+  --color-brand-50: 14 30 61; /* dark navy tint for bg-brand-50 in dark */
+  --color-success: 65 199 141;
+  --color-success-soft: 15 42 32;
+  --color-warning: 224 164 88;
+  --color-warning-soft: 44 33 19;
+  --color-danger: 240 133 122;
+  --color-danger-soft: 44 22 20;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 16px -6px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 10px 34px -8px rgb(0 0 0 / 0.6);
 }
 
 body {
@@ -43,21 +64,24 @@ body {
 }
 
 @layer components {
-  /* Shared text/number/date input styling - used across every admin form.
-     Name predates the theme system (was dark-only); kept as-is rather than
-     renamed everywhere it's used, since it's just a class identifier now,
-     not a description of a fixed appearance. */
+  /* Shared text/number/date input styling used across every form. Name
+     predates the theme system (was dark-only); kept as a class identifier. */
   .input-dark {
-    @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-ink outline-none;
+    @apply w-full rounded-lg border border-surface-border-strong bg-surface-raised px-3 py-2 text-ink outline-none transition-colors;
+  }
+  .input-dark::placeholder {
+    @apply text-ink-faint;
   }
   .input-dark:focus {
-    @apply border-brand-400;
+    @apply border-brand-500;
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-ink) / 0.22);
+  }
+  .input-dark:disabled {
+    @apply cursor-not-allowed bg-surface-sunken text-ink-faint;
   }
 
-  /* Hides the scrollbar on a horizontally-scrolling row (CourseCarousel)
-     while leaving it fully scrollable by drag/touch/wheel - only the arrow
-     buttons and native gestures are meant to be visible ways to move it.
-     No Tailwind plugin for this is installed, so it's a plain rule instead. */
+  /* Hides the scrollbar on a horizontally-scrolling row while leaving it
+     fully scrollable by drag/touch/wheel. No Tailwind plugin installed. */
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;

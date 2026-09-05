@@ -42,25 +42,21 @@ export function AdminShell() {
     navigate('/');
   };
 
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    clsx(
+      'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+      isActive ? 'bg-brand-50 text-brand-ink' : 'text-ink-muted hover:bg-surface-sunken hover:text-ink'
+    );
+
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <header className="border-b border-surface-border">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+      <header className="sticky top-0 z-20 border-b border-surface-border bg-surface-raised">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-8">
             <Logo to="/admin" size="sm" />
             <nav className="hidden gap-1 sm:flex">
               {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    clsx(
-                      'rounded-lg px-3 py-1.5 text-sm',
-                      isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink hover:bg-white/5'
-                    )
-                  }
-                >
+                <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass}>
                   {item.label}
                 </NavLink>
               ))}
@@ -71,7 +67,7 @@ export function AdminShell() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink hover:border-red-500/50 hover:text-red-400 sm:block"
+              className="hidden rounded-lg border border-surface-border-strong px-3 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:border-danger hover:text-danger sm:block"
             >
               Sign Out
             </button>
@@ -79,7 +75,7 @@ export function AdminShell() {
               type="button"
               onClick={() => setMobileNavOpen((v) => !v)}
               aria-label="Toggle menu"
-              className="rounded-lg border border-surface-border px-3 py-1.5 text-lg text-ink-muted sm:hidden"
+              className="rounded-lg border border-surface-border-strong px-3 py-1.5 text-lg text-ink-muted sm:hidden"
             >
               {mobileNavOpen ? '✕' : '☰'}
             </button>
@@ -93,12 +89,7 @@ export function AdminShell() {
                 to={item.to}
                 end={item.end}
                 onClick={() => setMobileNavOpen(false)}
-                className={({ isActive }) =>
-                  clsx(
-                    'rounded-lg px-3 py-2 text-sm',
-                    isActive ? 'bg-brand-500/15 text-brand-ink' : 'text-ink hover:bg-white/5'
-                  )
-                }
+                className={navLinkClass}
               >
                 {item.label}
               </NavLink>
@@ -108,7 +99,7 @@ export function AdminShell() {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex-1 rounded-lg border border-surface-border py-2 text-sm text-ink hover:border-red-500/50 hover:text-red-400"
+                className="flex-1 rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
               >
                 Sign Out
               </button>
