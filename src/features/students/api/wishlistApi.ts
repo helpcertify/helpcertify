@@ -2,7 +2,7 @@ import { callAction } from '@/lib/vercelApi';
 
 export interface WishlistItemView {
   // Never 'package' - see api/cart.ts's wishlistItemSchema for why.
-  itemType: 'quiz' | 'practiceTest';
+  itemType: 'quiz' | 'practiceTest' | 'course';
   itemId: string;
   title: string;
   category: string;
@@ -27,8 +27,8 @@ export interface WishlistItemView {
 // switch statement.
 export const wishlistApi = {
   getWishlist: () => callAction<{ items: WishlistItemView[] }>('cart', 'getWishlist'),
-  addItem: (itemType: 'quiz' | 'practiceTest', itemId: string) =>
+  addItem: (itemType: 'quiz' | 'practiceTest' | 'course', itemId: string) =>
     callAction<{ items: WishlistItemView[] }>('cart', 'addWishlistItem', { itemType, itemId }),
-  removeItem: (itemType: 'quiz' | 'practiceTest', itemId: string) =>
+  removeItem: (itemType: 'quiz' | 'practiceTest' | 'course', itemId: string) =>
     callAction<{ items: WishlistItemView[] }>('cart', 'removeWishlistItem', { itemType, itemId }),
 };

@@ -63,9 +63,16 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
 // 'customExamBuilder' is not passed to collectionFor - it has no backing
 // catalog doc (see createOrder's dedicated branch, which reads its price
 // from appSettings/customExamBuilder instead).
-type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
-const collectionFor = (itemType: 'quiz' | 'practiceTest' | 'package') =>
-  itemType === 'quiz' ? 'quizzes' : itemType === 'practiceTest' ? 'practiceTests' : 'packages';
+type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder' | 'course';
+// Was a two-way ternary defaulting to 'packages' - an explicit chain now
+// that a fourth item type exists, so a 'course' can never silently fall
+// through to the packages collection.
+const collectionFor = (itemType: 'quiz' | 'practiceTest' | 'package' | 'course') => {
+  if (itemType === 'quiz') return 'quizzes';
+  if (itemType === 'practiceTest') return 'practiceTests';
+  if (itemType === 'course') return 'courses';
+  return 'packages';
+};
 
 // A package is never its own entitlement record - "already own this
 // package" means every included quiz/practiceTest already has its own
@@ -165,7 +172,7 @@ const createOrderSchema = z.object({
   // into the Buy Now dialog, separate from whatever the cart itself has
   // stored.
   buyNowItem: z
-    .object({ itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder']), itemId: z.string().min(1) })
+    .object({ itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder', 'course']), itemId: z.string().min(1) })
     .optional(),
   couponCode: z.string().trim().min(1).optional(),
   // Companion one-time code for a coupon created with requiresUnlockCode:

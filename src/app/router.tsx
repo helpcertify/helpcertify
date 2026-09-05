@@ -28,6 +28,8 @@ import { MockExamsPage } from '@/features/students/pages/MockExamsPage';
 import { PastQuizzesPage } from '@/features/students/pages/PastQuizzesPage';
 import { StudentQuizDashboardPage } from '@/features/students/pages/StudentQuizDashboardPage';
 import { PracticeTestsPage } from '@/features/students/pages/PracticeTestsPage';
+import { CoursesPage } from '@/features/students/pages/CoursesPage';
+import { CourseDetailPage } from '@/features/students/pages/CourseDetailPage';
 import { QuizDetailPage } from '@/features/students/pages/QuizDetailPage';
 import { PracticeTestDetailPage } from '@/features/students/pages/PracticeTestDetailPage';
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
@@ -94,6 +96,8 @@ export function AppRouter() {
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
           <Route path="/home/certificates" element={<MyCertificatesPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
+          <Route path="/home/courses" element={<CoursesPage />} />
+          <Route path="/home/courses/:courseId" element={<CourseDetailPage />} />
           <Route path="/home/quizzes/:quizId" element={<QuizDetailPage />} />
           {/* Goal-setup lives inline on the detail page itself (opened via
               ?goal=1), not a separate route - see StudyGoalPanel.tsx. */}

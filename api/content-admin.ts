@@ -397,6 +397,25 @@ async function writeQuestionsBatch(parentRef: DocumentReference, questions: Pars
   }
 }
 
+// Same chunked-batch shape as writeQuestionsBatch, for a Course's written
+// lessons instead of exam questions - no private/answerKey subdoc, since a
+// lesson has no answer to hide (the whole `content` is the paid product,
+// see firestore.rules's courses/{id}/lessons match block).
+interface ParsedLesson {
+  order: number;
+  title: string;
+  content: string;
+}
+async function writeLessonsBatch(parentRef: DocumentReference, lessons: ParsedLesson[]): Promise<void> {
+  for (const group of chunk(lessons, 400)) {
+    const batch: WriteBatch = db.batch();
+    for (const l of group) {
+      batch.set(parentRef.collection('lessons').doc(), { order: l.order, title: l.title, content: l.content });
+    }
+    await batch.commit();
+  }
+}
+
 // Deletes every doc in a question subcollection plus each one's private
 // answerKey. Used to read each question's own private/ subcollection first
 // to discover what to delete there - one sequential await per question,
@@ -3259,6 +3278,54 @@ async function createCatalogSubmissionFromQuestions(
   return { submissionId: ref.id, totalQuestions: args.questions.length };
 }
 
+// Sibling to createCatalogSubmissionFromQuestions above, not a merged
+// generic function - keeps each pipeline's shape explicit (lessons have no
+// options/correctOptionId, questions have no title/content) rather than a
+// leaky union type. Used only by submitAiCourseDraft's course branch -
+// there is no manual/docx upload path for a course in this phase.
+async function createCatalogSubmissionFromLessons(
+  uid: string,
+  args: {
+    authorType: 'admin' | 'trainer' | 'creator';
+    authorId: string;
+    title: string;
+    category: string;
+    skillLevel: (typeof SKILL_LEVELS)[number];
+    description: string;
+    suggestedPrice: number;
+    currency: 'INR' | 'USD';
+    lessons: ParsedLesson[];
+    autoApprove: boolean;
+  }
+): Promise<{ submissionId: string; totalLessons: number }> {
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('catalogSubmissions').doc();
+  await ref.set({
+    authorUid: uid,
+    authorType: args.authorType,
+    authorId: args.authorId,
+    itemType: 'course',
+    title: args.title,
+    category: args.category,
+    skillLevel: args.skillLevel,
+    description: args.description,
+    suggestedPrice: args.suggestedPrice,
+    currency: args.currency,
+    sourceFormat: 'ai_generated',
+    totalQuestions: 0,
+    totalLessons: args.lessons.length,
+    parseWarnings: [],
+    status: args.autoApprove ? 'APPROVED' : 'PENDING_REVIEW',
+    reviewerUid: args.autoApprove ? uid : null,
+    reviewNote: args.autoApprove ? 'Auto-approved (admin-authored)' : null,
+    publishedItemId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeLessonsBatch(ref, args.lessons);
+  return { submissionId: ref.id, totalLessons: args.lessons.length };
+}
+
 async function createCatalogSubmission(uid: string, body: unknown) {
   const parsed = createCatalogSubmissionSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
@@ -3308,7 +3375,11 @@ async function withdrawCatalogSubmission(uid: string, body: unknown) {
   if (!['PENDING_REVIEW', 'CHANGES_REQUESTED'].includes(s.status as string)) {
     throw Err.failedPrecondition(`Cannot withdraw a submission that is ${String(s.status).toLowerCase()}.`);
   }
+  // Only one of these ever has documents (questions for quiz/practiceTest,
+  // lessons for course) - deleting both unconditionally is simpler than
+  // branching on itemType, and a no-op on whichever is empty/absent.
   await deleteSubcollection(ref, 'questions');
+  await deleteSubcollection(ref, 'lessons');
   await ref.delete();
   return { success: true };
 }
@@ -3384,6 +3455,52 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
   const s = snap.data()!;
   if (s.status !== 'APPROVED') throw Err.failedPrecondition('Only an approved submission can be published');
 
+  const now = FieldValue.serverTimestamp();
+  let publishedItemId: string;
+
+  if (s.itemType === 'course') {
+    const lessonsSnap = await ref.collection('lessons').orderBy('order').get();
+    const lessons: ParsedLesson[] = lessonsSnap.docs.map((l) => ({
+      order: l.data().order as number,
+      title: l.data().title as string,
+      content: l.data().content as string,
+    }));
+
+    const courseRef = db.collection('courses').doc();
+    await courseRef.set({
+      title: s.title,
+      sourceFormat: 'ai_generated',
+      totalLessons: s.totalLessons ?? lessons.length,
+      isPublished: true,
+      price: d.price,
+      originalPrice: d.originalPrice ?? null,
+      currency: s.currency,
+      category: s.category,
+      skillLevel: s.skillLevel,
+      description: s.description,
+      ratingAvg: 0,
+      ratingCount: 0,
+      previewLessonCount: 1,
+      accessPeriodDays: d.accessPeriodDays,
+      createdBy: s.authorUid,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writeLessonsBatch(courseRef, lessons);
+    publishedItemId = courseRef.id;
+
+    await ref.update({ status: 'PUBLISHED', publishedItemId, updatedAt: now });
+    await writeAdminLog({
+      performedBy: uid,
+      action: 'publishCatalogSubmission',
+      targetType: 'course',
+      targetId: publishedItemId,
+      description: `Published "${s.title}" from a ${s.authorType} submission (${lessons.length} lessons)`,
+    });
+
+    return { publishedItemId, itemType: 'course' as const };
+  }
+
   const qSnap = await ref.collection('questions').orderBy('order').get();
   const answerKeySnaps = await db.getAll(...qSnap.docs.map((q) => q.ref.collection('private').doc('answerKey')));
   const questions: ParsedQuestion[] = qSnap.docs.map((q, i) => ({
@@ -3392,9 +3509,6 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
     options: q.data().options as ParsedOption[],
     correctOptionId: answerKeySnaps[i].data()?.correctOptionId as string,
   }));
-
-  const now = FieldValue.serverTimestamp();
-  let publishedItemId: string;
 
   if (s.itemType === 'quiz') {
     const quizRef = db.collection('quizzes').doc();
@@ -3469,6 +3583,7 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
 
   return { publishedItemId, itemType: s.itemType as 'quiz' | 'practiceTest' };
 }
+// (the 'course' branch above returns its own narrower type directly)
 
 // ---------------------------------------------------------------------------
 // Feature Access - a small general-purpose gate so an admin can turn any
@@ -3585,7 +3700,10 @@ async function resolveAiCourseAuthor(uid: string): Promise<{ authorType: 'admin'
 
 const generateCourseOutlineSchema = z.object({
   topic: z.string().trim().min(3).max(300),
-  itemType: z.enum(['quiz', 'practiceTest']),
+  // 'course' - a written-lesson course, not an exam question bank. See
+  // generateAllCourseContent's itemType branch below for where the actual
+  // lesson-vs-question generation splits.
+  itemType: z.enum(['quiz', 'practiceTest', 'course']),
   category: z.string().trim().min(1).max(100).default('Other'),
   skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
   moduleCount: z.number().int().min(1).max(12).default(5),
@@ -3608,8 +3726,12 @@ async function generateCourseOutline(uid: string, body: unknown) {
   const { authorType, authorId } = await resolveAiCourseAuthor(uid);
 
   const raw = await callOpenAiJson(
-    'You design certification exam course outlines. Respond with strict JSON only, matching: {"modules":[{"title":string,"description":string,"questionsPerModule":number}]}.',
-    `Course topic: "${d.topic}". Category: ${d.category}. Skill level: ${d.skillLevel}. Propose exactly ${d.moduleCount} modules that together cover this topic for an exam question bank.`
+    d.itemType === 'course'
+      ? 'You design certification course syllabi. Respond with strict JSON only, matching: {"modules":[{"title":string,"description":string,"questionsPerModule":number}]}. Each module is a lesson topic the course will teach - questionsPerModule is ignored for a course and can be any number.'
+      : 'You design certification exam course outlines. Respond with strict JSON only, matching: {"modules":[{"title":string,"description":string,"questionsPerModule":number}]}.',
+    d.itemType === 'course'
+      ? `Course topic: "${d.topic}". Category: ${d.category}. Skill level: ${d.skillLevel}. Propose exactly ${d.moduleCount} lesson modules that together teach this topic as a written course.`
+      : `Course topic: "${d.topic}". Category: ${d.category}. Skill level: ${d.skillLevel}. Propose exactly ${d.moduleCount} modules that together cover this topic for an exam question bank.`
   );
   const outlineParsed = aiOutlineResponseSchema.safeParse(raw);
   if (!outlineParsed.success) throw Err.failedPrecondition('AI returned an outline in an unexpected shape. Try again.');
@@ -3628,6 +3750,7 @@ async function generateCourseOutline(uid: string, body: unknown) {
     status: 'OUTLINE_READY',
     outline,
     generatedQuestions: {},
+    generatedLessons: {},
     createdAt: now,
     updatedAt: now,
   });
@@ -3669,6 +3792,7 @@ const aiModuleQuestionSchema = z.object({
   correctOptionId: z.string().trim().min(1),
 });
 const aiModuleQuestionsResponseSchema = z.object({ questions: z.array(aiModuleQuestionSchema).min(1) });
+const aiLessonResponseSchema = z.object({ content: z.string().trim().min(1) });
 
 async function generateAllCourseContent(uid: string, body: unknown) {
   if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
@@ -3685,7 +3809,9 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   await ref.update({ status: 'GENERATING', updatedAt: FieldValue.serverTimestamp() });
 
   const outline = draft.outline as { moduleIndex: number; title: string; description: string; questionsPerModule: number }[];
+  const isCourse = draft.itemType === 'course';
   const generatedQuestions: Record<string, ParsedQuestion[]> = {};
+  const generatedLessons: Record<string, string> = {};
   const warnings: string[] = [];
 
   // One OpenAI call per module rather than one giant request - keeps each
@@ -3694,6 +3820,20 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   // (not parallel) so this stays well inside the 60s maxDuration this file
   // already has for a typical 4-8 module course.
   for (const m of outline) {
+    if (isCourse) {
+      const raw = await callOpenAiJson(
+        'You write clear, well-structured written lessons for a certification course. Respond with strict JSON only, matching: {"content":string}. The content should be a complete textbook-style chapter: explanations, examples, and key points, in plain text with paragraph breaks.',
+        `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write the full lesson text for this module.`
+      );
+      const lessonParsed = aiLessonResponseSchema.safeParse(raw);
+      if (!lessonParsed.success) {
+        warnings.push(`Module "${m.title}": AI response was in an unexpected shape, skipped.`);
+        continue;
+      }
+      generatedLessons[String(m.moduleIndex)] = lessonParsed.data.content;
+      continue;
+    }
+
     const raw = await callOpenAiJson(
       'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Each question needs exactly 4 options with short ids like "A","B","C","D", and correctOptionId must match one option id.',
       `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write exactly ${m.questionsPerModule} distinct questions for this module.`
@@ -3717,9 +3857,9 @@ async function generateAllCourseContent(uid: string, body: unknown) {
     }));
   }
 
-  await ref.update({ generatedQuestions, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
+  await ref.update({ generatedQuestions, generatedLessons, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
 
-  return { draftId: ref.id, generatedQuestions, warnings };
+  return { draftId: ref.id, generatedQuestions, generatedLessons, warnings };
 }
 
 const submitAiCourseDraftSchema = z.object({
@@ -3748,8 +3888,39 @@ async function submitAiCourseDraft(uid: string, body: unknown) {
     throw Err.failedPrecondition('Generate the module content before submitting this draft');
   }
 
+  const outline = draft.outline as { moduleIndex: number; title: string }[];
+  const authorType = draft.authorType as 'admin' | 'trainer' | 'creator';
+
+  if (draft.itemType === 'course') {
+    const generatedLessons = draft.generatedLessons as Record<string, string>;
+    const lessons: ParsedLesson[] = [];
+    let order = 0;
+    for (const m of outline) {
+      const content = generatedLessons[String(m.moduleIndex)];
+      if (!content) continue;
+      lessons.push({ order: order++, title: m.title, content });
+    }
+    if (lessons.length === 0) throw Err.failedPrecondition('This draft has no generated lessons yet');
+
+    const { submissionId, totalLessons } = await createCatalogSubmissionFromLessons(uid, {
+      authorType,
+      authorId: draft.authorId as string,
+      title: d.title,
+      category: d.category,
+      skillLevel: draft.skillLevel as (typeof SKILL_LEVELS)[number],
+      description: d.description,
+      suggestedPrice: d.suggestedPrice,
+      currency: d.currency,
+      lessons,
+      autoApprove: authorType === 'admin',
+    });
+
+    await ref.update({ status: 'SUBMITTED', updatedAt: FieldValue.serverTimestamp() });
+
+    return { submissionId, totalQuestions: 0, totalLessons, autoApproved: authorType === 'admin' };
+  }
+
   const generatedQuestions = draft.generatedQuestions as Record<string, ParsedQuestion[]>;
-  const outline = draft.outline as { moduleIndex: number }[];
   const flattened: ParsedQuestion[] = [];
   let order = 0;
   for (const m of outline) {
@@ -3760,7 +3931,6 @@ async function submitAiCourseDraft(uid: string, body: unknown) {
   }
   if (flattened.length === 0) throw Err.failedPrecondition('This draft has no generated questions yet');
 
-  const authorType = draft.authorType as 'admin' | 'trainer' | 'creator';
   const { submissionId, totalQuestions } = await createCatalogSubmissionFromQuestions(uid, {
     authorType,
     authorId: draft.authorId as string,
@@ -3780,6 +3950,121 @@ async function submitAiCourseDraft(uid: string, body: unknown) {
   await ref.update({ status: 'SUBMITTED', updatedAt: FieldValue.serverTimestamp() });
 
   return { submissionId, totalQuestions, autoApproved: authorType === 'admin' };
+}
+
+// ---------------------------------------------------------------------------
+// Course Reading - a student reads a purchased (or preview-eligible)
+// course's lessons. No grading/anti-cheat/attempt machinery like
+// quiz-session.ts or practice-session.ts - just an entitlement-or-preview
+// gate and a simple read-progress doc. isPurchaseExpired is duplicated
+// verbatim from quiz-session.ts's own copy (no cross-file imports across
+// api/*.ts).
+// ---------------------------------------------------------------------------
+
+function isPurchaseExpired(data: FirebaseFirestore.DocumentData | undefined): boolean {
+  const exp = data?.expiresAt as Timestamp | undefined | null;
+  return !!exp && exp.toMillis() < Date.now();
+}
+
+// Pure, unit-tested (see src/features/students/lib/lessonAccess.test.ts) -
+// duplicated here per the no-cross-import convention, just like every
+// other pure decision helper in this codebase (e.g. hasFeatureAccess's own
+// role logic).
+function isLessonUnlocked(lessonOrder: number, owns: boolean, previewLessonCount: number): boolean {
+  return owns || lessonOrder < previewLessonCount;
+}
+
+const getCourseForReadingSchema = z.object({ courseId: z.string().trim().min(1) });
+
+async function getCourseForReading(uid: string, body: unknown) {
+  const parsed = getCourseForReadingSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { courseId } = parsed.data;
+
+  const [courseSnap, userSnap] = await Promise.all([
+    db.collection('courses').doc(courseId).get(),
+    db.collection('users').doc(uid).get(),
+  ]);
+  if (!courseSnap.exists) throw Err.notFound('Course not found');
+  const course = courseSnap.data()!;
+  const isAdminCaller = userSnap.data()?.role === 'admin';
+  if (!course.isPublished && !isAdminCaller) throw Err.notFound('Course not found');
+
+  const purchaseSnap = await db.collection('purchases').doc(`${uid}_course_${courseId}`).get();
+  const owns = isAdminCaller || (purchaseSnap.exists && !isPurchaseExpired(purchaseSnap.data()));
+
+  const [lessonsSnap, progressSnap] = await Promise.all([
+    db.collection('courses').doc(courseId).collection('lessons').orderBy('order').get(),
+    db.collection('courseProgress').doc(`${uid}_${courseId}`).get(),
+  ]);
+
+  const previewLessonCount = (course.previewLessonCount as number | undefined) ?? 1;
+  const lessons = lessonsSnap.docs.map((l) => {
+    const data = l.data();
+    const order = data.order as number;
+    const unlocked = isLessonUnlocked(order, owns, previewLessonCount);
+    return {
+      id: l.id,
+      order,
+      title: data.title as string,
+      content: unlocked ? (data.content as string) : null,
+      locked: !unlocked,
+    };
+  });
+
+  return {
+    course: { id: courseId, ...course },
+    owns,
+    lessons,
+    completedLessonIndexes: (progressSnap.data()?.completedLessonIndexes as number[] | undefined) ?? [],
+  };
+}
+
+const markLessonCompleteSchema = z.object({
+  courseId: z.string().trim().min(1),
+  lessonIndex: z.number().int().min(0),
+});
+
+async function markLessonComplete(uid: string, body: unknown) {
+  const parsed = markLessonCompleteSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { courseId, lessonIndex } = parsed.data;
+
+  const [courseSnap, userSnap] = await Promise.all([
+    db.collection('courses').doc(courseId).get(),
+    db.collection('users').doc(uid).get(),
+  ]);
+  if (!courseSnap.exists) throw Err.notFound('Course not found');
+  const course = courseSnap.data()!;
+  const isAdminCaller = userSnap.data()?.role === 'admin';
+
+  const purchaseSnap = await db.collection('purchases').doc(`${uid}_course_${courseId}`).get();
+  const owns = isAdminCaller || (purchaseSnap.exists && !isPurchaseExpired(purchaseSnap.data()));
+
+  // Re-fetch the specific lesson's own order rather than trusting the
+  // client's claim about which lesson it is, so a locked lesson can never
+  // be marked read by guessing its index.
+  const lessonsSnap = await db.collection('courses').doc(courseId).collection('lessons').orderBy('order').get();
+  const lessonDoc = lessonsSnap.docs[lessonIndex];
+  if (!lessonDoc) throw Err.notFound('Lesson not found');
+  const previewLessonCount = (course.previewLessonCount as number | undefined) ?? 1;
+  if (!isLessonUnlocked(lessonDoc.data().order as number, owns, previewLessonCount)) {
+    throw Err.permissionDenied('This lesson is locked');
+  }
+
+  const progressRef = db.collection('courseProgress').doc(`${uid}_${courseId}`);
+  const progressSnap = await progressRef.get();
+  const now = FieldValue.serverTimestamp();
+  await progressRef.set(
+    {
+      completedLessonIndexes: FieldValue.arrayUnion(lessonIndex),
+      ...(progressSnap.exists ? {} : { createdAt: now }),
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+
+  return { success: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -3820,6 +4105,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'updateDraftOutline',
       'generateAllCourseContent',
       'submitAiCourseDraft',
+      'getCourseForReading',
+      'markLessonComplete',
     ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
       ? await verifyAuthedUser(req)
@@ -3885,6 +4172,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'submitAiCourseDraft':
         res.status(200).json(await submitAiCourseDraft(uid, data));
+        return;
+      case 'getCourseForReading':
+        res.status(200).json(await getCourseForReading(uid, data));
+        return;
+      case 'markLessonComplete':
+        res.status(200).json(await markLessonComplete(uid, data));
         return;
       case 'listCatalogSubmissionsAdmin':
         res.status(200).json(await listCatalogSubmissionsAdmin(data));

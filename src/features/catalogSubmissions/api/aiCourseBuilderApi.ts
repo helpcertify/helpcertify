@@ -29,7 +29,7 @@ export const aiCourseBuilderApi = {
 
   generateOutline: (payload: {
     topic: string;
-    itemType: 'quiz' | 'practiceTest';
+    itemType: 'quiz' | 'practiceTest' | 'course';
     category?: string;
     skillLevel?: 'Foundation' | 'Associate' | 'Expert';
     moduleCount?: number;
@@ -39,11 +39,12 @@ export const aiCourseBuilderApi = {
     callAction<{ success: true }>('content-admin', 'updateDraftOutline', { draftId, outline }),
 
   generateContent: (draftId: string) =>
-    callAction<{ draftId: string; generatedQuestions: Record<string, AiParsedQuestion[]>; warnings: string[] }>(
-      'content-admin',
-      'generateAllCourseContent',
-      { draftId }
-    ),
+    callAction<{
+      draftId: string;
+      generatedQuestions: Record<string, AiParsedQuestion[]>;
+      generatedLessons: Record<string, string>;
+      warnings: string[];
+    }>('content-admin', 'generateAllCourseContent', { draftId }),
 
   submitDraft: (payload: {
     draftId: string;
@@ -53,7 +54,7 @@ export const aiCourseBuilderApi = {
     suggestedPrice?: number;
     currency?: 'INR' | 'USD';
   }) =>
-    callAction<{ submissionId: string; totalQuestions: number; autoApproved: boolean }>(
+    callAction<{ submissionId: string; totalQuestions: number; totalLessons?: number; autoApproved: boolean }>(
       'content-admin',
       'submitAiCourseDraft',
       payload

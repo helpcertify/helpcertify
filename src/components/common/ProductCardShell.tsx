@@ -10,7 +10,7 @@ interface ProductCardShellProps {
   id: string;
   // Never 'package' - a certification/package card uses CertificationCard
   // instead (see its own file for why ProductCardShell isn't a fit there).
-  itemType: 'quiz' | 'practiceTest';
+  itemType: 'quiz' | 'practiceTest' | 'course';
   title: string;
   category: string;
   skillLevel: string;
