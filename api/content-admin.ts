@@ -1049,7 +1049,7 @@ const createBatchedSeriesSchema = z.object({
   examName: z.string().trim().max(100).default(''),
   category: z.string().trim().min(1).max(100).default('Other'),
   practiceBatchSize: z.number().int().min(1).max(500).default(150),
-  mockCount: z.number().int().min(1).max(20).default(5),
+  mockCount: z.number().int().min(0).max(20).default(5),
   mockBatchSize: z.number().int().min(1).max(500).default(150),
   mockDurationMinutes: z.number().int().min(1).max(600).default(240),
   passMarkPercent: z.number().int().min(0).max(100).default(60),
@@ -1187,12 +1187,33 @@ async function createBatchedSeries(uid: string, body: unknown) {
     updatedAt: now,
   });
 
+  // Auto content version so the mock exam rules editor works straight away
+  // when mocks were generated.
+  const contentVersions: FirebaseFirestore.DocumentData[] = [];
+  if (mockQuizIds.length > 0) {
+    contentVersions.push({
+      id: db.collection('_ids').doc().id,
+      versionName: `${name} - current outline`,
+      versionCode: `${(certSnap.data()!.slug as string) || 'exam'}-v1`.slice(0, 50),
+      associatedBankType: 'quiz',
+      associatedBankId: mockQuizIds[0],
+      effectiveFrom: Timestamp.now(),
+      effectiveTo: null,
+      status: 'active',
+      notes: 'Auto-created from the batched upload',
+    });
+  }
+
+  // The relevant cover photo is fetched at publish time (see
+  // publishCertification) - kept out of this heavy, time-capped function.
+
   await certRef.update({
     seriesId: seriesRef.id,
     practiceBankIds: practiceTestIds,
     mockBankIds: mockQuizIds,
     practiceBankId: practiceTestIds[0] ?? null,
     mockBankId: mockQuizIds[0] ?? null,
+    ...(contentVersions.length > 0 ? { contentVersions: FieldValue.arrayUnion(...contentVersions) } : {}),
     updatedAt: now,
   });
 

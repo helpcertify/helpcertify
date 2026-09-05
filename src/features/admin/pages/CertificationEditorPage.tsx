@@ -14,7 +14,7 @@ import { toDate } from '@/utils/formatDate';
 import { formatMoney, majorToMinor, minorToMajor } from '@/utils/currency';
 import { CategorySelect } from '@/components/common/CategorySelect';
 import { validateMockBlueprint } from '../lib/mockBlueprintValidation';
-import { hasEntitlement, hasPublishablePrice, isOfferPriceValid, isOfferWindowValid } from '../lib/packageValidation';
+import { hasEntitlement, hasPublishablePrice, isOfferPriceValid } from '../lib/packageValidation';
 import { computeOfferStatus } from '../lib/offerStatus';
 import { slugify, uniqueSlug, nextDisplayOrder, iconForProvider, buildDisclaimer } from '../lib/certificationDefaults';
 import {
@@ -29,13 +29,13 @@ import {
   type TemplateId,
   type TemplateValues,
 } from '../lib/packageTemplates';
-import { deriveMockBlueprint, mockConfigStatus } from '../lib/deriveMockBlueprint';
+import { deriveMockBlueprint } from '../lib/deriveMockBlueprint';
 import { VALIDITY_PRESETS, presetForDays } from '../lib/validityPresets';
 import { uploadContentFile } from '../api/uploadApi';
 import { UploadReport } from '@/components/common/UploadReport';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { errorText, friendlyApiError } from '@/lib/errorMessages';
-import { CERTIFICATION_ICON_KEYS, type CertificationIconKey, type DomainAllocation } from '@/types/models';
+import type { DomainAllocation } from '@/types/models';
 
 // ===========================================================================
 // One linear wizard - the SAME four steps for both "create" and "edit".
@@ -43,9 +43,7 @@ import { CERTIFICATION_ICON_KEYS, type CertificationIconKey, type DomainAllocati
 //   2 Questions   - upload a document OR link existing banks
 //   3 Packages    - which packages to sell, and their price
 //   4 Publish     - preview and go live
-// Every step shows only the few fields that matter; everything else is
-// auto-filled and tucked behind a single "Adjust" / "More settings" toggle,
-// so nothing the old editor could configure is lost.
+// Every step has a "Save draft" button so an admin can stop and resume.
 // ===========================================================================
 
 type Step = 1 | 2 | 3 | 4;
@@ -63,7 +61,20 @@ function toInputDateTime(v: unknown): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-const isoOrNull = (local: string | null | undefined): string | null => (local ? new Date(local).toISOString() : null);
+// "2 days" / "1 week" / "6 months" / "1 year" from a raw day count.
+function humanizeDays(days: number): string {
+  if (!days || days <= 0) return '';
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'} (${days} days)`;
+  if (days % 365 === 0) return plural(days / 365, 'year');
+  if (days % 30 === 0) return plural(days / 30, 'month');
+  if (days % 7 === 0) return plural(days / 7, 'week');
+  return `${days} day${days === 1 ? '' : 's'}`;
+}
+function daysBetween(from: string, to: string): number {
+  if (!from || !to) return 0;
+  const ms = new Date(to).getTime() - new Date(from).getTime();
+  return ms > 0 ? Math.round(ms / 86_400_000) : 0;
+}
 
 // ---------------------------------------------------------------------------
 // Orchestrator
@@ -90,8 +101,6 @@ export function CertificationEditorPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  // Hold off the auto-update reload (src/lib/autoUpdate.ts) while this
-  // multi-step form has unsaved edits so a mid-deploy poll can't discard them.
   useEffect(() => {
     (window as unknown as { __hcUnsaved?: boolean }).__hcUnsaved = dirty;
     return () => {
@@ -116,6 +125,12 @@ export function CertificationEditorPage() {
     queryClient.invalidateQueries({ queryKey: ['admin', 'packages', certificationId] });
   };
 
+  const exitToList = () => {
+    setDirty(false);
+    invalidate();
+    navigate('/admin/products');
+  };
+
   const cancelSafely = async () => {
     if (
       dirty &&
@@ -134,8 +149,6 @@ export function CertificationEditorPage() {
   const goTo = (n: Step) => setStep(n);
   const isNew = !certificationId;
 
-  // Opened by id but the certification list hasn't resolved yet - hold
-  // rather than flash the wizard with empty fields.
   if (params.certificationId && !certification) {
     return (
       <div>
@@ -148,15 +161,13 @@ export function CertificationEditorPage() {
   return (
     <div className="mx-auto w-full max-w-4xl lg:max-w-5xl">
       <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ink">
-          {certification ? certification.name : 'New Exam Preparation'}
-        </h1>
+        <h1 className="text-2xl font-bold text-ink">{certification ? certification.name : 'New Exam Preparation'}</h1>
         <button type="button" onClick={cancelSafely} className="text-sm text-ink-faint hover:text-ink">
           Close
         </button>
       </div>
       <p className="mb-5 max-w-2xl text-sm text-ink-faint">
-        Four short steps. Everything technical is filled in for you - open “Adjust” only if you need to.
+        Four short steps. Use “Save draft” any time to stop and come back later.
       </p>
 
       <Stepper current={step} onGo={goTo} unlocked={isNew ? 1 : 4} />
@@ -167,13 +178,14 @@ export function CertificationEditorPage() {
             certification={certification}
             otherCerts={allCerts.filter((c) => c.id !== certificationId)}
             onDirty={() => setDirty(true)}
-            onSaved={(id) => {
+            onExit={exitToList}
+            onSaved={(id, advance) => {
               setCertificationId(id);
               setDirty(false);
               invalidate();
               if (!params.certificationId) navigate(`/admin/products/${id}`, { replace: true });
               pushToast('Saved', 'success');
-              goTo(2);
+              if (advance) goTo(2);
             }}
           />
         )}
@@ -183,11 +195,8 @@ export function CertificationEditorPage() {
             <StepQuestions
               certification={certification}
               onDirty={() => setDirty(true)}
-              onSaved={() => {
-                setDirty(false);
-                invalidate();
-                goTo(3);
-              }}
+              onExit={exitToList}
+              onSaved={() => { setDirty(false); invalidate(); goTo(3); }}
               onBack={() => goTo(1)}
             />
           ) : (
@@ -201,11 +210,8 @@ export function CertificationEditorPage() {
               certification={certification}
               packages={packages}
               onDirty={() => setDirty(true)}
-              onSaved={() => {
-                setDirty(false);
-                invalidate();
-                goTo(4);
-              }}
+              onExit={exitToList}
+              onSaved={() => { setDirty(false); invalidate(); goTo(4); }}
               onBack={() => goTo(2)}
             />
           ) : (
@@ -214,7 +220,7 @@ export function CertificationEditorPage() {
 
         {step === 4 &&
           (certification ? (
-            <StepPublish certification={certification} packages={packages} onChanged={invalidate} onBack={() => goTo(3)} />
+            <StepPublish certification={certification} packages={packages} onChanged={invalidate} onExit={exitToList} onBack={() => goTo(3)} />
           ) : (
             <LockedStep onBack={() => goTo(3)} />
           ))}
@@ -257,24 +263,35 @@ function LockedStep({ onBack }: { onBack: () => void }) {
   );
 }
 
-// A back button + optional primary, in one consistent spot at the bottom of
-// every step.
+// Consistent bottom bar: Save draft (left, next to Back) + a primary action (right).
 function WizardFooter({
   onBack,
   primary,
+  draft,
 }: {
   onBack?: () => void;
   primary?: { label: string; onClick: () => void; disabled?: boolean; busy?: boolean };
+  draft?: { onClick: () => void; busy?: boolean };
 }) {
   return (
-    <div className="mt-6 flex items-center justify-between gap-3">
-      {onBack ? (
-        <button type="button" onClick={onBack} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
-          ← Back
-        </button>
-      ) : (
-        <span />
-      )}
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        {onBack && (
+          <button type="button" onClick={onBack} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">
+            ← Back
+          </button>
+        )}
+        {draft && (
+          <button
+            type="button"
+            onClick={draft.onClick}
+            disabled={draft.busy}
+            className="rounded-lg border border-surface-border-strong px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400 disabled:opacity-50"
+          >
+            {draft.busy ? 'Saving…' : 'Save draft'}
+          </button>
+        )}
+      </div>
       {primary && (
         <button
           type="button"
@@ -312,44 +329,53 @@ function ToggleField({ label, checked, onChange }: { label: string; checked: boo
   );
 }
 
-// A single collapsible "Adjust" / "More settings" section. All the fields an
-// admin rarely touches live inside one of these.
-function Disclosure({ label, children, defaultOpen = false }: { label: string; children: ReactNode; defaultOpen?: boolean }) {
+// A switch that reads as an on/off control, used for "Generate mock exams".
+function Switch({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }) {
   return (
-    <details open={defaultOpen} className="rounded-lg border border-surface-border">
-      <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-brand-ink">{label}</summary>
-      <div className="border-t border-surface-border p-3">{children}</div>
-    </details>
+    <div>
+      <label className="flex cursor-pointer items-center gap-3">
+        <span
+          className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors ${checked ? 'bg-brand-500' : 'bg-surface-border-strong'}`}
+        >
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+        </span>
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only" />
+        <span className="text-sm font-medium text-ink">{label}</span>
+      </label>
+      {hint && <p className="mt-1 text-xs text-ink-faint">{hint}</p>}
+    </div>
   );
 }
 
 function ValiditySelect({ days, onChange }: { days: number; onChange: (d: number) => void }) {
   const preset = presetForDays(days);
-  const isCustom = days > 0 && !preset;
-  const [custom, setCustom] = useState(isCustom);
-  const selectValue = custom || isCustom ? 'custom' : String(days);
+  const initialMode: 'preset' | 'days' | 'range' = preset ? 'preset' : days > 0 ? 'days' : 'preset';
+  const [mode, setMode] = useState<'preset' | 'days' | 'range'>(initialMode);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const rangeDays = daysBetween(from, to);
+
   return (
     <div className="space-y-2">
       <select
-        value={selectValue}
+        value={mode === 'preset' && preset ? String(days) : mode === 'range' ? 'range' : 'days'}
         onChange={(e) => {
-          if (e.target.value === 'custom') {
-            setCustom(true);
-            return;
-          }
-          setCustom(false);
+          if (e.target.value === 'range') { setMode('range'); return; }
+          if (e.target.value === 'days') { setMode('days'); return; }
+          setMode('preset');
           onChange(Number(e.target.value));
         }}
         className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink"
       >
         {VALIDITY_PRESETS.map((p) => (
-          <option key={p.days} value={p.days}>
-            {p.label}
-          </option>
+          <option key={p.days} value={p.days}>{p.label}</option>
         ))}
-        <option value="custom">Custom...</option>
+        <option value="days">Custom - number of days</option>
+        <option value="range">Custom - from / to dates</option>
       </select>
-      {(custom || isCustom) && (
+
+      {mode === 'days' && (
         <input
           type="number"
           min={1}
@@ -358,6 +384,16 @@ function ValiditySelect({ days, onChange }: { days: number; onChange: (d: number
           placeholder="Days of access"
           className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink"
         />
+      )}
+
+      {mode === 'range' && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); const d = daysBetween(e.target.value, to); if (d) onChange(d); }} className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink" />
+            <input type="date" value={to} onChange={(e) => { setTo(e.target.value); const d = daysBetween(from, e.target.value); if (d) onChange(d); }} className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink" />
+          </div>
+          {rangeDays > 0 && <p className="text-xs font-medium text-brand-ink">= {humanizeDays(rangeDays)}</p>}
+        </div>
       )}
     </div>
   );
@@ -399,12 +435,14 @@ function StepBasics({
   certification,
   otherCerts,
   onDirty,
+  onExit,
   onSaved,
 }: {
   certification: CertificationAdminRow | null;
   otherCerts: CertificationAdminRow[];
   onDirty: () => void;
-  onSaved: (id: string) => void;
+  onExit: () => void;
+  onSaved: (id: string, advance: boolean) => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
 
@@ -414,37 +452,33 @@ function StepBasics({
   const [provider, setProvider] = useState(certification?.provider ?? 'Other');
   const [shortDescription, setShortDescription] = useState(certification?.shortDescription ?? '');
   const [defaultValidityDays, setDefaultValidityDays] = useState(String(certification?.defaultValidityDays ?? 180));
-
-  // "More settings"
-  const [description, setDescription] = useState(certification?.description ?? '');
   const [featured, setFeatured] = useState(certification?.featured ?? false);
+
   const [slugTouched, setSlugTouched] = useState(!!certification);
   const [slug, setSlug] = useState(certification?.slug ?? '');
   const [category, setCategory] = useState(certification?.category ?? '');
-  const [iconKey, setIconKey] = useState<CertificationIconKey>(certification?.iconKey ?? 'shield');
-  const [iconTouched, setIconTouched] = useState(!!certification);
   const [effectiveFrom, setEffectiveFrom] = useState(toInputDateTime(certification?.effectiveFrom));
   const [effectiveTo, setEffectiveTo] = useState(toInputDateTime(certification?.effectiveTo));
   const [displayOrder, setDisplayOrder] = useState(certification ? String(certification.displayOrder) : '');
   const [disclaimer, setDisclaimer] = useState(certification?.independentPrepDisclaimer ?? '');
   const [disclaimerTouched, setDisclaimerTouched] = useState(!!certification?.independentPrepDisclaimer);
 
+  // Kept but no longer edited here (icon + full description).
+  const description = certification?.description ?? '';
+
   const touched = () => onDirty();
 
-  // Name auto-fills from the exam code until the admin edits it directly.
   const effectiveName = nameTouched ? name : shortName ? `${shortName} Exam Preparation` : '';
-
   const autoSlug = useMemo(
     () => uniqueSlug(slugify(shortName || effectiveName), otherCerts.map((c) => c.slug)),
     [shortName, effectiveName, otherCerts],
   );
   const effectiveSlug = slugTouched && slug ? slug.trim().toLowerCase() : autoSlug;
   const effectiveCategory = category.trim() || provider;
-  const effectiveIcon = iconTouched ? iconKey : iconForProvider(provider);
   const effectiveDisclaimer = disclaimerTouched ? disclaimer : buildDisclaimer(shortName, provider);
   const effectiveDisplayOrder = displayOrder !== '' ? Number(displayOrder) : nextDisplayOrder(otherCerts);
 
-  const saveMutation = useMutation({
+  const save = useMutation({
     mutationFn: async () => {
       const payload = {
         shortName: shortName.trim(),
@@ -454,7 +488,7 @@ function StepBasics({
         category: effectiveCategory,
         shortDescription,
         description,
-        iconKey: effectiveIcon,
+        iconKey: certification?.iconKey ?? iconForProvider(provider),
         effectiveFrom: effectiveFrom ? new Date(effectiveFrom).toISOString() : null,
         effectiveTo: effectiveTo ? new Date(effectiveTo).toISOString() : null,
         defaultValidityDays: Number(defaultValidityDays) || 180,
@@ -462,12 +496,10 @@ function StepBasics({
         independentPrepDisclaimer: effectiveDisclaimer,
         displayOrder: effectiveDisplayOrder,
       };
-      const id = certification
+      return certification
         ? await contentAdminApi.updateCertification({ certificationId: certification.id, ...payload }).then(() => certification.id)
         : await contentAdminApi.createCertification(payload).then((r) => r.certificationId);
-      return id;
     },
-    onSuccess: (id) => onSaved(id),
     onError: (err) => pushToast(cleanError(err, 'Could not save'), 'error'),
   });
 
@@ -480,94 +512,68 @@ function StepBasics({
           <input value={shortName} onChange={(e) => { setShortName(e.target.value); touched(); }} className="input-dark" />
         </Field>
         <Field label="Name" hint={nameTouched ? undefined : 'Auto from the exam code - edit to override'}>
-          <input
-            value={effectiveName}
-            onChange={(e) => { setName(e.target.value); setNameTouched(true); touched(); }}
-            className="input-dark"
-          />
+          <input value={effectiveName} onChange={(e) => { setName(e.target.value); setNameTouched(true); touched(); }} className="input-dark" />
         </Field>
         <Field label="Certification body" hint="e.g. ISACA">
           <CategorySelect value={provider} onChange={(v) => { setProvider(v); touched(); }} />
         </Field>
-        <Field label="Short description" hint={`For the product card. ${shortDescription.length}/300`}>
-          <textarea
-            value={shortDescription}
-            onChange={(e) => { setShortDescription(e.target.value.slice(0, 300)); touched(); }}
-            maxLength={300}
-            rows={2}
-            className="input-dark"
-            placeholder="Prepare with practice questions, realistic mock exams, detailed explanations and analytics."
-          />
+        <Field label="Access validity" hint="Applies to every package - set it once here.">
+          <ValiditySelect days={Number(defaultValidityDays) || 0} onChange={(d) => { setDefaultValidityDays(String(d)); touched(); }} />
         </Field>
       </div>
 
-      <Disclosure label="More settings (optional)">
-        <div className="space-y-4">
-          <Field label="Default access validity" hint="Starting point for each package - you can override it per package.">
-            <ValiditySelect days={Number(defaultValidityDays) || 0} onChange={(d) => { setDefaultValidityDays(String(d)); touched(); }} />
-          </Field>
-          <Field label="Full description">
-            <textarea value={description} onChange={(e) => { setDescription(e.target.value); touched(); }} rows={4} className="input-dark max-w-2xl" />
-          </Field>
-          <Field label="Product icon" hint="Shown on the product card. Defaults to a match for the certification body.">
-            <select
-              value={effectiveIcon}
-              onChange={(e) => { setIconKey(e.target.value as CertificationIconKey); setIconTouched(true); touched(); }}
-              className="input-dark"
-            >
-              {CERTIFICATION_ICON_KEYS.map((k) => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-            </select>
-          </Field>
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" checked={featured} onChange={(e) => { setFeatured(e.target.checked); touched(); }} className="h-4 w-4" />
-            Featured product
-          </label>
+      <Field label="Short description" hint={`For the product card. ${shortDescription.length}/300`}>
+        <textarea
+          value={shortDescription}
+          onChange={(e) => { setShortDescription(e.target.value.slice(0, 300)); touched(); }}
+          maxLength={300}
+          rows={2}
+          className="input-dark max-w-2xl"
+          placeholder="Prepare with practice questions, realistic mock exams, detailed explanations and analytics."
+        />
+      </Field>
 
-          <Disclosure label="Advanced (web address, ordering, dates, disclaimer)">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Slug" hint={`The web address for this product. Auto: ${autoSlug}`}>
-                  <input
-                    value={slugTouched ? slug : autoSlug}
-                    onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); touched(); }}
-                    className="input-dark"
-                  />
-                </Field>
-                <Field label="Category" hint={`Auto: ${provider}`}>
-                  <input value={category} onChange={(e) => { setCategory(e.target.value); touched(); }} placeholder={provider} className="input-dark" />
-                </Field>
-                <Field label="Display order" hint={`Auto: ${nextDisplayOrder(otherCerts)}`}>
-                  <input type="number" min={0} value={displayOrder} onChange={(e) => { setDisplayOrder(e.target.value); touched(); }} placeholder={String(nextDisplayOrder(otherCerts))} className="input-dark" />
-                </Field>
-                <Field label="Effective from" hint="Blank = the publish date.">
-                  <input type="datetime-local" value={effectiveFrom} onChange={(e) => { setEffectiveFrom(e.target.value); touched(); }} className="input-dark" />
-                </Field>
-                <Field label="Effective to" hint="Blank = no end date.">
-                  <input type="datetime-local" value={effectiveTo} onChange={(e) => { setEffectiveTo(e.target.value); touched(); }} className="input-dark" />
-                </Field>
-              </div>
-              <Field label="Independent-preparation disclaimer" hint="Auto-generated from the exam name and body.">
-                <textarea
-                  value={disclaimerTouched ? disclaimer : effectiveDisclaimer}
-                  onChange={(e) => { setDisclaimer(e.target.value); setDisclaimerTouched(true); touched(); }}
-                  rows={4}
-                  className="input-dark max-w-2xl"
-                />
-              </Field>
-              {certification && <ContentVersionsPanel certification={certification} onDirty={onDirty} />}
-            </div>
-          </Disclosure>
-        </div>
-      </Disclosure>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Field label="Slug" hint={`Web address. Auto: ${autoSlug}`}>
+          <input value={slugTouched ? slug : autoSlug} onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); touched(); }} className="input-dark" />
+        </Field>
+        <Field label="Category" hint={`Auto: ${provider}`}>
+          <input value={category} onChange={(e) => { setCategory(e.target.value); touched(); }} placeholder={provider} className="input-dark" />
+        </Field>
+        <Field label="Display order" hint={`Auto: ${nextDisplayOrder(otherCerts)}`}>
+          <input type="number" min={0} value={displayOrder} onChange={(e) => { setDisplayOrder(e.target.value); touched(); }} placeholder={String(nextDisplayOrder(otherCerts))} className="input-dark" />
+        </Field>
+        <Field label="Effective from" hint="Blank = the publish date.">
+          <input type="datetime-local" value={effectiveFrom} onChange={(e) => { setEffectiveFrom(e.target.value); touched(); }} className="input-dark" />
+        </Field>
+        <Field label="Effective to" hint="Blank = no end date.">
+          <input type="datetime-local" value={effectiveTo} onChange={(e) => { setEffectiveTo(e.target.value); touched(); }} className="input-dark" />
+        </Field>
+      </div>
+
+      <Field label="Independent-preparation disclaimer" hint="Auto-generated from the exam name and body.">
+        <textarea
+          value={disclaimerTouched ? disclaimer : effectiveDisclaimer}
+          onChange={(e) => { setDisclaimer(e.target.value); setDisclaimerTouched(true); touched(); }}
+          rows={4}
+          className="input-dark max-w-2xl"
+        />
+      </Field>
+
+      <label className="flex items-center gap-2 text-sm text-ink">
+        <input type="checkbox" checked={featured} onChange={(e) => { setFeatured(e.target.checked); touched(); }} className="h-4 w-4" />
+        Featured product
+      </label>
+
+      {certification && <ContentVersionsPanel certification={certification} onDirty={onDirty} />}
 
       <WizardFooter
+        draft={{ onClick: () => save.mutate(undefined, { onSuccess: () => { pushToast('Draft saved', 'success'); onExit(); } }), busy: save.isPending }}
         primary={{
           label: 'Save & continue →',
-          onClick: () => saveMutation.mutate(),
+          onClick: () => save.mutate(undefined, { onSuccess: (id) => onSaved(id, true) }),
           disabled: !canSave,
-          busy: saveMutation.isPending,
+          busy: save.isPending,
         }}
       />
     </div>
@@ -581,11 +587,13 @@ function StepBasics({
 function StepQuestions({
   certification,
   onDirty,
+  onExit,
   onSaved,
   onBack,
 }: {
   certification: CertificationAdminRow;
   onDirty: () => void;
+  onExit: () => void;
   onSaved: () => void;
   onBack: () => void;
 }) {
@@ -601,11 +609,8 @@ function StepQuestions({
       : [];
   const hasContent = practiceBankIds.length > 0 || !!certification.seriesId;
 
-  // Once content exists, show the summary and hide the pickers until the
-  // admin clicks "Change".
   const [editing, setEditing] = useState(!hasContent);
   const [mode, setMode] = useState<'upload' | 'existing'>(certification.seriesId ? 'upload' : 'existing');
-
   const [practiceBankId, setPracticeBankId] = useState(certification.practiceBankId ?? '');
   const [mockBankId, setMockBankId] = useState(certification.mockBankId ?? '');
 
@@ -614,8 +619,9 @@ function StepQuestions({
   const practiceBankList = practiceBanks.filter((t) => practiceBankIds.includes(t.id));
   const practiceQuestionTotal = practiceBankList.reduce((sum, t) => sum + (t.totalQuestions ?? 0), 0);
   const mockBank = quizBanks.find((q) => q.id === certification.mockBankId) ?? null;
-  const mockCount = (quizzes?.quizzes ?? []).filter((q) => (certification.mockBankIds ?? []).includes(q.id)).length
-    || (certification.mockBankId ? 1 : 0);
+  const mockCount =
+    (quizzes?.quizzes ?? []).filter((q) => (certification.mockBankIds ?? []).includes(q.id)).length ||
+    (certification.mockBankId ? 1 : 0);
 
   const linkBanks = useMutation({
     mutationFn: async () => {
@@ -624,8 +630,6 @@ function StepQuestions({
         practiceBankId: practiceBankId || null,
         mockBankId: mockBankId || null,
       });
-      // Auto-create the single content version the mock rules hang off, the
-      // first time a mock bank is chosen.
       if (mockBankId && !(certification.contentVersions ?? []).some((v) => v.associatedBankId === mockBankId)) {
         try {
           await contentAdminApi.saveContentVersion(certification.id, {
@@ -642,15 +646,11 @@ function StepQuestions({
           pushToast(errorText(e, 'Saved, but the mock question bank could not be linked'), 'error');
         }
       }
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
-      onSaved();
     },
     onError: (err) => pushToast(cleanError(err, 'Could not link the question banks'), 'error'),
   });
 
-  // Content already attached and not editing - compact summary + Continue.
   if (hasContent && !editing) {
     return (
       <div className="space-y-4">
@@ -658,45 +658,39 @@ function StepQuestions({
           <div className="font-semibold text-ink">Questions are ready</div>
           <div className="mt-1 text-ink-muted">
             {(certification.seriesId ? practiceQuestionTotal : practiceBankList[0]?.totalQuestions ?? 0).toLocaleString()} practice questions
-            {certification.seriesId ? ` · ${practiceBankList.length} practice batches` : ''}
+            {certification.seriesId ? ` · ${practiceBankList.length} practice exams` : ''}
             {mockCount > 0 ? ` · ${mockCount} mock exam${mockCount === 1 ? '' : 's'}` : mockBank ? ' · 1 mock exam bank' : ''}
           </div>
           <button type="button" onClick={() => setEditing(true)} className="mt-2 text-xs font-semibold text-brand-ink hover:underline">
             Change
           </button>
         </div>
-        <WizardFooter onBack={onBack} primary={{ label: 'Continue →', onClick: onSaved }} />
+        <WizardFooter onBack={onBack} draft={{ onClick: onExit }} primary={{ label: 'Continue →', onClick: onSaved }} />
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      <div className="inline-flex rounded-lg border border-surface-border p-0.5 text-sm">
-        <button
-          type="button"
-          onClick={() => setMode('upload')}
-          className={`rounded-md px-4 py-1.5 font-medium ${mode === 'upload' ? 'bg-brand-500 text-white' : 'text-ink-muted hover:text-ink'}`}
-        >
-          Upload a document
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('existing')}
-          className={`rounded-md px-4 py-1.5 font-medium ${mode === 'existing' ? 'bg-brand-500 text-white' : 'text-ink-muted hover:text-ink'}`}
-        >
-          Use existing banks
-        </button>
+      <div className="flex flex-wrap gap-3">
+        {(['upload', 'existing'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+              mode === m ? 'border-brand-500 bg-brand-500 text-white' : 'border-surface-border-strong bg-surface-raised text-ink-muted hover:border-brand-400'
+            }`}
+          >
+            {m === 'upload' ? 'Upload a document' : 'Use existing banks'}
+          </button>
+        ))}
       </div>
 
       {mode === 'upload' ? (
         <>
           <BatchedSeriesPanel
-            certificationId={certification.id}
-            canCreate
-            examName={certification.shortName || certification.name}
-            category={certification.category || certification.provider}
-            currentSeriesId={certification.seriesId ?? null}
+            certification={certification}
             onGenerated={() => {
               queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
               queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
@@ -705,7 +699,7 @@ function StepQuestions({
               setEditing(false);
             }}
           />
-          <WizardFooter onBack={onBack} primary={hasContent ? { label: 'Continue →', onClick: onSaved } : undefined} />
+          <WizardFooter onBack={onBack} draft={{ onClick: onExit }} primary={hasContent ? { label: 'Continue →', onClick: onSaved } : undefined} />
         </>
       ) : (
         <>
@@ -713,9 +707,7 @@ function StepQuestions({
             <select value={practiceBankId} onChange={(e) => { setPracticeBankId(e.target.value); onDirty(); }} className="input-dark">
               <option value="">Select a question bank…</option>
               {practiceBanks.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.title} - {b.totalQuestions.toLocaleString()} questions
-                </option>
+                <option key={b.id} value={b.id}>{b.title} - {b.totalQuestions.toLocaleString()} questions</option>
               ))}
             </select>
           </Field>
@@ -723,17 +715,16 @@ function StepQuestions({
             <select value={mockBankId} onChange={(e) => { setMockBankId(e.target.value); onDirty(); }} className="input-dark">
               <option value="">Not set</option>
               {quizBanks.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.title} - {b.totalQuestions.toLocaleString()} questions
-                </option>
+                <option key={b.id} value={b.id}>{b.title} - {b.totalQuestions.toLocaleString()} questions</option>
               ))}
             </select>
           </Field>
           <WizardFooter
             onBack={onBack}
+            draft={{ onClick: () => linkBanks.mutate(undefined, { onSuccess: () => { pushToast('Draft saved', 'success'); onExit(); } }), busy: linkBanks.isPending }}
             primary={{
               label: 'Save & continue →',
-              onClick: () => linkBanks.mutate(),
+              onClick: () => linkBanks.mutate(undefined, { onSuccess: onSaved }),
               disabled: !practiceBankId,
               busy: linkBanks.isPending,
             }}
@@ -745,24 +736,16 @@ function StepQuestions({
 }
 
 function BatchedSeriesPanel({
-  certificationId,
-  canCreate,
-  examName,
-  category,
-  currentSeriesId,
+  certification,
   onGenerated,
 }: {
-  certificationId: string;
-  canCreate: boolean;
-  examName: string;
-  category: string;
-  currentSeriesId: string | null;
+  certification: CertificationAdminRow;
   onGenerated: () => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
   const [file, setFile] = useState<File | null>(null);
-  const [sourceFormat, setSourceFormat] = useState<'standard' | 'cisa_qa'>('standard');
   const [practiceBatchSize, setPracticeBatchSize] = useState('150');
+  const [generateMocks, setGenerateMocks] = useState(true);
   const [mockCount, setMockCount] = useState('5');
   const [mockBatchSize, setMockBatchSize] = useState('150');
   const [mockDurationMinutes, setMockDurationMinutes] = useState('240');
@@ -777,13 +760,13 @@ function BatchedSeriesPanel({
       try {
         const fileUrl = await uploadContentFile(file);
         return await contentAdminApi.createBatchedSeries({
-          certificationId,
+          certificationId: certification.id,
           fileUrl,
-          sourceFormat,
-          examName: examName.trim(),
-          category: category.trim() || 'Other',
+          sourceFormat: 'standard',
+          examName: (certification.shortName || certification.name).trim(),
+          category: (certification.category || certification.provider).trim() || 'Other',
           practiceBatchSize: Number(practiceBatchSize) || 150,
-          mockCount: Number(mockCount) || 5,
+          mockCount: generateMocks ? Number(mockCount) || 5 : 0,
           mockBatchSize: Number(mockBatchSize) || 150,
           mockDurationMinutes: Number(mockDurationMinutes) || 240,
           passMarkPercent: Number(passMarkPercent) || 60,
@@ -796,87 +779,91 @@ function BatchedSeriesPanel({
     },
     onSuccess: (r) => {
       pushToast(
-        `Generated ${r.practiceTestIds.length} practice batches and ${r.mockQuizIds.length} mock exams from ${r.totalQuestions} questions`,
+        `Generated ${r.practiceTestIds.length} practice exams${r.mockQuizIds.length ? ` and ${r.mockQuizIds.length} mock exams` : ''} from ${r.totalQuestions} questions`,
         'success',
       );
       setReport({ totalQuestions: r.totalQuestions, errors: r.parseErrors, warnings: r.parseWarnings });
       setFile(null);
       onGenerated();
     },
-    onError: (err) => pushToast(cleanError(err, 'Could not generate the batched question set'), 'error'),
+    onError: (err) => pushToast(cleanError(err, 'Could not generate the question set'), 'error'),
   });
 
   return (
-    <div className="rounded-xl border border-brand-500/30 bg-brand-50 p-4 dark:bg-brand-500/10">
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-sm font-bold text-ink">Upload one question document</h3>
+    <div className="space-y-4 rounded-xl border border-surface-border bg-surface-raised p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-ink">Upload one question document (.docx)</h3>
+          <p className="mt-1 max-w-xl text-xs text-ink-muted">
+            We split it into practice exams (no repeats, every question covered) plus, if enabled, fixed mock exams that
+            shuffle on every attempt. The document must match the template.
+          </p>
+        </div>
         <button
           type="button"
-          onClick={() => downloadTemplate(sourceFormat)}
-          className="shrink-0 rounded-lg border border-brand-500 px-2.5 py-1 text-xs text-brand-ink hover:opacity-80"
+          onClick={() => downloadTemplate('standard')}
+          className="shrink-0 rounded-lg border border-surface-border-strong bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-sm hover:border-brand-400"
         >
-          ↓ Template
+          ↓ Download template
         </button>
       </div>
-      <p className="mt-1 text-xs text-ink-muted">
-        We split it into practice exam batches (no repeats, every question covered) plus fixed mock exams that shuffle on
-        every attempt. Learners unlock these by buying a package. The document must match the template above.
-      </p>
-      {currentSeriesId && (
-        <p className="mt-2 rounded-lg bg-surface-raised px-3 py-2 text-xs text-ink-muted">
-          A set is already linked. Generating again replaces it with a new set of batches.
+
+      {certification.seriesId && (
+        <p className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-xs text-warning">
+          A set is already linked. Generating again replaces it.
         </p>
       )}
-      <div className="mt-3 space-y-3">
-        <Field label="Question document">
-          <input type="file" accept=".docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-sm text-ink" />
-        </Field>
 
-        <details className="rounded-lg border border-brand-500/30">
-          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-brand-ink">
-            Adjust batch settings: {sourceFormat === 'standard' ? 'Standard' : 'CISA Q&A'} · {practiceBatchSize}/practice batch · {mockCount} mocks x {mockBatchSize} Q · {mockDurationMinutes} min · {passMarkPercent}% pass
-          </summary>
-          <div className="grid grid-cols-1 gap-3 border-t border-brand-500/30 p-3 sm:grid-cols-2">
-            <Field label="Source format">
-              <select value={sourceFormat} onChange={(e) => setSourceFormat(e.target.value as 'standard' | 'cisa_qa')} className="input-dark">
-                <option value="standard">Standard</option>
-                <option value="cisa_qa">CISA Q&amp;A</option>
-              </select>
-            </Field>
-            <Field label="Questions per practice batch">
-              <input type="number" min={1} value={practiceBatchSize} onChange={(e) => setPracticeBatchSize(e.target.value)} className="input-dark" />
-            </Field>
-            <Field label="Number of mock exams">
-              <input type="number" min={1} value={mockCount} onChange={(e) => setMockCount(e.target.value)} className="input-dark" />
-            </Field>
-            <Field label="Questions per mock exam">
-              <input type="number" min={1} value={mockBatchSize} onChange={(e) => setMockBatchSize(e.target.value)} className="input-dark" />
-            </Field>
-            <Field label="Mock exam duration (minutes)">
-              <input type="number" min={1} value={mockDurationMinutes} onChange={(e) => setMockDurationMinutes(e.target.value)} className="input-dark" />
-            </Field>
-            <Field label="Pass mark (%)">
-              <input type="number" min={0} max={100} value={passMarkPercent} onChange={(e) => setPassMarkPercent(e.target.value)} className="input-dark" />
-            </Field>
-          </div>
-        </details>
+      <Field label="Question document">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="cursor-pointer rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">
+            Choose file
+            <input type="file" accept=".docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="sr-only" />
+          </label>
+          <span className="text-sm text-ink-muted">{file ? file.name : 'No file chosen'}</span>
+        </div>
+      </Field>
 
-        <button
-          type="button"
-          disabled={!file || !canCreate || gen.isPending || uploading}
-          onClick={() => gen.mutate()}
-          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {uploading ? 'Uploading...' : gen.isPending ? 'Generating...' : 'Generate'}
-        </button>
+      <div className="rounded-lg border border-surface-border bg-surface p-4">
+        <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">Practice exam settings</h4>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Questions per practice exam">
+            <input type="number" min={1} value={practiceBatchSize} onChange={(e) => setPracticeBatchSize(e.target.value)} className="input-dark" />
+          </Field>
+        </div>
+
+        <div className="mt-4 border-t border-surface-border pt-4">
+          <Switch label="Generate mock exams" checked={generateMocks} onChange={setGenerateMocks} hint="Turn off to create practice exams only." />
+          {generateMocks && (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Number of mock exams">
+                <input type="number" min={1} value={mockCount} onChange={(e) => setMockCount(e.target.value)} className="input-dark" />
+              </Field>
+              <Field label="Questions per mock exam">
+                <input type="number" min={1} value={mockBatchSize} onChange={(e) => setMockBatchSize(e.target.value)} className="input-dark" />
+              </Field>
+              <Field label="Mock exam duration (minutes)">
+                <input type="number" min={1} value={mockDurationMinutes} onChange={(e) => setMockDurationMinutes(e.target.value)} className="input-dark" />
+              </Field>
+              <Field label="Pass mark (%)">
+                <input type="number" min={0} max={100} value={passMarkPercent} onChange={(e) => setPassMarkPercent(e.target.value)} className="input-dark" />
+              </Field>
+            </div>
+          )}
+        </div>
       </div>
+
+      <button
+        type="button"
+        disabled={!file || gen.isPending || uploading}
+        onClick={() => gen.mutate()}
+        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+      >
+        {uploading ? 'Uploading...' : gen.isPending ? 'Generating...' : 'Generate'}
+      </button>
+
       {report && (
-        <UploadReport
-          totalQuestions={report.totalQuestions}
-          errors={report.errors}
-          warnings={report.warnings}
-          onDismiss={() => setReport(null)}
-        />
+        <UploadReport totalQuestions={report.totalQuestions} errors={report.errors} warnings={report.warnings} onDismiss={() => setReport(null)} />
       )}
     </div>
   );
@@ -915,12 +902,14 @@ function StepPackages({
   certification,
   packages,
   onDirty,
+  onExit,
   onSaved,
   onBack,
 }: {
   certification: CertificationAdminRow;
   packages: PackageAdminRow[];
   onDirty: () => void;
+  onExit: () => void;
   onSaved: () => void;
   onBack: () => void;
 }) {
@@ -937,6 +926,8 @@ function StepPackages({
   const eligiblePracticeQuestions = certification.seriesId
     ? seriesQuestionTotal || Number.MAX_SAFE_INTEGER
     : practiceDomains?.totalQuestions ?? Number.MAX_SAFE_INTEGER;
+  const questionCount = eligiblePracticeQuestions === Number.MAX_SAFE_INTEGER ? 0 : eligiblePracticeQuestions;
+  const validityDays = certification.defaultValidityDays;
 
   const templatePackages = useMemo(() => {
     const map: Partial<Record<TemplateId, PackageAdminRow>> = {};
@@ -953,7 +944,7 @@ function StepPackages({
       const existing = templatePackages[id];
       base[id] = existing
         ? { enabled: true, values: packageToValues(existing) }
-        : { enabled: false, values: emptyTemplateValues(certification.defaultValidityDays) };
+        : { enabled: false, values: emptyTemplateValues(validityDays) };
     }
     return base;
   });
@@ -988,13 +979,20 @@ function StepPackages({
     });
   }, [partsSelling, partsRegular, completePriceTouched, comboDiscount]);
 
-  const saveAll = useMutation({
+  const save = useMutation({
     mutationFn: async () => {
       for (const id of TEMPLATE_ORDER) {
         const card = cards[id];
         const existing = templatePackages[id];
         if (card.enabled) {
-          const v: TemplateValues = { ...card.values, offerStart: isoOrNull(card.values.offerStart), offerEnd: isoOrNull(card.values.offerEnd) };
+          const v: TemplateValues = {
+            ...card.values,
+            validityDays,
+            numberOfQuestions: questionCount || card.values.numberOfQuestions,
+            offerStart: null,
+            offerEnd: null,
+            badgeText: null,
+          };
           const payload = templateToCreatePayload(id, v, {
             certificationId: certification.id,
             practiceBankIds: certification.practiceBankIds?.length
@@ -1008,7 +1006,7 @@ function StepPackages({
                 ? [certification.mockBankId]
                 : [],
             eligiblePracticeQuestions,
-            defaultValidityDays: certification.defaultValidityDays,
+            defaultValidityDays: validityDays,
             currency: existing?.currency ?? 'INR',
             displayOrder: existing?.displayOrder ?? TEMPLATE_ORDER.indexOf(id),
           });
@@ -1019,7 +1017,6 @@ function StepPackages({
         }
       }
     },
-    onSuccess: () => { pushToast('Packages saved', 'success'); onSaved(); },
     onError: (err) => pushToast(cleanError(err, 'Could not save the packages'), 'error'),
   });
 
@@ -1041,26 +1038,24 @@ function StepPackages({
           id={id}
           state={cards[id]}
           certification={certification}
-          eligiblePracticeQuestions={eligiblePracticeQuestions === Number.MAX_SAFE_INTEGER ? 0 : eligiblePracticeQuestions}
+          questionCount={questionCount}
+          validityDays={validityDays}
           partsSellingMinor={partsSelling}
           onToggle={(enabled) => setCard(id, { enabled })}
           onValue={(k, val) => setValue(id, k, val)}
         />
       ))}
 
-      <PackageList packages={packages} onChanged={onSaved} />
-
-      <Disclosure label="Add a custom package (advanced)">
-        <CustomPackageForm certificationId={certification.id} onChanged={onSaved} />
-      </Disclosure>
+      {packages.length > 0 && <LearnerPreview certification={certification} packages={packages} />}
 
       <WizardFooter
         onBack={onBack}
+        draft={{ onClick: () => save.mutate(undefined, { onSuccess: () => { pushToast('Draft saved', 'success'); onExit(); } }), busy: save.isPending }}
         primary={{
           label: 'Save & continue →',
-          onClick: () => saveAll.mutate(),
+          onClick: () => save.mutate(undefined, { onSuccess: () => { pushToast('Packages saved', 'success'); onSaved(); } }),
           disabled: !anyEnabled || anyPriceBad || noContent,
-          busy: saveAll.isPending,
+          busy: save.isPending,
         }}
       />
     </div>
@@ -1071,7 +1066,8 @@ function TemplateCard({
   id,
   state,
   certification,
-  eligiblePracticeQuestions,
+  questionCount,
+  validityDays,
   partsSellingMinor,
   onToggle,
   onValue,
@@ -1079,7 +1075,8 @@ function TemplateCard({
   id: TemplateId;
   state: CardState;
   certification: CertificationAdminRow;
-  eligiblePracticeQuestions: number;
+  questionCount: number;
+  validityDays: number;
   partsSellingMinor: number;
   onToggle: (enabled: boolean) => void;
   onValue: <K extends keyof TemplateValues>(key: K, value: TemplateValues[K]) => void;
@@ -1087,20 +1084,20 @@ function TemplateCard({
   const def = PACKAGE_TEMPLATES[id];
   const v = state.values;
   const needsMockBank = (id === 'mock' || id === 'complete') && !certification.mockBankId;
+  const [priceTouched, setPriceTouched] = useState(false);
+  const [offerTouched, setOfferTouched] = useState(false);
 
   const money = (minor: number | null) => (minor == null ? '' : String(minorToMajor(minor)));
   const setMoney = <K extends keyof TemplateValues>(key: K, raw: string) =>
     onValue(key, (raw === '' ? null : majorToMinor(Number(raw) || 0)) as TemplateValues[K]);
 
-  const benefits = buildPackageBenefits(id, v, eligiblePracticeQuestions || 0);
-  const offerBad = !isOfferPriceValid(v.offerPrice, v.regularPrice ?? v.sellingPrice) ||
-    !isOfferWindowValid(v.offerStart ? new Date(v.offerStart) : null, v.offerEnd ? new Date(v.offerEnd) : null);
+  const benefits = buildPackageBenefits(id, v, questionCount || 0);
   const priceBad = state.enabled && !hasPublishablePrice(v.sellingPrice, false);
+  const offerBad = v.offerPrice != null && !isOfferPriceValid(v.offerPrice, v.regularPrice ?? v.sellingPrice);
 
-  const questions = eligiblePracticeQuestions > 0 ? eligiblePracticeQuestions : v.numberOfQuestions;
   const autoLine = [
-    `${v.validityDays} days access`,
-    (id === 'practice' || id === 'complete') && questions ? `${questions.toLocaleString()} questions` : null,
+    `${validityDays} days access`,
+    (id === 'practice' || id === 'complete') && questionCount ? `${questionCount.toLocaleString()} questions` : null,
     (id === 'mock' || id === 'complete') ? `${v.mockAttempts} mock exam${v.mockAttempts === 1 ? '' : 's'}` : null,
   ]
     .filter(Boolean)
@@ -1120,186 +1117,134 @@ function TemplateCard({
         <div className="mt-4 space-y-4">
           {needsMockBank && (
             <p className="rounded-lg border border-warning/40 bg-warning-soft p-3 text-xs text-warning">
-              Set a mock exam question bank in Step 2 to publish this package.
+              Generate or link a mock exam bank in Step 2 to publish this package.
             </p>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Price (₹)">
-              <input type="number" min={0} value={money(v.sellingPrice) || ''} onChange={(e) => setMoney('sellingPrice', e.target.value)} className="input-dark" />
-            </Field>
-            <div className="flex items-end pb-2 text-xs text-ink-faint">{autoLine}</div>
-          </div>
+          {autoLine && <p className="text-xs text-ink-faint">{autoLine}</p>}
 
           {id === 'complete' && (
             <p className="rounded-lg border border-brand-500/30 bg-brand-50 p-3 text-xs text-brand-ink dark:bg-brand-500/10">
-              Auto-priced as Practice + Mock (₹{minorToMajor(partsSellingMinor)}) minus any combo saving (set under Adjust),
-              until you type a price above.
+              Auto-priced as Practice + Mock (₹{minorToMajor(partsSellingMinor)}) minus any combo saving below, until you
+              type a price.
             </p>
           )}
 
-          <Disclosure label="Adjust">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Field label="Regular price (₹, optional)" hint="Shown struck-through as the 'was' price.">
-                  <input type="number" min={0} value={money(v.regularPrice)} onChange={(e) => setMoney('regularPrice', e.target.value)} className="input-dark" />
-                </Field>
-                <Field label="Access validity">
-                  <ValiditySelect days={v.validityDays} onChange={(d) => onValue('validityDays', d)} />
-                </Field>
-                {def.fields.numberOfQuestions && (
-                  <Field label="Number of questions" hint={eligiblePracticeQuestions ? `Bank has ${eligiblePracticeQuestions.toLocaleString()}` : undefined}>
-                    <input type="number" min={0} value={v.numberOfQuestions} onChange={(e) => onValue('numberOfQuestions', Number(e.target.value) || 0)} className="input-dark" />
-                  </Field>
-                )}
-                {def.fields.mockAttempts && (
-                  <Field label="Number of mock attempts">
-                    <input type="number" min={0} value={v.mockAttempts} onChange={(e) => onValue('mockAttempts', Number(e.target.value) || 0)} className="input-dark" />
-                  </Field>
-                )}
-                {def.fields.questionsPerMock && (
-                  <Field label="Questions per mock">
-                    <input type="number" min={0} value={v.questionsPerMock} onChange={(e) => onValue('questionsPerMock', Number(e.target.value) || 0)} className="input-dark" />
-                  </Field>
-                )}
-                {def.fields.durationMinutes && (
-                  <Field label="Mock duration (minutes)">
-                    <input type="number" min={0} value={v.durationMinutes} onChange={(e) => onValue('durationMinutes', Number(e.target.value) || 0)} className="input-dark" />
-                  </Field>
-                )}
-              </div>
-
-              {def.fields.recommendedToggle && (
-                <label className="flex items-center gap-2 text-sm text-ink">
-                  <input type="checkbox" checked={v.isRecommended} onChange={(e) => onValue('isRecommended', e.target.checked)} className="h-4 w-4" />
-                  Mark as Recommended
-                </label>
-              )}
-
-              {id === 'complete' && (
-                <div className="text-xs text-brand-ink">
-                  <div className="mb-1 font-medium">Combo saving off (Practice + Mock)</div>
-                  <ComboSavingField value={v.comboDiscount} onChange={(d) => onValue('comboDiscount', d)} />
-                </div>
-              )}
-
-              {(id === 'mock' || id === 'complete') && certification.mockBankId && (
-                <MockConfigStatusChip certification={certification} questionsPerMock={v.questionsPerMock} durationMinutes={v.durationMinutes} />
-              )}
-
-              <Field label="Learner-visible benefits (one per line)" hint="Leave blank to use the auto-generated list.">
-                <textarea
-                  value={(v.benefitsOverride ?? benefits).join('\n')}
-                  onChange={(e) => onValue('benefitsOverride', e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
-                  rows={6}
-                  className="input-dark max-w-2xl"
-                />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Price (₹)">
+              <input
+                type="number"
+                min={0}
+                value={money(v.sellingPrice) || ''}
+                onChange={(e) => setMoney('sellingPrice', e.target.value)}
+                onBlur={() => setPriceTouched(true)}
+                className="input-dark"
+              />
+              {priceTouched && priceBad && <p className="mt-1 text-xs text-danger">Price must be greater than ₹0.</p>}
+            </Field>
+            <Field label="Regular price (₹, optional)" hint="Shown struck-through as the 'was' price.">
+              <input type="number" min={0} value={money(v.regularPrice)} onChange={(e) => setMoney('regularPrice', e.target.value)} className="input-dark" />
+            </Field>
+            <Field label="Offer price (₹, optional)" hint="An always-on discounted price.">
+              <input
+                type="number"
+                min={0}
+                value={money(v.offerPrice)}
+                onChange={(e) => setMoney('offerPrice', e.target.value)}
+                onBlur={() => setOfferTouched(true)}
+                className="input-dark"
+              />
+              {offerTouched && offerBad && <p className="mt-1 text-xs text-danger">Offer price must be at or below the regular price.</p>}
+            </Field>
+            <Field label="Renewal price (₹, optional)">
+              <input type="number" min={0} value={money(v.renewalPrice)} onChange={(e) => setMoney('renewalPrice', e.target.value)} className="input-dark" />
+            </Field>
+            {def.fields.mockAttempts && (
+              <Field label="Number of mock attempts">
+                <input type="number" min={0} value={v.mockAttempts} onChange={(e) => onValue('mockAttempts', Number(e.target.value) || 0)} className="input-dark" />
               </Field>
-              <button type="button" onClick={() => onValue('benefitsOverride', null)} className="text-xs text-brand-ink hover:underline">
-                Reset benefits to auto
-              </button>
+            )}
+          </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Field label="Offer price (₹, optional)">
-                  <input type="number" min={0} value={money(v.offerPrice)} onChange={(e) => setMoney('offerPrice', e.target.value)} className="input-dark" />
-                </Field>
-                <Field label="Renewal price (₹, optional)">
-                  <input type="number" min={0} value={money(v.renewalPrice)} onChange={(e) => setMoney('renewalPrice', e.target.value)} className="input-dark" />
-                </Field>
-                <Field label="Offer period start">
-                  <input type="datetime-local" value={v.offerStart ?? ''} onChange={(e) => onValue('offerStart', e.target.value || null)} className="input-dark" />
-                </Field>
-                <Field label="Offer period end">
-                  <input type="datetime-local" value={v.offerEnd ?? ''} onChange={(e) => onValue('offerEnd', e.target.value || null)} className="input-dark" />
-                </Field>
-                <Field label="Badge text (optional)">
-                  <input value={v.badgeText ?? ''} onChange={(e) => onValue('badgeText', e.target.value || null)} placeholder="Best Value" className="input-dark" />
-                </Field>
-              </div>
-              <p className="text-xs text-ink-faint">
-                Tax treatment, promo / referral / refund eligibility and upgrades use safe platform defaults (tax-inclusive,
-                all eligible). Use “Add a custom package” to change them.
-              </p>
-            </div>
-          </Disclosure>
-
-          {(offerBad || priceBad) && (
-            <p className="text-sm text-danger">
-              {priceBad && 'Enter a price greater than zero. '}
-              {offerBad && 'Check the offer price and offer period.'}
-            </p>
+          {def.fields.recommendedToggle && (
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" checked={v.isRecommended} onChange={(e) => onValue('isRecommended', e.target.checked)} className="h-4 w-4" />
+              Mark as Recommended
+            </label>
           )}
+
+          {id === 'complete' && (
+            <div className="text-xs text-brand-ink">
+              <div className="mb-1 font-medium">Combo saving off (Practice + Mock)</div>
+              <ComboSavingField value={v.comboDiscount} onChange={(d) => onValue('comboDiscount', d)} />
+            </div>
+          )}
+
+          <Field label="Learner-visible benefits (one per line)" hint="Leave blank to use the auto-generated list.">
+            <textarea
+              value={(v.benefitsOverride ?? benefits).join('\n')}
+              onChange={(e) => onValue('benefitsOverride', e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
+              rows={6}
+              className="input-dark max-w-2xl"
+            />
+          </Field>
+          <button type="button" onClick={() => onValue('benefitsOverride', null)} className="text-xs text-brand-ink hover:underline">
+            Reset benefits to auto
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-function MockConfigStatusChip({
-  certification,
-  questionsPerMock,
-  durationMinutes,
-}: {
-  certification: CertificationAdminRow;
-  questionsPerMock: number;
-  durationMinutes: number;
-}) {
-  const { data } = useQuery({
-    queryKey: ['admin', 'bankDomainCounts', 'quiz', certification.mockBankId],
-    queryFn: () => contentAdminApi.getBankDomainCounts('quiz', certification.mockBankId!),
-    enabled: !!certification.mockBankId,
-  });
-  if (!data) return null;
-  const derived = deriveMockBlueprint({ byDomain: data.byDomain, totalQuestions: questionsPerMock, durationMinutes });
-  const status = mockConfigStatus(derived, data.byDomain);
-  return (
-    <div className={`rounded-lg border p-3 text-sm ${status === 'ready' ? 'border-success/40 bg-success-soft text-success' : 'border-warning/40 bg-warning-soft text-warning'}`}>
-      {status === 'ready'
-        ? 'Mock exam rules ready - domain allocation derived from the question bank.'
-        : 'Mock exam rules need attention - add domain tags to the mock question bank, or set the allocation under Step 4 › More options.'}
-    </div>
-  );
-}
+// "What learners will see" - shown on the Packages step once packages exist,
+// and its markup is intentionally close to the real learner card.
+function LearnerPreview({ certification, packages }: { certification: CertificationAdminRow; packages: PackageAdminRow[] }) {
+  const now = new Date();
+  const sorted = [...packages].filter((p) => p.status !== 'archived').sort((a, b) => a.displayOrder - b.displayOrder);
+  const recommended = sorted.find((p) => p.isRecommended) ?? sorted[0] ?? null;
+  if (sorted.length === 0) return null;
 
-function PackageList({ packages, onChanged }: { packages: PackageAdminRow[]; onChanged: () => void }) {
-  const pushToast = useUiStore((s) => s.pushToast);
-  const act = (fn: () => Promise<unknown>, msg: string) =>
-    fn().then(() => { pushToast(msg, 'success'); onChanged(); }).catch((e) => pushToast(cleanError(e, 'Action failed'), 'error'));
-
-  if (packages.length === 0) return null;
   return (
-    <div className="space-y-2">
-      <h4 className="text-xs font-bold uppercase tracking-wide text-ink-faint">Saved packages</h4>
-      {[...packages].sort((a, b) => a.displayOrder - b.displayOrder).map((pkg) => (
-        <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-ink">{pkg.name}</span>
-              {pkg.isRecommended && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-ink">Recommended</span>}
-              <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${pkg.status === 'published' ? 'bg-success-soft text-success' : 'bg-surface-sunken text-ink-faint'}`}>{pkg.status}</span>
-            </div>
-            <div className="mt-1 text-xs text-ink-faint">
-              {pkg.isFree ? 'Free' : formatMoney(pkg.sellingPrice, pkg.currency)}
-              {pkg.regularPrice > pkg.sellingPrice && ` (was ${formatMoney(pkg.regularPrice, pkg.currency)})`}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {pkg.status === 'published' ? (
-              <button type="button" onClick={() => act(() => contentAdminApi.unpublishPackage(pkg.id), 'Package unpublished')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-brand-400">Unpublish</button>
-            ) : pkg.status === 'archived' ? (
-              <button type="button" onClick={() => act(() => contentAdminApi.restorePackage(pkg.id), 'Package restored')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-brand-400">Restore</button>
-            ) : (
-              <button type="button" onClick={() => act(() => contentAdminApi.publishPackage(pkg.id), 'Package published')} className="rounded-lg bg-brand-500 px-3 py-1.5 text-white hover:bg-brand-600">Publish</button>
-            )}
-            {pkg.status !== 'archived' && (
-              <button type="button" onClick={() => act(() => contentAdminApi.archivePackage(pkg.id), 'Package archived')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-danger hover:text-danger">Archive</button>
-            )}
-            {pkg.status === 'draft' && (
-              <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete "${pkg.name}"?` })) act(() => contentAdminApi.deletePackage(pkg.id), 'Package deleted'); }} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-danger hover:text-danger">Delete</button>
-            )}
-          </div>
+    <div>
+      <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">What learners will see</h3>
+      <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card">
+        <div className="text-xs uppercase tracking-wide text-ink-faint">{certification.provider}</div>
+        <div className="text-lg font-semibold text-ink">{certification.name}</div>
+        <p className="mt-1 max-w-2xl text-sm text-ink-faint">{certification.shortDescription || certification.description}</p>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {sorted.map((pkg) => {
+            const offer = computeOfferStatus(
+              { offerPrice: pkg.offerPrice, offerStart: pkg.offerStart ? toDate(pkg.offerStart) : null, offerEnd: pkg.offerEnd ? toDate(pkg.offerEnd) : null, offerCancelledAt: pkg.offerCancelledAt ? toDate(pkg.offerCancelledAt) : null },
+              now,
+            );
+            const price = offer === 'active' ? pkg.offerPrice! : pkg.sellingPrice;
+            return (
+              <div key={pkg.id} className={`rounded-lg border p-3 text-sm ${pkg.id === recommended?.id ? 'border-brand-500 bg-brand-50' : 'border-surface-border'}`}>
+                <div className="font-semibold text-ink">
+                  {pkg.name}
+                  {pkg.id === recommended?.id && <span className="ml-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Recommended</span>}
+                </div>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  {pkg.regularPrice > price && <span className="text-xs text-ink-faint line-through">{formatMoney(pkg.regularPrice, pkg.currency)}</span>}
+                  <span className="font-bold text-ink">{pkg.isFree ? 'Free' : formatMoney(price, pkg.currency)}</span>
+                </div>
+                <ul className="mt-2 space-y-0.5 text-xs text-ink-muted">
+                  {visibleBenefits(pkg.includedFeatures).map((f) => <li key={f}>• {f}</li>)}
+                </ul>
+                <div className="mt-2 text-xs text-ink-faint">
+                  {pkg.accessValidityDays} days access
+                  {pkg.mockAccessEnabled ? ` · ${pkg.fullMockAttempts} mock attempts` : ''}
+                  {pkg.practiceAccessEnabled ? ` · ${pkg.accessibleQuestionCount.toLocaleString()} questions` : ''}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
+
+        <p className="mt-4 max-w-3xl border-t border-surface-border pt-3 text-[11px] leading-relaxed text-ink-faint">{certification.independentPrepDisclaimer}</p>
+      </div>
     </div>
   );
 }
@@ -1312,17 +1257,19 @@ function StepPublish({
   certification,
   packages,
   onChanged,
+  onExit,
   onBack,
 }: {
   certification: CertificationAdminRow;
   packages: PackageAdminRow[];
   onChanged: () => void;
+  onExit: () => void;
   onBack: () => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [showHistory, setShowHistory] = useState(false);
-  const now = new Date();
 
   const { data: practiceDomains } = useQuery({
     queryKey: ['admin', 'bankDomainCounts', 'practiceTest', certification.practiceBankId],
@@ -1332,7 +1279,6 @@ function StepPublish({
   const eligibleQuestions = practiceDomains?.totalQuestions ?? null;
 
   const sorted = [...packages].filter((p) => p.status !== 'archived').sort((a, b) => a.displayOrder - b.displayOrder);
-  const recommended = sorted.find((p) => p.isRecommended) ?? sorted[0] ?? null;
 
   const blockers: string[] = [];
   const hasPracticeContent =
@@ -1340,29 +1286,28 @@ function StepPublish({
   if (!hasPracticeContent) blockers.push('Add questions in Step 2 (link a bank or upload a document).');
   for (const p of sorted) {
     const t = detectTemplate(p);
-    const label = p.name;
-    if (!hasEntitlement(p.includedQuizIds, p.includedPracticeTestIds)) blockers.push(`${label}: connect it to a question bank (Step 2).`);
-    if (!hasPublishablePrice(p.sellingPrice, p.isFree)) blockers.push(`Enter a price for ${label} (Step 3).`);
-    if ((t === 'mock' || t === 'complete') && !certification.mockBankId) blockers.push('Select a mock exam question bank (Step 2).');
+    if (!hasEntitlement(p.includedQuizIds, p.includedPracticeTestIds)) blockers.push(`${p.name}: connect it to a question bank (Step 2).`);
+    if (!hasPublishablePrice(p.sellingPrice, p.isFree)) blockers.push(`Enter a price for ${p.name} (Step 3).`);
+    if ((t === 'mock' || t === 'complete') && !certification.mockBankId) blockers.push('Generate or link a mock exam bank (Step 2).');
     if (eligibleQuestions != null && p.accessibleQuestionCount > eligibleQuestions) {
-      blockers.push(`The bank has only ${eligibleQuestions.toLocaleString()} questions. Reduce ${label}'s question count.`);
+      blockers.push(`The bank has only ${eligibleQuestions.toLocaleString()} questions. Reduce ${p.name}'s question count.`);
     }
   }
   if (sorted.length === 0) blockers.push('Add at least one package in Step 3.');
 
   const publishMutation = useMutation({
-    mutationFn: async () => {
-      if (!certification.effectiveFrom && !scheduledFor) {
+    mutationFn: async (schedule: string | null) => {
+      if (!certification.effectiveFrom && !schedule) {
         await contentAdminApi.updateCertification({ certificationId: certification.id, effectiveFrom: new Date().toISOString() });
       }
-      await contentAdminApi.publishCertification(certification.id, scheduledFor ? new Date(scheduledFor).toISOString() : null);
-      if (!scheduledFor) {
+      await contentAdminApi.publishCertification(certification.id, schedule ? new Date(schedule).toISOString() : null);
+      if (!schedule) {
         for (const p of sorted) {
           if (p.status !== 'published') await contentAdminApi.publishPackage(p.id);
         }
       }
     },
-    onSuccess: () => { pushToast(scheduledFor ? 'Publication scheduled' : 'Published', 'success'); onChanged(); },
+    onSuccess: (_data, schedule) => { pushToast(schedule ? 'Publication scheduled' : 'Published', 'success'); onChanged(); },
     onError: (err) => pushToast(cleanError(err, 'Could not publish'), 'error'),
   });
 
@@ -1376,48 +1321,13 @@ function StepPublish({
   });
 
   const isLive = certification.status === 'published';
+  const hasMock = !!certification.mockBankId || (certification.mockBankIds?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">What learners will see</h3>
-        <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card">
-          <div className="text-xs uppercase tracking-wide text-ink-faint">{certification.provider}</div>
-          <div className="text-lg font-semibold text-ink">{certification.name}</div>
-          <p className="mt-1 max-w-2xl text-sm text-ink-faint">{certification.shortDescription || certification.description}</p>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {sorted.map((pkg) => {
-              const offer = computeOfferStatus(
-                { offerPrice: pkg.offerPrice, offerStart: pkg.offerStart ? toDate(pkg.offerStart) : null, offerEnd: pkg.offerEnd ? toDate(pkg.offerEnd) : null, offerCancelledAt: pkg.offerCancelledAt ? toDate(pkg.offerCancelledAt) : null },
-                now,
-              );
-              const price = offer === 'active' ? pkg.offerPrice! : pkg.sellingPrice;
-              return (
-                <div key={pkg.id} className={`rounded-lg border p-3 text-sm ${pkg.id === recommended?.id ? 'border-brand-500 bg-brand-50' : 'border-surface-border'}`}>
-                  <div className="font-semibold text-ink">
-                    {pkg.name}
-                    {pkg.id === recommended?.id && <span className="ml-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Recommended</span>}
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    {pkg.regularPrice > price && <span className="text-xs text-ink-faint line-through">{formatMoney(pkg.regularPrice, pkg.currency)}</span>}
-                    <span className="font-bold text-ink">{pkg.isFree ? 'Free' : formatMoney(price, pkg.currency)}</span>
-                  </div>
-                  <ul className="mt-2 space-y-0.5 text-xs text-ink-muted">
-                    {visibleBenefits(pkg.includedFeatures).map((f) => <li key={f}>• {f}</li>)}
-                  </ul>
-                  <div className="mt-2 text-xs text-ink-faint">
-                    {pkg.accessValidityDays} days access
-                    {pkg.mockAccessEnabled ? ` · ${pkg.fullMockAttempts} mock attempts` : ''}
-                    {pkg.practiceAccessEnabled ? ` · ${pkg.accessibleQuestionCount.toLocaleString()} questions` : ''}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="mt-4 max-w-3xl border-t border-surface-border pt-3 text-[11px] leading-relaxed text-ink-faint">{certification.independentPrepDisclaimer}</p>
-        </div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-ink-faint">Status:</span>
+        <span className="rounded-full bg-brand-50 px-2 py-0.5 font-semibold capitalize text-brand-ink">{certification.status}</span>
       </div>
 
       {blockers.length > 0 && (
@@ -1427,81 +1337,92 @@ function StepPublish({
         </div>
       )}
 
+      {/* Lifecycle actions - always visible, no hidden menu. */}
       <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm">
-          <span className="text-ink-faint">Status:</span>
-          <span className="rounded-full bg-brand-50 px-2 py-0.5 font-semibold capitalize text-brand-ink">{certification.status}</span>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">Manage</h3>
+        <div className="flex flex-wrap gap-2">
+          {isLive && (
+            <button type="button" onClick={() => lifecycle(() => contentAdminApi.unpublishCertification(certification.id), 'Unpublished')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Unpublish</button>
+          )}
+          {certification.status === 'archived' ? (
+            <button type="button" onClick={() => lifecycle(() => contentAdminApi.restoreCertification(certification.id), 'Restored to Draft')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Restore</button>
+          ) : (
+            <button type="button" onClick={async () => { if (await confirmDialog({ title: 'Archive this product?' })) lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived'); }} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-danger hover:text-danger">Archive</button>
+          )}
+          <button type="button" onClick={() => setShowHistory((h) => !h)} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">{showHistory ? 'Hide' : 'View'} history</button>
         </div>
-        <button
-          type="button"
-          disabled={blockers.length > 0 || publishMutation.isPending}
-          onClick={async () => {
-            if (await confirmDialog({ title: isLive ? 'Re-publish this product and its packages now?' : 'Publish this product and its packages now?' }))
-              publishMutation.mutate();
-          }}
-          className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
-        >
-          {publishMutation.isPending ? 'Publishing…' : isLive ? 'Re-publish' : 'Publish'}
-        </button>
-
-        <div className="mt-4">
-          <Disclosure label="More options">
-            <div className="space-y-4">
-              <Field label="Schedule publication for">
-                <div className="flex flex-wrap gap-2">
-                  <input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="input-dark" />
-                  <button
-                    type="button"
-                    disabled={!scheduledFor || blockers.length > 0 || publishMutation.isPending}
-                    onClick={() => publishMutation.mutate()}
-                    className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-50"
-                  >
-                    Schedule
-                  </button>
-                </div>
-              </Field>
-
-              <div className="flex flex-wrap gap-2">
-                {isLive && (
-                  <button type="button" onClick={() => lifecycle(() => contentAdminApi.unpublishCertification(certification.id), 'Unpublished')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Unpublish</button>
-                )}
-                {certification.status === 'archived' ? (
-                  <button type="button" onClick={() => lifecycle(() => contentAdminApi.restoreCertification(certification.id), 'Restored to Draft')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Restore</button>
-                ) : (
-                  <button type="button" onClick={async () => { if (await confirmDialog({ title: 'Archive this product?' })) lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived'); }} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-danger hover:text-danger">Archive</button>
-                )}
-                <button type="button" onClick={() => setShowHistory((v) => !v)} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">{showHistory ? 'Hide' : 'View'} history</button>
+        {showHistory && (
+          <div className="mt-3 space-y-2">
+            {(history?.entries ?? []).length === 0 && <p className="text-sm text-ink-faint">No history yet.</p>}
+            {(history?.entries ?? []).map((entry: AuditLogEntry) => (
+              <div key={entry.id} className="rounded-lg border border-surface-border p-3 text-xs">
+                <div className="font-medium text-ink">{entry.description}</div>
+                <div className="text-ink-faint">{toDate(entry.createdAt).toLocaleString()}</div>
               </div>
-
-              {showHistory && (
-                <div className="space-y-2">
-                  {(history?.entries ?? []).length === 0 && <p className="text-sm text-ink-faint">No history yet.</p>}
-                  {(history?.entries ?? []).map((entry: AuditLogEntry) => (
-                    <div key={entry.id} className="rounded-lg border border-surface-border p-3 text-xs">
-                      <div className="font-medium text-ink">{entry.description}</div>
-                      <div className="text-ink-faint">{toDate(entry.createdAt).toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {certification.contentVersions.length > 0 && (
-                <Disclosure label="Mock exam rules (advanced)">
-                  <StepMockRules certificationId={certification.id} certification={certification} onChanged={onChanged} />
-                </Disclosure>
-              )}
-
-              <p className="text-xs text-ink-faint">
-                Completion certificates are issued automatically by the linked question bank(s) when a learner finishes a
-                mock exam - there is no separate certificate setting. Learners view earned certificates on their My
-                Certificates page; anyone can verify one at /verify/&lt;id&gt;.
-              </p>
-            </div>
-          </Disclosure>
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <WizardFooter onBack={onBack} />
+      {/* Mock exam rules - visible, enabled only once mocks exist. */}
+      <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">Mock exam rules (advanced)</h3>
+        {hasMock && certification.contentVersions.length > 0 ? (
+          <StepMockRules certificationId={certification.id} certification={certification} onChanged={onChanged} />
+        ) : (
+          <p className="text-sm text-ink-faint">Generate mock exams in Step 2 to configure their domain allocation and behaviour here.</p>
+        )}
+      </div>
+
+      <p className="text-xs text-ink-faint">
+        Completion certificates are issued automatically by the linked question bank(s) when a learner finishes a mock
+        exam - there is no separate certificate setting. Learners view earned certificates on their My Certificates page;
+        anyone can verify one at /verify/&lt;id&gt;.
+      </p>
+
+      {scheduleOpen && (
+        <div className="rounded-xl border border-brand-500/30 bg-brand-50 p-4 dark:bg-brand-500/10">
+          <Field label="Publish at">
+            <input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="input-dark max-w-xs" />
+          </Field>
+          <button
+            type="button"
+            disabled={!scheduledFor || blockers.length > 0 || publishMutation.isPending}
+            onClick={() => publishMutation.mutate(scheduledFor)}
+            className="mt-3 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Confirm schedule
+          </button>
+        </div>
+      )}
+
+      {/* Primary actions at the very end. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-border pt-5">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onBack} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400">← Back</button>
+          <button type="button" onClick={onExit} className="rounded-lg border border-surface-border-strong px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400">Save draft</button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setScheduleOpen((s) => !s)}
+            className="rounded-lg border border-brand-500 px-5 py-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-50"
+          >
+            Schedule
+          </button>
+          <button
+            type="button"
+            disabled={blockers.length > 0 || publishMutation.isPending}
+            onClick={async () => {
+              if (await confirmDialog({ title: isLive ? 'Re-publish this product and its packages now?' : 'Publish this product and its packages now?' }))
+                publishMutation.mutate(null);
+            }}
+            className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+          >
+            {publishMutation.isPending ? 'Publishing…' : isLive ? 'Re-publish' : 'Publish'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1557,59 +1478,62 @@ function ContentVersionsPanel({ certification, onDirty }: { certification: Certi
   });
 
   return (
-    <div className="rounded-xl border border-surface-border bg-surface p-5">
-      <h3 className="mb-3 font-medium text-ink">Outline versions (advanced)</h3>
-      {certification.contentVersions.length === 0 ? (
-        <p className="mb-4 text-sm text-ink-faint">None yet. One is created automatically when you set a mock exam question bank in Step 2.</p>
-      ) : (
-        <div className="mb-4 space-y-2">
-          {certification.contentVersions.map((v) => (
-            <div key={v.id} className="flex items-center justify-between rounded-lg border border-surface-border p-3 text-sm">
-              <div>
-                <span className="font-medium text-ink">{v.versionName}</span>{' '}
-                <span className="text-ink-faint">
-                  ({v.versionCode}) · {v.associatedBankType === 'quiz' ? 'Mock Exam' : 'Practice Test'} bank · effective {toDate(v.effectiveFrom).toLocaleDateString()}
-                  {v.effectiveTo ? ` - ${toDate(v.effectiveTo).toLocaleDateString()}` : ' onward'}
-                </span>
+    <details className="rounded-xl border border-surface-border bg-surface p-5">
+      <summary className="cursor-pointer list-none text-sm font-medium text-brand-ink">Outline versions (advanced)</summary>
+      <div className="mt-4">
+        {certification.contentVersions.length === 0 ? (
+          <p className="mb-4 text-sm text-ink-faint">None yet. One is created automatically when you generate or link a mock exam bank in Step 2.</p>
+        ) : (
+          <div className="mb-4 space-y-2">
+            {certification.contentVersions.map((v) => (
+              <div key={v.id} className="flex items-center justify-between rounded-lg border border-surface-border p-3 text-sm">
+                <div>
+                  <span className="font-medium text-ink">{v.versionName}</span>{' '}
+                  <span className="text-ink-faint">
+                    ({v.versionCode}) · {v.associatedBankType === 'quiz' ? 'Mock Exam' : 'Practice Test'} bank · effective {toDate(v.effectiveFrom).toLocaleDateString()}
+                    {v.effectiveTo ? ` - ${toDate(v.effectiveTo).toLocaleDateString()}` : ' onward'}
+                  </span>
+                </div>
+                <button type="button" onClick={() => deleteMutation.mutate(v.id)} className="rounded-md border border-danger/40 px-2 py-0.5 text-xs font-semibold text-danger hover:bg-danger-soft">Remove</button>
               </div>
-              <button type="button" onClick={() => deleteMutation.mutate(v.id)} className="rounded-md border border-danger/40 px-2 py-0.5 text-xs font-semibold text-danger hover:bg-danger-soft">Remove</button>
-            </div>
-          ))}
+            ))}
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Version name"><input value={versionName} onChange={(e) => setVersionName(e.target.value)} className="input-dark" /></Field>
+          <Field label="Version code"><input value={versionCode} onChange={(e) => setVersionCode(e.target.value)} className="input-dark" /></Field>
+          <Field label="Bank type">
+            <select value={bankType} onChange={(e) => { setBankType(e.target.value as 'quiz' | 'practiceTest'); setBankId(''); }} className="input-dark">
+              <option value="quiz">Mock Exam (quiz) bank</option>
+              <option value="practiceTest">Practice Test bank</option>
+            </select>
+          </Field>
+          <Field label="Question bank">
+            <select value={bankId} onChange={(e) => setBankId(e.target.value)} className="input-dark">
+              <option value="">Select…</option>
+              {banks.map((b) => <option key={b.id} value={b.id}>{b.title} ({b.totalQuestions} questions)</option>)}
+            </select>
+          </Field>
+          <Field label="Effective from"><input type="datetime-local" value={effFrom} onChange={(e) => setEffFrom(e.target.value)} className="input-dark" /></Field>
+          <Field label="Effective to (optional)"><input type="datetime-local" value={effTo} onChange={(e) => setEffTo(e.target.value)} className="input-dark" /></Field>
         </div>
-      )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Version name"><input value={versionName} onChange={(e) => setVersionName(e.target.value)} className="input-dark" /></Field>
-        <Field label="Version code"><input value={versionCode} onChange={(e) => setVersionCode(e.target.value)} className="input-dark" /></Field>
-        <Field label="Bank type">
-          <select value={bankType} onChange={(e) => { setBankType(e.target.value as 'quiz' | 'practiceTest'); setBankId(''); }} className="input-dark">
-            <option value="quiz">Mock Exam (quiz) bank</option>
-            <option value="practiceTest">Practice Test bank</option>
-          </select>
-        </Field>
-        <Field label="Question bank">
-          <select value={bankId} onChange={(e) => setBankId(e.target.value)} className="input-dark">
-            <option value="">Select…</option>
-            {banks.map((b) => <option key={b.id} value={b.id}>{b.title} ({b.totalQuestions} questions)</option>)}
-          </select>
-        </Field>
-        <Field label="Effective from"><input type="datetime-local" value={effFrom} onChange={(e) => setEffFrom(e.target.value)} className="input-dark" /></Field>
-        <Field label="Effective to (optional)"><input type="datetime-local" value={effTo} onChange={(e) => setEffTo(e.target.value)} className="input-dark" /></Field>
+        <Field label="Notes"><input value={notes} onChange={(e) => setNotes(e.target.value)} className="input-dark mt-3" /></Field>
+        <button
+          type="button"
+          disabled={!versionName.trim() || !versionCode.trim() || !bankId || !effFrom || saveMutation.isPending}
+          onClick={() => saveMutation.mutate()}
+          className="mt-3 rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400 disabled:opacity-50"
+        >
+          {saveMutation.isPending ? 'Saving…' : '+ Add outline version'}
+        </button>
       </div>
-      <Field label="Notes"><input value={notes} onChange={(e) => setNotes(e.target.value)} className="input-dark mt-3" /></Field>
-      <button
-        type="button"
-        disabled={!versionName.trim() || !versionCode.trim() || !bankId || !effFrom || saveMutation.isPending}
-        onClick={() => saveMutation.mutate()}
-        className="mt-3 rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400 disabled:opacity-50"
-      >
-        {saveMutation.isPending ? 'Saving…' : '+ Add outline version'}
-      </button>
-    </div>
+    </details>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Mock Rules (raw) - reused under Step 4 › More options
+// Mock Rules (raw) - shown under Step 4. Total-questions / duration live in
+// Step 2 (the mock batch size / duration), so they are not repeated here.
 // ---------------------------------------------------------------------------
 
 function StepMockRules({
@@ -1626,8 +1550,8 @@ function StepMockRules({
   const [selectedVersionId, setSelectedVersionId] = useState(certification.contentVersions[0]?.id ?? '');
   const existingBlueprint = certification.mockBlueprints.find((b) => b.contentVersionId === selectedVersionId) ?? null;
 
-  const [totalQuestions, setTotalQuestions] = useState(String(existingBlueprint?.totalQuestions ?? 150));
-  const [durationMinutes, setDurationMinutes] = useState(String(existingBlueprint?.durationMinutes ?? 240));
+  const totalQuestions = existingBlueprint?.totalQuestions ?? 150;
+  const durationMinutes = existingBlueprint?.durationMinutes ?? 240;
   const [domains, setDomains] = useState<DomainAllocation[]>(existingBlueprint?.domains ?? []);
   const [repeatPolicy, setRepeatPolicy] = useState(existingBlueprint?.repeatPolicy ?? 'minimize_repeats');
   const [explanationRelease, setExplanationRelease] = useState(existingBlueprint?.explanationRelease ?? 'after_submission');
@@ -1649,8 +1573,8 @@ function StepMockRules({
     () =>
       validateMockBlueprint({
         domains,
-        totalQuestions: Number(totalQuestions) || 0,
-        durationMinutes: Number(durationMinutes) || 0,
+        totalQuestions,
+        durationMinutes,
         difficultyDistribution: null,
         eligibleCountByDomain: domainCounts?.byDomain ?? {},
       }),
@@ -1659,7 +1583,7 @@ function StepMockRules({
 
   const autofill = () => {
     if (!domainCounts) return;
-    const d = deriveMockBlueprint({ byDomain: domainCounts.byDomain, totalQuestions: Number(totalQuestions) || 0, durationMinutes: Number(durationMinutes) || 0 });
+    const d = deriveMockBlueprint({ byDomain: domainCounts.byDomain, totalQuestions, durationMinutes });
     setDomains(d.domains);
   };
   const updateDomainRow = (i: number, patch: Partial<DomainAllocation>) =>
@@ -1671,8 +1595,8 @@ function StepMockRules({
       contentAdminApi.saveMockBlueprint(certificationId, {
         id: existingBlueprint?.id,
         contentVersionId: selectedVersionId,
-        totalQuestions: Number(totalQuestions) || 0,
-        durationMinutes: Number(durationMinutes) || 0,
+        totalQuestions,
+        durationMinutes,
         domains,
         difficultyDistribution: null,
         repeatPolicy,
@@ -1691,10 +1615,6 @@ function StepMockRules({
     onError: (err) => pushToast(cleanError(err, 'Could not save the mock exam rules'), 'error'),
   });
 
-  if (certification.contentVersions.length === 0) {
-    return <p className="text-sm text-ink-faint">Set a mock exam question bank in Step 2 first.</p>;
-  }
-
   return (
     <div className="space-y-5">
       {certification.contentVersions.length > 1 && (
@@ -1705,10 +1625,9 @@ function StepMockRules({
         </Field>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Total questions per mock"><input type="number" min={1} value={totalQuestions} onChange={(e) => setTotalQuestions(e.target.value)} className="input-dark" /></Field>
-        <Field label="Duration (minutes)"><input type="number" min={1} value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} className="input-dark" /></Field>
-      </div>
+      <p className="text-xs text-ink-faint">
+        Questions per mock ({totalQuestions}) and duration ({durationMinutes} min) come from Step 2.
+      </p>
 
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -1772,194 +1691,15 @@ function StepMockRules({
 }
 
 // ---------------------------------------------------------------------------
-// Custom package form (raw) - the full entitlement/pricing form, kept as an
-// escape hatch so nothing the old editor could do is lost.
-// ---------------------------------------------------------------------------
 
-const EMPTY_CUSTOM = {
-  packageType: 'custom',
-  name: '',
-  shortDescription: '',
-  badgeText: '',
-  isRecommended: false,
-  description: '',
-  includedFeatures: '',
-  includedQuizIds: [] as string[],
-  includedPracticeTestIds: [] as string[],
-  practiceAccessEnabled: false,
-  accessibleQuestionCount: '0',
-  explanationAccessEnabled: false,
-  mockAccessEnabled: false,
-  fullMockAttempts: '0',
-  miniMockAttempts: '0',
-  questionsPerMock: '0',
-  mockDurationMinutes: '0',
-  studyPlanAccessEnabled: false,
-  analyticsAccessEnabled: false,
-  trialAvailable: false,
-  accessValidityDays: '180',
-  renewalAvailable: false,
-  upgradeAvailable: false,
-  promoEligible: true,
-  referralEligible: true,
-  refundEligible: true,
-  currency: 'INR' as 'INR' | 'USD',
-  regularPrice: '',
-  sellingPrice: '',
-  offerPrice: '',
-  offerStart: '',
-  offerEnd: '',
-  renewalPrice: '',
-  taxTreatment: 'inclusive' as 'inclusive' | 'exclusive' | 'exempt',
-  isFree: false,
-  displayOrder: '0',
-};
-
-function CustomPackageForm({ certificationId, onChanged }: { certificationId: string; onChanged: () => void }) {
-  const pushToast = useUiStore((s) => s.pushToast);
-  const { data: quizzes } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
-  const { data: tests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
-  const [form, setForm] = useState(EMPTY_CUSTOM);
-  const set = <K extends keyof typeof EMPTY_CUSTOM>(key: K, value: (typeof EMPTY_CUSTOM)[K]) => setForm((f) => ({ ...f, [key]: value }));
-
-  const buildPayload = () => ({
-    certificationId,
-    name: form.name.trim(),
-    badgeText: form.badgeText.trim() || null,
-    isRecommended: form.isRecommended,
-    description: form.description,
-    includedQuizIds: form.includedQuizIds,
-    includedPracticeTestIds: form.includedPracticeTestIds,
-    displayOrder: Number(form.displayOrder) || 0,
-    packageType: form.packageType,
-    shortDescription: form.shortDescription,
-    includedFeatures: form.includedFeatures.split('\n').map((s) => s.trim()).filter(Boolean),
-    practiceAccessEnabled: form.practiceAccessEnabled,
-    accessibleQuestionCount: Number(form.accessibleQuestionCount) || 0,
-    explanationAccessEnabled: form.explanationAccessEnabled,
-    mockAccessEnabled: form.mockAccessEnabled,
-    fullMockAttempts: Number(form.fullMockAttempts) || 0,
-    miniMockAttempts: Number(form.miniMockAttempts) || 0,
-    questionsPerMock: Number(form.questionsPerMock) || 0,
-    mockDurationMinutes: Number(form.mockDurationMinutes) || 0,
-    studyPlanAccessEnabled: form.studyPlanAccessEnabled,
-    analyticsAccessEnabled: form.analyticsAccessEnabled,
-    trialAvailable: form.trialAvailable,
-    accessValidityDays: Number(form.accessValidityDays) || 180,
-    renewalAvailable: form.renewalAvailable,
-    upgradeAvailable: form.upgradeAvailable,
-    promoEligible: form.promoEligible,
-    referralEligible: form.referralEligible,
-    refundEligible: form.refundEligible,
-    regularPrice: majorToMinor(Number(form.regularPrice) || 0),
-    sellingPrice: majorToMinor(Number(form.sellingPrice) || 0),
-    offerPrice: form.offerPrice ? majorToMinor(Number(form.offerPrice)) : null,
-    offerStart: form.offerStart ? new Date(form.offerStart).toISOString() : null,
-    offerEnd: form.offerEnd ? new Date(form.offerEnd).toISOString() : null,
-    renewalPrice: form.renewalPrice ? majorToMinor(Number(form.renewalPrice)) : null,
-    taxTreatment: form.taxTreatment,
-    isFree: form.isFree,
-    currency: form.currency,
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: () => contentAdminApi.createPackage(buildPayload()),
-    onSuccess: () => { pushToast('Package created', 'success'); setForm(EMPTY_CUSTOM); onChanged(); },
-    onError: (err) => pushToast(cleanError(err, 'Could not save the package'), 'error'),
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Package type"><input value={form.packageType} onChange={(e) => set('packageType', e.target.value)} className="input-dark" /></Field>
-        <Field label="Display name"><input value={form.name} onChange={(e) => set('name', e.target.value)} className="input-dark" /></Field>
-        <Field label="Badge text (optional)"><input value={form.badgeText} onChange={(e) => set('badgeText', e.target.value)} className="input-dark" /></Field>
-      </div>
-      <Field label="Short description"><input value={form.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} className="input-dark" /></Field>
-      <Field label="Included features (one per line)"><textarea value={form.includedFeatures} onChange={(e) => set('includedFeatures', e.target.value)} rows={3} className="input-dark" /></Field>
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" checked={form.isRecommended} onChange={(e) => set('isRecommended', e.target.checked)} className="h-4 w-4" /> Recommended package
-      </label>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Mock Exam banks (quizzes)">
-          <select multiple value={form.includedQuizIds} onChange={(e) => set('includedQuizIds', Array.from(e.target.selectedOptions, (o) => o.value))} className="input-dark h-28">
-            {(quizzes?.quizzes ?? []).map((q) => <option key={q.id} value={q.id}>{q.title}</option>)}
-          </select>
-        </Field>
-        <Field label="Practice Test banks">
-          <select multiple value={form.includedPracticeTestIds} onChange={(e) => set('includedPracticeTestIds', Array.from(e.target.selectedOptions, (o) => o.value))} className="input-dark h-28">
-            {(tests?.practiceTests ?? []).map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
-          </select>
-        </Field>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ToggleField label="Practice access" checked={form.practiceAccessEnabled} onChange={(v) => set('practiceAccessEnabled', v)} />
-        <Field label="Accessible questions"><input type="number" min={0} value={form.accessibleQuestionCount} onChange={(e) => set('accessibleQuestionCount', e.target.value)} className="input-dark" /></Field>
-        <ToggleField label="Explanations" checked={form.explanationAccessEnabled} onChange={(v) => set('explanationAccessEnabled', v)} />
-        <ToggleField label="Study plan" checked={form.studyPlanAccessEnabled} onChange={(v) => set('studyPlanAccessEnabled', v)} />
-        <ToggleField label="Analytics" checked={form.analyticsAccessEnabled} onChange={(v) => set('analyticsAccessEnabled', v)} />
-        <ToggleField label="Mock access" checked={form.mockAccessEnabled} onChange={(v) => set('mockAccessEnabled', v)} />
-        <Field label="Full mock attempts"><input type="number" min={0} value={form.fullMockAttempts} onChange={(e) => set('fullMockAttempts', e.target.value)} className="input-dark" /></Field>
-        <Field label="Mini-mock attempts"><input type="number" min={0} value={form.miniMockAttempts} onChange={(e) => set('miniMockAttempts', e.target.value)} className="input-dark" /></Field>
-        <Field label="Questions per mock"><input type="number" min={0} value={form.questionsPerMock} onChange={(e) => set('questionsPerMock', e.target.value)} className="input-dark" /></Field>
-        <Field label="Mock duration (minutes)"><input type="number" min={0} value={form.mockDurationMinutes} onChange={(e) => set('mockDurationMinutes', e.target.value)} className="input-dark" /></Field>
-        <Field label="Access validity (days)"><input type="number" min={1} value={form.accessValidityDays} onChange={(e) => set('accessValidityDays', e.target.value)} className="input-dark" /></Field>
-        <ToggleField label="Trial available" checked={form.trialAvailable} onChange={(v) => set('trialAvailable', v)} />
-        <ToggleField label="Renewal available" checked={form.renewalAvailable} onChange={(v) => set('renewalAvailable', v)} />
-        <ToggleField label="Upgrade available" checked={form.upgradeAvailable} onChange={(v) => set('upgradeAvailable', v)} />
-        <ToggleField label="Promo-code eligible" checked={form.promoEligible} onChange={(v) => set('promoEligible', v)} />
-        <ToggleField label="Referral eligible" checked={form.referralEligible} onChange={(v) => set('referralEligible', v)} />
-        <ToggleField label="Refund eligible" checked={form.refundEligible} onChange={(v) => set('refundEligible', v)} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Currency">
-          <select value={form.currency} onChange={(e) => set('currency', e.target.value as 'INR' | 'USD')} className="input-dark">
-            <option value="INR">INR</option><option value="USD">USD</option>
-          </select>
-        </Field>
-        <Field label="Regular price (₹)"><input type="number" min={0} value={form.regularPrice} onChange={(e) => set('regularPrice', e.target.value)} className="input-dark" /></Field>
-        <Field label="Selling price (₹)"><input type="number" min={0} value={form.sellingPrice} onChange={(e) => set('sellingPrice', e.target.value)} className="input-dark" /></Field>
-        <Field label="Renewal price (₹, optional)"><input type="number" min={0} value={form.renewalPrice} onChange={(e) => set('renewalPrice', e.target.value)} className="input-dark" /></Field>
-        <Field label="Offer price (₹, optional)"><input type="number" min={0} value={form.offerPrice} onChange={(e) => set('offerPrice', e.target.value)} className="input-dark" /></Field>
-        <Field label="Offer start"><input type="datetime-local" value={form.offerStart} onChange={(e) => set('offerStart', e.target.value)} className="input-dark" /></Field>
-        <Field label="Offer end"><input type="datetime-local" value={form.offerEnd} onChange={(e) => set('offerEnd', e.target.value)} className="input-dark" /></Field>
-        <Field label="Tax treatment">
-          <select value={form.taxTreatment} onChange={(e) => set('taxTreatment', e.target.value as 'inclusive' | 'exclusive' | 'exempt')} className="input-dark">
-            <option value="inclusive">Tax-inclusive</option><option value="exclusive">Tax-exclusive</option><option value="exempt">Tax-exempt</option>
-          </select>
-        </Field>
-        <ToggleField label="Free package" checked={form.isFree} onChange={(v) => set('isFree', v)} />
-        <Field label="Display order"><input type="number" min={0} value={form.displayOrder} onChange={(e) => set('displayOrder', e.target.value)} className="input-dark" /></Field>
-      </div>
-
-      <button
-        type="button"
-        disabled={!form.name.trim() || saveMutation.isPending}
-        onClick={() => saveMutation.mutate()}
-        className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {saveMutation.isPending ? 'Saving…' : 'Add custom package'}
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-// Backend errors are worded for developers ("associatedBankId does not
-// reference…"); surface something an admin can act on. The generic status /
-// validation handling lives in friendlyApiError; this only adds the
-// domain-specific rewrites for this screen.
+// Backend errors are worded for developers; surface something an admin can act on.
 function cleanError(err: unknown, fallback: string): string {
   const msg = err instanceof Error ? err.message : '';
-  if (/slug/i.test(msg)) return 'That web address is already taken by another product - change the exam code or set a different slug in Step 1 › More settings.';
+  if (/slug/i.test(msg)) return 'That web address is already taken by another product - change the exam code or the slug in Step 1.';
   if (/unpublished certification cannot expose/i.test(msg)) return 'Publish the product before publishing its packages.';
   if (/no included quiz\/practice test|at least one quiz or practice test|valid entitlement/i.test(msg)) return 'Connect this package to a question bank first (Step 2).';
   if (/selling price/i.test(msg)) return 'Enter a price greater than zero, or mark the package Free.';
   if (/accessible question count|eligible/i.test(msg)) return msg.replace(/^[a-z]+: /i, '');
-  if (/domain/i.test(msg)) return 'Mock domain allocation needs attention - open Step 4 › More options › Mock exam rules.';
+  if (/domain/i.test(msg)) return 'Mock domain allocation needs attention - open the mock exam rules on the Publish step.';
   return friendlyApiError(err, fallback);
 }
