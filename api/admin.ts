@@ -487,6 +487,76 @@ async function updateCustomExamBuilderSettings(uid: string, body: unknown) {
   return { success: true };
 }
 
+// --- Feature Access (appSettings/featureAccess) ---------------------------
+// A small general-purpose gate: for any registered feature key, an admin
+// can turn it on/off per capability (admin/trainer/creator - the app's
+// actual capability model, not the Role type) and grant or exclude
+// specific user IDs regardless of capability. Server-only doc (falls under
+// the appSettings/{id} catch-all in firestore.rules). This file only owns
+// the CRUD; api/content-admin.ts duplicates FEATURE_KEYS/FEATURE_DEFAULTS
+// and does the actual gating check (hasFeatureAccess) where the gated
+// actions live - no shared code across api/*.ts files, same as everywhere
+// else in this codebase.
+const FEATURE_KEYS = ['ai_course_builder'] as const;
+type FeatureKey = (typeof FEATURE_KEYS)[number];
+const FEATURE_DEFAULTS: Record<
+  FeatureKey,
+  { roles: Record<'admin' | 'trainer' | 'creator', boolean>; allowUserIds: string[]; denyUserIds: string[] }
+> = {
+  ai_course_builder: { roles: { admin: true, trainer: true, creator: true }, allowUserIds: [], denyUserIds: [] },
+};
+
+async function getFeatureAccessConfig() {
+  const snap = await db.collection('appSettings').doc('featureAccess').get();
+  const stored = snap.data()?.features as
+    | Record<string, { roles?: Record<string, boolean>; allowUserIds?: string[]; denyUserIds?: string[] }>
+    | undefined;
+
+  const features: Record<
+    FeatureKey,
+    { roles: Record<'admin' | 'trainer' | 'creator', boolean>; allowUserIds: string[]; denyUserIds: string[] }
+  > = {} as never;
+  for (const key of FEATURE_KEYS) {
+    const defaults = FEATURE_DEFAULTS[key];
+    const s = stored?.[key];
+    features[key] = {
+      roles: { ...defaults.roles, ...(s?.roles ?? {}) } as Record<'admin' | 'trainer' | 'creator', boolean>,
+      allowUserIds: s?.allowUserIds ?? defaults.allowUserIds,
+      denyUserIds: s?.denyUserIds ?? defaults.denyUserIds,
+    };
+  }
+  return { features };
+}
+
+const featureAccessFeatureSchema = z.object({
+  roles: z.object({ admin: z.boolean(), trainer: z.boolean(), creator: z.boolean() }),
+  allowUserIds: z.array(z.string().trim().min(1)).max(500),
+  denyUserIds: z.array(z.string().trim().min(1)).max(500),
+});
+const updateFeatureAccessConfigSchema = z.object({
+  features: z.record(z.enum(FEATURE_KEYS), featureAccessFeatureSchema),
+});
+
+async function updateFeatureAccessConfig(uid: string, body: unknown) {
+  const parsed = updateFeatureAccessConfigSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  await db.collection('appSettings').doc('featureAccess').set(
+    { features: parsed.data.features, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'updateFeatureAccessConfig',
+    targetType: 'appSettings',
+    targetId: 'featureAccess',
+    description: `Updated feature access for: ${Object.keys(parsed.data.features).join(', ')}`,
+  });
+
+  return { success: true };
+}
+
 // --- Users list (Learner Analytics' "Users" tab) ------------------------
 // One read of every user doc plus one read of every purchase doc, joined
 // in memory by userId - simpler than N per-user count queries, and fine
@@ -2051,6 +2121,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'updateCustomExamBuilderSettings':
         res.status(200).json(await updateCustomExamBuilderSettings(uid, data));
+        return;
+      case 'getFeatureAccessConfig':
+        res.status(200).json(await getFeatureAccessConfig());
+        return;
+      case 'updateFeatureAccessConfig':
+        res.status(200).json(await updateFeatureAccessConfig(uid, data));
         return;
       case 'listUsersAdmin':
         res.status(200).json(await listUsersAdmin());

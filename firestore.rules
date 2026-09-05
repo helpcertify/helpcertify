@@ -292,6 +292,17 @@ service cloud.firestore {
       }
     }
 
+    // --- AI Course Builder drafts (aiCourseDrafts/{id}) --- an in-progress
+    // outline/generated-questions draft, before the author submits it into
+    // catalogSubmissions above. Same ownership pattern as
+    // catalogSubmissions: readable by its own author or staff, server-only
+    // write (api/content-admin.ts's generateCourseOutline/updateDraftOutline/
+    // generateAllCourseContent/submitAiCourseDraft).
+    match /aiCourseDrafts/{draftId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.authorUid == request.auth.uid);
+      allow write: if false;
+    }
+
     // Full PAN / GSTIN / address. Admin-SDK only - no client, not even the
     // owning partner or staff, reads these directly. Staff see a masked
     // view through api/admin.ts; a full-PAN reveal is a dedicated audited
@@ -454,7 +465,10 @@ service cloud.firestore {
     // --- appSettings/{id} --- e.g. appSettings/general: emailOtpEnabled,
     // mobileOtpEnabled. Read/written only via api/admin.ts's
     // getAppSettings/updateAppSettings actions (admin-gated there) — never
-    // a direct client read, so this is fully server-only.
+    // a direct client read, so this is fully server-only. Also covers
+    // appSettings/featureAccess ({ features: { ai_course_builder: {...} } },
+    // the per-role/per-user-ID feature gate) via
+    // getFeatureAccessConfig/updateFeatureAccessConfig, same file.
     match /appSettings/{id} {
       allow read, write: if false;
     }

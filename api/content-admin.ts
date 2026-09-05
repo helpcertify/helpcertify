@@ -3207,6 +3207,58 @@ const createCatalogSubmissionSchema = z.object({
   fileUrl: z.string().url(),
 });
 
+// Shared by createCatalogSubmission (a docx upload) and submitAiCourseDraft
+// (AI-generated content) below - both end up with the same
+// { authorType, authorId, questions } shape and just write it into a new
+// catalogSubmissions/{id} doc the same way. autoApprove skips straight to
+// APPROVED (used for an admin's own AI-authored draft, so an admin can
+// publish it right away) instead of the normal PENDING_REVIEW a
+// Trainer/Creator submission starts at.
+async function createCatalogSubmissionFromQuestions(
+  uid: string,
+  args: {
+    authorType: 'admin' | 'trainer' | 'creator';
+    authorId: string;
+    itemType: 'quiz' | 'practiceTest';
+    title: string;
+    category: string;
+    skillLevel: (typeof SKILL_LEVELS)[number];
+    description: string;
+    suggestedPrice: number;
+    currency: 'INR' | 'USD';
+    sourceFormat: string;
+    questions: ParsedQuestion[];
+    warnings: string[];
+    autoApprove: boolean;
+  }
+): Promise<{ submissionId: string; totalQuestions: number }> {
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('catalogSubmissions').doc();
+  await ref.set({
+    authorUid: uid,
+    authorType: args.authorType,
+    authorId: args.authorId,
+    itemType: args.itemType,
+    title: args.title,
+    category: args.category,
+    skillLevel: args.skillLevel,
+    description: args.description,
+    suggestedPrice: args.suggestedPrice,
+    currency: args.currency,
+    sourceFormat: args.sourceFormat,
+    totalQuestions: args.questions.length,
+    parseWarnings: args.warnings,
+    status: args.autoApprove ? 'APPROVED' : 'PENDING_REVIEW',
+    reviewerUid: args.autoApprove ? uid : null,
+    reviewNote: args.autoApprove ? 'Auto-approved (admin-authored)' : null,
+    publishedItemId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeQuestionsBatch(ref, args.questions);
+  return { submissionId: ref.id, totalQuestions: args.questions.length };
+}
+
 async function createCatalogSubmission(uid: string, body: unknown) {
   const parsed = createCatalogSubmissionSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
@@ -3219,10 +3271,7 @@ async function createCatalogSubmission(uid: string, body: unknown) {
   } = await fetchAndParse(d.fileUrl);
   if (valid.length === 0) throw Err.invalidArgument('No questions could be parsed from this file', errors);
 
-  const now = FieldValue.serverTimestamp();
-  const ref = db.collection('catalogSubmissions').doc();
-  await ref.set({
-    authorUid: uid,
+  const { submissionId, totalQuestions } = await createCatalogSubmissionFromQuestions(uid, {
     authorType,
     authorId,
     itemType: d.itemType,
@@ -3233,18 +3282,12 @@ async function createCatalogSubmission(uid: string, body: unknown) {
     suggestedPrice: d.suggestedPrice,
     currency: d.currency,
     sourceFormat: detectedFormat,
-    totalQuestions: valid.length,
-    parseWarnings: warnings,
-    status: 'PENDING_REVIEW',
-    reviewerUid: null,
-    reviewNote: null,
-    publishedItemId: null,
-    createdAt: now,
-    updatedAt: now,
+    questions: valid,
+    warnings,
+    autoApprove: false,
   });
-  await writeQuestionsBatch(ref, valid);
 
-  return { submissionId: ref.id, totalQuestions: valid.length, parseErrors: errors, parseWarnings: warnings };
+  return { submissionId, totalQuestions, parseErrors: errors, parseWarnings: warnings };
 }
 
 async function listMyCatalogSubmissions(uid: string) {
@@ -3428,6 +3471,318 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
 }
 
 // ---------------------------------------------------------------------------
+// Feature Access - a small general-purpose gate so an admin can turn any
+// registered feature on/off per capability (admin/trainer/creator) and
+// grant or exclude specific user IDs regardless of capability. Stored on
+// appSettings/featureAccess - api/admin.ts's getFeatureAccessConfig/
+// updateFeatureAccessConfig own that doc (admin-only CRUD); this file only
+// reads it to gate actions. Starts with just the AI Course Builder below;
+// a future gated feature adds a sibling key to FEATURE_DEFAULTS.
+// ---------------------------------------------------------------------------
+
+const FEATURE_KEYS = ['ai_course_builder'] as const;
+type FeatureKey = (typeof FEATURE_KEYS)[number];
+const FEATURE_DEFAULTS: Record<
+  FeatureKey,
+  { roles: Record<'admin' | 'trainer' | 'creator', boolean>; allowUserIds: string[]; denyUserIds: string[] }
+> = {
+  ai_course_builder: { roles: { admin: true, trainer: true, creator: true }, allowUserIds: [], denyUserIds: [] },
+};
+
+async function hasFeatureAccess(uid: string, featureKey: FeatureKey): Promise<boolean> {
+  const [settingsSnap, userSnap] = await Promise.all([
+    db.collection('appSettings').doc('featureAccess').get(),
+    db.collection('users').doc(uid).get(),
+  ]);
+  const stored = settingsSnap.data()?.features?.[featureKey] as
+    | { roles?: Record<string, boolean>; allowUserIds?: string[]; denyUserIds?: string[] }
+    | undefined;
+  const defaults = FEATURE_DEFAULTS[featureKey];
+  const roles = { ...defaults.roles, ...(stored?.roles ?? {}) };
+  const allowUserIds = stored?.allowUserIds ?? defaults.allowUserIds;
+  const denyUserIds = stored?.denyUserIds ?? defaults.denyUserIds;
+
+  // Deny wins over everything, then an explicit allow wins over role, so
+  // an admin can carve out an exception either way without touching the
+  // role toggle everyone else relies on.
+  if (denyUserIds.includes(uid)) return false;
+  if (allowUserIds.includes(uid)) return true;
+
+  const user = userSnap.data();
+  if (user?.role === 'admin' && roles.admin) return true;
+
+  if (roles.trainer || roles.creator) {
+    try {
+      const { authorType } = await requireCatalogAuthor(uid);
+      if (authorType === 'trainer' && roles.trainer) return true;
+      if (authorType === 'creator' && roles.creator) return true;
+    } catch {
+      // Not an active Trainer or approved Creator - falls through to false.
+    }
+  }
+  return false;
+}
+
+const checkMyFeatureAccessSchema = z.object({ featureKey: z.enum(FEATURE_KEYS) });
+
+async function checkMyFeatureAccess(uid: string, body: unknown) {
+  const parsed = checkMyFeatureAccessSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  return { allowed: await hasFeatureAccess(uid, parsed.data.featureKey) };
+}
+
+// ---------------------------------------------------------------------------
+// AI Course Builder - an admin, active Trainer, or approved Creator
+// describes a course in plain language; OpenAI proposes a module outline,
+// the author reviews/edits it, then OpenAI generates real exam questions
+// per module. The result flows into the exact same catalogSubmissions
+// pipeline above (sourceFormat: 'ai_generated') via
+// createCatalogSubmissionFromQuestions - an admin's draft is auto-approved
+// so publishCatalogSubmission can be called right away (same "Publish"
+// button the review queue already has), a Trainer/Creator's goes through
+// the normal review queue unchanged. Gated by hasFeatureAccess above, and
+// every action here fails clearly (not a raw 500) if OPENAI_API_KEY isn't
+// set yet - the same deployed code starts working once it is.
+// ---------------------------------------------------------------------------
+
+async function callOpenAiJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw Err.failedPrecondition('AI Course Builder is not configured yet. Add OPENAI_API_KEY in Vercel.');
+  }
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw Err.failedPrecondition(`AI generation request failed (${res.status}). ${errText.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const content = json.choices?.[0]?.message?.content;
+  if (typeof content !== 'string') throw Err.failedPrecondition('AI generation returned an unexpected response');
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw Err.failedPrecondition('AI generation returned invalid JSON');
+  }
+}
+
+async function resolveAiCourseAuthor(uid: string): Promise<{ authorType: 'admin' | 'trainer' | 'creator'; authorId: string }> {
+  const userSnap = await db.collection('users').doc(uid).get();
+  if (userSnap.data()?.role === 'admin') return { authorType: 'admin', authorId: uid };
+  return requireCatalogAuthor(uid);
+}
+
+const generateCourseOutlineSchema = z.object({
+  topic: z.string().trim().min(3).max(300),
+  itemType: z.enum(['quiz', 'practiceTest']),
+  category: z.string().trim().min(1).max(100).default('Other'),
+  skillLevel: z.enum(SKILL_LEVELS).default('Foundation'),
+  moduleCount: z.number().int().min(1).max(12).default(5),
+});
+
+const outlineModuleSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(500).default(''),
+  questionsPerModule: z.number().int().min(1).max(50).default(10),
+});
+const aiOutlineResponseSchema = z.object({ modules: z.array(outlineModuleSchema).min(1).max(20) });
+
+async function generateCourseOutline(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = generateCourseOutlineSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const { authorType, authorId } = await resolveAiCourseAuthor(uid);
+
+  const raw = await callOpenAiJson(
+    'You design certification exam course outlines. Respond with strict JSON only, matching: {"modules":[{"title":string,"description":string,"questionsPerModule":number}]}.',
+    `Course topic: "${d.topic}". Category: ${d.category}. Skill level: ${d.skillLevel}. Propose exactly ${d.moduleCount} modules that together cover this topic for an exam question bank.`
+  );
+  const outlineParsed = aiOutlineResponseSchema.safeParse(raw);
+  if (!outlineParsed.success) throw Err.failedPrecondition('AI returned an outline in an unexpected shape. Try again.');
+
+  const outline = outlineParsed.data.modules.map((m, i) => ({ moduleIndex: i, ...m }));
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('aiCourseDrafts').doc();
+  await ref.set({
+    authorUid: uid,
+    authorType,
+    authorId,
+    itemType: d.itemType,
+    topic: d.topic,
+    category: d.category,
+    skillLevel: d.skillLevel,
+    status: 'OUTLINE_READY',
+    outline,
+    generatedQuestions: {},
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return { draftId: ref.id, outline };
+}
+
+const updateDraftOutlineSchema = z.object({
+  draftId: z.string().trim().min(1),
+  outline: z
+    .array(
+      z.object({
+        moduleIndex: z.number().int().min(0),
+        title: z.string().trim().min(1).max(200),
+        description: z.string().trim().max(500).default(''),
+        questionsPerModule: z.number().int().min(1).max(50),
+      })
+    )
+    .min(1)
+    .max(20),
+});
+
+async function updateDraftOutline(uid: string, body: unknown) {
+  const parsed = updateDraftOutlineSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('aiCourseDrafts').doc(parsed.data.draftId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Draft not found');
+  if (snap.data()?.authorUid !== uid) throw Err.permissionDenied();
+  await ref.update({ outline: parsed.data.outline, updatedAt: FieldValue.serverTimestamp() });
+  return { success: true };
+}
+
+const draftIdSchema = z.object({ draftId: z.string().trim().min(1) });
+
+const aiModuleQuestionSchema = z.object({
+  questionText: z.string().trim().min(1),
+  options: z.array(z.object({ id: z.string().trim().min(1), text: z.string().trim().min(1) })).min(2).max(6),
+  correctOptionId: z.string().trim().min(1),
+});
+const aiModuleQuestionsResponseSchema = z.object({ questions: z.array(aiModuleQuestionSchema).min(1) });
+
+async function generateAllCourseContent(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = draftIdSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('aiCourseDrafts').doc(parsed.data.draftId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Draft not found');
+  const draft = snap.data()!;
+  if (draft.authorUid !== uid) throw Err.permissionDenied();
+
+  await ref.update({ status: 'GENERATING', updatedAt: FieldValue.serverTimestamp() });
+
+  const outline = draft.outline as { moduleIndex: number; title: string; description: string; questionsPerModule: number }[];
+  const generatedQuestions: Record<string, ParsedQuestion[]> = {};
+  const warnings: string[] = [];
+
+  // One OpenAI call per module rather than one giant request - keeps each
+  // response small enough for gpt-4o-mini to return reliably, and a bad
+  // response from one module doesn't invalidate the others. Sequential
+  // (not parallel) so this stays well inside the 60s maxDuration this file
+  // already has for a typical 4-8 module course.
+  for (const m of outline) {
+    const raw = await callOpenAiJson(
+      'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Each question needs exactly 4 options with short ids like "A","B","C","D", and correctOptionId must match one option id.',
+      `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write exactly ${m.questionsPerModule} distinct questions for this module.`
+    );
+    const moduleParsed = aiModuleQuestionsResponseSchema.safeParse(raw);
+    if (!moduleParsed.success) {
+      warnings.push(`Module "${m.title}": AI response was in an unexpected shape, skipped.`);
+      continue;
+    }
+    const validQuestions = moduleParsed.data.questions.filter((q) => q.options.some((o) => o.id === q.correctOptionId));
+    if (validQuestions.length < moduleParsed.data.questions.length) {
+      warnings.push(
+        `Module "${m.title}": ${moduleParsed.data.questions.length - validQuestions.length} question(s) dropped (invalid answer key).`
+      );
+    }
+    generatedQuestions[String(m.moduleIndex)] = validQuestions.map((q, i) => ({
+      order: i,
+      questionText: q.questionText,
+      options: q.options,
+      correctOptionId: q.correctOptionId,
+    }));
+  }
+
+  await ref.update({ generatedQuestions, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
+
+  return { draftId: ref.id, generatedQuestions, warnings };
+}
+
+const submitAiCourseDraftSchema = z.object({
+  draftId: z.string().trim().min(1),
+  title: z.string().trim().min(2).max(200),
+  category: z.string().trim().min(1).max(100).default('Other'),
+  description: z.string().trim().max(5000).default(''),
+  suggestedPrice: z.number().int().min(0).default(0),
+  currency: z.enum(['INR', 'USD']).default('INR'),
+});
+
+async function submitAiCourseDraft(uid: string, body: unknown) {
+  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
+    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  }
+  const parsed = submitAiCourseDraftSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+
+  const ref = db.collection('aiCourseDrafts').doc(d.draftId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Draft not found');
+  const draft = snap.data()!;
+  if (draft.authorUid !== uid) throw Err.permissionDenied();
+  if (draft.status !== 'CONTENT_READY') {
+    throw Err.failedPrecondition('Generate the module content before submitting this draft');
+  }
+
+  const generatedQuestions = draft.generatedQuestions as Record<string, ParsedQuestion[]>;
+  const outline = draft.outline as { moduleIndex: number }[];
+  const flattened: ParsedQuestion[] = [];
+  let order = 0;
+  for (const m of outline) {
+    const moduleQuestions = generatedQuestions[String(m.moduleIndex)] ?? [];
+    for (const q of moduleQuestions) {
+      flattened.push({ ...q, order: order++ });
+    }
+  }
+  if (flattened.length === 0) throw Err.failedPrecondition('This draft has no generated questions yet');
+
+  const authorType = draft.authorType as 'admin' | 'trainer' | 'creator';
+  const { submissionId, totalQuestions } = await createCatalogSubmissionFromQuestions(uid, {
+    authorType,
+    authorId: draft.authorId as string,
+    itemType: draft.itemType as 'quiz' | 'practiceTest',
+    title: d.title,
+    category: d.category,
+    skillLevel: draft.skillLevel as (typeof SKILL_LEVELS)[number],
+    description: d.description,
+    suggestedPrice: d.suggestedPrice,
+    currency: d.currency,
+    sourceFormat: 'ai_generated',
+    questions: flattened,
+    warnings: [],
+    autoApprove: authorType === 'admin',
+  });
+
+  await ref.update({ status: 'SUBMITTED', updatedAt: FieldValue.serverTimestamp() });
+
+  return { submissionId, totalQuestions, autoApproved: authorType === 'admin' };
+}
+
+// ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -3460,6 +3815,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'createCatalogSubmission',
       'listMyCatalogSubmissions',
       'withdrawCatalogSubmission',
+      'checkMyFeatureAccess',
+      'generateCourseOutline',
+      'updateDraftOutline',
+      'generateAllCourseContent',
+      'submitAiCourseDraft',
     ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
       ? await verifyAuthedUser(req)
@@ -3510,6 +3870,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'withdrawCatalogSubmission':
         res.status(200).json(await withdrawCatalogSubmission(uid, data));
+        return;
+      case 'checkMyFeatureAccess':
+        res.status(200).json(await checkMyFeatureAccess(uid, data));
+        return;
+      case 'generateCourseOutline':
+        res.status(200).json(await generateCourseOutline(uid, data));
+        return;
+      case 'updateDraftOutline':
+        res.status(200).json(await updateDraftOutline(uid, data));
+        return;
+      case 'generateAllCourseContent':
+        res.status(200).json(await generateAllCourseContent(uid, data));
+        return;
+      case 'submitAiCourseDraft':
+        res.status(200).json(await submitAiCourseDraft(uid, data));
         return;
       case 'listCatalogSubmissionsAdmin':
         res.status(200).json(await listCatalogSubmissionsAdmin(data));

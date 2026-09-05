@@ -8,6 +8,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
 import { CatalogSubmissionForm } from '@/features/catalogSubmissions/components/CatalogSubmissionForm';
+import { AiCourseBuilderFlow } from '@/features/catalogSubmissions/components/AiCourseBuilderFlow';
 
 const ROLE_LABEL: Record<string, string> = {
   course_creator: 'Course Creator',
@@ -366,6 +367,12 @@ export function CreatorWorkspacePage() {
             the public catalog for any student to find and buy.
           </p>
           <CatalogSubmissionForm />
+        </section>
+      )}
+
+      {(roles.data?.roles ?? []).some((r) => r.status === 'APPROVED') && (
+        <section className="rounded-xl border border-surface-border bg-surface-raised p-5">
+          <AiCourseBuilderFlow />
         </section>
       )}
     </div>

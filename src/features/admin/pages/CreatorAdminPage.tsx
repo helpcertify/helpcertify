@@ -6,6 +6,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
 import { catalogSubmissionAdminApi } from '@/features/catalogSubmissions/api/catalogSubmissionApi';
+import { AiCourseBuilderFlow } from '@/features/catalogSubmissions/components/AiCourseBuilderFlow';
 
 const ROLE_LABEL: Record<string, string> = {
   course_creator: 'Course Creator',
@@ -366,6 +367,8 @@ export function CreatorAdminPage() {
           </table>
         </div>
       </section>
+
+      <AiCourseBuilderFlow isAdmin />
 
       <CatalogSubmissionsSection />
     </div>
