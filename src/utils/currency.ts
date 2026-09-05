@@ -32,6 +32,12 @@ export function minorToMajor(minor: number): number {
 // either, rather than duplicating the flat-vs-percent branch everywhere a
 // reward is shown (RegisterPage's welcome toast, ReferAndEarnSection's
 // banner and referral list).
-export function formatReward(type: 'flat' | 'percent', value: number, currency: SupportedCurrency = 'INR'): string {
-  return type === 'percent' ? `${value}%` : formatMoney(value, currency);
+// Returns the complete phrase, including what kind of reward it is - a
+// fixed-price coupon reads very differently from a discount ("becomes
+// ₹49" vs "₹49 off"), so this can't just return a bare number/percent for
+// every type the way it used to.
+export function formatReward(type: 'flat' | 'percent' | 'fixed_price', value: number, currency: SupportedCurrency = 'INR'): string {
+  if (type === 'percent') return `${value}% off`;
+  if (type === 'fixed_price') return `becomes ${formatMoney(value, currency)}`;
+  return `${formatMoney(value, currency)} off`;
 }

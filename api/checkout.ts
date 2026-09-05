@@ -113,7 +113,16 @@ async function validateCoupon(code: string, uid: string) {
 
 function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: number): number {
   if (subtotal <= 0) return 0;
-  const raw = coupon.discountType === 'percent' ? Math.round((subtotal * coupon.discountValue) / 100) : coupon.discountValue;
+  let raw: number;
+  if (coupon.discountType === 'percent') {
+    raw = Math.round((subtotal * coupon.discountValue) / 100);
+  } else if (coupon.discountType === 'fixed_price') {
+    // discountValue here is the target total, not an amount to take off -
+    // never increases the price if the item is already cheaper than that.
+    raw = Math.max(0, subtotal - coupon.discountValue);
+  } else {
+    raw = coupon.discountValue;
+  }
   return Math.min(raw, Math.max(subtotal - 100, 0));
 }
 

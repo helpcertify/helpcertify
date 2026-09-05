@@ -134,7 +134,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
                     onClick={() => applyCoupon(c.code)}
                     className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF]"
                   >
-                    🎁 {c.code} ({formatReward(c.type, c.value)} off)
+                    🎁 {c.code} ({formatReward(c.type, c.value)})
                   </button>
                 ))}
               </div>

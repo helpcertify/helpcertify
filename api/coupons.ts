@@ -62,7 +62,7 @@ async function requireAdmin(req: VercelRequest): Promise<{ uid: string }> {
 // even offers to create one.
 const createCouponSchema = z.object({
   code: z.string().trim().min(3).max(40),
-  discountType: z.enum(['percent', 'flat']),
+  discountType: z.enum(['percent', 'flat', 'fixed_price']),
   discountValue: z.number().int().min(1),
   expiresAt: z.string().datetime().nullable().optional(),
   maxUses: z.number().int().min(1).nullable().optional(),
@@ -74,6 +74,12 @@ async function createCoupon(uid: string, body: unknown) {
   const d = parsed.data;
   if (d.discountType === 'percent' && d.discountValue > 95) {
     throw Err.invalidArgument('Percent discounts are capped at 95% (a 100% coupon would zero out the order)');
+  }
+  // fixed_price's discountValue is a target total, not an amount - a value
+  // under ₹1 would zero out (or nearly zero out) every order it touches,
+  // same reasoning as the percent cap above.
+  if (d.discountType === 'fixed_price' && d.discountValue < 100) {
+    throw Err.invalidArgument('A fixed price must be at least ₹1 (100 paise)');
   }
   const code = d.code.toUpperCase();
 

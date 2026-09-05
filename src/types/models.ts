@@ -655,8 +655,11 @@ export interface WishlistDoc {
 /** coupons/{CODE} - doc id is the uppercased code itself, for an O(1) lookup
  * instead of a query. Admin-managed. */
 export interface CouponDoc {
-  discountType: 'percent' | 'flat';
-  // percent: 1-95 (see api/checkout.ts for why 100 is disallowed); flat: paise.
+  discountType: 'percent' | 'flat' | 'fixed_price';
+  // percent: 1-95 (see api/checkout.ts for why 100 is disallowed); flat:
+  // paise taken off the subtotal; fixed_price: paise the subtotal becomes
+  // (e.g. 4900 = every order this applies to totals ₹49, or stays at its
+  // own price if that's already cheaper - never increases it).
   discountValue: number;
   active: boolean;
   expiresAt: Timestamp | null;

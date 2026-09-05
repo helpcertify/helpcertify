@@ -11,7 +11,7 @@ export function CouponsPage() {
   const { data } = useQuery({ queryKey: ['admin', 'coupons'], queryFn: couponsApi.listCoupons });
 
   const [code, setCode] = useState('');
-  const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent');
+  const [discountType, setDiscountType] = useState<'percent' | 'flat' | 'fixed_price'>('percent');
   const [discountValue, setDiscountValue] = useState('10');
   const [expiresAt, setExpiresAt] = useState('');
   const [maxUses, setMaxUses] = useState('');
@@ -23,7 +23,8 @@ export function CouponsPage() {
       const payload: CreateCouponPayload = {
         code: code.trim(),
         discountType,
-        discountValue: discountType === 'flat' ? Math.round(Number(discountValue) * 100) : Number(discountValue),
+        discountValue:
+          discountType === 'percent' ? Number(discountValue) : Math.round(Number(discountValue) * 100),
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         maxUses: maxUses ? Number(maxUses) : null,
       };
@@ -72,12 +73,25 @@ export function CouponsPage() {
             />
           </Field>
           <Field label="Type">
-            <select value={discountType} onChange={(e) => setDiscountType(e.target.value as 'percent' | 'flat')} className="input-dark">
+            <select
+              value={discountType}
+              onChange={(e) => setDiscountType(e.target.value as 'percent' | 'flat' | 'fixed_price')}
+              className="input-dark"
+            >
               <option value="percent">Percent off</option>
               <option value="flat">Flat amount off (₹)</option>
+              <option value="fixed_price">Fixed price (₹) - every item becomes this price</option>
             </select>
           </Field>
-          <Field label={discountType === 'percent' ? 'Percent (max 95)' : 'Amount (₹)'}>
+          <Field
+            label={
+              discountType === 'percent'
+                ? 'Percent (max 95)'
+                : discountType === 'flat'
+                  ? 'Amount off (₹)'
+                  : 'Fixed price (₹)'
+            }
+          >
             <input
               type="number"
               min={1}
@@ -124,7 +138,11 @@ export function CouponsPage() {
                 </span>
               </div>
               <div className="mt-1 text-sm text-ink-faint">
-                {c.discountType === 'percent' ? `${c.discountValue}% off` : `₹${(c.discountValue / 100).toFixed(2)} off`}
+                {c.discountType === 'percent'
+                  ? `${c.discountValue}% off`
+                  : c.discountType === 'fixed_price'
+                    ? `Fixed price ₹${(c.discountValue / 100).toFixed(2)}`
+                    : `₹${(c.discountValue / 100).toFixed(2)} off`}
                 {' · '}
                 {c.usedCount} used{c.maxUses ? ` / ${c.maxUses} max` : ''}
                 {c.expiresAt ? ` · expires ${toDate(c.expiresAt).toLocaleDateString()}` : ''}
