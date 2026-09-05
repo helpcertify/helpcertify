@@ -65,21 +65,21 @@ export function ProductCardShell({
 }: ProductCardShellProps) {
   return (
     <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
+      {/* The cover (or gradient fallback) always occupies the top ~half of
+          the card - a fixed 4:3 box on the fixed-width shell - so every card
+          splits its space roughly 50/50 between image and details. */}
       {coverImageUrl ? (
-        <Link to={detailHref} className="relative block">
-          <img src={coverImageUrl} alt="" className={`${compact ? 'h-24' : 'h-32'} w-full object-cover`} loading="lazy" />
+        <Link to={detailHref} className="relative block aspect-[4/3] overflow-hidden">
+          <img src={coverImageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
           <WishlistButton itemType={itemType} itemId={id} variant="overlay" className="absolute right-3 top-3" />
         </Link>
       ) : (
-        <div className={`relative bg-gradient-to-br from-brand-50 to-brand-50 ${compact ? 'min-h-[72px] p-3 pb-5' : 'min-h-[92px] p-4 pb-6'}`}>
+        <div className="relative flex aspect-[4/3] flex-col justify-between bg-gradient-to-br from-brand-50 to-brand-50 p-3">
           <WishlistButton itemType={itemType} itemId={id} variant="inline" className="absolute right-3 top-3" />
           <Link to={detailHref} className="flex items-start gap-3 pr-8">
             <CourseIcon id={id} title={title} itemType={itemType} />
-            <h3 className="line-clamp-2 pt-1 text-[15px] font-semibold leading-snug text-ink">{title}</h3>
+            <h3 className="line-clamp-3 pt-1 text-[15px] font-semibold leading-snug text-ink">{title}</h3>
           </Link>
-          {/* Bottom-right of the light-blue header, not the old cover-image
-              corner - the click affordance that used to sit on the (now
-              removed) colored banner. */}
           <ClickHereLink href={detailHref} />
         </div>
       )}

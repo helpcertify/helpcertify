@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ModalCloseButton } from './ModalCloseButton';
 import { CertificationCard } from './CertificationCard';
 import { formatMoney } from '@/utils/currency';
@@ -41,16 +42,19 @@ export function CertificationPrepCard({ certification }: Props) {
 
   return (
     <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
+      {/* Fixed 4:3 box - the image takes roughly the top half of the card. */}
       {certification.coverImageUrl ? (
-        <img
-          src={certification.coverImageUrl}
-          alt=""
-          loading="lazy"
-          className="h-24 w-full object-cover"
-        />
+        <div className="aspect-[4/3] overflow-hidden">
+          <img
+            src={certification.coverImageUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        </div>
       ) : (
-        <div className="flex h-24 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
-          <svg viewBox="0 0 24 24" className="h-9 w-9 text-brand-500" fill="currentColor" aria-hidden="true">
+        <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
+          <svg viewBox="0 0 24 24" className="h-12 w-12 text-brand-500" fill="currentColor" aria-hidden="true">
             <path d={iconPath} />
           </svg>
         </div>
@@ -87,7 +91,7 @@ export function CertificationPrepCard({ certification }: Props) {
         </button>
       </div>
 
-      {open && (
+      {open && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
           onClick={() => setOpen(false)}
@@ -133,7 +137,8 @@ export function CertificationPrepCard({ certification }: Props) {
               Terms &amp; refund policy
             </a>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
