@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { friendlyAuthError } from '@/lib/errorMessages';
+import { PasswordInput } from '@/components/common/PasswordInput';
 
 // A home for account-wide preferences. Appearance (theme) used to live as a
 // standalone icon toggle in the header; it moved here so the header stays
@@ -97,22 +98,19 @@ export function SettingsPage() {
         {hasPasswordProvider ? (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <input
-                type="password"
+              <PasswordInput
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Current password"
                 className="input-dark"
               />
-              <input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="New password (min. 8 characters)"
                 className="input-dark"
               />
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"

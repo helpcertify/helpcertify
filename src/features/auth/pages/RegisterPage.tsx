@@ -12,6 +12,7 @@ import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
 import { formatReward } from '@/utils/currency';
 import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
+import { PasswordInput } from '@/components/common/PasswordInput';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
@@ -138,9 +139,8 @@ export function RegisterPage() {
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
               {...register('password')}
             />

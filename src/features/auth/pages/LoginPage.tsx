@@ -11,6 +11,7 @@ import { GoogleButton } from '@/components/common/GoogleButton';
 import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { PasswordInput } from '@/components/common/PasswordInput';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -98,9 +99,8 @@ export function LoginPage() {
                 Forgot password?
               </Link>
             </div>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
               {...register('password')}
