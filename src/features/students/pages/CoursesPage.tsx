@@ -42,6 +42,7 @@ export function CoursesPage() {
                 price={c.price}
                 originalPrice={c.originalPrice}
                 currency={c.currency}
+                coverImageUrl={c.coverImageUrl}
                 detailHref={`/home/courses/${c.id}`}
                 footer={
                   <Link

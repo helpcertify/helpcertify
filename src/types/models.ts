@@ -406,6 +406,14 @@ export interface CourseDoc {
   previewLessonCount: number;
   // See QuizDoc.accessPeriodDays - same convention (0 = lifetime).
   accessPeriodDays: number;
+  // Cover photo auto-matched from Pexels at publish time (see
+  // api/content-admin.ts's fetchCourseCoverImage). null when Pexels isn't
+  // configured or returned no match - the UI then falls back to the
+  // gradient + CourseIcon tile. credit/sourceUrl are the photographer name
+  // and the photo's Pexels page, shown as a small attribution.
+  coverImageUrl: string | null;
+  coverImageCredit: string | null;
+  coverImageSourceUrl: string | null;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

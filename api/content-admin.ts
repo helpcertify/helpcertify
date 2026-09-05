@@ -416,6 +416,38 @@ async function writeLessonsBatch(parentRef: DocumentReference, lessons: ParsedLe
   }
 }
 
+// Auto cover photo for a published Course - the first landscape match
+// from Pexels (free, no billing, just a free PEXELS_API_KEY). Tries each
+// query in turn (course title, then category, then a generic fallback)
+// and returns null if the key is missing or nothing matched, in which
+// case the UI falls back to the gradient + CourseIcon tile. Server-side
+// fetch from a Vercel function, so not subject to the browser CSP; the
+// rendered image URL (images.pexels.com) is already covered by
+// img-src https:.
+async function fetchCourseCoverImage(queries: string[]): Promise<{ url: string; credit: string; sourceUrl: string } | null> {
+  const key = process.env.PEXELS_API_KEY;
+  if (!key) return null;
+  for (const q of queries) {
+    if (!q || !q.trim()) continue;
+    try {
+      const res = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(q.trim())}&orientation=landscape&per_page=1`,
+        { headers: { Authorization: key } }
+      );
+      if (!res.ok) continue;
+      const json = (await res.json()) as {
+        photos?: { src?: { landscape?: string; large?: string }; photographer?: string; url?: string }[];
+      };
+      const p = json.photos?.[0];
+      const url = p?.src?.landscape ?? p?.src?.large;
+      if (url) return { url, credit: p?.photographer ?? 'Pexels', sourceUrl: p?.url ?? 'https://www.pexels.com' };
+    } catch {
+      // Try the next query.
+    }
+  }
+  return null;
+}
+
 // Deletes every doc in a question subcollection plus each one's private
 // answerKey. Used to read each question's own private/ subcollection first
 // to discover what to delete there - one sequential await per question,
@@ -3466,6 +3498,7 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
       content: l.data().content as string,
     }));
 
+    const cover = await fetchCourseCoverImage([s.title as string, s.category as string, 'online learning course']);
     const courseRef = db.collection('courses').doc();
     await courseRef.set({
       title: s.title,
@@ -3482,6 +3515,9 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
       ratingCount: 0,
       previewLessonCount: 1,
       accessPeriodDays: d.accessPeriodDays,
+      coverImageUrl: cover?.url ?? null,
+      coverImageCredit: cover?.credit ?? null,
+      coverImageSourceUrl: cover?.sourceUrl ?? null,
       createdBy: s.authorUid,
       createdAt: now,
       updatedAt: now,
@@ -3584,6 +3620,37 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
   return { publishedItemId, itemType: s.itemType as 'quiz' | 'practiceTest' };
 }
 // (the 'course' branch above returns its own narrower type directly)
+
+const regenerateCourseCoverSchema = z.object({ courseId: z.string().trim().min(1) });
+
+// Admin-only: re-fetch a course's Pexels cover (for one published before
+// covers existed, or when the auto match wasn't a good fit).
+async function regenerateCourseCover(uid: string, body: unknown) {
+  const parsed = regenerateCourseCoverSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const ref = db.collection('courses').doc(parsed.data.courseId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Course not found');
+  const c = snap.data()!;
+
+  const cover = await fetchCourseCoverImage([c.title as string, c.category as string, 'online learning course']);
+  if (!cover) throw Err.failedPrecondition('No cover photo could be found (or PEXELS_API_KEY is not set).');
+
+  await ref.update({
+    coverImageUrl: cover.url,
+    coverImageCredit: cover.credit,
+    coverImageSourceUrl: cover.sourceUrl,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await writeAdminLog({
+    performedBy: uid,
+    action: 'regenerateCourseCover',
+    targetType: 'course',
+    targetId: parsed.data.courseId,
+    description: `Regenerated cover for "${c.title}"`,
+  });
+  return { coverImageUrl: cover.url };
+}
 
 // ---------------------------------------------------------------------------
 // Feature Access - a small general-purpose gate so an admin can turn any
@@ -4341,6 +4408,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'publishCatalogSubmission':
         res.status(200).json(await publishCatalogSubmission(uid, data));
+        return;
+      case 'regenerateCourseCover':
+        res.status(200).json(await regenerateCourseCover(uid, data));
         return;
       case 'createQuiz':
         res.status(200).json(await createQuiz(uid, data));
