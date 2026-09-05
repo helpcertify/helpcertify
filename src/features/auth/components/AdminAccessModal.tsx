@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { friendlyAuthError } from '@/lib/errorMessages';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { PasswordInput } from '@/components/common/PasswordInput';
 
 interface AdminAccessModalProps {
   onClose: () => void;
@@ -96,9 +97,8 @@ export function AdminAccessModal({ onClose }: AdminAccessModalProps) {
             <label htmlFor="admin-password" className="mb-1 block text-sm font-medium text-ink-muted">
               Password
             </label>
-            <input
+            <PasswordInput
               id="admin-password"
-              type="password"
               className="input-dark focus:ring-2 focus:ring-brand-400"
               {...register('password')}
             />

@@ -8,6 +8,7 @@ import { authApi } from '../api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
+import { PasswordInput } from '@/components/common/PasswordInput';
 
 const schema = z
   .object({
@@ -117,9 +118,8 @@ export function ResetPasswordPage() {
                 <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
                   New password
                 </label>
-                <input
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="new-password"
                   className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
                   {...register('password')}
@@ -130,9 +130,8 @@ export function ResetPasswordPage() {
                 <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-ink-muted">
                   Confirm new password
                 </label>
-                <input
+                <PasswordInput
                   id="confirm"
-                  type="password"
                   autoComplete="new-password"
                   className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
                   {...register('confirm')}

@@ -52,7 +52,7 @@ describe('LoginPage', () => {
     renderWithProviders(<LoginPage />);
 
     await user.type(screen.getByLabelText(/email/i), 'priya@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'hunter22practice');
+    await user.type(screen.getByLabelText(/^password$/i), 'hunter22practice');
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     // Assert on just the first argument - TanStack Query v5 calls
