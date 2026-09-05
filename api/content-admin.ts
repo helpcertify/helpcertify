@@ -4284,6 +4284,46 @@ async function markLessonComplete(uid: string, body: unknown) {
   return { success: true };
 }
 
+// The learner's in-progress courses for "Jump back in" on the home page.
+// courseProgress is keyed `${uid}_${courseId}` with no uid field of its
+// own, so rather than an index/rules change we read the published course
+// list (already small) and batch-get this user's progress doc for each -
+// same "a join is needed, so it's a server action" convention as
+// getCourseForReading above.
+async function listMyCourseProgress(uid: string) {
+  const coursesSnap = await db.collection('courses').where('isPublished', '==', true).get();
+  if (coursesSnap.empty) return { items: [] };
+
+  const progressRefs = coursesSnap.docs.map((c) => db.collection('courseProgress').doc(`${uid}_${c.id}`));
+  const progressSnaps = await db.getAll(...progressRefs);
+  const progressByCourseId = new Map<string, FirebaseFirestore.DocumentData>();
+  progressSnaps.forEach((snap, i) => {
+    if (snap.exists) progressByCourseId.set(coursesSnap.docs[i].id, snap.data()!);
+  });
+
+  const items = coursesSnap.docs
+    .map((c) => {
+      const progress = progressByCourseId.get(c.id);
+      if (!progress) return null;
+      const course = c.data();
+      const totalLessons = (course.totalLessons as number | undefined) ?? 0;
+      const completedCount = ((progress.completedLessonIndexes as number[] | undefined) ?? []).length;
+      if (totalLessons > 0 && completedCount >= totalLessons) return null;
+      return {
+        courseId: c.id,
+        title: (course.title as string) ?? 'Untitled course',
+        coverImageUrl: (course.coverImageUrl as string | undefined) ?? null,
+        totalLessons,
+        completedCount,
+        updatedAtMs: (progress.updatedAt as Timestamp | undefined)?.toMillis?.() ?? 0,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+
+  return { items };
+}
+
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -4324,6 +4364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'submitAiCourseDraft',
       'getCourseForReading',
       'markLessonComplete',
+      'listMyCourseProgress',
       'getMyAiUsage',
     ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
@@ -4399,6 +4440,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'markLessonComplete':
         res.status(200).json(await markLessonComplete(uid, data));
+        return;
+      case 'listMyCourseProgress':
+        res.status(200).json(await listMyCourseProgress(uid));
         return;
       case 'listCatalogSubmissionsAdmin':
         res.status(200).json(await listCatalogSubmissionsAdmin(data));
