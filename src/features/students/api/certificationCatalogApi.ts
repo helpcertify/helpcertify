@@ -62,7 +62,46 @@ export interface CatalogCertification {
   iconKey: CertificationIconKey;
   isPublished: boolean;
   displayOrder: number;
+  // Auto-matched topic-relevant cover photo (Pexels), cached on the cert doc
+  // - getLearnerCatalog spreads the whole doc so these ride along. null/absent
+  // = fall back to a category gradient + icon on the card.
+  coverImageUrl?: string | null;
+  coverImageCredit?: string | null;
+  coverImageSourceUrl?: string | null;
   packages: CatalogPackage[];
+}
+
+// The card-level summary across all of a certification's purchasable
+// packages: the biggest question bank, the most mock exams, the longest
+// access window, and the lowest "from" price. Used by the "Prepare for Your
+// Certification" cards, which show one figure per certification, not per
+// package.
+export interface CertificationPrepSummary {
+  practiceQuestions: number;
+  mockExams: number;
+  accessDays: number;
+  fromPrice: number | null;
+  currency: 'INR' | 'USD';
+}
+
+export function summarizeCertificationPrep(cert: CatalogCertification): CertificationPrepSummary {
+  const pkgs = cert.packages;
+  let practiceQuestions = 0;
+  let mockExams = 0;
+  let accessDays = 0;
+  let fromPrice: number | null = null;
+  let currency: 'INR' | 'USD' = 'INR';
+  for (const p of pkgs) {
+    const q = p.practiceQuestionCount || p.aggregateTotalQuestions;
+    if (p.practiceAccessEnabled && q > practiceQuestions) practiceQuestions = q;
+    if (p.mockAccessEnabled && p.fullMockAttempts > mockExams) mockExams = p.fullMockAttempts;
+    if (p.accessValidityDays > accessDays) accessDays = p.accessValidityDays;
+    if (p.price > 0 && (fromPrice === null || p.price < fromPrice)) {
+      fromPrice = p.price;
+      currency = p.currency;
+    }
+  }
+  return { practiceQuestions, mockExams, accessDays, fromPrice, currency };
 }
 
 export const certificationCatalogApi = {

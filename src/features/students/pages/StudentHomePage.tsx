@@ -12,7 +12,8 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { useCertificationCatalog } from '../api/certificationCatalogApi';
 import { hasActivePackage } from '../lib/certificationCatalog';
-import { CertificationCard, CertificationCardSkeleton } from '@/components/common/CertificationCard';
+import { CertificationCard } from '@/components/common/CertificationCard';
+import { CertificationPrepSection } from '../components/CertificationPrepSection';
 import { Avatar } from '@/components/common/Avatar';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
 import { buildDailyAnsweredMap, sumTrailingDays } from '../lib/studyPlan';
@@ -45,7 +46,7 @@ export function StudentHomePage() {
   const { data: allCourses } = useQuery({ queryKey: ['student', 'availableCourses'], queryFn: listAvailableCourses });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: examCountdowns } = useExamCountdowns();
-  const { data: catalog, isLoading: catalogLoading, error: catalogError, refetch: refetchCatalog } = useCertificationCatalog();
+  const { data: catalog, isLoading: catalogLoading, error: catalogError } = useCertificationCatalog();
 
   const { data: myAttempts } = useMyQuizAttempts();
 
@@ -176,9 +177,16 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* Recommended courses - ranked from the categories the learner is
-          already active in. Hidden when there's nothing to suggest. */}
+      {/* Recommended courses ("Courses to explore") - ranked from the
+          categories the learner is already active in. Compact row so it
+          does not dominate the page. Hidden when there's nothing to suggest. */}
       <RecommendedCourses />
+
+      {/* Prepare for Your Certification - the browse-and-buy grid, driven
+          from the certification catalog (product data). See
+          api/cart.ts's getLearnerCatalog for how pricing/owned/in-cart
+          state is resolved server-side. */}
+      <CertificationPrepSection />
 
       {/* Your certifications - catalog data filtered to certifications the
           learner already owns a package in, so "continue learning" sits
@@ -222,42 +230,11 @@ export function StudentHomePage() {
         </div>
       )}
 
-      {/* New courses - newest written-lesson courses, for discovery. */}
-      {newCourses.length > 0 && <CourseRow title="New courses" items={newCourses} seeAllHref="/home/courses" />}
-
-      {/* Choose Your Exam Preparation - the browse-and-buy grid, demoted
-          below the fold now that "Jump back in" and recommendations lead
-          the page. See api/cart.ts's getLearnerCatalog for how
-          pricing/owned/in-cart state is resolved server-side. */}
-      <div className="mb-8">
-        <h2 className="mb-1 text-lg font-bold text-ink">Choose Your Exam Preparation</h2>
-        <p className="mb-4 text-sm text-ink-faint">All prices are visible. Select the plan you want and purchase directly.</p>
-
-        {catalogLoading && (
-          <div className="space-y-4">
-            <CertificationCardSkeleton />
-            <CertificationCardSkeleton />
-          </div>
-        )}
-        {!catalogLoading && catalogError && (
-          <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
-            We couldn't load the available certification packages.{' '}
-            <button type="button" onClick={() => refetchCatalog()} className="font-semibold text-brand-ink hover:underline">
-              Retry
-            </button>
-          </div>
-        )}
-        {!catalogLoading && !catalogError && catalog && catalog.certifications.length === 0 && (
-          <p className="text-sm text-ink-faint">No certification packages are available right now.</p>
-        )}
-        {!catalogLoading && !catalogError && catalog && catalog.certifications.length > 0 && (
-          <div className="space-y-4">
-            {catalog.certifications.map((cert) => (
-              <CertificationCard key={cert.id} certification={cert} />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* New courses - newest written-lesson courses, for discovery. Compact
+          row, kept near the bottom of the page. */}
+      {newCourses.length > 0 && (
+        <CourseRow title="New courses" items={newCourses} seeAllHref="/home/courses" compact />
+      )}
 
       {/* Refer & Earn - moved to the bottom of the page (still hides itself
           once the coupon is used), see WelcomeCouponBanner. */}
