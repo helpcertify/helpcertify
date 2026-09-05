@@ -132,7 +132,7 @@ export function BecomePartnerPage() {
         <p className="text-sm text-ink-faint">Loading…</p>
       ) : existing ? (
         <div
-          className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised"
+          className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-card dark:bg-surface-raised"
           style={{ borderLeft: `3px solid ${STATUS_COPY[existing.status]?.tone ?? '#155EEF'}` }}
         >
           <h2 className="text-base font-bold text-ink">{STATUS_COPY[existing.status]?.title ?? existing.status}</h2>
@@ -145,7 +145,7 @@ export function BecomePartnerPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-4 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+        <div className="space-y-4 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-card dark:bg-surface-raised">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Full legal name</label>

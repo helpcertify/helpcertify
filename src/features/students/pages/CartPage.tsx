@@ -162,7 +162,7 @@ export function CartPage() {
                           type="button"
                           disabled={applyCouponMutation.isPending}
                           onClick={() => applyCouponMutation.mutate({ code: c.code })}
-                          className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF] disabled:opacity-50"
+                          className="rounded-full border border-brand-500/30 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-brand-500/10 disabled:opacity-50"
                         >
                           🎁 {c.code} ({formatReward(c.type, c.value)})
                         </button>
@@ -248,7 +248,7 @@ export function CartPage() {
               type="button"
               disabled={payingNow || !allConsentsGiven(consent)}
               onClick={handleCheckout}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-3 font-medium text-white hover:opacity-90 disabled:opacity-60"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-3 font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
               {payingNow && <Spinner className="h-4 w-4" />}
               {payingNow ? 'Opening payment…' : `Pay ${formatMoney(cart.total, cart.currency)}`}

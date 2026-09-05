@@ -59,18 +59,18 @@ export function ProductCardShell({
   footer,
 }: ProductCardShellProps) {
   return (
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#DCE7FF] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
+    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
       {coverImageUrl ? (
         <Link to={detailHref} className="relative block">
           <img src={coverImageUrl} alt="" className="h-32 w-full object-cover" loading="lazy" />
           <WishlistButton itemType={itemType} itemId={id} variant="overlay" className="absolute right-3 top-3" />
         </Link>
       ) : (
-        <div className="relative min-h-[92px] bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4 pb-6">
+        <div className="relative min-h-[92px] bg-gradient-to-br from-brand-50 to-brand-50 p-4 pb-6">
           <WishlistButton itemType={itemType} itemId={id} variant="inline" className="absolute right-3 top-3" />
           <Link to={detailHref} className="flex items-start gap-3 pr-8">
             <CourseIcon id={id} title={title} itemType={itemType} />
-            <h3 className="line-clamp-2 pt-1 text-[15px] font-semibold leading-snug text-[#0F172A]">{title}</h3>
+            <h3 className="line-clamp-2 pt-1 text-[15px] font-semibold leading-snug text-ink">{title}</h3>
           </Link>
           {/* Bottom-right of the light-blue header, not the old cover-image
               corner - the click affordance that used to sit on the (now
@@ -81,7 +81,7 @@ export function ProductCardShell({
       {coverImageUrl && (
         <div className="px-4 pt-3">
           <Link to={detailHref}>
-            <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-[#0F172A]">{title}</h3>
+            <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{title}</h3>
           </Link>
         </div>
       )}
@@ -92,21 +92,21 @@ export function ProductCardShell({
         {ratingCount > 0 ? (
           <div className="mb-2 flex items-center gap-1.5">
             <StarRating value={ratingAvg} size="sm" />
-            <span className="text-xs text-[#64748B]">{ratingAvg.toFixed(1)} ({ratingCount})</span>
+            <span className="text-xs text-ink-faint">{ratingAvg.toFixed(1)} ({ratingCount})</span>
           </div>
         ) : (
-          <div className="mb-2 text-xs text-[#64748B]">No ratings yet</div>
+          <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
         )}
         <div className="mb-3 flex items-center gap-2">
           {price > 0 ? (
             <>
               {originalPrice && originalPrice > price && (
-                <span className="text-xs text-[#94A3B8] line-through">{formatMoney(originalPrice, currency)}</span>
+                <span className="text-xs text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
               )}
-              <span className="text-lg font-bold text-[#0F172A]">{formatMoney(price, currency)}</span>
+              <span className="text-lg font-bold text-ink">{formatMoney(price, currency)}</span>
             </>
           ) : (
-            <span className="font-bold text-[#16A34A]">Free</span>
+            <span className="font-bold text-success">Free</span>
           )}
         </div>
 

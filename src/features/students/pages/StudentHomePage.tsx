@@ -122,7 +122,7 @@ export function StudentHomePage() {
             </span>
             <div>
               <div className="text-xs text-ink-faint">{nearestExam.examName} Exam</div>
-              <div className="text-xs font-bold uppercase tracking-wide text-[#D87F1D]">
+              <div className="text-xs font-bold uppercase tracking-wide text-warning">
                 {nearestExam.daysToExam === 0 ? 'Exam is today' : `${nearestExam.daysToExam} Days to Go`}
               </div>
             </div>
@@ -141,26 +141,26 @@ export function StudentHomePage() {
           test). Only shown once there's a real plan with a real target to
           measure against. */}
       {hasMissionData && (
-        <div className="mb-6 flex flex-col gap-4 rounded-xl border border-[#BFDBFE] bg-gradient-to-br from-[#EFF6FF] to-[#F8FAFF] p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-4 rounded-xl border border-brand-500/30 bg-brand-50 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div
-              className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-3xl shadow-sm sm:flex"
+              className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface-raised text-3xl shadow-sm sm:flex"
               aria-hidden="true"
             >
               🎯
             </div>
             <div>
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Today's Mission</div>
-              <div className="text-2xl font-bold text-[#0F172A]">
+              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-brand-ink">Today's Mission</div>
+              <div className="text-2xl font-bold text-ink">
                 {Math.min(todayAnswered, dailyTarget)} of {dailyTarget} Questions
               </div>
               <div className="mt-2 flex items-center gap-3">
-                <div className="h-2 w-40 overflow-hidden rounded-full bg-white sm:w-56">
-                  <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${todayPercent}%` }} />
+                <div className="h-2 w-40 overflow-hidden rounded-full bg-surface-raised sm:w-56">
+                  <div className="h-full rounded-full bg-brand-500" style={{ width: `${todayPercent}%` }} />
                 </div>
-                <span className="text-sm font-semibold text-[#155EEF]">{todayPercent}%</span>
+                <span className="text-sm font-semibold text-brand-ink">{todayPercent}%</span>
               </div>
-              <p className="mt-2 text-xs text-[#64748B]">
+              <p className="mt-2 text-xs text-ink-faint">
                 {questionsRemainingToday === 0
                   ? "Today's goal is complete. Nice work!"
                   : `You're doing great! Just ${questionsRemainingToday} more question${questionsRemainingToday === 1 ? '' : 's'} to complete today's goal.`}
@@ -169,7 +169,7 @@ export function StudentHomePage() {
           </div>
           <Link
             to={goal!.practiceHref}
-            className="shrink-0 rounded-lg bg-[#155EEF] px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+            className="shrink-0 rounded-lg bg-brand-500 px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
           >
             Start Practicing →
           </Link>
@@ -212,7 +212,7 @@ export function StudentHomePage() {
                 </div>
                 <Link
                   to={`/quizzes/${q.id}/take`}
-                  className="mt-auto block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-medium text-surface"
+                  className="mt-auto block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-medium text-surface"
                 >
                   Start Mock Exam
                 </Link>
@@ -242,7 +242,7 @@ export function StudentHomePage() {
         {!catalogLoading && catalogError && (
           <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
             We couldn't load the available certification packages.{' '}
-            <button type="button" onClick={() => refetchCatalog()} className="font-semibold text-[#155EEF] hover:underline">
+            <button type="button" onClick={() => refetchCatalog()} className="font-semibold text-brand-ink hover:underline">
               Retry
             </button>
           </div>

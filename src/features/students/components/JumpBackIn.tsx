@@ -40,11 +40,11 @@ export function JumpBackIn() {
             <div className="mb-2 line-clamp-2 font-semibold text-ink">{item.title}</div>
             <div className="mb-1 text-xs text-ink-faint">{item.subtitle}</div>
             <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
-              <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${item.progressPct}%` }} />
+              <div className="h-full rounded-full bg-brand-500" style={{ width: `${item.progressPct}%` }} />
             </div>
             <Link
               to={item.href}
-              className="mt-auto block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+              className="mt-auto block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
             >
               Resume
             </Link>

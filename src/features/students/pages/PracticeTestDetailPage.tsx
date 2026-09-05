@@ -217,19 +217,19 @@ export function PracticeTestDetailPage() {
           instead of shrinking to its own content and leaving a dead gap
           before the icon - description text wraps at the full available
           width instead of an arbitrary fixed cap. */}
-      <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
+      <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">
             <span>{test.category ?? 'Other'}</span>
             <span>·</span>
             <span>{test.skillLevel ?? 'Foundation'}</span>
           </div>
-          <h1 className="mb-2 text-[28px] font-bold leading-tight text-[#0F172A]">{test.title}</h1>
+          <h1 className="mb-2 text-[28px] font-bold leading-tight text-ink">{test.title}</h1>
 
           {(test.ratingCount ?? 0) > 0 && (
             <div className="mb-3 flex items-center gap-2">
               <StarRating value={test.ratingAvg ?? 0} size="sm" />
-              <span className="text-sm text-[#64748B]">
+              <span className="text-sm text-ink-faint">
                 {(test.ratingAvg ?? 0).toFixed(1)} ({test.ratingCount} review{test.ratingCount === 1 ? '' : 's'})
               </span>
             </div>
@@ -237,23 +237,23 @@ export function PracticeTestDetailPage() {
 
           {/* One horizontal line with bullet separators rather than a
               stack - same three facts as before, grouped tighter. */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#475569]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
             <span>▣ {test.totalQuestions} Questions</span>
-            <span className="text-[#CBD5E1]">•</span>
+            <span className="text-ink-faint">•</span>
             <span>◷ {owned ? `${answered}/${test.totalQuestions} Answered` : 'Not started'}</span>
-            <span className="text-[#CBD5E1]">•</span>
+            <span className="text-ink-faint">•</span>
             <span>{test.category ?? 'Other'}</span>
           </div>
 
           {test.description && (
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{test.description}</p>
+            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">{test.description}</p>
           )}
         </div>
 
         {/* Decorative certification mark - reuses the same icon tile every
             product card already uses, just larger, rather than a bespoke
             illustration asset. */}
-        <div className="hidden shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] p-6 sm:flex">
+        <div className="hidden shrink-0 items-center justify-center rounded-xl bg-brand-50 p-6 sm:flex">
           <div className="scale-[1.8]">
             <CourseIcon id={test.id} title={test.title} itemType="practiceTest" />
           </div>
@@ -263,24 +263,24 @@ export function PracticeTestDetailPage() {
       {/* Section 29's Question Bank Dashboard - only once there's actually
           something to show; an all-unseen bank has nothing to bucket yet. */}
       {owned && answered > 0 && (
-        <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-          <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Your Question Bank</h2>
+        <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+          <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Your Question Bank</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <div className="text-2xl font-bold text-[#16A34A]">{masteredCount}</div>
-              <div className="text-xs text-[#64748B]">Mastered</div>
+              <div className="text-2xl font-bold text-success">{masteredCount}</div>
+              <div className="text-xs text-ink-faint">Mastered</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-[#155EEF]">{learningCount}</div>
-              <div className="text-xs text-[#64748B]">Learning</div>
+              <div className="text-2xl font-bold text-brand-ink">{learningCount}</div>
+              <div className="text-xs text-ink-faint">Learning</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-[#F59E0B]">{needsReviewCount}</div>
-              <div className="text-xs text-[#64748B]">Needs Review</div>
+              <div className="text-2xl font-bold text-warning">{needsReviewCount}</div>
+              <div className="text-xs text-ink-faint">Needs Review</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-[#94A3B8]">{unseenCount}</div>
-              <div className="text-xs text-[#64748B]">Unseen</div>
+              <div className="text-2xl font-bold text-ink-faint">{unseenCount}</div>
+              <div className="text-xs text-ink-faint">Unseen</div>
             </div>
           </div>
         </div>
@@ -304,13 +304,13 @@ export function PracticeTestDetailPage() {
             accuracy={overallAccuracy}
           />
           {test.seriesId ? (
-            <div className="flex h-full flex-col justify-center rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-              <p className="mb-4 text-sm text-[#64748B]">
+            <div className="flex h-full flex-col justify-center rounded-xl border border-surface-border bg-surface-raised p-6 text-center shadow-card">
+              <p className="mb-4 text-sm text-ink-faint">
                 Your study goal covers every exam in this set. Set it once on the Practice Exams page.
               </p>
               <Link
                 to="/home/practice-tests"
-                className="rounded-lg border border-[#155EEF] bg-white px-4 py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] dark:bg-transparent"
+                className="rounded-lg border border-brand-500 bg-surface-raised px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-transparent"
               >
                 🎯 Set My Study Goal
               </Link>
@@ -320,12 +320,12 @@ export function PracticeTestDetailPage() {
               {existingPlan ? (
                 <PlanSummaryCard test={test} answered={answered} plan={existingPlan} onEdit={() => setShowGoalPanel(true)} />
               ) : (
-                <div className="flex h-full flex-col justify-center rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-                  <p className="mb-4 text-sm text-[#64748B]">No study plan set yet for this practice test.</p>
+                <div className="flex h-full flex-col justify-center rounded-xl border border-surface-border bg-surface-raised p-6 text-center shadow-card">
+                  <p className="mb-4 text-sm text-ink-faint">No study plan set yet for this practice test.</p>
                   <button
                     type="button"
                     onClick={() => setShowGoalPanel((v) => !v)}
-                    className="rounded-lg border border-[#155EEF] bg-white px-4 py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] dark:bg-transparent"
+                    className="rounded-lg border border-brand-500 bg-surface-raised px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-transparent"
                   >
                     {showGoalPanel ? '✕ Hide Study Goal' : '🎯 Set My Study Goal'}
                   </button>
@@ -359,9 +359,9 @@ export function PracticeTestDetailPage() {
               />
             </div>
           ) : (
-            <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-              <h2 className="mb-2 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Free Preview</h2>
-              <p className="text-sm text-[#64748B]">No free preview is available for this practice test.</p>
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+              <h2 className="mb-2 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Free Preview</h2>
+              <p className="text-sm text-ink-faint">No free preview is available for this practice test.</p>
             </div>
           )}
         </div>
@@ -451,24 +451,24 @@ function PracticeSetupCard({
   const percentComplete = test.totalQuestions > 0 ? Math.round((answered / test.totalQuestions) * 100) : 0;
 
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-      <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Practice Setup</h2>
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+      <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Practice Setup</h2>
 
       {/* Unique coverage - Section 3's "YOUR PROGRESS" bar. Never treats
           answeredCount as anything other than unique questions ever
           submitted (see practiceProgress.answeredQuestionIds), so this
           number can't inflate from repeated Reattempt sessions. */}
       <div className="mb-5">
-        <div className="mb-1 flex items-center justify-between text-xs text-[#64748B]">
+        <div className="mb-1 flex items-center justify-between text-xs text-ink-faint">
           <span>
             {answered} / {test.totalQuestions} Practiced
           </span>
           <span>{percentComplete}%</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
-          <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
+        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
+          <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, percentComplete)}%` }} />
         </div>
-        {!done && <div className="mt-1 text-xs text-[#64748B]">{remainingNew} new questions remaining</div>}
+        {!done && <div className="mt-1 text-xs text-ink-faint">{remainingNew} new questions remaining</div>}
       </div>
 
       {done ? (
@@ -476,9 +476,9 @@ function PracticeSetupCard({
         // a silent restart. Every entry point here uses an intentional-
         // repeat session type (isMastery/isWeakAreas/isRevision), so none
         // of this touches unique coverage (already 100% anyway).
-        <div className="rounded-lg border border-[#DCE7FF] bg-[#EFF6FF] p-4 text-center">
-          <div className="mb-1 text-sm font-bold text-[#0F172A]">🎯 Question Bank Complete</div>
-          <p className="mb-3 text-xs text-[#64748B]">
+        <div className="rounded-lg border border-surface-border bg-brand-50 p-4 text-center">
+          <div className="mb-1 text-sm font-bold text-ink">🎯 Question Bank Complete</div>
+          <p className="mb-3 text-xs text-ink-faint">
             You've practiced all {test.totalQuestions} questions. Accuracy: {accuracy}%
             {incorrectCount > 0 && ` · ${incorrectCount} question${incorrectCount === 1 ? '' : 's'} to review`}
           </p>
@@ -486,7 +486,7 @@ function PracticeSetupCard({
             {incorrectCount > 0 && (
               <Link
                 to={`/practice-tests/${test.id}/take?mastery=1&feedbackMode=${feedbackMode}`}
-                className="block w-full rounded-lg bg-[#155EEF] py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
+                className="block w-full rounded-lg bg-brand-500 py-2 text-sm font-semibold text-white hover:bg-brand-600"
               >
                 Master My Mistakes
               </Link>
@@ -494,14 +494,14 @@ function PracticeSetupCard({
             {weakAreasCount > 0 && (
               <Link
                 to={`/practice-tests/${test.id}/take?weakAreas=1&feedbackMode=${feedbackMode}`}
-                className="block w-full rounded-lg border border-[#155EEF] py-2 text-sm font-semibold text-[#155EEF] hover:bg-white"
+                className="block w-full rounded-lg border border-brand-500 py-2 text-sm font-semibold text-brand-ink hover:bg-surface-raised"
               >
                 Practice Weak Areas
               </Link>
             )}
             <Link
               to={`/practice-tests/${test.id}/take?revision=1&feedbackMode=${feedbackMode}`}
-              className="block w-full rounded-lg border border-[#E2E8F0] bg-white py-2 text-sm font-semibold text-[#334155] hover:border-[#155EEF] dark:bg-transparent"
+              className="block w-full rounded-lg border border-surface-border bg-surface-raised py-2 text-sm font-semibold text-ink-muted hover:border-brand-500 dark:bg-transparent"
             >
               Start Revision Cycle
             </Link>
@@ -511,16 +511,16 @@ function PracticeSetupCard({
         // Section 10 - an unfinished session is never silently discarded;
         // Resume Practice continues that exact session (startOrResumeBatch
         // returns it as-is), it doesn't start a new one with these pickers.
-        <div className="mb-2 rounded-lg border border-[#DCE7FF] bg-[#EFF6FF] p-4">
-          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#155EEF]">Continue Where You Left Off</div>
-          <div className="mb-3 text-sm text-[#1E293B]">
+        <div className="mb-2 rounded-lg border border-surface-border bg-brand-50 p-4">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-ink">Continue Where You Left Off</div>
+          <div className="mb-3 text-sm text-ink">
             {unfinishedSession.answeredCount} / {unfinishedSession.batchSize} completed ·{' '}
             {unfinishedSession.batchSize - unfinishedSession.answeredCount} question
             {unfinishedSession.batchSize - unfinishedSession.answeredCount === 1 ? '' : 's'} remaining
           </div>
           <Link
             to={`/practice-tests/${test.id}/take`}
-            className="block w-full rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
+            className="block w-full rounded-lg bg-brand-500 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
           >
             Resume Practice →
           </Link>
@@ -528,34 +528,34 @@ function PracticeSetupCard({
       ) : (
         <>
           <div className="mb-5">
-            <label className="mb-2 block text-xs font-medium text-[#64748B]">How would you like to practice?</label>
+            <label className="mb-2 block text-xs font-medium text-ink-faint">How would you like to practice?</label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => onChooseFeedbackMode('immediate')}
                 className={`rounded-lg border p-3 text-left ${
-                  feedbackMode === 'immediate' ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'
+                  feedbackMode === 'immediate' ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'
                 }`}
               >
-                <div className="text-sm font-semibold text-[#0F172A]">⚡ Learn As You Go</div>
-                <div className="mt-0.5 text-xs text-[#64748B]">See the answer and explanation after every question.</div>
+                <div className="text-sm font-semibold text-ink">⚡ Learn As You Go</div>
+                <div className="mt-0.5 text-xs text-ink-faint">See the answer and explanation after every question.</div>
               </button>
               <button
                 type="button"
                 onClick={() => onChooseFeedbackMode('end_of_session')}
                 className={`rounded-lg border p-3 text-left ${
-                  feedbackMode === 'end_of_session' ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'
+                  feedbackMode === 'end_of_session' ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'
                 }`}
               >
-                <div className="text-sm font-semibold text-[#0F172A]">📝 Review At End</div>
-                <div className="mt-0.5 text-xs text-[#64748B]">See answers after finishing the whole session.</div>
+                <div className="text-sm font-semibold text-ink">📝 Review At End</div>
+                <div className="mt-0.5 text-xs text-ink-faint">See answers after finishing the whole session.</div>
               </button>
             </div>
           </div>
 
           <Link
             to={`/practice-tests/${test.id}/take?feedbackMode=${feedbackMode}`}
-            className="block w-full rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
+            className="block w-full rounded-lg bg-brand-500 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
           >
             Start Practice →
           </Link>
@@ -565,7 +565,7 @@ function PracticeSetupCard({
       {answered > 0 && !unfinishedSession && (
         <Link
           to={`/practice-tests/${test.id}/take?reattempt=1&feedbackMode=${feedbackMode}`}
-          className="mt-2 block w-full rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+          className="mt-2 block w-full rounded-lg border border-brand-500 py-2.5 text-center text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
         >
           Reattempt Last Session
         </Link>
@@ -608,16 +608,16 @@ function CourseAccessCard({
   onBuyNow: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-      <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Course Access</h2>
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+      <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
       {price > 0 && (
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {test.originalPrice && test.originalPrice > price && (
-              <span className="text-sm text-[#94A3B8] line-through">{formatMoney(test.originalPrice, test.currency)}</span>
+              <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
             )}
-            <span className="text-[26px] font-bold text-[#0F172A]">{formatMoney(price, test.currency)}</span>
+            <span className="text-[26px] font-bold text-ink">{formatMoney(price, test.currency)}</span>
           </div>
           {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" />}
         </div>
@@ -626,18 +626,18 @@ function CourseAccessCard({
       {entitlementLocked ? (
         <Link
           to="/home"
-          className="block rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+          className="block rounded-lg border border-brand-500 py-2.5 text-center text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
         >
           Unlock with a package
         </Link>
       ) : state !== 'available' ? (
-        <div className="rounded-lg bg-[#FFF7ED] px-3 py-2.5 text-center text-sm text-[#C2410C]">
+        <div className="rounded-lg bg-warning-soft px-3 py-2.5 text-center text-sm text-warning">
           🔒 {state === 'expired' ? 'Expired' : 'Upcoming'}. Available {formatDate(test.availableFrom)} → {formatDate(test.availableUntil)}
         </div>
       ) : inCart ? (
         <Link
           to="/home/cart"
-          className="block rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+          className="block rounded-lg border border-brand-500 py-2.5 text-center text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
         >
           ✓ In Cart · View Cart
         </Link>
@@ -647,7 +647,7 @@ function CourseAccessCard({
             type="button"
             disabled={paying}
             onClick={onBuyNow}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
           >
             {paying && <Spinner className="h-4 w-4" />}
             {paying ? 'Opening…' : 'Buy Now'}
@@ -656,7 +656,7 @@ function CourseAccessCard({
             type="button"
             disabled={addingToCart || paying}
             onClick={onAddToCart}
-            className="w-full rounded-lg border border-[#155EEF] py-2.5 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] disabled:opacity-60"
+            className="w-full rounded-lg border border-brand-500 py-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 disabled:opacity-60"
           >
             {addingToCart ? 'Adding…' : 'Add to Cart'}
           </button>
@@ -738,10 +738,10 @@ function PlanSummaryCard({
   }
 
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Your Study Plan</h2>
-        <button type="button" onClick={onEdit} className="text-xs font-medium text-[#155EEF] hover:underline">
+        <h2 className="text-[15px] font-bold uppercase tracking-wide text-brand-ink">Your Study Plan</h2>
+        <button type="button" onClick={onEdit} className="text-xs font-medium text-brand-ink hover:underline">
           Edit Study Plan
         </button>
       </div>
@@ -751,10 +751,10 @@ function PlanSummaryCard({
           test page happens to be open, not as a durable fact about the
           learner's own goal. */}
       <div className="mb-4">
-        <div className="truncate text-lg font-bold text-[#0F172A]" title={examName}>
+        <div className="truncate text-lg font-bold text-ink" title={examName}>
           {examName}
         </div>
-        <div className="text-xs text-[#64748B]">{provider}</div>
+        <div className="text-xs text-ink-faint">{provider}</div>
       </div>
 
       {/* Exam date on its own full-width line - a date string is long
@@ -763,27 +763,27 @@ function PlanSummaryCard({
           target keep their side-by-side row underneath. */}
       <div className="mb-4 flex items-baseline justify-between gap-3">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">{dateLabel}</div>
-          <div className="text-[20px] font-bold leading-snug tracking-tight text-[#0F172A]">📅 {dateValue}</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-ink-faint">{dateLabel}</div>
+          <div className="text-[20px] font-bold leading-snug tracking-tight text-ink">📅 {dateValue}</div>
         </div>
-        <div className="whitespace-nowrap text-sm font-bold text-[#D87F1D]">{daysNote}</div>
+        <div className="whitespace-nowrap text-sm font-bold text-warning">{daysNote}</div>
       </div>
       <div className="mb-4 grid grid-cols-2 gap-4">
         <div>
-          <div className="text-[26px] font-bold tracking-tight text-[#0F172A]">
+          <div className="text-[26px] font-bold tracking-tight text-ink">
             {answered}/{totalQuestions}
           </div>
-          <div className="text-xs text-[#64748B]">completed ({percentComplete}%)</div>
+          <div className="text-xs text-ink-faint">completed ({percentComplete}%)</div>
         </div>
         <div>
-          <div className="text-[26px] font-bold tracking-tight text-[#155EEF]">
+          <div className="text-[26px] font-bold tracking-tight text-brand-ink">
             {dailyTarget} Q{dailyTarget === 1 ? '' : 's'}
           </div>
-          <div className="text-xs text-[#64748B]">today's target</div>
+          <div className="text-xs text-ink-faint">today's target</div>
         </div>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
-        <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${Math.min(100, percentComplete)}%` }} />
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+        <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, percentComplete)}%` }} />
       </div>
     </div>
   );

@@ -64,14 +64,14 @@ export function PreviewQuestions({ itemType, itemId, previewQuestionCount, onBuy
   };
 
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Free Preview</h2>
-        <span className="text-xs font-medium text-[#64748B]">
+        <h2 className="text-[15px] font-bold uppercase tracking-wide text-brand-ink">Free Preview</h2>
+        <span className="text-xs font-medium text-ink-faint">
           Question {index + 1} of {questions.length}
         </span>
       </div>
-      <p className="mb-4 text-sm text-[#1E293B]">{question.questionText}</p>
+      <p className="mb-4 text-sm text-ink">{question.questionText}</p>
       <div className="space-y-2">
         {question.options.map((opt) => {
           const isSelected = selected === opt.id;
@@ -107,18 +107,18 @@ export function PreviewQuestions({ itemType, itemId, previewQuestionCount, onBuy
             <button
               type="button"
               onClick={next}
-              className="rounded-lg bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+              className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
             >
               Next Question →
             </button>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-medium text-[#64748B]">You've completed your free preview.</span>
+              <span className="text-xs font-medium text-ink-faint">You've completed your free preview.</span>
               {onBuyNow && (
                 <button
                   type="button"
                   onClick={onBuyNow}
-                  className="rounded-lg bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+                  className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
                 >
                   Buy Now to unlock the rest
                 </button>

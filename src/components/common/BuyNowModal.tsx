@@ -99,7 +99,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
               type="button"
               disabled={!couponInput.trim()}
               onClick={() => applyCoupon(couponInput)}
-              className="shrink-0 rounded-lg bg-[#155EEF] px-4 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
             >
               Apply
             </button>
@@ -135,7 +135,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
             <button
               type="button"
               onClick={() => setShowOffers((v) => !v)}
-              className="text-xs font-semibold text-[#155EEF] hover:underline"
+              className="text-xs font-semibold text-brand-ink hover:underline"
             >
               {showOffers ? 'Hide' : 'View'} available offers ({myCoupons.length})
             </button>
@@ -146,7 +146,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
                     key={c.code}
                     type="button"
                     onClick={() => applyCoupon(c.code)}
-                    className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#155EEF] hover:bg-[#DCEAFF]"
+                    className="rounded-full border border-brand-500/30 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-brand-500/10"
                   >
                     🎁 {c.code} ({formatReward(c.type, c.value)})
                   </button>
@@ -172,7 +172,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
           onClick={() =>
             onConfirm(consent, appliedCoupon ?? (couponInput.trim() || undefined), useCredit, unlockCodeInput.trim() || undefined)
           }
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {paying && <Spinner className="h-4 w-4" />}
           {paying ? 'Opening payment…' : 'Continue to Payment'}

@@ -73,7 +73,7 @@ export function CourseIcon({
 }) {
   const kind = pickIcon(id, title, itemType);
   return (
-    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#155EEF] text-white ${className}`}>
+    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white ${className}`}>
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
         {ICON_PATHS[kind]}
       </svg>

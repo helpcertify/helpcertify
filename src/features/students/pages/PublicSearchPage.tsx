@@ -61,7 +61,7 @@ export function PublicSearchPage() {
             <Link to="/login" className="font-medium text-ink-muted hover:text-ink">
               Log in
             </Link>
-            <Link to="/register" className="rounded-lg bg-[#155EEF] px-3 py-1.5 font-semibold text-white hover:bg-[#004EEB]">
+            <Link to="/register" className="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white hover:bg-brand-600">
               Sign up
             </Link>
           </div>

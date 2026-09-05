@@ -120,16 +120,16 @@ export function PracticeTestsPage() {
       {openSession && resumeLabel && (
         <Link
           to={`/practice-tests/${openSession.testId}/take`}
-          className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-[#BFDBFE] bg-[#F5F9FF] px-5 py-4 hover:bg-[#EBF3FF] dark:bg-[#155EEF]/10"
+          className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-brand-500/30 bg-brand-50 px-5 py-4 hover:bg-brand-500/10 dark:bg-brand-500/10"
         >
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-[#155EEF]">Continue where you left off</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-brand-ink">Continue where you left off</div>
             <div className="mt-0.5 text-sm font-semibold text-ink">{resumeLabel}</div>
             <div className="text-xs text-ink-faint">
               {openSession.answeredCount} of {openSession.batchSize} questions answered
             </div>
           </div>
-          <span className="shrink-0 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white">Resume →</span>
+          <span className="shrink-0 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white">Resume →</span>
         </Link>
       )}
 

@@ -308,12 +308,12 @@ export function PracticeTakingPage() {
       <div className="mx-auto w-full max-w-[1500px]">
         {/* Session header - title/mode pill (left), question count + progress
             (center), End Session (right). */}
-        <div className="mb-5 flex flex-col gap-4 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 flex flex-col gap-4 rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 shrink-0">
-            <div className="truncate text-base font-bold text-[#0F172A]">📖 {sessionTitle}</div>
+            <div className="truncate text-base font-bold text-ink">📖 {sessionTitle}</div>
             <span
               className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                isImmediate ? 'bg-[#EFF6FF] text-[#155EEF]' : 'bg-[#F8FAFC] text-[#64748B]'
+                isImmediate ? 'bg-brand-50 text-brand-ink' : 'bg-surface-sunken text-ink-faint'
               }`}
             >
               {isImmediate ? '⚡ Learn As You Go' : '📝 Review At The End'}
@@ -321,21 +321,21 @@ export function PracticeTakingPage() {
           </div>
 
           <div className="flex-1 sm:max-w-md">
-            <div className="mb-1.5 text-center text-sm font-semibold text-[#0F172A]">
+            <div className="mb-1.5 text-center text-sm font-semibold text-ink">
               Question {currentIndex + 1} of {questions.length}
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#F1F5F9]">
-                <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${percentComplete}%` }} />
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
+                <div className="h-full rounded-full bg-brand-500" style={{ width: `${percentComplete}%` }} />
               </div>
-              <span className="shrink-0 text-xs text-[#64748B]">{percentComplete}% Complete</span>
+              <span className="shrink-0 text-xs text-ink-faint">{percentComplete}% Complete</span>
             </div>
           </div>
 
           <button
             type="button"
             onClick={() => setShowEndConfirm(true)}
-            className="shrink-0 self-start rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#DC2626] hover:border-[#FCA5A5] sm:self-auto"
+            className="shrink-0 self-start rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-danger hover:border-danger/50 sm:self-auto"
           >
             ⏻ End Session
           </button>
@@ -344,9 +344,9 @@ export function PracticeTakingPage() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* Left column - question, answers, explanation, bottom nav. */}
           <div>
-            <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
-              <h2 className="mb-4 text-lg font-semibold leading-relaxed text-[#0F172A]">
-                <span className="font-bold text-[#155EEF]">Q{currentIndex + 1}.</span> {current.questionText}
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+              <h2 className="mb-4 text-lg font-semibold leading-relaxed text-ink">
+                <span className="font-bold text-brand-ink">Q{currentIndex + 1}.</span> {current.questionText}
               </h2>
 
               <div className="space-y-2.5">
@@ -356,11 +356,11 @@ export function PracticeTakingPage() {
                   const isWrongPick = revealed && selected && !result.isCorrect;
                   const isCorrectAndYours = isTheCorrectOption && selected;
 
-                  let cls = 'border-[#E2E8F0] bg-white text-[#1E293B] hover:border-[#CBD5E1] dark:bg-transparent';
-                  if (isWrongPick) cls = 'border-[#FCA5A5] bg-[#FEF2F2] text-[#1E293B]';
-                  else if (isTheCorrectOption) cls = 'border-[#86EFAC] bg-[#F0FDF4] text-[#1E293B]';
-                  else if (revealed) cls = 'border-[#E2E8F0] bg-white text-[#94A3B8] opacity-70 dark:bg-transparent';
-                  else if (selected) cls = 'border-[#155EEF] bg-[#EFF6FF] text-[#0F172A]';
+                  let cls = 'border-surface-border bg-surface-raised text-ink hover:border-surface-border dark:bg-transparent';
+                  if (isWrongPick) cls = 'border-danger/50 bg-danger-soft text-ink';
+                  else if (isTheCorrectOption) cls = 'border-success/50 bg-success-soft text-ink';
+                  else if (revealed) cls = 'border-surface-border bg-surface-raised text-ink-faint opacity-70 dark:bg-transparent';
+                  else if (selected) cls = 'border-brand-500 bg-brand-50 text-ink';
 
                   return (
                     <button
@@ -373,31 +373,31 @@ export function PracticeTakingPage() {
                       <span
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm font-bold ${
                           isWrongPick
-                            ? 'bg-[#DC2626]/10 text-[#DC2626]'
+                            ? 'bg-danger/10 text-danger'
                             : isTheCorrectOption
-                              ? 'bg-[#16A34A]/10 text-[#16A34A]'
+                              ? 'bg-success/10 text-success'
                               : selected
-                                ? 'bg-[#155EEF]/10 text-[#155EEF]'
-                                : 'bg-[#F1F5F9] text-[#64748B]'
+                                ? 'bg-brand-500/10 text-brand-ink'
+                                : 'bg-surface-sunken text-ink-faint'
                         }`}
                       >
                         {OPTION_LETTERS[i] ?? i + 1}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-[15px] font-medium">{opt.text}</span>
-                        {isWrongPick && <span className="mt-0.5 block text-xs font-semibold text-[#DC2626]">● Your answer</span>}
+                        {isWrongPick && <span className="mt-0.5 block text-xs font-semibold text-danger">● Your answer</span>}
                         {isCorrectAndYours && (
-                          <span className="mt-0.5 block text-xs font-semibold text-[#16A34A]">● Correct · Your answer</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-success">● Correct · Your answer</span>
                         )}
                         {isTheCorrectOption && !selected && (
-                          <span className="mt-0.5 block text-xs font-semibold text-[#16A34A]">● Correct answer</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-success">● Correct answer</span>
                         )}
                       </span>
                       {revealed ? (
                         (isWrongPick || isTheCorrectOption) && (
                           <span
                             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                              isWrongPick ? 'bg-[#DC2626]' : 'bg-[#16A34A]'
+                              isWrongPick ? 'bg-danger' : 'bg-success'
                             }`}
                           >
                             {isWrongPick ? '✕' : '✓'}
@@ -406,7 +406,7 @@ export function PracticeTakingPage() {
                       ) : (
                         <span
                           className={`h-4 w-4 shrink-0 rounded-full border-2 ${
-                            selected ? 'border-[#155EEF] bg-[#155EEF]' : 'border-[#CBD5E1]'
+                            selected ? 'border-brand-500 bg-brand-500' : 'border-surface-border'
                           }`}
                         />
                       )}
@@ -424,7 +424,7 @@ export function PracticeTakingPage() {
                   type="button"
                   disabled={saving}
                   onClick={handleSubmitClick}
-                  className="mt-4 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+                  className="mt-4 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
                 >
                   {saving ? 'Checking…' : 'Submit Answer'}
                 </button>
@@ -442,19 +442,19 @@ export function PracticeTakingPage() {
                   (isCorrect is null), so `revealed` is false and none of
                   this renders. */}
               {revealed && result.explanation && (
-                <div className="mt-5 rounded-lg border border-[#E2E8F0] bg-[#F0FDF4] p-4">
-                  <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#16A34A]">✓ Why this is correct</div>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{result.explanation}</p>
-                  <div className="my-3 border-t border-dashed border-[#BBF7D0]" />
-                  <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#0F172A]">💡 Exam Tip</div>
-                  <p className="text-sm leading-relaxed text-[#1E293B]">{EXAM_TIP}</p>
+                <div className="mt-5 rounded-lg border border-surface-border bg-success-soft p-4">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-success">✓ Why this is correct</div>
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-ink">{result.explanation}</p>
+                  <div className="my-3 border-t border-dashed border-success/40" />
+                  <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-ink">💡 Exam Tip</div>
+                  <p className="text-sm leading-relaxed text-ink">{EXAM_TIP}</p>
                 </div>
               )}
 
               {/* Review At End: no correctness of any kind, just a neutral
                   confirmation that the answer was saved. */}
               {!isImmediate && isSubmittedForCurrent && (
-                <div className="mt-3 rounded-lg bg-[#F8FAFC] px-4 py-2 text-sm text-[#64748B]">Answer saved.</div>
+                <div className="mt-3 rounded-lg bg-surface-sunken px-4 py-2 text-sm text-ink-faint">Answer saved.</div>
               )}
             </div>
 
@@ -471,7 +471,7 @@ export function PracticeTakingPage() {
                 type="button"
                 disabled={currentIndex === 0}
                 onClick={() => setCurrentIndex((i) => i - 1)}
-                className="rounded-lg border border-[#E2E8F0] px-4 py-2.5 text-sm font-semibold text-[#334155] disabled:opacity-40"
+                className="rounded-lg border border-surface-border px-4 py-2.5 text-sm font-semibold text-ink-muted disabled:opacity-40"
               >
                 ← Previous
               </button>
@@ -479,7 +479,7 @@ export function PracticeTakingPage() {
                 type="button"
                 onClick={() => toggleMark(current.id)}
                 className={`rounded-lg border px-4 py-2.5 text-sm font-semibold ${
-                  marked[current.id] ? 'border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]' : 'border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
+                  marked[current.id] ? 'border-warning bg-warning/10 text-warning' : 'border-surface-border text-ink-faint hover:border-surface-border'
                 }`}
               >
                 🚩 {marked[current.id] ? 'Marked' : 'Mark for Review'}
@@ -488,7 +488,7 @@ export function PracticeTakingPage() {
                 type="button"
                 disabled={saving}
                 onClick={goToNextOrFinish}
-                className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+                className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
               >
                 {isLastQuestion ? 'Finish Practice →' : 'Next Question →'}
               </button>
@@ -502,26 +502,26 @@ export function PracticeTakingPage() {
               same as the question/answer/explanation area. */}
           <div className="flex flex-col gap-4">
             {isImmediate && (
-              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised lg:sticky lg:top-5">
-                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Your Progress</div>
-                <div className="mb-1 text-xs font-semibold text-[#64748B]">🎯 Today's Goal</div>
+              <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card lg:sticky lg:top-5">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-ink">Your Progress</div>
+                <div className="mb-1 text-xs font-semibold text-ink-faint">🎯 Today's Goal</div>
                 {trackingDailyTarget && dailyTarget > 0 ? (
                   <>
                     <div className="mb-1 flex items-center justify-between">
-                      <span className="text-sm font-semibold text-[#0F172A]">
+                      <span className="text-sm font-semibold text-ink">
                         {answeredToday ?? 0} / {dailyTarget} Questions
                       </span>
-                      <span className="text-sm font-semibold text-[#0F172A]">
+                      <span className="text-sm font-semibold text-ink">
                         {Math.min(100, Math.round(((answeredToday ?? 0) / dailyTarget) * 100))}%
                       </span>
                     </div>
-                    <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
+                    <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
                       <div
-                        className="h-full rounded-full bg-[#155EEF]"
+                        className="h-full rounded-full bg-brand-500"
                         style={{ width: `${Math.min(100, Math.round(((answeredToday ?? 0) / dailyTarget) * 100))}%` }}
                       />
                     </div>
-                    <div className="text-xs text-[#64748B]">
+                    <div className="text-xs text-ink-faint">
                       {(answeredToday ?? 0) >= dailyTarget
                         ? "You're on track for your exam."
                         : `${dailyTarget - (answeredToday ?? 0)} more question${dailyTarget - (answeredToday ?? 0) === 1 ? '' : 's'} to stay on track`}
@@ -529,26 +529,26 @@ export function PracticeTakingPage() {
                   </>
                 ) : trackingDailyTarget && test ? (
                   <>
-                    <p className="mb-3 text-xs text-[#64748B]">Set a study goal to get a daily target.</p>
+                    <p className="mb-3 text-xs text-ink-faint">Set a study goal to get a daily target.</p>
                     <Link
                       to={`/home/practice-tests/${test.id}?goal=1`}
-                      className="block rounded-lg border border-[#155EEF] py-2 text-center text-xs font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+                      className="block rounded-lg border border-brand-500 py-2 text-center text-xs font-semibold text-brand-ink hover:bg-brand-500/10"
                     >
                       Set Study Goal
                     </Link>
                   </>
                 ) : (
-                  <p className="text-xs text-[#64748B]">Not tracked for this session type.</p>
+                  <p className="text-xs text-ink-faint">Not tracked for this session type.</p>
                 )}
               </div>
             )}
 
             {isImmediate && (
-              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
-                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">🔥 Practice Momentum</div>
-                <div className="text-xs text-[#64748B]">🔥 Current Streak</div>
-                <div className="text-xl font-bold text-[#0F172A]">{streak}</div>
-                {streak >= 2 && <p className="mt-2 text-xs font-medium text-[#F59E0B]">Keep it going!</p>}
+              <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-ink">🔥 Practice Momentum</div>
+                <div className="text-xs text-ink-faint">🔥 Current Streak</div>
+                <div className="text-xl font-bold text-ink">{streak}</div>
+                {streak >= 2 && <p className="mt-2 text-xs font-medium text-warning">Keep it going!</p>}
               </div>
             )}
 
@@ -557,8 +557,8 @@ export function PracticeTakingPage() {
                 (Section 20). Only ever holds this session's own batch, not
                 the whole question bank, so this never risks loading 1,500+
                 questions into the browser (Section 31). */}
-            <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
-              <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card">
+              <div className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-ink">
                 Questions ({answeredCount}/{questions.length} Answered)
               </div>
               {/* Green here means "answered," not "correct" - every
@@ -566,15 +566,15 @@ export function PracticeTakingPage() {
                   right/wrong, so it never leaks correctness (Section 20).
                   Correctness only ever appears on the question/answer
                   card itself. */}
-              <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#64748B]">
+              <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-faint">
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#16A34A]" /> Answered
+                  <span className="h-2.5 w-2.5 rounded-full bg-success" /> Answered
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#155EEF]" /> Current
+                  <span className="h-2.5 w-2.5 rounded-full bg-brand-500" /> Current
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-full border border-[#CBD5E1] bg-white" /> Unanswered
+                  <span className="h-2.5 w-2.5 rounded-full border border-surface-border bg-surface-raised" /> Unanswered
                 </span>
                 <span className="inline-flex items-center gap-1">🚩 Review</span>
               </div>
@@ -589,11 +589,11 @@ export function PracticeTakingPage() {
                       onClick={() => setCurrentIndex(i)}
                       className={`relative flex h-9 items-center justify-center rounded-md text-xs font-semibold ${
                         isCurrent
-                          ? 'bg-[#155EEF] text-white'
+                          ? 'bg-brand-500 text-white'
                           : isAnswered
-                            ? 'bg-[#F0FDF4] text-[#0F172A]'
-                            : 'border border-[#E2E8F0] bg-white text-[#64748B] dark:bg-transparent'
-                      } ${marked[q.id] ? 'ring-2 ring-[#F59E0B]' : ''}`}
+                            ? 'bg-success-soft text-ink'
+                            : 'border border-surface-border bg-surface-raised text-ink-faint dark:bg-transparent'
+                      } ${marked[q.id] ? 'ring-2 ring-warning' : ''}`}
                     >
                       {i + 1}
                       {marked[q.id] && <span className="absolute -right-1 -top-1 text-[9px] leading-none">🚩</span>}
@@ -608,7 +608,7 @@ export function PracticeTakingPage() {
             <button
               type="button"
               onClick={handleFinishClick}
-              className="rounded-lg border border-[#155EEF] bg-[#EFF6FF] py-2.5 text-sm font-semibold text-[#155EEF] hover:bg-[#E0EAFF] dark:bg-transparent"
+              className="rounded-lg border border-brand-500 bg-brand-50 py-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-transparent"
             >
               🏁 Finish Session
             </button>
@@ -734,49 +734,49 @@ function PracticeReviewScreen({
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-5xl">
         {certData && <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />}
-        <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 text-center shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-          <h1 className="mb-5 text-[22px] font-bold text-[#0F172A]">Practice Complete</h1>
-          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Practice Momentum</div>
+        <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 text-center shadow-card">
+          <h1 className="mb-5 text-[22px] font-bold text-ink">Practice Complete</h1>
+          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-ink">Practice Momentum</div>
 
           <div className="mx-auto mb-4 grid max-w-md grid-cols-2 gap-x-4 gap-y-4 text-left">
             <div>
-              <div className="text-lg font-bold text-[#F59E0B]">
+              <div className="text-lg font-bold text-warning">
                 {review.newPersonalBest ? '🏆' : '🔥'} {review.bestStreak}
               </div>
-              <div className="text-xs text-[#64748B]">Correct Streak</div>
+              <div className="text-xs text-ink-faint">Correct Streak</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-[#155EEF]">🎯 {accuracy}%</div>
-              <div className="text-xs text-[#64748B]">Session Accuracy</div>
+              <div className="text-lg font-bold text-brand-ink">🎯 {accuracy}%</div>
+              <div className="text-xs text-ink-faint">Session Accuracy</div>
             </div>
           </div>
 
-          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-x-4 gap-y-4 border-t border-[#E2E8F0] pt-4 text-left sm:grid-cols-4">
+          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-x-4 gap-y-4 border-t border-surface-border pt-4 text-left sm:grid-cols-4">
             <div>
-              <div className="text-lg font-bold text-[#0F172A]">
+              <div className="text-lg font-bold text-ink">
                 📚 {review.summary.answeredCount}/{review.summary.totalQuestions}
               </div>
-              <div className="text-xs text-[#64748B]">Questions</div>
+              <div className="text-xs text-ink-faint">Questions</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-[#16A34A]">✓ {review.summary.correctCount}</div>
-              <div className="text-xs text-[#64748B]">Correct</div>
+              <div className="text-lg font-bold text-success">✓ {review.summary.correctCount}</div>
+              <div className="text-xs text-ink-faint">Correct</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-[#DC2626]">✕ {review.summary.incorrectCount}</div>
-              <div className="text-xs text-[#64748B]">Incorrect</div>
+              <div className="text-lg font-bold text-danger">✕ {review.summary.incorrectCount}</div>
+              <div className="text-xs text-ink-faint">Incorrect</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-[#64748B]">
+              <div className="text-lg font-bold text-ink-faint">
                 {review.summary.totalQuestions - review.summary.answeredCount}
               </div>
-              <div className="text-xs text-[#64748B]">Unanswered</div>
+              <div className="text-xs text-ink-faint">Unanswered</div>
             </div>
           </div>
         </div>
 
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Answer Review</h2>
+          <h2 className="text-[15px] font-bold uppercase tracking-wide text-brand-ink">Answer Review</h2>
           <div className="flex gap-1">
             {(['all', 'correct', 'incorrect'] as ReviewFilter[]).map((f) => (
               <button
@@ -784,7 +784,7 @@ function PracticeReviewScreen({
                 type="button"
                 onClick={() => setFilter(f)}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
-                  filter === f ? 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]' : 'border-surface-border text-ink-muted'
+                  filter === f ? 'border-brand-500 bg-brand-50 text-brand-ink' : 'border-surface-border text-ink-muted'
                 }`}
               >
                 {f}
@@ -805,11 +805,11 @@ function PracticeReviewScreen({
                     onClick={() => setSelectedId(q.questionId)}
                     className={`flex h-9 w-9 items-center justify-center rounded text-xs font-semibold ${
                       selectedId === q.questionId
-                        ? 'bg-[#155EEF] text-white'
+                        ? 'bg-brand-500 text-white'
                         : q.isCorrect
-                          ? 'bg-[#F0FDF4] text-[#16A34A]'
+                          ? 'bg-success-soft text-success'
                           : q.selectedOptionId
-                            ? 'bg-[#FEF2F2] text-[#DC2626]'
+                            ? 'bg-danger-soft text-danger'
                             : 'bg-surface-raised text-ink-faint'
                     }`}
                   >
@@ -821,34 +821,34 @@ function PracticeReviewScreen({
           </div>
 
           {!selected ? (
-            <div className="flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white p-6 text-sm text-[#64748B] shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+            <div className="flex items-center justify-center rounded-xl border border-surface-border bg-surface-raised p-6 text-sm text-ink-faint shadow-card">
               No {filter === 'all' ? '' : `${filter} `}answers in this section
             </div>
           ) : (
-            <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#64748B]">
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-ink-faint">
                 Question {review.questions.findIndex((x) => x.questionId === selected.questionId) + 1}
               </div>
-              <p className="mb-4 text-sm font-medium text-[#1E293B]">{selected.questionText}</p>
+              <p className="mb-4 text-sm font-medium text-ink">{selected.questionText}</p>
 
               {!selected.isCorrect && selected.selectedOptionId && (
-                <div className="mb-3 rounded-lg border border-[#DC2626] bg-[#FEF2F2] px-4 py-3">
-                  <div className="text-xs font-bold uppercase tracking-wide text-[#DC2626]">✕ Your Answer</div>
-                  <div className="mt-1 text-sm text-[#1E293B]">
+                <div className="mb-3 rounded-lg border border-danger bg-danger-soft px-4 py-3">
+                  <div className="text-xs font-bold uppercase tracking-wide text-danger">✕ Your Answer</div>
+                  <div className="mt-1 text-sm text-ink">
                     {selected.options.find((o) => o.id === selected.selectedOptionId)?.text}
                   </div>
                 </div>
               )}
-              <div className="mb-3 rounded-lg border border-[#16A34A] bg-[#F0FDF4] px-4 py-3">
-                <div className="text-xs font-bold uppercase tracking-wide text-[#16A34A]">✓ Correct Answer</div>
-                <div className="mt-1 text-sm text-[#1E293B]">
+              <div className="mb-3 rounded-lg border border-success bg-success-soft px-4 py-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-success">✓ Correct Answer</div>
+                <div className="mt-1 text-sm text-ink">
                   {selected.options.find((o) => o.id === selected.correctOptionId)?.text}
                 </div>
               </div>
               {selected.explanation && (
                 <div className="rounded-lg border border-surface-border bg-surface p-4">
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Explanation</div>
-                  <p className="whitespace-pre-line text-sm text-[#1E293B]">{selected.explanation}</p>
+                  <div className="mb-1 text-xs font-bold uppercase tracking-wide text-brand-ink">Explanation</div>
+                  <p className="whitespace-pre-line text-sm text-ink">{selected.explanation}</p>
                 </div>
               )}
             </div>
@@ -858,7 +858,7 @@ function PracticeReviewScreen({
         <button
           type="button"
           onClick={onDone}
-          className="mt-6 w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+          className="mt-6 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
         >
           Finish Session
         </button>

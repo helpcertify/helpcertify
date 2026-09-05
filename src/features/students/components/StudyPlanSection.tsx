@@ -52,7 +52,7 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
 
   return (
     <div className="mb-6">
-      <h2 className="mb-3 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Your Learning Journey</h2>
+      <h2 className="mb-3 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Your Learning Journey</h2>
 
       {cards.length > 0 ? (
         <div className="space-y-4">
@@ -62,15 +62,15 @@ export function StudyPlanSection({ cards, unplannedTest }: { cards: StudyPlanCar
         </div>
       ) : (
         unplannedTest && (
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-            <h3 className="mb-2 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">🎯 Set Your Study Goal</h3>
-            <p className="mb-4 text-sm text-[#64748B]">
+          <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+            <h3 className="mb-2 text-[15px] font-bold uppercase tracking-wide text-brand-ink">🎯 Set Your Study Goal</h3>
+            <p className="mb-4 text-sm text-ink-faint">
               Create a study plan and we'll calculate how many questions you should complete each day to reach your exam
               goal for {unplannedTest.title}.
             </p>
             <Link
               to={`/home/practice-tests/${unplannedTest.id}?goal=1`}
-              className="inline-block rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
+              className="inline-block rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
             >
               Set Study Goal →
             </Link>
@@ -195,35 +195,35 @@ function StudyPlanCard({ testId, testTitle, testCategory, totalQuestions, minute
   }, [milestoneKeys, undocumentedKeys.join(',')]);
 
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">🎯 Active Goal</div>
-          <div className="mt-1 text-lg font-bold text-[#0F172A]">{testTitle}</div>
-          <div className="text-xs text-[#64748B]">{testCategory}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">🎯 Active Goal</div>
+          <div className="mt-1 text-lg font-bold text-ink">{testTitle}</div>
+          <div className="text-xs text-ink-faint">{testCategory}</div>
         </div>
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">{examColumnLabel}</div>
-          <div className="mt-1 text-lg font-bold text-[#0F172A]">{examColumnValue}</div>
-          <div className="text-xs text-[#64748B]">{examColumnSub}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{examColumnLabel}</div>
+          <div className="mt-1 text-lg font-bold text-ink">{examColumnValue}</div>
+          <div className="text-xs text-ink-faint">{examColumnSub}</div>
         </div>
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">📚 Daily Target</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">📚 Daily Target</div>
           {bankComplete ? (
-            <div className="mt-1 text-lg font-bold text-[#16A34A]">🎉 Completed</div>
+            <div className="mt-1 text-lg font-bold text-success">🎉 Completed</div>
           ) : (
             <>
-              <div className="mt-1 text-lg font-bold text-[#155EEF]">
+              <div className="mt-1 text-lg font-bold text-brand-ink">
                 {dailyTarget} Question{dailyTarget === 1 ? '' : 's'}
               </div>
-              <div className="text-xs text-[#64748B]">per day</div>
+              <div className="text-xs text-ink-faint">per day</div>
             </>
           )}
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end border-t border-[#E2E8F0] pt-3">
-        <Link to={`/home/practice-tests/${testId}?goal=1`} className="text-sm font-semibold text-[#155EEF] hover:underline">
+      <div className="mt-4 flex justify-end border-t border-surface-border pt-3">
+        <Link to={`/home/practice-tests/${testId}?goal=1`} className="text-sm font-semibold text-brand-ink hover:underline">
           Edit Study Plan →
         </Link>
       </div>

@@ -182,7 +182,7 @@ export function QuizTakingPage() {
           <button
             type="button"
             onClick={() => navigate('/home/mock-exams')}
-            className="mt-6 w-full rounded-lg bg-[#155EEF] py-2.5 font-medium text-surface"
+            className="mt-6 w-full rounded-lg bg-brand-500 py-2.5 font-medium text-surface"
           >
             Back to Mock Exams
           </button>
@@ -218,7 +218,7 @@ export function QuizTakingPage() {
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">{quiz.title}</h1>
           <div className="flex items-center gap-3">
-            {markedCount > 0 && <span className="text-sm text-[#d87f1d]">🚩 {markedCount} marked</span>}
+            {markedCount > 0 && <span className="text-sm text-warning">🚩 {markedCount} marked</span>}
             <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-ink">
               ⏱ {formatClock(remainingSeconds)}
             </span>
@@ -315,7 +315,7 @@ export function QuizTakingPage() {
                   onClick={() => toggleMark(current.id)}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
                     marked[current.id]
-                      ? 'border-[#d87f1d] bg-[#d87f1d]/10 text-[#d87f1d]'
+                      ? 'border-warning bg-warning/10 text-warning'
                       : 'border-surface-border text-ink-faint hover:border-neutral-600'
                   }`}
                 >
@@ -325,7 +325,7 @@ export function QuizTakingPage() {
                   type="button"
                   disabled={submitting || saving}
                   onClick={handleSubmitClick}
-                  className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
                 >
                   {submitting ? 'Submitting…' : 'Submit Quiz'}
                 </button>
@@ -349,8 +349,8 @@ export function QuizTakingPage() {
                         ? 'bg-brand-500 text-surface'
                         : answers[q.id]
                           ? 'bg-brand-500/20 text-brand-ink'
-                          : 'bg-white/5 text-ink-faint'
-                    } ${marked[q.id] ? 'ring-2 ring-[#d87f1d]' : ''}`}
+                          : 'bg-surface-raised/5 text-ink-faint'
+                    } ${marked[q.id] ? 'ring-2 ring-warning' : ''}`}
                   >
                     {i + 1}
                     {marked[q.id] && <span className="absolute -right-1 -top-1 text-[10px] leading-none">🚩</span>}

@@ -43,7 +43,7 @@ export function CourseLessonReader({ lesson, owned, isRead, marking, onMarkRead 
               type="button"
               onClick={() => setTab(t.id)}
               className={`rounded-t-lg px-3 py-1.5 text-sm font-medium ${
-                tab === t.id ? 'border-b-2 border-[#155EEF] text-[#155EEF]' : 'text-ink-muted hover:text-ink'
+                tab === t.id ? 'border-b-2 border-brand-500 text-brand-ink' : 'text-ink-muted hover:text-ink'
               }`}
             >
               {t.label}
@@ -117,7 +117,7 @@ function SelfCheckQuiz({
                       ? 'border-red-300 text-red-600'
                       : 'border-surface-border text-ink-muted'
                   : isChoice
-                    ? 'border-[#155EEF] text-ink'
+                    ? 'border-brand-500 text-ink'
                     : 'border-surface-border text-ink-muted hover:border-brand-400';
                 return (
                   <button

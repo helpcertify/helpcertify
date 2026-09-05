@@ -87,7 +87,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
             footer={
               <Link
                 to={href(c.id)}
-                className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+                className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
               >
                 {ctaLabel}
               </Link>

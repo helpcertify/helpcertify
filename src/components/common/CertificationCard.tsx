@@ -38,7 +38,7 @@ const ICON_PATHS: Record<CertificationIconKey, ReactNode> = {
 
 function CertificationIcon({ iconKey }: { iconKey: CertificationIconKey }) {
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#155EEF] text-white">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white">
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
         {ICON_PATHS[iconKey] ?? ICON_PATHS.generic}
       </svg>
@@ -64,26 +64,26 @@ function packageKeyDetail(pkg: CatalogPackage): string {
 }
 
 const CARD_SHELL =
-  'flex flex-col gap-4 rounded-2xl border border-[#DCE7FF] bg-white p-5 shadow-[0_2px_10px_rgba(15,23,42,0.05)] transition-all duration-150 dark:bg-surface-raised lg:flex-row lg:items-stretch';
+  'flex flex-col gap-4 rounded-2xl border border-surface-border bg-surface-raised p-5 shadow-card transition-all duration-150 lg:flex-row lg:items-stretch';
 
 export function CertificationCardSkeleton() {
   return (
     <div className={`${CARD_SHELL} animate-pulse`}>
       <div className="flex items-start gap-3 lg:w-72 lg:shrink-0">
-        <div className="h-11 w-11 shrink-0 rounded-xl bg-[#E8F0FF]" />
+        <div className="h-11 w-11 shrink-0 rounded-xl bg-brand-50" />
         <div className="flex-1 space-y-2">
-          <div className="h-3 w-16 rounded bg-[#EFF6FF]" />
-          <div className="h-4 w-32 rounded bg-[#E8F0FF]" />
-          <div className="h-3 w-24 rounded bg-[#EFF6FF]" />
+          <div className="h-3 w-16 rounded bg-brand-50" />
+          <div className="h-4 w-32 rounded bg-brand-50" />
+          <div className="h-3 w-24 rounded bg-brand-50" />
         </div>
       </div>
       <div className="flex flex-1 gap-2">
-        <div className="h-24 flex-1 rounded-xl bg-[#EFF6FF]" />
-        <div className="h-24 flex-1 rounded-xl bg-[#EFF6FF]" />
-        <div className="hidden h-24 flex-1 rounded-xl bg-[#EFF6FF] sm:block" />
+        <div className="h-24 flex-1 rounded-xl bg-brand-50" />
+        <div className="h-24 flex-1 rounded-xl bg-brand-50" />
+        <div className="hidden h-24 flex-1 rounded-xl bg-brand-50 sm:block" />
       </div>
       <div className="lg:w-48 lg:shrink-0">
-        <div className="h-10 w-full rounded-lg bg-[#E8F0FF]" />
+        <div className="h-10 w-full rounded-lg bg-brand-50" />
       </div>
     </div>
   );
@@ -123,14 +123,14 @@ export function CertificationCard({ certification }: CertificationCardProps) {
   // selector row.
   if (packages.length === 0) {
     return (
-      <div className="flex flex-col gap-4 rounded-2xl border border-[#DCE7FF] bg-white p-5 shadow-[0_2px_10px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4 rounded-2xl border border-surface-border bg-surface-raised p-5 shadow-card sm:flex-row sm:items-center">
         <div className="flex items-start gap-3 sm:flex-1">
           <CertificationIcon iconKey={certification.iconKey} />
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">{certification.provider}</div>
-            <h3 className="text-base font-bold text-[#0F172A]">{certification.name}</h3>
-            <p className="mt-0.5 text-xs font-medium text-[#94A3B8]">Coming soon</p>
-            <p className="mt-1 line-clamp-2 text-sm text-[#64748B]">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{certification.provider}</div>
+            <h3 className="text-base font-bold text-ink">{certification.name}</h3>
+            <p className="mt-0.5 text-xs font-medium text-ink-faint">Coming soon</p>
+            <p className="mt-1 line-clamp-2 text-sm text-ink-faint">
               {certification.description || 'Practice questions and mock exam packages are being prepared.'}
             </p>
           </div>
@@ -138,7 +138,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
         <button
           type="button"
           disabled
-          className="shrink-0 rounded-lg border border-[#CBD5E1] bg-white px-4 py-2 text-sm font-semibold text-[#94A3B8] sm:w-40"
+          className="shrink-0 rounded-lg border border-surface-border bg-surface-raised px-4 py-2 text-sm font-semibold text-ink-faint sm:w-40"
         >
           Coming Soon
         </button>
@@ -170,7 +170,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
       return (
         <Link
           to={href}
-          className="block w-full rounded-lg bg-[#155EEF] py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+          className="block w-full rounded-lg bg-brand-500 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
         >
           Continue Learning
         </Link>
@@ -180,7 +180,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
       return (
         <Link
           to="/home/cart"
-          className="block w-full rounded-lg border border-[#155EEF]/50 py-2.5 text-center text-sm font-semibold text-[#155EEF]"
+          className="block w-full rounded-lg border border-brand-500/50 py-2.5 text-center text-sm font-semibold text-brand-ink"
         >
           ✓ In Cart · View Cart
         </Link>
@@ -188,7 +188,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
     }
     if (selected.state === 'COMING_SOON' || selected.state === 'UNAVAILABLE') {
       return (
-        <button type="button" disabled className="w-full rounded-lg border border-[#CBD5E1] bg-white py-2.5 text-sm font-semibold text-[#94A3B8]">
+        <button type="button" disabled className="w-full rounded-lg border border-surface-border bg-surface-raised py-2.5 text-sm font-semibold text-ink-faint">
           Coming Soon
         </button>
       );
@@ -199,7 +199,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
           type="button"
           disabled={paying}
           onClick={() => setBuyNowOpen(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-60"
         >
           {paying && <Spinner className="h-4 w-4" />}
           {paying ? 'Opening…' : `Buy for ${formatMoney(selected.price, selected.currency)}`}
@@ -208,7 +208,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
           type="button"
           disabled={addToCartMutation.isPending || paying}
           onClick={() => addToCartMutation.mutate(selected)}
-          className="w-full rounded-lg border border-[#CBD5E1] bg-white py-2 text-sm font-semibold text-[#334155] transition-colors hover:border-[#155EEF] hover:bg-[#F8FAFF] hover:text-[#155EEF] disabled:opacity-60"
+          className="w-full rounded-lg border border-surface-border bg-surface-raised py-2 text-sm font-semibold text-ink-muted transition-colors hover:border-brand-500 hover:bg-surface-sunken hover:text-brand-ink disabled:opacity-60"
         >
           {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
         </button>
@@ -217,27 +217,27 @@ export function CertificationCard({ certification }: CertificationCardProps) {
   })();
 
   return (
-    <div className={`${CARD_SHELL} hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)]`}>
+    <div className={`${CARD_SHELL} hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)]`}>
       {/* Identity */}
       <div className="flex items-start gap-3 lg:w-72 lg:shrink-0">
         <CertificationIcon iconKey={certification.iconKey} />
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">{certification.provider}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{certification.provider}</div>
           <button
             type="button"
             onClick={() => setDetailOpen(true)}
-            className="block max-w-full text-left text-base font-bold text-[#0F172A] hover:text-[#155EEF] focus-visible:underline dark:text-ink"
+            className="block max-w-full text-left text-base font-bold text-ink hover:text-brand-ink focus-visible:underline dark:text-ink"
           >
             {certification.name}
           </button>
-          <div className="mt-0.5 text-xs text-[#64748B]">{selected.accessValidityDays} days access</div>
+          <div className="mt-0.5 text-xs text-ink-faint">{selected.accessValidityDays} days access</div>
           {certification.description && (
-            <p className="mt-1.5 line-clamp-3 text-xs leading-snug text-[#64748B]">{certification.description}</p>
+            <p className="mt-1.5 line-clamp-3 text-xs leading-snug text-ink-faint">{certification.description}</p>
           )}
           <button
             type="button"
             onClick={() => setDetailOpen(true)}
-            className="mt-1.5 text-xs font-semibold text-[#155EEF] hover:underline"
+            className="mt-1.5 text-xs font-semibold text-brand-ink hover:underline"
           >
             View details
           </button>
@@ -262,8 +262,8 @@ export function CertificationCard({ certification }: CertificationCardProps) {
               onClick={() => setSelectedId(pkg.id)}
               className={`relative flex flex-1 basis-[8.5rem] flex-col rounded-xl border px-3 pb-2.5 pt-3 text-left transition-colors ${
                 isSelected
-                  ? 'border-[#155EEF] bg-[#EFF6FF] ring-1 ring-[#155EEF] dark:bg-[#155EEF]/10'
-                  : 'border-[#DCE7FF] bg-white hover:border-[#B9CEFF] dark:bg-surface'
+                  ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 dark:bg-brand-500/10'
+                  : 'border-surface-border bg-surface-raised hover:border-brand-500/30 dark:bg-surface'
               }`}
             >
               {badge && (
@@ -271,19 +271,19 @@ export function CertificationCard({ certification }: CertificationCardProps) {
                   {badge}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-sm font-semibold text-[#0F172A] dark:text-ink">
-                {isSelected && <span className="text-[10px] leading-none text-[#155EEF]">✓</span>}
+              <span className="flex items-center gap-1 text-sm font-semibold text-ink dark:text-ink">
+                {isSelected && <span className="text-[10px] leading-none text-brand-ink">✓</span>}
                 {pkg.name}
               </span>
               <span className="mt-1 flex items-baseline gap-1.5">
                 {pkg.originalPrice && pkg.originalPrice > pkg.price && (
-                  <span className="text-xs text-[#94A3B8] line-through">{formatMoney(pkg.originalPrice, pkg.currency)}</span>
+                  <span className="text-xs text-ink-faint line-through">{formatMoney(pkg.originalPrice, pkg.currency)}</span>
                 )}
-                <span className="text-base font-bold text-[#0F172A] dark:text-ink">
+                <span className="text-base font-bold text-ink dark:text-ink">
                   {pkg.price > 0 ? formatMoney(pkg.price, pkg.currency) : 'Free'}
                 </span>
               </span>
-              <span className="mt-1 text-[11px] leading-tight text-[#64748B]">{packageKeyDetail(pkg)}</span>
+              <span className="mt-1 text-[11px] leading-tight text-ink-faint">{packageKeyDetail(pkg)}</span>
             </button>
           );
         })}
@@ -292,7 +292,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
       {/* Purchase */}
       <div className="flex flex-col justify-center gap-1.5 lg:w-48 lg:shrink-0">
         {cta}
-        {ctaSubline && <p className="text-center text-[11px] text-[#94A3B8]">{ctaSubline}</p>}
+        {ctaSubline && <p className="text-center text-[11px] text-ink-faint">{ctaSubline}</p>}
       </div>
 
       {buyNowOpen && (

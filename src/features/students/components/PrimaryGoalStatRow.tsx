@@ -72,16 +72,16 @@ export function PrimaryGoalStatRow() {
 
       <Link
         to="/home/profile"
-        className="flex h-full flex-col rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-colors hover:border-[#B9CEFF] dark:bg-surface-raised"
+        className="flex h-full flex-col rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card transition-colors hover:border-brand-500/30"
       >
         <div className="flex items-center justify-between">
-          <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">This Week's Progress</div>
-          <span className="text-xs font-medium text-[#155EEF]">View Details →</span>
+          <div className="text-xs font-bold uppercase tracking-wide text-ink-faint">This Week's Progress</div>
+          <span className="text-xs font-medium text-brand-ink">View Details →</span>
         </div>
         {weeklyQuestionsDelta !== null && (
-          <div className={`mt-3 text-lg font-bold ${weeklyQuestionsDelta >= 0 ? 'text-[#16A34A]' : 'text-[#EA580C]'}`}>
+          <div className={`mt-3 text-lg font-bold ${weeklyQuestionsDelta >= 0 ? 'text-success' : 'text-warning'}`}>
             {weeklyQuestionsDelta >= 0 ? '↑' : '↓'} {Math.abs(weeklyQuestionsDelta)}%{' '}
-            <span className="text-xs font-medium text-[#64748B]">vs last week</span>
+            <span className="text-xs font-medium text-ink-faint">vs last week</span>
           </div>
         )}
       </Link>
@@ -105,14 +105,14 @@ function StatCard({
   subColor?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:bg-surface-raised">
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card">
       <div className="mb-1 text-xl" aria-hidden="true">
         {icon}
       </div>
       <div className="text-lg font-bold" style={{ color: valueColor }}>
         {value}
       </div>
-      <div className="text-xs text-[#64748B]">{label}</div>
+      <div className="text-xs text-ink-faint">{label}</div>
       <div className="mt-1 text-[11px]" style={{ color: subColor ?? '#94A3B8' }}>
         {sub}
       </div>

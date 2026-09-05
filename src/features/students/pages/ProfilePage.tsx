@@ -54,31 +54,31 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto w-[calc(100%-48px)] max-w-[1440px]">
-      <h1 className="mb-1 text-[28px] font-bold text-[#0F172A]">My Profile</h1>
-      <p className="mb-6 text-sm text-[#64748B]">Manage your profile and learning journey.</p>
+      <h1 className="mb-1 text-[28px] font-bold text-ink">My Profile</h1>
+      <p className="mb-6 text-sm text-ink-faint">Manage your profile and learning journey.</p>
 
       {/* Profile hero - identity at a glance, editable inline rather than a
           permanent block of form fields. */}
-      <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+      <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
             ) : (
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#155EEF] text-2xl font-bold text-white">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-brand-500 text-2xl font-bold text-white">
                 {profile.name.charAt(0).toUpperCase()}
               </div>
             )}
             <div>
-              <div className="text-[22px] font-bold leading-tight text-[#0F172A]">{profile.name}</div>
-              <div className="text-sm text-[#64748B]">{profile.email}</div>
+              <div className="text-[22px] font-bold leading-tight text-ink">{profile.name}</div>
+              <div className="text-sm text-ink-faint">{profile.email}</div>
             </div>
           </div>
           {!editing && (
             <button
               type="button"
               onClick={startEditing}
-              className="rounded-lg border border-[#155EEF] px-4 py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+              className="rounded-lg border border-brand-500 px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
             >
               Edit Profile
             </button>
@@ -86,26 +86,26 @@ export function ProfilePage() {
         </div>
 
         {editing ? (
-          <div className="mt-5 space-y-4 border-t border-[#E2E8F0] pt-5">
+          <div className="mt-5 space-y-4 border-t border-surface-border pt-5">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-[#64748B]">Headline</label>
+              <label className="mb-1 block text-xs font-semibold text-ink-faint">Headline</label>
               <input
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
                 maxLength={100}
                 placeholder="Security professional preparing for CISA"
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#155EEF] dark:bg-transparent"
+                className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 dark:bg-transparent"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-[#64748B]">Biography</label>
+              <label className="mb-1 block text-xs font-semibold text-ink-faint">Biography</label>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 maxLength={1000}
                 rows={3}
                 placeholder="Tell us a little about yourself and your certification goals."
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#155EEF] dark:bg-transparent"
+                className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-ink outline-none focus:border-brand-500 dark:bg-transparent"
               />
             </div>
             <div className="flex gap-2">
@@ -113,7 +113,7 @@ export function ProfilePage() {
                 type="button"
                 disabled={savingProfile}
                 onClick={handleSaveProfile}
-                className="rounded-lg bg-[#155EEF] px-5 py-2 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+                className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
               >
                 {savingProfile ? 'Saving…' : 'Save Changes'}
               </button>
@@ -121,7 +121,7 @@ export function ProfilePage() {
                 type="button"
                 disabled={savingProfile}
                 onClick={() => setEditing(false)}
-                className="rounded-lg border border-[#E2E8F0] px-5 py-2 text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC] disabled:opacity-60"
+                className="rounded-lg border border-surface-border px-5 py-2 text-sm font-semibold text-ink-muted hover:bg-surface-sunken disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -129,9 +129,9 @@ export function ProfilePage() {
           </div>
         ) : (
           (profile.headline || profile.bio) && (
-            <div className="mt-4 border-t border-[#E2E8F0] pt-4">
-              {profile.headline && <div className="text-sm font-semibold text-[#0F172A]">{profile.headline}</div>}
-              {profile.bio && <p className="mt-1 whitespace-pre-line text-sm text-[#1E293B]">{profile.bio}</p>}
+            <div className="mt-4 border-t border-surface-border pt-4">
+              {profile.headline && <div className="text-sm font-semibold text-ink">{profile.headline}</div>}
+              {profile.bio && <p className="mt-1 whitespace-pre-line text-sm text-ink">{profile.bio}</p>}
             </div>
           )
         )}

@@ -28,7 +28,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
             stays semantic green (a "this worked" signal) inside a small
             circle instead of a full-width banner. */}
         <div className="p-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#F0FDF4] text-3xl text-[#16A34A]">✓</div>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-success-soft text-3xl text-success">✓</div>
           <h2 className="mb-1 text-xl font-bold text-ink">Payment Successful!</h2>
           <p className="text-sm text-ink-muted">
             {items.length === 1 ? "It's" : "They're"} unlocked on your account now, with no time limit.
@@ -48,7 +48,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
                         : '/home/practice-tests'
                   }
                   onClick={onClose}
-                  className="block border-l-4 border-l-[#155EEF] px-4 py-3 hover:bg-brand-500/5"
+                  className="block border-l-4 border-l-brand-500 px-4 py-3 hover:bg-brand-500/5"
                 >
                   <div className="font-medium text-ink">{i.title}</div>
                   <div className="text-sm text-brand-ink">Go start it →</div>
@@ -57,7 +57,7 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
                   <Link
                     to={`/home/practice-tests/${i.itemId}?goal=1`}
                     onClick={onClose}
-                    className="block border-t border-surface-border bg-[#d87f1d]/10 px-4 py-2 text-sm font-medium text-[#d87f1d] hover:bg-[#d87f1d]/15"
+                    className="block border-t border-surface-border bg-warning/10 px-4 py-2 text-sm font-medium text-warning hover:bg-warning/15"
                   >
                     🎯 Set My Study Goal
                   </Link>

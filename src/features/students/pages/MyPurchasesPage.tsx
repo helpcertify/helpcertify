@@ -167,10 +167,10 @@ export function MyPurchasesPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home/mock-exams" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]">
+            <Link to="/home/mock-exams" className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">
               Browse Mock Exams
             </Link>
-            <Link to="/home/practice-tests" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]">
+            <Link to="/home/practice-tests" className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">
               Browse Practice Exams
             </Link>
           </div>
@@ -187,9 +187,9 @@ export function MyPurchasesPage() {
             return (
               <div
                 key={certName}
-                className="rounded-xl border border-[#BFDBFE] bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised"
+                className="rounded-xl border border-brand-500/30 bg-surface-raised p-5 shadow-card"
               >
-                <h3 className="text-base font-bold text-[#155EEF]">{certName}</h3>
+                <h3 className="text-base font-bold text-brand-ink">{certName}</h3>
                 <p className="mt-1 text-xs text-ink-faint">
                   {practiceCount > 0 && `${practiceCount} practice exam${practiceCount === 1 ? '' : 's'}`}
                   {practiceCount > 0 && mockCount > 0 && ' · '}
@@ -197,7 +197,7 @@ export function MyPurchasesPage() {
                   {totalQuestions > 0 && ` · ${answered.toLocaleString()} / ${totalQuestions.toLocaleString()} answered`}
                 </p>
                 {withExpiry && (
-                  <p className={`mt-1 text-xs ${expired ? 'font-semibold text-[#C2410C]' : 'text-ink-faint'}`}>
+                  <p className={`mt-1 text-xs ${expired ? 'font-semibold text-warning' : 'text-ink-faint'}`}>
                     {expired
                       ? `Access expired ${formatDate(withExpiry.expiresAt)} · buy the package again to renew`
                       : `Access until ${formatDate(withExpiry.expiresAt)}`}
@@ -207,7 +207,7 @@ export function MyPurchasesPage() {
                   {practiceCount > 0 && (
                     <Link
                       to="/home/practice-tests"
-                      className="rounded-lg bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+                      className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
                     >
                       Practice Exams →
                     </Link>
@@ -215,7 +215,7 @@ export function MyPurchasesPage() {
                   {mockCount > 0 && (
                     <Link
                       to="/home/mock-exams"
-                      className="rounded-lg border border-[#155EEF] px-4 py-1.5 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+                      className="rounded-lg border border-brand-500 px-4 py-1.5 text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
                     >
                       Mock Exams →
                     </Link>
@@ -246,7 +246,7 @@ export function MyPurchasesPage() {
                     currency={item.currency}
                     detailHref={detailHref}
                     extra={
-                      <div className="mb-3 space-y-1 text-xs text-[#64748B]">
+                      <div className="mb-3 space-y-1 text-xs text-ink-faint">
                         <div>
                           {item.answered}/{item.totalQuestions} answered{done && ' · Completed'}
                         </div>
@@ -256,7 +256,7 @@ export function MyPurchasesPage() {
                     footer={
                       <Link
                         to={detailHref}
-                        className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white hover:bg-[#004EEB]"
+                        className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
                       >
                         Go start it →
                       </Link>

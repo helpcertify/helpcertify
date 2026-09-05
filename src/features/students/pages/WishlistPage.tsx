@@ -39,12 +39,12 @@ export function WishlistPage() {
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">Nothing saved yet. Tap the heart on any quiz or practice test to save it here.</p>
           <div className="flex justify-center gap-3">
-            <Link to="/home/mock-exams" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]">
+            <Link to="/home/mock-exams" className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600">
               Browse Mock Exams
             </Link>
             <Link
               to="/home/practice-tests"
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
             >
               Browse Practice Exams
             </Link>
@@ -60,11 +60,11 @@ export function WishlistPage() {
             const detailHref = item.itemType === 'quiz' ? `/home/quizzes/${item.itemId}` : `/home/practice-tests/${item.itemId}`;
             const footer =
               item.price === 0 ? (
-                <Link to={detailHref} className="block rounded-lg bg-[#155EEF] py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#004EEB]">
+                <Link to={detailHref} className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600">
                   View
                 </Link>
               ) : inCart ? (
-                <Link to="/home/cart" className="block rounded-lg border border-[#155EEF]/50 py-1.5 text-center text-sm font-semibold text-[#155EEF]">
+                <Link to="/home/cart" className="block rounded-lg border border-brand-500/50 py-1.5 text-center text-sm font-semibold text-brand-ink">
                   ✓ In Cart · View Cart
                 </Link>
               ) : (
@@ -73,7 +73,7 @@ export function WishlistPage() {
                     type="button"
                     disabled={addToCartMutation.isPending || paying}
                     onClick={() => addToCartMutation.mutate(item)}
-                    className="flex-1 rounded-lg border border-[#CBD5E1] bg-white py-1.5 text-sm font-semibold text-[#334155] transition-colors hover:border-[#155EEF] hover:bg-[#F8FAFF] hover:text-[#155EEF] disabled:opacity-60"
+                    className="flex-1 rounded-lg border border-surface-border bg-surface-raised py-1.5 text-sm font-semibold text-ink-muted transition-colors hover:border-brand-500 hover:bg-surface-sunken hover:text-brand-ink disabled:opacity-60"
                   >
                     Add to Cart
                   </button>
@@ -81,7 +81,7 @@ export function WishlistPage() {
                     type="button"
                     disabled={paying}
                     onClick={() => setBuyNowItem(item)}
-                    className="flex-1 rounded-lg bg-[#155EEF] py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#004EEB] disabled:opacity-60"
+                    className="flex-1 rounded-lg bg-brand-500 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-60"
                   >
                     Buy Now
                   </button>

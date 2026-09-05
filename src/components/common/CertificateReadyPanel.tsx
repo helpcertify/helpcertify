@@ -38,18 +38,18 @@ export function CertificateReadyPanel({ certificate, dashboardHref }: Props) {
   };
 
   return (
-    <div className="mb-6 rounded-xl border border-[#BFDBFE] bg-gradient-to-r from-[#EFF6FF] to-[#F8FAFF] p-5">
+    <div className="mb-6 rounded-xl border border-brand-500/30 bg-gradient-to-r from-brand-50 to-surface-sunken p-5">
       <div className="mb-3 flex items-center gap-2">
         <span className="text-xl" aria-hidden="true">
           🎓
         </span>
-        <h2 className="text-sm font-bold uppercase tracking-wide text-[#155EEF]">Your completion certificate is ready</h2>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-brand-ink">Your completion certificate is ready</h2>
       </div>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setViewing(true)}
-          className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
         >
           View Certificate
         </button>
@@ -57,7 +57,7 @@ export function CertificateReadyPanel({ certificate, dashboardHref }: Props) {
           type="button"
           disabled={downloading}
           onClick={handleDownload}
-          className="rounded-lg border border-[#155EEF]/50 px-4 py-2 text-sm font-semibold text-[#155EEF] disabled:opacity-50"
+          className="rounded-lg border border-brand-500/50 px-4 py-2 text-sm font-semibold text-brand-ink disabled:opacity-50"
         >
           {downloading ? 'Preparing…' : 'Download PDF'}
         </button>

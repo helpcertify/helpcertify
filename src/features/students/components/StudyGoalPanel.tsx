@@ -178,7 +178,7 @@ export function StudyGoalPanel({
   const toggleDay = (key: keyof StudyDaySelection) => setStudyDays((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-[#155EEF]/20">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-brand-500/20">
       {/* Colorful hero, matching the app's own two accents (brand blue +
           amber) - this is a single focused flow, so it can afford one
           deliberate splash of color rather than the muted-gray treatment
@@ -198,19 +198,19 @@ export function StudyGoalPanel({
             <button
               type="button"
               onClick={() => setStep('examDate')}
-              className="rounded-xl border-2 border-[#155EEF]/30 bg-[#155EEF]/5 p-5 text-left transition-colors hover:border-[#155EEF] hover:bg-[#155EEF]/10"
+              className="rounded-xl border-2 border-brand-500/30 bg-brand-500/5 p-5 text-left transition-colors hover:border-brand-500 hover:bg-brand-500/10"
             >
               <div className="mb-2 text-2xl">📅</div>
-              <div className="mb-1 font-semibold text-[#155EEF]">I Have an Exam Date</div>
+              <div className="mb-1 font-semibold text-brand-ink">I Have an Exam Date</div>
               <p className="text-sm text-ink-faint">Tell us your exam date and we'll calculate what you need to complete each day.</p>
             </button>
             <button
               type="button"
               onClick={() => setStep('pace')}
-              className="rounded-xl border-2 border-[#d87f1d]/30 bg-[#d87f1d]/5 p-5 text-left transition-colors hover:border-[#d87f1d] hover:bg-[#d87f1d]/10"
+              className="rounded-xl border-2 border-warning/30 bg-warning/5 p-5 text-left transition-colors hover:border-warning hover:bg-warning/10"
             >
               <div className="mb-2 text-2xl">🏃</div>
-              <div className="mb-1 font-semibold text-[#d87f1d]">Plan At My Pace</div>
+              <div className="mb-1 font-semibold text-warning">Plan At My Pace</div>
               <p className="text-sm text-ink-faint">Tell us how much you can study each day and we'll estimate when you'll be exam-ready.</p>
             </button>
           </div>
@@ -236,14 +236,14 @@ export function StudyGoalPanel({
                     <button
                       type="button"
                       onClick={() => setPaceInputKind('questions')}
-                      className={`flex-1 rounded-lg border py-2 text-sm ${paceInputKind === 'questions' ? 'border-[#155EEF] bg-[#155EEF]/10 text-[#155EEF]' : 'border-surface-border text-ink-muted'}`}
+                      className={`flex-1 rounded-lg border py-2 text-sm ${paceInputKind === 'questions' ? 'border-brand-500 bg-brand-500/10 text-brand-ink' : 'border-surface-border text-ink-muted'}`}
                     >
                       Questions Per Day
                     </button>
                     <button
                       type="button"
                       onClick={() => setPaceInputKind('minutes')}
-                      className={`flex-1 rounded-lg border py-2 text-sm ${paceInputKind === 'minutes' ? 'border-[#155EEF] bg-[#155EEF]/10 text-[#155EEF]' : 'border-surface-border text-ink-muted'}`}
+                      className={`flex-1 rounded-lg border py-2 text-sm ${paceInputKind === 'minutes' ? 'border-brand-500 bg-brand-500/10 text-brand-ink' : 'border-surface-border text-ink-muted'}`}
                     >
                       Time Per Day
                     </button>
@@ -264,7 +264,7 @@ export function StudyGoalPanel({
                               setCustomQuestions('');
                             }}
                             className={`rounded-full border px-3 py-1 text-xs ${
-                              !customQuestions && questionsPerDay === q ? 'border-[#155EEF] bg-[#155EEF]/10 text-[#155EEF]' : 'border-surface-border text-ink-muted'
+                              !customQuestions && questionsPerDay === q ? 'border-brand-500 bg-brand-500/10 text-brand-ink' : 'border-surface-border text-ink-muted'
                             }`}
                           >
                             {q} Questions
@@ -295,7 +295,7 @@ export function StudyGoalPanel({
                               setCustomMinutes('');
                             }}
                             className={`rounded-full border px-3 py-1 text-xs ${
-                              !customMinutes && minutesPerDay === m ? 'border-[#155EEF] bg-[#155EEF]/10 text-[#155EEF]' : 'border-surface-border text-ink-muted'
+                              !customMinutes && minutesPerDay === m ? 'border-brand-500 bg-brand-500/10 text-brand-ink' : 'border-surface-border text-ink-muted'
                             }`}
                           >
                             {m < 60 ? `${m} Min` : `${m / 60} Hr${m > 60 ? 's' : ''}`}
@@ -324,7 +324,7 @@ export function StudyGoalPanel({
                       type="button"
                       onClick={() => toggleDay(key)}
                       className={`rounded-full border px-3 py-1 text-xs ${
-                        studyDays[key] ? 'border-[#155EEF] bg-[#155EEF]/10 text-[#155EEF]' : 'border-surface-border text-ink-muted'
+                        studyDays[key] ? 'border-brand-500 bg-brand-500/10 text-brand-ink' : 'border-surface-border text-ink-muted'
                       }`}
                     >
                       {label}
@@ -341,14 +341,14 @@ export function StudyGoalPanel({
               {step === 'examDate' && examDatePreview && (
                 <>
                   {feasibility && !feasibility.feasible && (
-                    <div className="rounded-xl border border-[#d87f1d]/40 bg-[#d87f1d]/10 p-4 text-sm text-ink">
+                    <div className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-ink">
                       Your current plan may require more study time to complete the question bank before your planned revision period.
                       To stay on this exam date, approximately <strong>{feasibility.requiredQuestionsPerDay} questions/day</strong>{' '}
                       (about <strong>{Math.round(feasibility.requiredMinutesPerDay / 60)} hour(s)/day</strong>) would be required.
                       Consider increasing your daily study time, adding more study days, or adjusting your exam date.
                     </div>
                   )}
-                  <div className="overflow-hidden rounded-xl border border-[#155EEF]/30 bg-surface">
+                  <div className="overflow-hidden rounded-xl border border-brand-500/30 bg-surface">
                     <div className="bg-gradient-to-r from-[#155EEF] to-[#0f2f8f] px-4 py-2.5">
                       <h3 className="text-xs font-bold uppercase tracking-wide text-white">Your Plan</h3>
                     </div>
@@ -369,7 +369,7 @@ export function StudyGoalPanel({
               )}
 
               {step === 'pace' && pacePreview && (
-                <div className="overflow-hidden rounded-xl border border-[#d87f1d]/30 bg-surface">
+                <div className="overflow-hidden rounded-xl border border-warning/30 bg-surface">
                   <div className="bg-gradient-to-r from-[#d87f1d] to-[#a85f10] px-4 py-2.5">
                     <h3 className="text-xs font-bold uppercase tracking-wide text-white">Your Plan</h3>
                   </div>
@@ -395,7 +395,7 @@ export function StudyGoalPanel({
                 type="button"
                 disabled={saveMutation.isPending || (step === 'examDate' ? !examDate : resolvedQuestionsPerDay <= 0)}
                 onClick={() => saveMutation.mutate(step === 'examDate' ? 'examDate' : 'pace')}
-                className="w-full rounded-lg bg-[#155EEF] py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
                 {saveMutation.isPending ? 'Saving…' : 'Save My Plan'}
               </button>
@@ -408,7 +408,7 @@ export function StudyGoalPanel({
 }
 
 function PlanStat({ label, value, accent }: { label: string; value: string; accent?: 'blue' | 'amber' }) {
-  const accentClass = accent === 'blue' ? 'text-[#155EEF]' : accent === 'amber' ? 'text-[#d87f1d]' : 'text-ink';
+  const accentClass = accent === 'blue' ? 'text-brand-ink' : accent === 'amber' ? 'text-warning' : 'text-ink';
   return (
     <div>
       <dt className="text-xs text-ink-faint">{label}</dt>

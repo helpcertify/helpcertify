@@ -41,7 +41,7 @@ export function CertificateViewModal({ certificate, onClose, onDownload, onPrint
             {STATUS_LABEL[certificate.status]}
           </div>
         )}
-        <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">{title}</div>
+        <div className="mb-1 text-xs font-bold uppercase tracking-wide text-brand-ink">{title}</div>
         <h2 className="mb-4 text-lg font-bold text-ink">{certificate.sourceTitle}</h2>
 
         <div className="mb-4 space-y-1 text-sm">
@@ -89,7 +89,7 @@ export function CertificateViewModal({ certificate, onClose, onDownload, onPrint
             type="button"
             disabled={isRevoked || downloading}
             onClick={onDownload}
-            className="rounded-lg bg-[#155EEF] py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-500 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             {downloading ? 'Preparing…' : 'Download PDF'}
           </button>
@@ -112,7 +112,7 @@ export function CertificateViewModal({ certificate, onClose, onDownload, onPrint
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#DCEAFF] dark:bg-[#155EEF]/10 dark:hover:bg-[#155EEF]/20"
+            className="rounded-lg border border-brand-500/30 bg-brand-50 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-brand-500/10 dark:hover:bg-brand-500/20"
           >
             Close
           </button>

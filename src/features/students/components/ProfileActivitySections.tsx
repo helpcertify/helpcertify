@@ -158,43 +158,43 @@ export function ProfileActivitySections() {
 
       {ownedItems.length > 0 && (
         <div>
-          <h2 className="mb-3 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">My Exams</h2>
+          <h2 className="mb-3 text-[15px] font-bold uppercase tracking-wide text-brand-ink">My Exams</h2>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             {ownedItems.map((item) => (
               <div
                 key={item.detailHref}
-                className="flex flex-col rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised"
+                className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card"
               >
-                <Link to={item.detailHref} className="hover:text-[#155EEF]">
-                  <div className="mb-1 line-clamp-2 text-base font-bold text-[#0F172A]">📋 {item.title}</div>
+                <Link to={item.detailHref} className="hover:text-brand-ink">
+                  <div className="mb-1 line-clamp-2 text-base font-bold text-ink">📋 {item.title}</div>
                 </Link>
-                <div className="mb-4 text-xs text-[#64748B]">{item.category}</div>
+                <div className="mb-4 text-xs text-ink-faint">{item.category}</div>
 
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="text-[#1E293B]">
+                  <span className="text-ink">
                     {item.answered} / {item.totalQuestions} Questions
                   </span>
-                  <span className="font-semibold text-[#0F172A]">{item.percentComplete}% Complete</span>
+                  <span className="font-semibold text-ink">{item.percentComplete}% Complete</span>
                 </div>
-                <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
-                  <div className="h-full rounded-full bg-[#155EEF]" style={{ width: `${Math.min(100, item.percentComplete)}%` }} />
+                <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
+                  <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, item.percentComplete)}%` }} />
                 </div>
 
                 <div className="mt-auto flex items-center justify-between gap-3">
                   {item.expiryLabel ? (
                     item.expiryWarningDays !== null ? (
-                      <span className="text-xs font-medium text-[#F59E0B]">
+                      <span className="text-xs font-medium text-warning">
                         ⚠ Access expires in {item.expiryWarningDays} day{item.expiryWarningDays === 1 ? '' : 's'}
                       </span>
                     ) : (
-                      <span className="text-xs text-[#64748B]">Access until {item.expiryLabel}</span>
+                      <span className="text-xs text-ink-faint">Access until {item.expiryLabel}</span>
                     )
                   ) : (
-                    <span className="text-xs text-[#64748B]">No expiry</span>
+                    <span className="text-xs text-ink-faint">No expiry</span>
                   )}
                   <Link
                     to={item.actionHref}
-                    className="shrink-0 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB]"
+                    className="shrink-0 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
                   >
                     {item.actionLabel} →
                   </Link>
