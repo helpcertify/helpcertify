@@ -179,7 +179,7 @@ export function AdminUsersPage() {
                     type="button"
                     disabled={reviewTrainerAppMutation.isPending}
                     onClick={() => reviewTrainerAppMutation.mutate({ applicationId: a.id, decision: 'approve' })}
-                    className="rounded bg-[#0B7A48] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                    className="rounded bg-success px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     Approve
                   </button>
@@ -187,7 +187,7 @@ export function AdminUsersPage() {
                     type="button"
                     disabled={reviewTrainerAppMutation.isPending}
                     onClick={() => reviewTrainerAppMutation.mutate({ applicationId: a.id, decision: 'reject' })}
-                    className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50"
+                    className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50"
                   >
                     Reject
                   </button>
@@ -206,7 +206,7 @@ export function AdminUsersPage() {
                     type="button"
                     disabled={reviewCategoryRequestMutation.isPending}
                     onClick={() => reviewCategoryRequestMutation.mutate({ membershipId: r.id, decision: 'approve' })}
-                    className="rounded bg-[#0B7A48] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                    className="rounded bg-success px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     Approve
                   </button>
@@ -214,7 +214,7 @@ export function AdminUsersPage() {
                     type="button"
                     disabled={reviewCategoryRequestMutation.isPending}
                     onClick={() => reviewCategoryRequestMutation.mutate({ membershipId: r.id, decision: 'reject' })}
-                    className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50"
+                    className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50"
                   >
                     Reject
                   </button>
@@ -239,7 +239,7 @@ export function AdminUsersPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
@@ -261,7 +261,7 @@ export function AdminUsersPage() {
                 <tr
                   key={u.id}
                   onClick={() => setSelectedUid(u.id)}
-                  className={`cursor-pointer border-t border-surface-border hover:bg-black/10 ${
+                  className={`cursor-pointer border-t border-surface-border hover:bg-surface-sunken ${
                     selectedUid === u.id ? 'bg-brand-500/10' : ''
                   }`}
                 >
@@ -270,10 +270,10 @@ export function AdminUsersPage() {
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {u.role === 'admin' && (
-                        <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs text-ink-muted">Admin</span>
+                        <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs text-ink-muted">Admin</span>
                       )}
                       {u.categories.length === 0 && u.role !== 'admin' ? (
-                        <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs text-ink-faint">Users</span>
+                        <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs text-ink-faint">Users</span>
                       ) : (
                         u.categories.map((c) => (
                           <span key={c} className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-ink">
@@ -331,7 +331,7 @@ export function AdminUsersPage() {
                     type="button"
                     onClick={() => grantTrainerMutation.mutate()}
                     disabled={grantTrainerMutation.isPending}
-                    className="rounded-lg bg-[#155EEF] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
                   >
                     Grant trainer access
                   </button>

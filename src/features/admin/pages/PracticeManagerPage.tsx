@@ -89,7 +89,7 @@ export function PracticeManagerPage() {
                 <div className="mt-3 flex gap-2">
                   <Link
                     to={`/admin/practice-tests/${test.id}/view`}
-                    className="rounded-lg bg-[#155EEF] px-3 py-1.5 text-sm font-medium text-white"
+                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white"
                   >
                     View
                   </Link>

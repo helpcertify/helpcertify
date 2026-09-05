@@ -150,14 +150,14 @@ export function ProductsPricingPage() {
         <button
           type="button"
           onClick={() => setTab('certifications')}
-          className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === 'certifications' ? 'border-[#155EEF] text-[#155EEF]' : 'border-transparent text-ink-faint hover:text-ink'}`}
+          className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === 'certifications' ? 'border-brand-500 text-brand-ink' : 'border-transparent text-ink-faint hover:text-ink'}`}
         >
           Exam Preparations
         </button>
         <button
           type="button"
           onClick={() => setTab('offers')}
-          className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === 'offers' ? 'border-[#155EEF] text-[#155EEF]' : 'border-transparent text-ink-faint hover:text-ink'}`}
+          className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === 'offers' ? 'border-brand-500 text-brand-ink' : 'border-transparent text-ink-faint hover:text-ink'}`}
         >
           Scheduled Offers
         </button>
@@ -168,7 +168,7 @@ export function ProductsPricingPage() {
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <Link
               to="/admin/products/new"
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB]"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
             >
               + Add Exam Preparation
             </Link>
@@ -210,7 +210,7 @@ export function ProductsPricingPage() {
           {!isLoading && hasError && (
             <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
               We couldn't load the product catalog.{' '}
-              <button type="button" onClick={() => refetchCerts()} className="font-semibold text-[#155EEF] hover:underline">
+              <button type="button" onClick={() => refetchCerts()} className="font-semibold text-brand-ink hover:underline">
                 Retry
               </button>
             </div>
@@ -218,7 +218,7 @@ export function ProductsPricingPage() {
           {!isLoading && !hasError && filtered.length === 0 && (
             <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
               <p className="mb-4 text-ink-faint">No exam preparations have been configured.</p>
-              <Link to="/admin/products/new" className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB]">
+              <Link to="/admin/products/new" className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
                 + Add Exam Preparation
               </Link>
             </div>
@@ -263,10 +263,10 @@ function StatCard({ label, value }: { label: string; value: number }) {
 function CertRowSkeleton() {
   return (
     <div className="flex animate-pulse gap-4 rounded-xl border border-surface-border bg-surface-raised p-5">
-      <div className="h-12 w-12 shrink-0 rounded-xl bg-[#E8F0FF]" />
+      <div className="h-12 w-12 shrink-0 rounded-xl bg-brand-50" />
       <div className="flex-1 space-y-2">
-        <div className="h-4 w-48 rounded bg-[#E8F0FF]" />
-        <div className="h-3 w-72 rounded bg-[#EFF6FF]" />
+        <div className="h-4 w-48 rounded bg-brand-50" />
+        <div className="h-3 w-72 rounded bg-brand-50" />
       </div>
     </div>
   );
@@ -298,7 +298,7 @@ function CertificationRow({
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-surface-border bg-surface-raised p-5 lg:flex-row lg:items-start">
       <div className="flex items-start gap-3 lg:w-64 lg:shrink-0">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#155EEF] text-lg font-bold text-white">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-lg font-bold text-white">
           {certification.shortName.slice(0, 2).toUpperCase()}
         </div>
         <div>
@@ -319,7 +319,7 @@ function CertificationRow({
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${STATUS_BADGE[certification.status]}`}>
             {certification.status}
           </span>
-          {certification.featured && <span className="rounded-full bg-[#E8F0FF] px-2 py-0.5 text-xs font-semibold text-[#155EEF]">Featured</span>}
+          {certification.featured && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-ink">Featured</span>}
           <span className="text-xs text-ink-faint">Updated {toDate(certification.updatedAt).toLocaleDateString()}</span>
         </div>
         {sortedPackages.length === 0 ? (
@@ -405,7 +405,7 @@ function ScheduledOffersTab({
   return (
     <div className="overflow-x-auto rounded-xl border border-surface-border">
       <table className="w-full text-left text-sm">
-        <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+        <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
           <tr>
             <th className="px-4 py-3">Exam Preparation</th>
             <th className="px-4 py-3">Package</th>
@@ -431,7 +431,7 @@ function ScheduledOffersTab({
               </td>
               <td className="px-4 py-3">
                 <div className="flex gap-2">
-                  <Link to={`/admin/products/${pkg.certificationId}`} className="text-xs font-medium text-[#155EEF] hover:underline">
+                  <Link to={`/admin/products/${pkg.certificationId}`} className="text-xs font-medium text-brand-ink hover:underline">
                     Edit
                   </Link>
                   {(status === 'scheduled' || status === 'active') && (

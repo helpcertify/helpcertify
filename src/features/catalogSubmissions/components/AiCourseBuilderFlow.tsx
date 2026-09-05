@@ -221,7 +221,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
             type="button"
             disabled={outlineMutation.isPending || topic.trim().length < 3}
             onClick={() => outlineMutation.mutate()}
-            className="mt-4 rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+            className="mt-4 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
           >
             {outlineMutation.isPending ? 'Generating outline…' : 'Generate Outline'}
           </button>
@@ -286,7 +286,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
               type="button"
               disabled={contentMutation.isPending || outline.length === 0}
               onClick={() => contentMutation.mutate()}
-              className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+              className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
             >
               {contentMutation.isPending ? 'Generating content…' : 'Generate Content'}
             </button>
@@ -354,7 +354,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
               type="button"
               disabled={submitMutation.isPending || title.trim().length < 2}
               onClick={() => submitMutation.mutate()}
-              className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+              className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
             >
               {submitMutation.isPending ? 'Working…' : isAdmin ? 'Publish Now' : 'Submit for Review'}
             </button>

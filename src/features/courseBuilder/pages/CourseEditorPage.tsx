@@ -152,7 +152,7 @@ export function CourseEditorPage() {
           type="button"
           disabled={save.isPending || !dirty || meta.title.trim().length < 3 || lessons.length === 0}
           onClick={() => save.mutate()}
-          className="rounded-lg bg-[#155EEF] px-5 py-2 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-50"
+          className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
         >
           {save.isPending ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
         </button>
@@ -221,7 +221,7 @@ export function CourseEditorPage() {
                       type="button"
                       disabled={save.isPending}
                       onClick={() => openLesson(l.lessonKey!)}
-                      className="text-xs font-semibold text-[#155EEF] hover:underline disabled:opacity-50"
+                      className="text-xs font-semibold text-brand-ink hover:underline disabled:opacity-50"
                     >
                       {save.isPending ? 'Saving…' : 'Open lesson editor →'}
                     </button>
@@ -232,7 +232,7 @@ export function CourseEditorPage() {
                         <span
                           key={label}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-black/10 text-ink-faint'
+                            ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-surface-sunken text-ink-faint'
                           }`}
                         >
                           {ok ? '✓' : '○'} {label}
@@ -302,7 +302,7 @@ export function CourseEditorPage() {
           type="button"
           disabled={submit.isPending || dirty || lessons.length === 0}
           onClick={() => submit.mutate()}
-          className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-50"
+          className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
         >
           {submit.isPending ? 'Submitting…' : 'Submit course'}
         </button>

@@ -66,13 +66,13 @@ export function PartnerDetailPage() {
   };
 
   if (isLoading) return <p className="text-sm text-ink-faint">Loading…</p>;
-  if (error || !data) return <p className="text-sm text-[#B32D1A]">{errorText(error, 'Could not load this partner')}</p>;
+  if (error || !data) return <p className="text-sm text-danger">{errorText(error, 'Could not load this partner')}</p>;
 
   const d = data;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <Link to="/admin/partners" className="text-sm text-[#155EEF] hover:underline">
+      <Link to="/admin/partners" className="text-sm text-brand-ink hover:underline">
         ← Partners
       </Link>
 
@@ -84,7 +84,7 @@ export function PartnerDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs font-semibold">{d.header.status}</span>
+          <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs font-semibold">{d.header.status}</span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
               d.header.payoutStatus === 'OK'
@@ -101,12 +101,12 @@ export function PartnerDetailPage() {
 
       <div className="flex flex-wrap gap-2">
         {d.header.payoutStatus !== 'OK' && (
-          <button type="button" disabled={setStatus.isPending} onClick={() => setStatus.mutate('OK')} className="rounded bg-[#0B7A48] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
+          <button type="button" disabled={setStatus.isPending} onClick={() => setStatus.mutate('OK')} className="rounded bg-success px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
             Clear KYC (payouts OK)
           </button>
         )}
         {d.header.payoutStatus !== 'PAYOUT_BLOCKED' && (
-          <button type="button" disabled={setStatus.isPending} onClick={() => setStatus.mutate('PAYOUT_BLOCKED')} className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50">
+          <button type="button" disabled={setStatus.isPending} onClick={() => setStatus.mutate('PAYOUT_BLOCKED')} className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50">
             Block payouts
           </button>
         )}
@@ -125,7 +125,7 @@ export function PartnerDetailPage() {
                   target="_blank"
                   rel="noreferrer"
                   title="Open WhatsApp to contact this partner"
-                  className="text-[#0B7A48] hover:underline"
+                  className="text-success hover:underline"
                 >
                   {d.contact.phone} (WhatsApp)
                 </a>
@@ -145,7 +145,7 @@ export function PartnerDetailPage() {
               <span className="font-mono">
                 {revealed ?? d.tax.panMasked ?? '-'}
                 {canRevealPan && d.tax.panMasked && !revealed && (
-                  <button type="button" onClick={reveal} className="ml-2 text-[10px] text-[#155EEF] hover:underline">
+                  <button type="button" onClick={reveal} className="ml-2 text-[10px] text-brand-ink hover:underline">
                     reveal
                   </button>
                 )}

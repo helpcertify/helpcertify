@@ -132,7 +132,7 @@ export function CouponsPage() {
           type="button"
           disabled={!code.trim() || !discountValue || createMutation.isPending}
           onClick={() => createMutation.mutate()}
-          className="mt-5 rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-surface disabled:opacity-50"
+          className="mt-5 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-surface disabled:opacity-50"
         >
           {createMutation.isPending ? 'Creating…' : 'Create Coupon'}
         </button>
@@ -257,7 +257,7 @@ function CouponRow({
               type="button"
               disabled={generateMutation.isPending}
               onClick={() => generateMutation.mutate()}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {generateMutation.isPending ? 'Generating…' : 'Generate'}
             </button>

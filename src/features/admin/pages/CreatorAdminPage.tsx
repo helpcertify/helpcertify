@@ -120,7 +120,7 @@ export function CreatorAdminPage() {
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">Role applications</h2>
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-4 py-3">Partner</th>
                 <th className="px-4 py-3">Role</th>
@@ -148,7 +148,7 @@ export function CreatorAdminPage() {
                   <td className="px-4 py-3 text-xs text-ink-faint">{a.subjectExpertise.join(', ') || '-'}</td>
                   <td className="px-4 py-3 text-xs">
                     {a.sampleUrl ? (
-                      <a href={a.sampleUrl} target="_blank" rel="noreferrer" className="text-[#155EEF] hover:underline">
+                      <a href={a.sampleUrl} target="_blank" rel="noreferrer" className="text-brand-ink hover:underline">
                         link
                       </a>
                     ) : (
@@ -156,16 +156,16 @@ export function CreatorAdminPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{a.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{a.status}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {(a.status === 'APPLIED' || a.status === 'UNDER_REVIEW') && (
                         <>
-                          <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'approve' })} className="rounded bg-[#0B7A48] px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                          <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'approve' })} className="rounded bg-success px-3 py-1 text-xs font-semibold text-white disabled:opacity-50">
                             Approve
                           </button>
-                          <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-[#B32D1A] px-3 py-1 text-xs font-semibold text-[#B32D1A] disabled:opacity-50">
+                          <button type="button" disabled={review.isPending} onClick={() => review.mutate({ roleDocId: a.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-danger px-3 py-1 text-xs font-semibold text-danger disabled:opacity-50">
                             Reject
                           </button>
                         </>
@@ -222,7 +222,7 @@ export function CreatorAdminPage() {
             type="button"
             disabled={saveContract.isPending || !cPartnerId.trim() || !cRate || !cDeliverables.trim() || !cAcceptance.trim()}
             onClick={() => saveContract.mutate()}
-            className="rounded bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
           >
             Save contract
           </button>
@@ -250,7 +250,7 @@ export function CreatorAdminPage() {
               type="button"
               disabled={createAssignment.isPending || !aContractId || aTitle.trim().length < 3}
               onClick={() => createAssignment.mutate()}
-              className="rounded bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
             >
               Create assignment
             </button>
@@ -281,7 +281,7 @@ export function CreatorAdminPage() {
         </p>
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+            <thead className="bg-surface-sunken text-ink-faint text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="px-4 py-3">Submission</th>
                 <th className="px-4 py-3">Partner</th>
@@ -315,7 +315,7 @@ export function CreatorAdminPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{s.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{s.status}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
@@ -324,7 +324,7 @@ export function CreatorAdminPage() {
                           <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_cleared', note: window.prompt('Note (optional)') || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
                             Clear flag
                           </button>
-                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_upheld', note: window.prompt('Reason?') || undefined })} className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50">
+                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'flag_upheld', note: window.prompt('Reason?') || undefined })} className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50">
                             Uphold / reject
                           </button>
                         </>
@@ -343,20 +343,20 @@ export function CreatorAdminPage() {
                                 acceptedItemCount: Number.isFinite(n) ? n : undefined,
                               });
                             }}
-                            className="rounded bg-[#0B7A48] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                            className="rounded bg-success px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                           >
                             Approve
                           </button>
                           <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'changes', note: window.prompt('What needs to change?') || undefined })} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-50">
                             Changes
                           </button>
-                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50">
+                          <button type="button" disabled={decide.isPending} onClick={() => decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })} className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50">
                             Reject
                           </button>
                         </>
                       )}
                       {s.status === 'APPROVED' && (
-                        <button type="button" disabled={publish.isPending} onClick={() => publish.mutate(s.id)} className="rounded bg-[#155EEF] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
+                        <button type="button" disabled={publish.isPending} onClick={() => publish.mutate(s.id)} className="rounded bg-brand-500 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50">
                           Publish
                         </button>
                       )}
@@ -441,7 +441,7 @@ function CatalogSubmissionsSection() {
                   <td className="py-2 text-ink-faint">{s.itemType === 'quiz' ? 'Mock Exam' : 'Practice Test'}</td>
                   <td className="py-2 text-ink-faint">{s.totalQuestions}</td>
                   <td className="py-2">
-                    <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">{s.status}</span>
+                    <span className="rounded-full bg-surface-sunken text-ink-faint px-2 py-0.5 text-xs">{s.status}</span>
                   </td>
                   <td className="py-2">
                     <div className="flex flex-wrap gap-1.5">
@@ -451,7 +451,7 @@ function CatalogSubmissionsSection() {
                             type="button"
                             disabled={decide.isPending}
                             onClick={() => decide.mutate({ submissionId: s.id, decision: 'approve' })}
-                            className="rounded bg-[#0B7A48] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                            className="rounded bg-success px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                           >
                             Approve
                           </button>
@@ -471,7 +471,7 @@ function CatalogSubmissionsSection() {
                             onClick={() =>
                               decide.mutate({ submissionId: s.id, decision: 'reject', note: window.prompt('Reason?') || undefined })
                             }
-                            className="rounded border border-[#B32D1A] px-2 py-1 text-xs text-[#B32D1A] disabled:opacity-50"
+                            className="rounded border border-danger px-2 py-1 text-xs text-danger disabled:opacity-50"
                           >
                             Reject
                           </button>
@@ -491,7 +491,7 @@ function CatalogSubmissionsSection() {
                             }
                             publish.mutate({ submissionId: s.id, price: Math.round(rupees * 100) });
                           }}
-                          className="rounded bg-[#155EEF] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                          className="rounded bg-brand-500 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                         >
                           Publish
                         </button>

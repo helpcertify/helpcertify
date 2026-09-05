@@ -125,7 +125,7 @@ export function LessonEditorPage() {
             type="button"
             onClick={() => setTab(t.id)}
             className={`rounded-t-lg px-3 py-2 text-sm font-medium ${
-              tab === t.id ? 'border-b-2 border-[#155EEF] text-[#155EEF]' : 'text-ink-muted hover:text-ink'
+              tab === t.id ? 'border-b-2 border-brand-500 text-brand-ink' : 'text-ink-muted hover:text-ink'
             }`}
           >
             {t.label}
@@ -141,7 +141,7 @@ export function LessonEditorPage() {
               type="button"
               disabled={genContent.isPending}
               onClick={() => genContent.mutate(false)}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
             >
               {genContent.isPending ? 'Generating…' : hasContent ? 'Regenerate content' : 'Generate lesson content'}
             </button>
@@ -196,7 +196,7 @@ export function LessonEditorPage() {
             type="button"
             disabled={save.isPending}
             onClick={() => save.mutate({ content, narrationScript: narration })}
-            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
           >
             Save content
           </button>
@@ -215,7 +215,7 @@ export function LessonEditorPage() {
               type="button"
               disabled={genQuiz.isPending}
               onClick={() => genQuiz.mutate()}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
             >
               {genQuiz.isPending ? 'Generating…' : lesson.quiz.length > 0 ? 'Regenerate quiz' : 'Generate quiz'}
             </button>
@@ -271,7 +271,7 @@ export function LessonEditorPage() {
               type="button"
               disabled={save.isPending || resources.some((r) => !r.label.trim() || !/^https?:\/\//.test(r.url.trim()))}
               onClick={() => save.mutate({ resources: resources.map((r) => ({ label: r.label.trim(), url: r.url.trim() })) })}
-              className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
             >
               Save resources
             </button>

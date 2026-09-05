@@ -120,7 +120,7 @@ export function ScenePlayer({ storyboard, speaker = webSpeechSpeaker, className 
           spokenSceneRef.current = -1;
           setElapsed(Number(e.target.value));
         }}
-        className="mt-3 w-full accent-[#155EEF]"
+        className="mt-3 w-full accent-brand-500"
         aria-label="Seek"
       />
 
@@ -128,7 +128,7 @@ export function ScenePlayer({ storyboard, speaker = webSpeechSpeaker, className 
         <button
           type="button"
           onClick={() => (elapsed >= total ? restart() : setPlaying((p) => !p))}
-          className="rounded-lg bg-[#155EEF] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+          className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
         >
           {elapsed >= total ? 'Replay' : playing ? 'Pause' : 'Play'}
         </button>
