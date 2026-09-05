@@ -3,6 +3,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
+import { randomBytes } from 'crypto';
 
 // Admin-managed discount coupons for the cart/checkout flow. Self-contained
 // - see api/auth.ts's header comment for why (no shared code across
@@ -66,6 +67,10 @@ const createCouponSchema = z.object({
   discountValue: z.number().int().min(1),
   expiresAt: z.string().datetime().nullable().optional(),
   maxUses: z.number().int().min(1).nullable().optional(),
+  // See CouponDoc's own comment - true means this code does nothing on its
+  // own until paired with a valid couponUnlockCodes/{CODE} generated via
+  // generateUnlockCodes below.
+  requiresUnlockCode: z.boolean().default(false),
 });
 
 async function createCoupon(uid: string, body: unknown) {
@@ -93,6 +98,7 @@ async function createCoupon(uid: string, body: unknown) {
     expiresAt: d.expiresAt ? Timestamp.fromDate(new Date(d.expiresAt)) : null,
     maxUses: d.maxUses ?? null,
     usedCount: 0,
+    requiresUnlockCode: d.requiresUnlockCode,
     createdBy: uid,
     createdAt: FieldValue.serverTimestamp(),
   });
@@ -136,6 +142,70 @@ async function deleteCoupon(body: unknown) {
   return { success: true };
 }
 
+// --- Unlock codes (companion one-time codes for a requiresUnlockCode
+// coupon) - see CouponDoc's own comment for the full design. ---
+
+function generateUnlockCodeString(): string {
+  // 6 hex chars, uppercased - short enough to read/type over a phone call,
+  // long enough that guessing one is impractical.
+  return randomBytes(3).toString('hex').toUpperCase();
+}
+
+const generateUnlockCodesSchema = z.object({
+  parentCouponCode: z.string().trim().min(1).max(40),
+  count: z.number().int().min(1).max(500),
+});
+
+async function generateUnlockCodes(uid: string, body: unknown) {
+  const parsed = generateUnlockCodesSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const parentCouponCode = parsed.data.parentCouponCode.toUpperCase();
+
+  const couponSnap = await db.collection('coupons').doc(parentCouponCode).get();
+  if (!couponSnap.exists) throw Err.notFound(`Coupon "${parentCouponCode}" not found`);
+
+  const now = FieldValue.serverTimestamp();
+  const codes: string[] = [];
+  const batch = db.batch();
+  for (let i = 0; i < parsed.data.count; i++) {
+    // Collisions are astronomically unlikely at this scale (16^6 possible
+    // codes), so a plain retry-free generate-and-set is fine - a genuine
+    // collision would just overwrite, which db.batch() would silently do
+    // twice for the same doc if it happened within one call, but two
+    // separate generateUnlockCodes calls landing on the same code is not
+    // realistically going to happen at the volumes this is used for.
+    const code = generateUnlockCodeString();
+    codes.push(code);
+    batch.set(db.collection('couponUnlockCodes').doc(code), {
+      parentCouponCode,
+      used: false,
+      usedBy: null,
+      usedAt: null,
+      createdBy: uid,
+      createdAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { codes };
+}
+
+async function listUnlockCodes(body: unknown) {
+  const parsed = z.object({ parentCouponCode: z.string().trim().min(1) }).safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  // Equality-only filter (no orderBy on a second field) - avoids needing a
+  // composite index for what's a small, admin-only list; sorted in memory
+  // instead, same convention used elsewhere in this codebase.
+  const snap = await db
+    .collection('couponUnlockCodes')
+    .where('parentCouponCode', '==', parsed.data.parentCouponCode.toUpperCase())
+    .get();
+  const codes = snap.docs
+    .map((d) => ({ code: d.id, ...d.data() }) as { code: string; createdAt?: { toMillis(): number } })
+    .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+  return { codes };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -157,6 +227,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'deleteCoupon':
         res.status(200).json(await deleteCoupon(data));
+        return;
+      case 'generateUnlockCodes':
+        res.status(200).json(await generateUnlockCodes(uid, data));
+        return;
+      case 'listUnlockCodes':
+        res.status(200).json(await listUnlockCodes(data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

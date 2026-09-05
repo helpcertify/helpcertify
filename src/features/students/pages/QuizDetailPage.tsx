@@ -239,13 +239,14 @@ export function QuizDetailPage() {
           paying={paying}
           summaryItem={{ itemType: 'quiz', questionCount: quiz.totalQuestions, accessPeriodDays: quiz.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
-          onConfirm={(consent, couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit, unlockCode) => {
             checkout({
               buyNowItem: { itemType: 'quiz', itemId: quiz.id },
               items: [{ itemType: 'quiz', itemId: quiz.id, title: quiz.title }],
               consent,
               couponCode,
               useCredit,
+              unlockCode,
             });
             setShowBuyNow(false);
           }}

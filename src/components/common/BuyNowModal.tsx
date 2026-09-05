@@ -17,7 +17,7 @@ interface Props {
   /** For the order summary: item type, question count, and access period. */
   summaryItem: Omit<OrderSummaryItem, 'key' | 'title' | 'price' | 'originalPrice'>;
   onClose: () => void;
-  onConfirm: (consent: CheckoutConsentState, couponCode?: string, useCredit?: boolean) => void;
+  onConfirm: (consent: CheckoutConsentState, couponCode?: string, useCredit?: boolean, unlockCode?: string) => void;
 }
 
 // A confirm-and-pay step for Buy Now: the order summary, the four mandatory
@@ -28,6 +28,7 @@ interface Props {
 export function BuyNowModal({ title, price, originalPrice, currency, paying, summaryItem, onClose, onConfirm }: Props) {
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [unlockCodeInput, setUnlockCodeInput] = useState('');
   const [showOffers, setShowOffers] = useState(false);
   const [useCredit, setUseCredit] = useState(false);
   const [consent, setConsent] = useState<CheckoutConsentState>(EMPTY_CONSENT);
@@ -114,6 +115,19 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
           </p>
         )}
 
+        {/* Some coupons need a second, personal one-time code before they do
+            anything (see CouponDoc.requiresUnlockCode) - optional, ignored
+            entirely if the coupon above doesn't require one. */}
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+          Have a personal unlock code?
+        </label>
+        <input
+          value={unlockCodeInput}
+          onChange={(e) => setUnlockCodeInput(e.target.value)}
+          placeholder="Optional"
+          className="input-dark mb-3 w-full"
+        />
+
         {/* Coupons already earned by this account (mainly Refer & Earn
             rewards), tucked behind a toggle. One click applies the code. */}
         {myCoupons && myCoupons.length > 0 && (
@@ -155,7 +169,9 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, sum
         <button
           type="button"
           disabled={!canPay}
-          onClick={() => onConfirm(consent, appliedCoupon ?? (couponInput.trim() || undefined), useCredit)}
+          onClick={() =>
+            onConfirm(consent, appliedCoupon ?? (couponInput.trim() || undefined), useCredit, unlockCodeInput.trim() || undefined)
+          }
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {paying && <Spinner className="h-4 w-4" />}

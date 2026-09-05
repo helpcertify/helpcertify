@@ -281,6 +281,14 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
       { merge: true },
     );
   }
+  if (order.unlockCode) {
+    // See api/checkout.ts's finalizeOrder (same logic, duplicated here).
+    batch.set(
+      db.collection('couponUnlockCodes').doc(String(order.unlockCode).toUpperCase()),
+      { used: true, usedBy: order.userId, usedAt: Timestamp.now() },
+      { merge: true },
+    );
+  }
   // Only clear the cart for an order that actually came from it - see
   // api/checkout.ts's finalizeOrder (same logic, duplicated here) for why.
   if (order.fromCart) {

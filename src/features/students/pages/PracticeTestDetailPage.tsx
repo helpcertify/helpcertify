@@ -399,13 +399,14 @@ export function PracticeTestDetailPage() {
           paying={paying}
           summaryItem={{ itemType: 'practiceTest', questionCount: test.totalQuestions, accessPeriodDays: test.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
-          onConfirm={(consent, couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit, unlockCode) => {
             checkout({
               buyNowItem: { itemType: 'practiceTest', itemId: test.id },
               items: [{ itemType: 'practiceTest', itemId: test.id, title: test.title }],
               consent,
               couponCode,
               useCredit,
+              unlockCode,
             });
             setShowBuyNow(false);
           }}

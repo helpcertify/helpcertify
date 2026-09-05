@@ -34,6 +34,7 @@ export function useCheckout() {
     consent: CheckoutConsentState;
     buyNowItem?: { itemType: PurchasableItemType; itemId: string };
     couponCode?: string;
+    unlockCode?: string;
     useCredit?: boolean;
     referralCode?: string;
   }) => {
@@ -43,6 +44,7 @@ export function useCheckout() {
         consent: opts.consent,
         buyNowItem: opts.buyNowItem,
         couponCode: opts.couponCode,
+        unlockCode: opts.unlockCode,
         useCredit: opts.useCredit,
         referralCode: opts.referralCode,
       });

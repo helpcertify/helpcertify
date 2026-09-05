@@ -304,13 +304,14 @@ export function CertificationCard({ certification }: CertificationCardProps) {
           paying={paying}
           summaryItem={{ itemType: 'package', accessPeriodDays: selected.accessValidityDays }}
           onClose={() => setBuyNowOpen(false)}
-          onConfirm={(consent, couponCode, useCredit) => {
+          onConfirm={(consent, couponCode, useCredit, unlockCode) => {
             checkout({
               buyNowItem: { itemType: 'package', itemId: selected.id },
               items: [{ itemType: 'package', itemId: selected.id, title: packageTitle }],
               consent,
               couponCode,
               useCredit,
+              unlockCode,
             });
             setBuyNowOpen(false);
           }}

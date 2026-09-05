@@ -59,7 +59,8 @@ describe('BuyNowModal', () => {
         technicalPolicyAcknowledged: true,
       },
       undefined,
-      false
+      false,
+      undefined
     );
   });
 });

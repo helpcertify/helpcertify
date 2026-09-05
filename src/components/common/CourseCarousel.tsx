@@ -123,12 +123,13 @@ export function CourseCarousel({ title, items }: CourseCarouselProps) {
           paying={paying}
           summaryItem={{ itemType: buyNowItem.itemType, questionCount: buyNowItem.totalQuestions, accessPeriodDays: buyNowItem.accessPeriodDays }}
           onClose={() => setBuyNowItem(null)}
-          onConfirm={(consent, couponCode) => {
+          onConfirm={(consent, couponCode, _useCredit, unlockCode) => {
             checkout({
               buyNowItem: { itemType: buyNowItem.itemType, itemId: buyNowItem.id },
               items: [{ itemType: buyNowItem.itemType, itemId: buyNowItem.id, title: buyNowItem.title }],
               consent,
               couponCode,
+              unlockCode,
             });
             setBuyNowItem(null);
           }}
