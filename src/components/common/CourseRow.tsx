@@ -39,7 +39,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
   if (items.length === 0) return null;
 
   return (
-    <div className={`relative ${compact ? 'mb-6' : 'mb-8'}`}>
+    <div className={compact ? 'mb-6' : 'mb-8'}>
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-lg font-bold text-ink">{title}</h2>
         {seeAllHref && (
@@ -49,28 +49,31 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
         )}
       </div>
 
-      {canScrollLeft && (
-        <button
-          type="button"
-          onClick={() => scrollBy(-1)}
-          aria-label="Scroll left"
-          className="absolute -left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
-        >
-          &lsaquo;
-        </button>
-      )}
-      {canScrollRight && (
-        <button
-          type="button"
-          onClick={() => scrollBy(1)}
-          aria-label="Scroll right"
-          className="absolute -right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
-        >
-          &rsaquo;
-        </button>
-      )}
+      {/* relative wrapper is the scroll row only (not the header), so the
+          prev/next arrows sit vertically centred on the cards. */}
+      <div className="relative">
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="Scroll left"
+            className="absolute -left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
+          >
+            &lsaquo;
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="Scroll right"
+            className="absolute -right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
+          >
+            &rsaquo;
+          </button>
+        )}
 
-      <div ref={ref} className="scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1">
+        <div ref={ref} className="scrollbar-none flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1">
         {items.map((c) => (
           <ProductCardShell
             key={c.id}
@@ -97,6 +100,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
             }
           />
         ))}
+        </div>
       </div>
     </div>
   );

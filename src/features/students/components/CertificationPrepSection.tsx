@@ -13,7 +13,7 @@ export function CertificationPrepSection() {
   const { ref, canScrollLeft, canScrollRight, scrollBy } = useHorizontalScroll(certs.length);
 
   return (
-    <section className="relative mb-8">
+    <section className="mb-8">
       <div className="mb-3 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-ink">Prepare for Your Certification</h2>
@@ -48,7 +48,7 @@ export function CertificationPrepSection() {
       )}
 
       {!isLoading && !error && certs.length > 0 && (
-        <>
+        <div className="relative">
           {canScrollLeft && (
             <button
               type="button"
@@ -74,7 +74,7 @@ export function CertificationPrepSection() {
               <CertificationPrepCard key={cert.id} certification={cert} />
             ))}
           </div>
-        </>
+        </div>
       )}
     </section>
   );
