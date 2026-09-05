@@ -985,6 +985,30 @@ export interface UserCategoryMembershipDoc {
   updatedAt: Timestamp;
 }
 
+/** appSettings/aiUsageLimits - per-category monthly caps on AI Course
+ * Builder generations (each Generate Outline / Generate Content run counts
+ * as one). A user in several categories gets the highest of their
+ * categories' limits; a per-user override wins over everything; admins are
+ * always unlimited. -1 anywhere means unlimited, 0 means blocked. See
+ * api/content-admin.ts's assertAiGenerationQuota / api/admin.ts's
+ * getAiUsageLimits/updateAiUsageLimits. */
+export interface AiUsageLimitsDoc {
+  defaultLimit: number; // for a user whose categories set no limit, or who has none
+  categoryLimits: Record<string, number>; // keyed by category key
+  userOverrides: Record<string, number>; // uid -> limit
+  updatedAt: Timestamp;
+}
+
+/** aiUsage/{uid}_{YYYYMM} - a running count of AI Course Builder
+ * generations for one user in one calendar month (UTC), incremented by
+ * api/content-admin.ts after each successful generation. */
+export interface AiUsageDoc {
+  uid: string;
+  period: string; // 'YYYYMM'
+  count: number;
+  updatedAt: Timestamp;
+}
+
 /** trainingPrograms/{programId} - a trainer-owned program with a learner
  * roster (see ProgramLearnerDoc). "Assign a course" in this app means
  * referencing an existing quizzes/{id} or practiceTests/{id} doc - there

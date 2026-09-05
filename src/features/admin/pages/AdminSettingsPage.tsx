@@ -117,6 +117,7 @@ export function AdminSettingsPage() {
         <CompanyDetailsCard />
         <CustomExamBuilderSettingsCard />
         <FeatureAccessCard />
+        <AiUsageLimitsCard />
 
         <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">Appearance</h2>
@@ -570,6 +571,117 @@ function FeatureAccessCard() {
         className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save Feature Access'}
+      </button>
+    </div>
+  );
+}
+
+// Per-category monthly caps on AI Course Builder generations (each
+// Generate Outline / Generate Content run counts as one), since the one
+// shared OpenAI key has no per-end-user limit. -1 = unlimited, 0 =
+// blocked. Admins are always unlimited regardless of what's set here.
+function AiUsageLimitsCard() {
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
+  const { data } = useQuery({ queryKey: ['admin', 'aiUsageLimits'], queryFn: adminApi.getAiUsageLimits });
+  const { data: categoriesData } = useQuery({ queryKey: ['admin', 'userCategories'], queryFn: adminApi.listUserCategories });
+
+  const [defaultLimit, setDefaultLimit] = useState('20');
+  const [categoryLimits, setCategoryLimits] = useState<Record<string, string>>({});
+  const [overridesText, setOverridesText] = useState('');
+
+  const categoryOptions = [
+    ...BUILTIN_CATEGORY_KEYS.map((key) => ({ key, label: BUILTIN_CATEGORY_LABELS[key] })),
+    ...(categoriesData?.categories ?? []).map((c) => ({ key: c.key, label: c.label })),
+  ];
+
+  useEffect(() => {
+    if (!data) return;
+    setDefaultLimit(String(data.defaultLimit));
+    setCategoryLimits(Object.fromEntries(Object.entries(data.categoryLimits).map(([k, v]) => [k, String(v)])));
+    setOverridesText(
+      Object.entries(data.userOverrides)
+        .map(([uid, v]) => `${uid}=${v}`)
+        .join('\n')
+    );
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const categoryLimitsPayload: Record<string, number> = {};
+      for (const opt of categoryOptions) {
+        const raw = categoryLimits[opt.key];
+        if (raw !== undefined && raw.trim() !== '') categoryLimitsPayload[opt.key] = Math.trunc(Number(raw) || 0);
+      }
+      const userOverrides: Record<string, number> = {};
+      for (const line of overridesText.split('\n')) {
+        const [uid, val] = line.split('=').map((s) => s.trim());
+        if (uid && val !== undefined && val !== '') userOverrides[uid] = Math.trunc(Number(val) || 0);
+      }
+      return adminApi.updateAiUsageLimits({
+        defaultLimit: Math.trunc(Number(defaultLimit) || 0),
+        categoryLimits: categoryLimitsPayload,
+        userOverrides,
+      });
+    },
+    onSuccess: () => {
+      pushToast('AI usage limits saved', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'aiUsageLimits'] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not save AI usage limits'), 'error'),
+  });
+
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">AI Usage Limits</h2>
+      <p className="mb-4 text-sm text-ink-faint">
+        Monthly cap on AI Course Builder generations per user (one Generate Outline or Generate Content run = one).
+        Resets on the 1st. Use -1 for unlimited, 0 to block. Admins are always unlimited.
+      </p>
+
+      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+        Default (a user with no category, or whose categories set no limit)
+      </label>
+      <input
+        type="number"
+        value={defaultLimit}
+        onChange={(e) => setDefaultLimit(e.target.value)}
+        className="input-dark w-full sm:w-40"
+      />
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {categoryOptions.map((opt) => (
+          <div key={opt.key}>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">{opt.label}</label>
+            <input
+              type="number"
+              value={categoryLimits[opt.key] ?? ''}
+              onChange={(e) => setCategoryLimits((cur) => ({ ...cur, [opt.key]: e.target.value }))}
+              placeholder="Uses default"
+              className="input-dark w-full"
+            />
+          </div>
+        ))}
+      </div>
+
+      <label className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+        Per-user overrides (one per line, uid=limit)
+      </label>
+      <textarea
+        value={overridesText}
+        onChange={(e) => setOverridesText(e.target.value)}
+        rows={3}
+        placeholder="abc123=100"
+        className="input-dark w-full font-mono text-xs"
+      />
+
+      <button
+        type="button"
+        disabled={saveMutation.isPending}
+        onClick={() => saveMutation.mutate()}
+        className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {saveMutation.isPending ? 'Saving…' : 'Save AI Usage Limits'}
       </button>
     </div>
   );

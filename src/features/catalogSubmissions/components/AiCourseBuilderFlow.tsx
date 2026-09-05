@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { CategorySelect } from '@/components/common/CategorySelect';
@@ -18,7 +18,9 @@ import type { SkillLevel } from '@/types/models';
 // see the admin Settings page's Feature Access card.
 export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) {
   const pushToast = useUiStore((s) => s.pushToast);
+  const queryClient = useQueryClient();
   const { data: access } = useQuery({ queryKey: ['aiCourseBuilder', 'myAccess'], queryFn: aiCourseBuilderApi.checkMyAccess });
+  const { data: usage } = useQuery({ queryKey: ['aiCourseBuilder', 'myUsage'], queryFn: aiCourseBuilderApi.getMyUsage });
 
   const [topic, setTopic] = useState('');
   const [itemType, setItemType] = useState<'quiz' | 'practiceTest' | 'course'>('quiz');
@@ -63,6 +65,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
       setDraftId(r.draftId);
       setOutline(r.outline);
       setTitle(topic.trim());
+      queryClient.invalidateQueries({ queryKey: ['aiCourseBuilder', 'myUsage'] });
       pushToast(`Outline ready: ${r.outline.length} module(s). Review and edit before generating content.`, 'success');
     },
     onError: (err) => pushToast(errorText(err, 'Could not generate an outline'), 'error'),
@@ -92,6 +95,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
         const total = Object.values(r.generatedQuestions).reduce((sum, qs) => sum + qs.length, 0);
         pushToast(`Generated ${total} question(s) across ${outline.length} module(s).`, 'success');
       }
+      queryClient.invalidateQueries({ queryKey: ['aiCourseBuilder', 'myUsage'] });
     },
     onError: (err) => pushToast(errorText(err, 'Could not generate content'), 'error'),
   });
@@ -152,10 +156,20 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
       <h2 className="mb-1 text-lg font-semibold text-ink">AI Course Builder</h2>
-      <p className="mb-4 text-sm text-ink-faint">
+      <p className="mb-2 text-sm text-ink-faint">
         Describe a topic and let AI draft a module outline and the {isCourse ? 'lesson content' : 'exam questions'}{' '}
         - review and edit everything before {isAdmin ? 'publishing' : 'submitting it for admin review'}.
       </p>
+      {usage && usage.limit >= 0 && (
+        <p
+          className={`mb-4 text-xs font-medium ${
+            usage.used >= usage.limit ? 'text-red-500' : 'text-ink-faint'
+          }`}
+        >
+          {Math.max(0, usage.limit - usage.used)} of {usage.limit} AI generations left this month
+          {usage.used >= usage.limit && ' - limit reached, resets on the 1st'}
+        </p>
+      )}
 
       {!draftId && (
         <>
