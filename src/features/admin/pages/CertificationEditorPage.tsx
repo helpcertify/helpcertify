@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { confirmDialog } from '@/store/useDialogStore';
+import { ModalCloseButton } from '@/components/common/ModalCloseButton';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   contentAdminApi,
@@ -386,15 +388,34 @@ function ValiditySelect({ days, onChange }: { days: number; onChange: (d: number
         />
       )}
 
-      {mode === 'range' && (
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); const d = daysBetween(e.target.value, to); if (d) onChange(d); }} className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink" />
-            <input type="date" value={to} onChange={(e) => { setTo(e.target.value); const d = daysBetween(from, e.target.value); if (d) onChange(d); }} className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink" />
+      {mode === 'range' && (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const fromPast = !!from && from < today;
+        const toBeforeFrom = !!to && !!from && to <= from;
+        return (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={from}
+                min={today}
+                onChange={(e) => { setFrom(e.target.value); const d = daysBetween(e.target.value, to); if (d) onChange(d); }}
+                className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink"
+              />
+              <input
+                type="date"
+                value={to}
+                min={from || today}
+                onChange={(e) => { setTo(e.target.value); const d = daysBetween(from, e.target.value); if (d) onChange(d); }}
+                className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink"
+              />
+            </div>
+            {fromPast && <p className="text-xs text-danger">The start date cannot be in the past.</p>}
+            {!fromPast && toBeforeFrom && <p className="text-xs text-danger">The end date must be after the start date.</p>}
+            {!fromPast && !toBeforeFrom && rangeDays > 0 && <p className="text-xs font-medium text-brand-ink">= {humanizeDays(rangeDays)}</p>}
           </div>
-          {rangeDays > 0 && <p className="text-xs font-medium text-brand-ink">= {humanizeDays(rangeDays)}</p>}
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -452,18 +473,12 @@ function StepBasics({
   const [provider, setProvider] = useState(certification?.provider ?? 'Other');
   const [shortDescription, setShortDescription] = useState(certification?.shortDescription ?? '');
   const [defaultValidityDays, setDefaultValidityDays] = useState(String(certification?.defaultValidityDays ?? 180));
-  const [featured, setFeatured] = useState(certification?.featured ?? false);
-
-  const [slugTouched, setSlugTouched] = useState(!!certification);
-  const [slug, setSlug] = useState(certification?.slug ?? '');
-  const [category, setCategory] = useState(certification?.category ?? '');
-  const [effectiveFrom, setEffectiveFrom] = useState(toInputDateTime(certification?.effectiveFrom));
-  const [effectiveTo, setEffectiveTo] = useState(toInputDateTime(certification?.effectiveTo));
-  const [displayOrder, setDisplayOrder] = useState(certification ? String(certification.displayOrder) : '');
   const [disclaimer, setDisclaimer] = useState(certification?.independentPrepDisclaimer ?? '');
   const [disclaimerTouched, setDisclaimerTouched] = useState(!!certification?.independentPrepDisclaimer);
 
-  // Kept but no longer edited here (icon + full description).
+  // Kept but no longer edited here - filled in automatically. Every product
+  // shows in the learner "Prepare for Your Certification" section once
+  // published, regardless of these.
   const description = certification?.description ?? '';
 
   const touched = () => onDirty();
@@ -473,10 +488,8 @@ function StepBasics({
     () => uniqueSlug(slugify(shortName || effectiveName), otherCerts.map((c) => c.slug)),
     [shortName, effectiveName, otherCerts],
   );
-  const effectiveSlug = slugTouched && slug ? slug.trim().toLowerCase() : autoSlug;
-  const effectiveCategory = category.trim() || provider;
+  const effectiveSlug = certification?.slug || autoSlug;
   const effectiveDisclaimer = disclaimerTouched ? disclaimer : buildDisclaimer(shortName, provider);
-  const effectiveDisplayOrder = displayOrder !== '' ? Number(displayOrder) : nextDisplayOrder(otherCerts);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -485,16 +498,16 @@ function StepBasics({
         name: effectiveName.trim(),
         provider,
         slug: effectiveSlug,
-        category: effectiveCategory,
+        category: certification?.category || provider,
         shortDescription,
         description,
         iconKey: certification?.iconKey ?? iconForProvider(provider),
-        effectiveFrom: effectiveFrom ? new Date(effectiveFrom).toISOString() : null,
-        effectiveTo: effectiveTo ? new Date(effectiveTo).toISOString() : null,
+        effectiveFrom: certification?.effectiveFrom ? toDate(certification.effectiveFrom).toISOString() : null,
+        effectiveTo: certification?.effectiveTo ? toDate(certification.effectiveTo).toISOString() : null,
         defaultValidityDays: Number(defaultValidityDays) || 180,
-        featured,
+        featured: certification?.featured ?? false,
         independentPrepDisclaimer: effectiveDisclaimer,
-        displayOrder: effectiveDisplayOrder,
+        displayOrder: certification ? certification.displayOrder : nextDisplayOrder(otherCerts),
       };
       return certification
         ? await contentAdminApi.updateCertification({ certificationId: certification.id, ...payload }).then(() => certification.id)
@@ -533,24 +546,6 @@ function StepBasics({
         />
       </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Slug" hint={`Web address. Auto: ${autoSlug}`}>
-          <input value={slugTouched ? slug : autoSlug} onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); touched(); }} className="input-dark" />
-        </Field>
-        <Field label="Category" hint={`Auto: ${provider}`}>
-          <input value={category} onChange={(e) => { setCategory(e.target.value); touched(); }} placeholder={provider} className="input-dark" />
-        </Field>
-        <Field label="Display order" hint={`Auto: ${nextDisplayOrder(otherCerts)}`}>
-          <input type="number" min={0} value={displayOrder} onChange={(e) => { setDisplayOrder(e.target.value); touched(); }} placeholder={String(nextDisplayOrder(otherCerts))} className="input-dark" />
-        </Field>
-        <Field label="Effective from" hint="Blank = the publish date.">
-          <input type="datetime-local" value={effectiveFrom} onChange={(e) => { setEffectiveFrom(e.target.value); touched(); }} className="input-dark" />
-        </Field>
-        <Field label="Effective to" hint="Blank = no end date.">
-          <input type="datetime-local" value={effectiveTo} onChange={(e) => { setEffectiveTo(e.target.value); touched(); }} className="input-dark" />
-        </Field>
-      </div>
-
       <Field label="Independent-preparation disclaimer" hint="Auto-generated from the exam name and body.">
         <textarea
           value={disclaimerTouched ? disclaimer : effectiveDisclaimer}
@@ -559,11 +554,6 @@ function StepBasics({
           className="input-dark max-w-2xl"
         />
       </Field>
-
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" checked={featured} onChange={(e) => { setFeatured(e.target.checked); touched(); }} className="h-4 w-4" />
-        Featured product
-      </label>
 
       {certification && <ContentVersionsPanel certification={certification} onDirty={onDirty} />}
 
@@ -751,7 +741,9 @@ function BatchedSeriesPanel({
   const [mockDurationMinutes, setMockDurationMinutes] = useState('240');
   const [passMarkPercent, setPassMarkPercent] = useState('60');
   const [uploading, setUploading] = useState(false);
-  const [report, setReport] = useState<{ totalQuestions: number; errors: ParseErrorEntry[]; warnings: string[] } | null>(null);
+  const [report, setReport] = useState<
+    { totalQuestions: number; practiceExams: number; mockExams: number; errors: ParseErrorEntry[]; warnings: string[] } | null
+  >(null);
 
   const gen = useMutation({
     mutationFn: async () => {
@@ -778,11 +770,13 @@ function BatchedSeriesPanel({
       }
     },
     onSuccess: (r) => {
-      pushToast(
-        `Generated ${r.practiceTestIds.length} practice exams${r.mockQuizIds.length ? ` and ${r.mockQuizIds.length} mock exams` : ''} from ${r.totalQuestions} questions`,
-        'success',
-      );
-      setReport({ totalQuestions: r.totalQuestions, errors: r.parseErrors, warnings: r.parseWarnings });
+      setReport({
+        totalQuestions: r.totalQuestions,
+        practiceExams: r.practiceTestIds.length,
+        mockExams: r.mockQuizIds.length,
+        errors: r.parseErrors,
+        warnings: r.parseWarnings,
+      });
       setFile(null);
       onGenerated();
     },
@@ -802,7 +796,7 @@ function BatchedSeriesPanel({
         <button
           type="button"
           onClick={() => downloadTemplate('standard')}
-          className="shrink-0 rounded-lg border border-surface-border-strong bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-sm hover:border-brand-400"
+          className="shrink-0 rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-brand-600"
         >
           ↓ Download template
         </button>
@@ -862,9 +856,31 @@ function BatchedSeriesPanel({
         {uploading ? 'Uploading...' : gen.isPending ? 'Generating...' : 'Generate'}
       </button>
 
-      {report && (
-        <UploadReport totalQuestions={report.totalQuestions} errors={report.errors} warnings={report.warnings} onDismiss={() => setReport(null)} />
-      )}
+      {report &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center" onClick={() => setReport(null)}>
+            <div className="relative my-auto w-full max-w-lg rounded-2xl border border-surface-border bg-surface-raised p-6" onClick={(e) => e.stopPropagation()}>
+              <ModalCloseButton onClose={() => setReport(null)} />
+              <h2 className="pr-8 text-lg font-bold text-ink">Upload complete</h2>
+              <p className="mt-2 text-sm text-ink-muted">
+                {report.totalQuestions.toLocaleString()} questions imported - {report.practiceExams} practice exam
+                {report.practiceExams === 1 ? '' : 's'}
+                {report.mockExams > 0 ? ` and ${report.mockExams} mock exam${report.mockExams === 1 ? '' : 's'}` : ''} created.
+              </p>
+              <div className="mt-4">
+                <UploadReport totalQuestions={report.totalQuestions} errors={report.errors} warnings={report.warnings} onDismiss={() => setReport(null)} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setReport(null)}
+                className="mt-5 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1130,8 +1146,8 @@ function TemplateCard({
             </p>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Price (₹)">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Display Price (₹)">
               <input
                 type="number"
                 min={0}
@@ -1140,12 +1156,14 @@ function TemplateCard({
                 onBlur={() => setPriceTouched(true)}
                 className="input-dark"
               />
-              {priceTouched && priceBad && <p className="mt-1 text-xs text-danger">Price must be greater than ₹0.</p>}
+              {priceTouched && priceBad && <p className="mt-1 text-xs text-danger">Display Price must be greater than ₹0.</p>}
             </Field>
-            <Field label="Regular price (₹, optional)" hint="Shown struck-through as the 'was' price.">
+            <Field label="Market price (₹, optional)" hint="Shown struck-through as the 'was' price.">
               <input type="number" min={0} value={money(v.regularPrice)} onChange={(e) => setMoney('regularPrice', e.target.value)} className="input-dark" />
             </Field>
-            <Field label="Offer price (₹, optional)" hint="An always-on discounted price.">
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Display Offer price (₹, optional)" hint="An always-on discounted price.">
               <input
                 type="number"
                 min={0}
@@ -1154,17 +1172,17 @@ function TemplateCard({
                 onBlur={() => setOfferTouched(true)}
                 className="input-dark"
               />
-              {offerTouched && offerBad && <p className="mt-1 text-xs text-danger">Offer price must be at or below the regular price.</p>}
+              {offerTouched && offerBad && <p className="mt-1 text-xs text-danger">Offer price must be at or below the market price.</p>}
             </Field>
             <Field label="Renewal price (₹, optional)">
               <input type="number" min={0} value={money(v.renewalPrice)} onChange={(e) => setMoney('renewalPrice', e.target.value)} className="input-dark" />
             </Field>
-            {def.fields.mockAttempts && (
-              <Field label="Number of mock attempts">
-                <input type="number" min={0} value={v.mockAttempts} onChange={(e) => onValue('mockAttempts', Number(e.target.value) || 0)} className="input-dark" />
-              </Field>
-            )}
           </div>
+          {def.fields.mockAttempts && (
+            <Field label="Number of mock attempts">
+              <input type="number" min={0} value={v.mockAttempts} onChange={(e) => onValue('mockAttempts', Number(e.target.value) || 0)} className="input-dark max-w-xs" />
+            </Field>
+          )}
 
           {def.fields.recommendedToggle && (
             <label className="flex items-center gap-2 text-sm text-ink">
@@ -1271,12 +1289,20 @@ function StepPublish({
   const [scheduledFor, setScheduledFor] = useState('');
   const [showHistory, setShowHistory] = useState(false);
 
+  const { data: allTests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
   const { data: practiceDomains } = useQuery({
     queryKey: ['admin', 'bankDomainCounts', 'practiceTest', certification.practiceBankId],
     queryFn: () => contentAdminApi.getBankDomainCounts('practiceTest', certification.practiceBankId!),
-    enabled: !!certification.practiceBankId,
+    enabled: !!certification.practiceBankId && !certification.seriesId,
   });
-  const eligibleQuestions = practiceDomains?.totalQuestions ?? null;
+  // For an uploaded set the eligible total is the whole document (every
+  // practice batch), not just the first batch.
+  const seriesTotal = (allTests?.practiceTests ?? [])
+    .filter((t) => (certification.practiceBankIds ?? []).includes(t.id))
+    .reduce((sum, t) => sum + (t.totalQuestions ?? 0), 0);
+  const eligibleQuestions = certification.seriesId
+    ? seriesTotal || null
+    : practiceDomains?.totalQuestions ?? null;
 
   const sorted = [...packages].filter((p) => p.status !== 'archived').sort((a, b) => a.displayOrder - b.displayOrder);
 
