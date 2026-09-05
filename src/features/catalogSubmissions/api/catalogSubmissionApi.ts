@@ -47,7 +47,7 @@ export const catalogSubmissionApi = {
 
 export interface AdminCatalogSubmission extends MyCatalogSubmission {
   authorUid: string;
-  authorType: 'trainer' | 'creator';
+  authorType: 'admin' | 'trainer' | 'creator';
   description: string;
 }
 

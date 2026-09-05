@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminApi, type AppSettings, type CompanyInfoSettings, type RewardType } from '../api/adminApi';
+import {
+  adminApi,
+  FEATURE_KEYS,
+  type AppSettings,
+  type CompanyInfoSettings,
+  type FeatureAccessEntry,
+  type FeatureKey,
+  type RewardType,
+} from '../api/adminApi';
 import { contentAdminApi } from '../api/contentAdminApi';
 import { useUiStore } from '@/store/useUiStore';
 import { majorToMinor, minorToMajor } from '@/utils/currency';
@@ -106,6 +114,7 @@ export function AdminSettingsPage() {
       <div className="max-w-xl space-y-6">
         <CompanyDetailsCard />
         <CustomExamBuilderSettingsCard />
+        <FeatureAccessCard />
 
         <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">Appearance</h2>
@@ -424,6 +433,131 @@ function CustomExamBuilderSettingsCard() {
         className="mt-4 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {saveMutation.isPending ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  );
+}
+
+const FEATURE_LABELS: Record<FeatureKey, string> = {
+  ai_course_builder: 'AI Course Builder',
+};
+
+// Lets an admin turn any registered feature on/off per capability
+// (Admin/Trainer/Creator) and grant or exclude specific user IDs
+// regardless of capability - see api/admin.ts's getFeatureAccessConfig/
+// updateFeatureAccessConfig and src/features/admin/lib/featureAccess.ts's
+// decision logic. Starts with just the AI Course Builder; a future gated
+// feature only needs a new entry in FEATURE_KEYS/FEATURE_LABELS here and
+// in api/admin.ts's/api/content-admin.ts's own FEATURE_KEYS.
+function FeatureAccessCard() {
+  const queryClient = useQueryClient();
+  const pushToast = useUiStore((s) => s.pushToast);
+  const { data } = useQuery({ queryKey: ['admin', 'featureAccess'], queryFn: adminApi.getFeatureAccessConfig });
+  const [rows, setRows] = useState<Record<FeatureKey, FeatureAccessEntry & { allowText: string; denyText: string }> | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+    const next = {} as Record<FeatureKey, FeatureAccessEntry & { allowText: string; denyText: string }>;
+    for (const key of FEATURE_KEYS) {
+      const entry = data.features[key];
+      next[key] = { ...entry, allowText: entry.allowUserIds.join(', '), denyText: entry.denyUserIds.join(', ') };
+    }
+    setRows(next);
+  }, [data]);
+
+  const splitIds = (text: string) =>
+    text
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      if (!rows) throw new Error('Not loaded yet');
+      const features = {} as Record<FeatureKey, FeatureAccessEntry>;
+      for (const key of FEATURE_KEYS) {
+        const r = rows[key];
+        features[key] = { roles: r.roles, allowUserIds: splitIds(r.allowText), denyUserIds: splitIds(r.denyText) };
+      }
+      return adminApi.updateFeatureAccessConfig(features);
+    },
+    onSuccess: () => {
+      pushToast('Feature access saved', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'featureAccess'] });
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not save feature access'), 'error'),
+  });
+
+  if (!rows) {
+    return (
+      <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-ink-faint">Feature Access</h2>
+        <p className="text-sm text-ink-faint">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-faint">Feature Access</h2>
+      <p className="mb-4 text-sm text-ink-faint">
+        Control which roles can use each gated feature, and grant or exclude specific accounts by
+        their user ID regardless of role. A denied ID always wins; an allowed ID always works even
+        if its role is off below.
+      </p>
+
+      {FEATURE_KEYS.map((key) => {
+        const row = rows[key];
+        return (
+          <div key={key} className="mb-4 rounded-lg border border-surface-border p-4 last:mb-0">
+            <div className="mb-3 font-medium text-ink">{FEATURE_LABELS[key]}</div>
+
+            <div className="mb-3 flex flex-wrap gap-4">
+              {(['admin', 'trainer', 'creator'] as const).map((cap) => (
+                <label key={cap} className="flex items-center gap-2 text-sm text-ink-muted">
+                  <input
+                    type="checkbox"
+                    checked={row.roles[cap]}
+                    onChange={(e) =>
+                      setRows((cur) => (cur ? { ...cur, [key]: { ...cur[key], roles: { ...cur[key].roles, [cap]: e.target.checked } } } : cur))
+                    }
+                    className="h-4 w-4"
+                  />
+                  <span className="capitalize">{cap}</span>
+                </label>
+              ))}
+            </div>
+
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+              Extra grants (user IDs, comma-separated)
+            </label>
+            <input
+              value={row.allowText}
+              onChange={(e) => setRows((cur) => (cur ? { ...cur, [key]: { ...cur[key], allowText: e.target.value } } : cur))}
+              placeholder="e.g. uid1, uid2"
+              className="input-dark w-full"
+            />
+
+            <label className="mb-1.5 mt-3 block text-xs font-medium uppercase tracking-wide text-ink-faint">
+              Exceptions (user IDs, comma-separated)
+            </label>
+            <input
+              value={row.denyText}
+              onChange={(e) => setRows((cur) => (cur ? { ...cur, [key]: { ...cur[key], denyText: e.target.value } } : cur))}
+              placeholder="e.g. uid3"
+              className="input-dark w-full"
+            />
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        disabled={saveMutation.isPending}
+        onClick={() => saveMutation.mutate()}
+        className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {saveMutation.isPending ? 'Saving…' : 'Save Feature Access'}
       </button>
     </div>
   );

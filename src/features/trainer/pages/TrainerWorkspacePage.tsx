@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '@/features/students/api/studentContentApi';
 import { trainerApi, listProgramLearners, type TrainingProgramSummary } from '../api/trainerApi';
 import { CatalogSubmissionForm } from '@/features/catalogSubmissions/components/CatalogSubmissionForm';
+import { AiCourseBuilderFlow } from '@/features/catalogSubmissions/components/AiCourseBuilderFlow';
 
 // Trainer Workspace ("/home/trainer") - Phase 1A: create a training
 // program, add learners by email, and assign existing HelpCertify quizzes/
@@ -112,6 +113,10 @@ export function TrainerWorkspacePage() {
           are only visible to your own learners.
         </p>
         <CatalogSubmissionForm />
+      </div>
+
+      <div className="mt-8">
+        <AiCourseBuilderFlow />
       </div>
     </div>
   );

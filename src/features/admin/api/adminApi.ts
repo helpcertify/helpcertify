@@ -85,6 +85,19 @@ export interface CompanyInfoSettings {
   udyamNumber: string;
 }
 
+// Feature Access - see api/admin.ts's getFeatureAccessConfig/
+// updateFeatureAccessConfig and src/features/admin/lib/featureAccess.ts's
+// pure decision logic. roles are the app's actual capability model
+// (admin/trainer/creator), not the Role type.
+export const FEATURE_KEYS = ['ai_course_builder'] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+export interface FeatureAccessEntry {
+  roles: { admin: boolean; trainer: boolean; creator: boolean };
+  allowUserIds: string[];
+  denyUserIds: string[];
+}
+export type FeatureAccessConfig = { features: Record<FeatureKey, FeatureAccessEntry> };
+
 export const adminApi = {
   getDashboardStats: () => callAction<DashboardStats>('admin', 'getDashboardStats'),
   getCompanyInfo: () => callAction<CompanyInfoSettings>('admin', 'getCompanyInfo'),
@@ -146,4 +159,8 @@ export const adminApi = {
   refundOrder: (orderId: string, reason: string, amountMinor?: number) =>
     callAction<{ success: true }>('admin', 'refundOrder', { orderId, reason, ...(amountMinor ? { amountMinor } : {}) }),
   listReferralsAdmin: () => callAction<{ referrals: AdminReferralRow[] }>('admin', 'listReferralsAdmin'),
+
+  getFeatureAccessConfig: () => callAction<FeatureAccessConfig>('admin', 'getFeatureAccessConfig'),
+  updateFeatureAccessConfig: (features: Record<FeatureKey, FeatureAccessEntry>) =>
+    callAction<{ success: true }>('admin', 'updateFeatureAccessConfig', { features }),
 };
