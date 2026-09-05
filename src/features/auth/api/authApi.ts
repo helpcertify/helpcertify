@@ -16,6 +16,16 @@ import type { LoginPayload, RegisterPayload } from '../types';
 
 const googleProvider = new GoogleAuthProvider();
 
+// Thrown when the user closes / cancels the Google popup, or when the
+// popup promise hangs (some Chromium builds never reject `signInWithPopup`
+// on a manual close). Callers treat it as "nothing to do" - no error toast.
+export class GoogleSignInCancelled extends Error {
+  constructor() {
+    super('Google sign-in was cancelled.');
+    this.name = 'GoogleSignInCancelled';
+  }
+}
+
 // Refer & Earn - present only when this signup used a valid referral code;
 // the coupon is already redeemable (see api/auth.ts's linkReferral), not a
 // promise of something granted later. type/value match CouponDoc's own
@@ -52,7 +62,27 @@ export const authApi = {
   // on an account's actual first sign-in), so there's no "register vs.
   // login" distinction to make for Google.
   async signInWithGoogle(referralCode?: string) {
-    await signInWithPopup(auth, googleProvider);
+    // The popup promise is raced against a 2-minute timeout so a hung /
+    // closed popup always settles and the button recovers. If the popup
+    // does complete later, initAuth's listener still provisions the
+    // profile, so abandoning it here is safe.
+    try {
+      await Promise.race([
+        signInWithPopup(auth, googleProvider),
+        new Promise((_, reject) => setTimeout(() => reject(new GoogleSignInCancelled()), 120_000)),
+      ]);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (
+        err instanceof GoogleSignInCancelled ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/user-cancelled'
+      ) {
+        throw new GoogleSignInCancelled();
+      }
+      throw err;
+    }
     return callAction<{ provisioned: boolean; welcomeCoupon: WelcomeCoupon | null }>('auth', 'provisionProfile', {
       referralCode,
     });
