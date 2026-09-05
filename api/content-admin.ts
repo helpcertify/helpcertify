@@ -3774,17 +3774,17 @@ async function callAiJson(systemPrompt: string, userPrompt: string): Promise<unk
   const body = JSON.stringify({
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-    generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
+    generationConfig: { temperature: 0.7, responseMimeType: 'application/json', maxOutputTokens: 32768 },
   });
 
   // Gemini's free tier returns transient 503 ("high demand") and 429
-  // (rate limit) fairly often - retry once with a short backoff before
-  // giving up. Kept to 2 attempts so that even a whole-batch failure in
-  // generateAllCourseContent (one call per module) stays inside the 60s
-  // function budget.
+  // (rate limit) fairly often - retry twice with a short backoff before
+  // giving up. Each course/quiz generates all its modules in ONE call
+  // (see generateAllCourseContent) so there's budget for these retries
+  // inside the 60s function limit.
   let lastErr = '';
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 3000));
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     if (res.ok) {
       const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
@@ -3909,8 +3909,12 @@ const aiModuleQuestionSchema = z.object({
   options: z.array(z.object({ id: z.string().trim().min(1), text: z.string().trim().min(1) })).min(2).max(6),
   correctOptionId: z.string().trim().min(1),
 });
-const aiModuleQuestionsResponseSchema = z.object({ questions: z.array(aiModuleQuestionSchema).min(1) });
-const aiLessonResponseSchema = z.object({ content: z.string().trim().min(1) });
+const aiAllLessonsResponseSchema = z.object({
+  lessons: z.array(z.object({ moduleIndex: z.number().int().min(0), content: z.string().trim().min(1) })).min(1),
+});
+const aiAllQuestionsResponseSchema = z.object({
+  modules: z.array(z.object({ moduleIndex: z.number().int().min(0), questions: z.array(aiModuleQuestionSchema).min(1) })).min(1),
+});
 
 async function generateAllCourseContent(uid: string, body: unknown) {
   if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
@@ -3933,69 +3937,73 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   const generatedLessons: Record<string, string> = {};
   const warnings: string[] = [];
 
-  // One Gemini call per module rather than one giant request - keeps each
-  // response small enough to return reliably, and a bad response from one
-  // module doesn't invalidate the others. Sequential (not parallel) so
-  // this stays well inside the 60s maxDuration this file already has for a
-  // typical 4-8 module course, and stays under Gemini's free-tier
-  // per-minute request rate limit.
-  for (const m of outline) {
-    // A single module failing (transient overload after retries, or an
-    // unexpected shape) records a warning and moves on rather than
-    // killing the whole run - the author can re-run to fill the gaps.
-    let raw: unknown;
-    try {
-      raw = isCourse
-        ? await callAiJson(
-            'You write clear, well-structured written lessons for a certification course. Respond with strict JSON only, matching: {"content":string}. The content should be a complete textbook-style chapter: explanations, examples, and key points, in plain text with paragraph breaks.',
-            `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write the full lesson text for this module.`
-          )
-        : await callAiJson(
-            'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Each question needs exactly 4 options with short ids like "A","B","C","D", and correctOptionId must match one option id.',
-            `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write exactly ${m.questionsPerModule} distinct questions for this module.`
-          );
-    } catch (err) {
-      warnings.push(`Module "${m.title}": ${err instanceof Error ? err.message : 'generation failed'}`);
-      continue;
-    }
+  // One Gemini call for the whole course/quiz, not one per module -
+  // generating a dozen full lessons sequentially blows past the 60s
+  // function limit, and one round trip also stays well under Gemini's
+  // free-tier request rate. maxOutputTokens is bumped high enough
+  // (callAiJson) to fit every module's content in a single response.
+  const moduleList = outline.map((m) => `${m.moduleIndex}. ${m.title} - ${m.description}`).join('\n');
 
-    if (isCourse) {
-      const lessonParsed = aiLessonResponseSchema.safeParse(raw);
-      if (!lessonParsed.success) {
-        warnings.push(`Module "${m.title}": AI response was in an unexpected shape, skipped.`);
-        continue;
+  let raw: unknown;
+  try {
+    raw = isCourse
+      ? await callAiJson(
+          'You write clear, concise written lessons for a certification course. Respond with strict JSON only, matching: {"lessons":[{"moduleIndex":number,"content":string}]} - one entry per module, moduleIndex matching the number given. Each lesson is 200-400 words: plain-language explanation, one concrete example, and key takeaways, in plain text with paragraph breaks (no markdown headers).',
+          `Course topic: "${draft.topic}" (${draft.skillLevel}). Write one lesson for each of these modules:\n${moduleList}`
+        )
+      : await callAiJson(
+          'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"modules":[{"moduleIndex":number,"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}]} - one entry per module, moduleIndex matching the number given. Each question needs exactly 4 options with short ids "A","B","C","D", and correctOptionId must match one option id.',
+          `Course topic: "${draft.topic}" (${draft.skillLevel}). For each module below, write the requested number of distinct questions:\n${outline
+            .map((m) => `${m.moduleIndex}. ${m.title} - ${m.description} (${m.questionsPerModule} questions)`)
+            .join('\n')}`
+        );
+  } catch (err) {
+    await ref.update({ status: 'OUTLINE_READY', updatedAt: FieldValue.serverTimestamp() });
+    throw err instanceof HttpError
+      ? err
+      : Err.failedPrecondition('The AI service did not return any content. Please try again in a minute.');
+  }
+
+  if (isCourse) {
+    const lessonsParsed = aiAllLessonsResponseSchema.safeParse(raw);
+    if (!lessonsParsed.success) {
+      await ref.update({ status: 'OUTLINE_READY', updatedAt: FieldValue.serverTimestamp() });
+      throw Err.failedPrecondition('The AI returned lessons in an unexpected shape. Please try again.');
+    }
+    for (const l of lessonsParsed.data.lessons) generatedLessons[String(l.moduleIndex)] = l.content;
+    for (const m of outline) {
+      if (!(String(m.moduleIndex) in generatedLessons)) warnings.push(`Module "${m.title}": no lesson generated - re-run to fill it in.`);
+    }
+  } else {
+    const modulesParsed = aiAllQuestionsResponseSchema.safeParse(raw);
+    if (!modulesParsed.success) {
+      await ref.update({ status: 'OUTLINE_READY', updatedAt: FieldValue.serverTimestamp() });
+      throw Err.failedPrecondition('The AI returned questions in an unexpected shape. Please try again.');
+    }
+    const titleByIndex = new Map(outline.map((m) => [m.moduleIndex, m.title]));
+    for (const mod of modulesParsed.data.modules) {
+      const valid = mod.questions.filter((q) => q.options.some((o) => o.id === q.correctOptionId));
+      if (valid.length < mod.questions.length) {
+        warnings.push(`Module "${titleByIndex.get(mod.moduleIndex) ?? mod.moduleIndex}": ${mod.questions.length - valid.length} question(s) dropped (invalid answer key).`);
       }
-      generatedLessons[String(m.moduleIndex)] = lessonParsed.data.content;
-      continue;
+      if (valid.length > 0) {
+        generatedQuestions[String(mod.moduleIndex)] = valid.map((q, i) => ({
+          order: i,
+          questionText: q.questionText,
+          options: q.options,
+          correctOptionId: q.correctOptionId,
+        }));
+      }
     }
-
-    const moduleParsed = aiModuleQuestionsResponseSchema.safeParse(raw);
-    if (!moduleParsed.success) {
-      warnings.push(`Module "${m.title}": AI response was in an unexpected shape, skipped.`);
-      continue;
+    for (const m of outline) {
+      if (!(String(m.moduleIndex) in generatedQuestions)) warnings.push(`Module "${m.title}": no questions generated - re-run to fill it in.`);
     }
-    const validQuestions = moduleParsed.data.questions.filter((q) => q.options.some((o) => o.id === q.correctOptionId));
-    if (validQuestions.length < moduleParsed.data.questions.length) {
-      warnings.push(
-        `Module "${m.title}": ${moduleParsed.data.questions.length - validQuestions.length} question(s) dropped (invalid answer key).`
-      );
-    }
-    generatedQuestions[String(m.moduleIndex)] = validQuestions.map((q, i) => ({
-      order: i,
-      questionText: q.questionText,
-      options: q.options,
-      correctOptionId: q.correctOptionId,
-    }));
   }
 
   const producedAnything = Object.keys(generatedQuestions).length > 0 || Object.keys(generatedLessons).length > 0;
   if (!producedAnything) {
-    // Nothing came back at all - leave the draft where it was (still
-    // OUTLINE_READY) and surface why, so a plain retry works cleanly.
     await ref.update({ status: 'OUTLINE_READY', updatedAt: FieldValue.serverTimestamp() });
-    throw Err.failedPrecondition(
-      warnings[0] ?? 'The AI service did not return any content. Please try again in a minute.'
-    );
+    throw Err.failedPrecondition('The AI service did not return any content. Please try again in a minute.');
   }
 
   await ref.update({ generatedQuestions, generatedLessons, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
