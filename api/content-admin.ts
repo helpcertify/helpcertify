@@ -195,7 +195,10 @@ async function extractParagraphs(fileBuffer: Buffer): Promise<Paragraph[]> {
 // be parsed" for the whole file.
 const CISA_QUESTION_RE = /^(\d+)\.\s+(.*)$/;
 const CISA_OPTION_RE = /^([A-F])[.)]\s+(.*)$/;
-const CISA_ANSWER_RE = /^Answer:\s*([A-F])/i;
+// Accepts both "Answer: B" and "Correct Answer: B" - a real upload this
+// session used the latter phrasing and failed to parse at all, since
+// neither this format nor the Standard one's "Correct: B" matched it.
+const CISA_ANSWER_RE = /^(?:Correct\s+)?Answer:\s*([A-F])/i;
 
 async function parseCisaQaFormat(fileBuffer: Buffer): Promise<ParseResult> {
   const paragraphs = await extractParagraphs(fileBuffer);
