@@ -578,7 +578,7 @@ function FeatureAccessCard() {
 
 // Per-category monthly caps on AI Course Builder generations (each
 // Generate Outline / Generate Content run counts as one), since the one
-// shared OpenAI key has no per-end-user limit. -1 = unlimited, 0 =
+// shared Gemini key has no per-end-user limit. -1 = unlimited, 0 =
 // blocked. Admins are always unlimited regardless of what's set here.
 function AiUsageLimitsCard() {
   const queryClient = useQueryClient();

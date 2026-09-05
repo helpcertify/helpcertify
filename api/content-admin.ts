@@ -3669,20 +3669,20 @@ async function checkMyFeatureAccess(uid: string, body: unknown) {
 
 // ---------------------------------------------------------------------------
 // AI Course Builder - an admin, active Trainer, or approved Creator
-// describes a course in plain language; OpenAI proposes a module outline,
-// the author reviews/edits it, then OpenAI generates real exam questions
+// describes a course in plain language; Gemini proposes a module outline,
+// the author reviews/edits it, then Gemini generates real exam questions
 // per module. The result flows into the exact same catalogSubmissions
 // pipeline above (sourceFormat: 'ai_generated') via
 // createCatalogSubmissionFromQuestions - an admin's draft is auto-approved
 // so publishCatalogSubmission can be called right away (same "Publish"
 // button the review queue already has), a Trainer/Creator's goes through
 // the normal review queue unchanged. Gated by hasFeatureAccess above, and
-// every action here fails clearly (not a raw 500) if OPENAI_API_KEY isn't
+// every action here fails clearly (not a raw 500) if GEMINI_API_KEY isn't
 // set yet - the same deployed code starts working once it is.
 // ---------------------------------------------------------------------------
 
 // --- AI generation quota (per-user monthly cap) ------------------------
-// The one shared OPENAI_API_KEY has no per-end-user limit, so it's
+// The one shared GEMINI_API_KEY has no per-end-user limit, so it's
 // enforced here: each generateCourseOutline / generateAllCourseContent run
 // counts as one, against a per-category monthly cap an admin sets on
 // appSettings/aiUsageLimits (see api/admin.ts). -1 = unlimited, 0 =
@@ -3760,30 +3760,34 @@ async function getMyAiUsage(uid: string) {
   return { used: (usageSnap.data()?.count as number) ?? 0, limit, period: currentUsagePeriod() };
 }
 
-async function callOpenAiJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
-  const apiKey = process.env.OPENAI_API_KEY;
+// Google Gemini (gemini-2.0-flash) via its REST API - has a genuine free
+// tier through Google AI Studio, unlike OpenAI. responseMimeType
+// 'application/json' is Gemini's equivalent of forcing JSON output. This
+// is a server-side fetch from a Vercel function, so it's not subject to
+// the browser CSP - no vercel.json connect-src entry needed.
+async function callAiJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw Err.failedPrecondition('AI Course Builder is not configured yet. Add OPENAI_API_KEY in Vercel.');
+    throw Err.failedPrecondition('AI Course Builder is not configured yet. Add GEMINI_API_KEY in Vercel.');
   }
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    }),
-  });
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
+      }),
+    }
+  );
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
     throw Err.failedPrecondition(`AI generation request failed (${res.status}). ${errText.slice(0, 300)}`);
   }
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = json.choices?.[0]?.message?.content;
+  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof content !== 'string') throw Err.failedPrecondition('AI generation returned an unexpected response');
   try {
     return JSON.parse(content);
@@ -3826,7 +3830,7 @@ async function generateCourseOutline(uid: string, body: unknown) {
   const d = parsed.data;
   const { authorType, authorId } = await resolveAiCourseAuthor(uid);
 
-  const raw = await callOpenAiJson(
+  const raw = await callAiJson(
     d.itemType === 'course'
       ? 'You design certification course syllabi. Respond with strict JSON only, matching: {"modules":[{"title":string,"description":string,"questionsPerModule":number}]}. Each module is a lesson topic the course will teach - questionsPerModule is ignored for a course and can be any number.'
       : 'You design certification exam course outlines. Respond with strict JSON only, matching: {"modules":[{"title":string,"description":string,"questionsPerModule":number}]}.',
@@ -3917,14 +3921,15 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   const generatedLessons: Record<string, string> = {};
   const warnings: string[] = [];
 
-  // One OpenAI call per module rather than one giant request - keeps each
-  // response small enough for gpt-4o-mini to return reliably, and a bad
-  // response from one module doesn't invalidate the others. Sequential
-  // (not parallel) so this stays well inside the 60s maxDuration this file
-  // already has for a typical 4-8 module course.
+  // One Gemini call per module rather than one giant request - keeps each
+  // response small enough to return reliably, and a bad response from one
+  // module doesn't invalidate the others. Sequential (not parallel) so
+  // this stays well inside the 60s maxDuration this file already has for a
+  // typical 4-8 module course, and stays under Gemini's free-tier
+  // per-minute request rate limit.
   for (const m of outline) {
     if (isCourse) {
-      const raw = await callOpenAiJson(
+      const raw = await callAiJson(
         'You write clear, well-structured written lessons for a certification course. Respond with strict JSON only, matching: {"content":string}. The content should be a complete textbook-style chapter: explanations, examples, and key points, in plain text with paragraph breaks.',
         `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write the full lesson text for this module.`
       );
@@ -3937,7 +3942,7 @@ async function generateAllCourseContent(uid: string, body: unknown) {
       continue;
     }
 
-    const raw = await callOpenAiJson(
+    const raw = await callAiJson(
       'You write multiple-choice certification exam questions. Respond with strict JSON only, matching: {"questions":[{"questionText":string,"options":[{"id":string,"text":string}],"correctOptionId":string}]}. Each question needs exactly 4 options with short ids like "A","B","C","D", and correctOptionId must match one option id.',
       `Course topic: "${draft.topic}" (${draft.skillLevel}). Module: "${m.title}" - ${m.description}. Write exactly ${m.questionsPerModule} distinct questions for this module.`
     );

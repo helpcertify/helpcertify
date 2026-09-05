@@ -9,7 +9,7 @@ import { catalogSubmissionAdminApi } from '../api/catalogSubmissionApi';
 import type { SkillLevel } from '@/types/models';
 
 // Shared by TrainerWorkspacePage, CreatorWorkspacePage, and (via
-// isAdmin) CreatorAdminPage - describe a course, let OpenAI propose a
+// isAdmin) CreatorAdminPage - describe a course, let AI propose a
 // module outline, review/edit it, generate real exam questions per
 // module, then either submit for admin review (Trainer/Creator) or
 // publish straight away (Admin - see api/content-admin.ts's
