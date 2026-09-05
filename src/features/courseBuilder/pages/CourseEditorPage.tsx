@@ -172,6 +172,15 @@ export function CourseEditorPage() {
                 <button type="button" onClick={() => moveLesson(i, 1)} disabled={i === lessons.length - 1} className="rounded border border-surface-border px-2 py-1 text-xs text-ink-muted disabled:opacity-40">↓</button>
                 <button type="button" onClick={() => removeLesson(i)} className="rounded border border-red-300 px-2 py-1 text-xs text-red-500">Remove</button>
               </div>
+              <div className="mt-2">
+                {l.lessonKey && !dirty ? (
+                  <Link to={`/home/creator/courses/${draftId}/lessons/${l.lessonKey}`} className="text-xs font-semibold text-[#155EEF] hover:underline">
+                    Open lesson editor (content, quiz, visual lesson) →
+                  </Link>
+                ) : (
+                  <span className="text-xs text-ink-faint">Save the course to open this lesson's editor.</span>
+                )}
+              </div>
               <textarea
                 value={l.description}
                 onChange={(e) => patchLesson(i, { description: e.target.value })}

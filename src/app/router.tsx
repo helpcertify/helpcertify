@@ -58,6 +58,7 @@ import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardP
 import { CreatorWorkspacePage } from '@/features/creator/pages/CreatorWorkspacePage';
 import { CourseDraftsPage } from '@/features/courseBuilder/pages/CourseDraftsPage';
 import { CourseEditorPage } from '@/features/courseBuilder/pages/CourseEditorPage';
+import { LessonEditorPage } from '@/features/courseBuilder/pages/LessonEditorPage';
 import { CustomExamsPage } from '@/features/students/pages/CustomExamsPage';
 import { CustomExamTakingPage } from '@/features/students/pages/CustomExamTakingPage';
 import { TrainerWorkspacePage } from '@/features/trainer/pages/TrainerWorkspacePage';
@@ -118,6 +119,7 @@ export function AppRouter() {
           <Route path="/home/creator" element={<CreatorWorkspacePage />} />
           <Route path="/home/creator/courses" element={<CourseDraftsPage />} />
           <Route path="/home/creator/courses/:draftId" element={<CourseEditorPage />} />
+          <Route path="/home/creator/courses/:draftId/lessons/:lessonKey" element={<LessonEditorPage />} />
           <Route path="/home/cart" element={<CartPage />} />
           <Route path="/home/custom-exams" element={<CustomExamsPage />} />
           <Route path="/home/trainer" element={<TrainerWorkspacePage />} />
