@@ -3,6 +3,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { ProfileActivitySections } from '../components/ProfileActivitySections';
+import { JumpBackIn } from '../components/JumpBackIn';
 import { ReferAndEarnSection } from '../components/ReferAndEarnSection';
 import { errorText } from '@/lib/errorMessages';
 
@@ -138,6 +139,11 @@ export function ProfilePage() {
       </div>
 
       <ReferAndEarnSection />
+
+      {/* Jump back in - moved here from the Home dashboard on request, so
+          Home stays focused on browsing/buying and this page holds the
+          learner's in-progress work. Hides itself when nothing is resumable. */}
+      <JumpBackIn />
 
       {/* Your Learning Journey + My Exams - moved here from the Home
           dashboard on request, so Home stays focused on "what to do right
