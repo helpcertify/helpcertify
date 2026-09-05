@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { getQuizById } from '../api/studentContentApi';
+import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
-import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
@@ -31,7 +29,6 @@ const SAMPLE_PREVIEW_COUNT = 10;
 // underlying data/mutations are unchanged from before this restyle.
 export function QuizDetailPage() {
   const { quizId } = useParams<{ quizId: string }>();
-  const uid = useAuthStore((s) => s.firebaseUser?.uid);
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
@@ -42,17 +39,8 @@ export function QuizDetailPage() {
     queryFn: () => getQuizById(quizId!),
     enabled: !!quizId,
   });
-  const { data: attempt } = useQuery({
-    queryKey: ['student', 'myQuizAttempt', uid, quizId],
-    queryFn: async () => {
-      const snap = await getDocs(
-        query(collection(db, 'quizAttempts'), where('userId', '==', uid), where('quizId', '==', quizId))
-      );
-      if (snap.empty) return null;
-      return { status: snap.docs[0].data().status as string };
-    },
-    enabled: !!uid && !!quizId,
-  });
+  const { data: myAttempts } = useMyQuizAttempts();
+  const attempt = myAttempts?.find((a) => a.quizId === quizId) ?? null;
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 

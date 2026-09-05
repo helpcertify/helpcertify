@@ -6,6 +6,7 @@
     { "source": "/reset-password", "destination": "/app.html" },
     { "source": "/verify-email", "destination": "/app.html" },
     { "source": "/verify/:path*", "destination": "/app.html" },
+    { "source": "/search", "destination": "/app.html" },
     { "source": "/home", "destination": "/app.html" },
     { "source": "/home/:path*", "destination": "/app.html" },
     { "source": "/quizzes/:path+", "destination": "/app.html" },
