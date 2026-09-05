@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
+import { promptDialog } from '@/store/useDialogStore';
 import { CategorySelect } from '@/components/common/CategorySelect';
 import { majorToMinor } from '@/utils/currency';
 import { aiCourseBuilderApi, type AiOutlineModule, type AiParsedQuestion } from '../api/aiCourseBuilderApi';
@@ -112,7 +113,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
         currency: 'INR',
       });
       if (isAdmin && result.autoApproved) {
-        const raw = window.prompt('Selling price in rupees', priceInput);
+        const raw = await promptDialog({ title: 'Set the selling price', label: 'Price in rupees', defaultValue: priceInput });
         if (raw !== null) {
           const rupees = Number(raw);
           if (Number.isFinite(rupees) && rupees >= 0) {
