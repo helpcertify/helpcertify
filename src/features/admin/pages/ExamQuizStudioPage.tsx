@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { contentAdminApi, type QuizSummary } from '../api/contentAdminApi';
 import { QuizFormCard } from '../components/QuizFormCard';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Badge, Button, StatCard, buttonClasses } from '@/components/ui';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
@@ -45,7 +46,7 @@ export function ExamQuizStudioPage() {
       <p className="mb-6 text-sm text-ink-faint">Build production-ready real-test quizzes with strict timing and response behavior.</p>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Quizzes" value={quizzes.length} />
+        <StatCard label="Total quizzes" value={quizzes.length} />
         <StatCard label="Upcoming" value={upcoming.length} />
         <StatCard label="Published" value={quizzes.filter((q) => q.isPublished).length} />
       </div>
@@ -69,11 +70,9 @@ export function ExamQuizStudioPage() {
             )}
             {quizzes.map((quiz) => (
               <div key={quiz.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
-                <div className="mb-2 flex items-start justify-between">
+                <div className="mb-2 flex items-start justify-between gap-2">
                   <h3 className="font-bold text-ink">{quiz.title}</h3>
-                  <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs text-brand-ink">
-                    {quiz.isPublished ? 'Published' : 'Draft'}
-                  </span>
+                  <Badge tone={quiz.isPublished ? 'success' : 'neutral'}>{quiz.isPublished ? 'Published' : 'Draft'}</Badge>
                 </div>
                 <div className="space-y-0.5 text-sm text-ink-faint">
                   <div>Duration: {quiz.durationMinutes} min</div>
@@ -83,27 +82,16 @@ export function ExamQuizStudioPage() {
                     Code: <span className="font-mono text-brand-ink">{quiz.code}</span>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
-                  <Link
-                    to={`/admin/quizzes/${quiz.id}/view`}
-                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white"
-                  >
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link to={`/admin/quizzes/${quiz.id}/view`} className={buttonClasses('primary', 'sm')}>
                     View
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => setEditingQuiz(quiz)}
-                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted"
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => setEditingQuiz(quiz)}>
                     Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeletingQuiz(quiz)}
-                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
-                  >
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => setDeletingQuiz(quiz)}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -114,21 +102,12 @@ export function ExamQuizStudioPage() {
       <ConfirmDialog
         open={!!deletingQuiz}
         title={`Delete "${deletingQuiz?.title}"?`}
-        message="This cannot be undone."
-        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+        message="The mock exam and all its questions are removed permanently. Learners lose access to it and this cannot be undone."
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete mock exam'}
         danger
         onConfirm={() => deletingQuiz && deleteMutation.mutate(deletingQuiz.id)}
         onCancel={() => setDeletingQuiz(null)}
       />
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-surface-border bg-surface-raised p-5">
-      <div className="text-xs uppercase tracking-wide text-ink-faint">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-ink">{value}</div>
     </div>
   );
 }

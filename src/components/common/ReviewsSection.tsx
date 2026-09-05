@@ -108,7 +108,7 @@ export function ReviewsSection({ itemType, itemId, owned }: ReviewsSectionProps)
                   type="button"
                   disabled={deleteMutation.isPending}
                   onClick={() => deleteMutation.mutate()}
-                  className="rounded-lg border border-surface-border px-3 py-1.5 text-xs text-ink-muted hover:border-red-500/50 hover:text-red-400 disabled:opacity-60"
+                  className="rounded-lg border border-surface-border px-3 py-1.5 text-xs text-ink-muted hover:border-danger hover:text-danger disabled:opacity-60"
                 >
                   Delete
                 </button>

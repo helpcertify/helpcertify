@@ -368,7 +368,7 @@ function CertificationRow({
             Restore
           </button>
         ) : (
-          <button type="button" onClick={onArchive} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400">
+          <button type="button" onClick={onArchive} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-danger hover:text-danger">
             Archive
           </button>
         )}

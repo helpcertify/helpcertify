@@ -118,7 +118,7 @@ export function PerformancePage() {
                     <button
                       type="button"
                       onClick={() => setDeletingAttempt(a)}
-                      className="rounded-lg border border-surface-border px-2 py-1 text-xs text-ink-muted hover:border-red-500/50 hover:text-red-400"
+                      className="rounded-lg border border-surface-border px-2 py-1 text-xs text-ink-muted hover:border-danger hover:text-danger"
                     >
                       Delete
                     </button>
