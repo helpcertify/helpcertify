@@ -79,6 +79,28 @@ export function CourseDetailPage() {
         ← Back to Courses
       </Link>
 
+      {course.coverImageUrl && (
+        <div className="mb-4 overflow-hidden rounded-xl border border-[#E2E8F0]">
+          <img src={course.coverImageUrl} alt="" className="h-56 w-full object-cover" />
+          {course.coverImageCredit && (
+            <div className="bg-white px-3 py-1 text-right text-[11px] text-[#94A3B8] dark:bg-surface-raised">
+              Photo:{' '}
+              {course.coverImageSourceUrl ? (
+                <a href={course.coverImageSourceUrl} target="_blank" rel="noreferrer" className="underline">
+                  {course.coverImageCredit}
+                </a>
+              ) : (
+                course.coverImageCredit
+              )}{' '}
+              via{' '}
+              <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="underline">
+                Pexels
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#64748B]">
@@ -106,11 +128,13 @@ export function CourseDetailPage() {
           )}
         </div>
 
-        <div className="hidden shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] p-6 sm:flex">
-          <div className="scale-[1.8]">
-            <CourseIcon id={course.id} title={course.title} itemType="course" />
+        {!course.coverImageUrl && (
+          <div className="hidden shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] p-6 sm:flex">
+            <div className="scale-[1.8]">
+              <CourseIcon id={course.id} title={course.title} itemType="course" />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {!owned && (
