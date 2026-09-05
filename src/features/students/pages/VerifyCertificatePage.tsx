@@ -49,7 +49,7 @@ export function VerifyCertificatePage() {
               </div>
             )}
 
-            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[#155EEF]">
+            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-brand-ink">
               {data.certificate.sourceType === 'quiz' ? 'Certificate of Mock Exam Completion' : 'Certificate of Practice Exam Completion'}
             </div>
             <h1 className="mb-4 text-xl font-bold text-ink">{data.certificate.sourceTitle}</h1>

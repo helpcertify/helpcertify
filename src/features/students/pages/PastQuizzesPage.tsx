@@ -71,7 +71,7 @@ export function PastQuizzesPage() {
                       <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-700 dark:text-emerald-400">Status: Attended</span>
                       <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-ink">Score: {a.marks}</span>
                       {passed && (
-                        <span className="rounded-full bg-[#d87f1d]/15 px-2 py-0.5 text-[#d87f1d]">🎓 Passed</span>
+                        <span className="rounded-full bg-warning/15 px-2 py-0.5 text-warning">🎓 Passed</span>
                       )}
                     </div>
                   </div>
@@ -88,7 +88,7 @@ export function PastQuizzesPage() {
                     )}
                     <Link
                       to={`/home/past-quizzes/${a.quizId}`}
-                      className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-medium text-surface"
+                      className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-surface"
                     >
                       View Dashboard →
                     </Link>

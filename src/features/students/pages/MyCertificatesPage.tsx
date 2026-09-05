@@ -74,7 +74,7 @@ export function MyCertificatesPage() {
             type="button"
             onClick={() => setTypeFilter(f)}
             className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-              typeFilter === f ? 'border-[#155EEF] bg-[#EFF6FF] text-[#155EEF]' : 'border-surface-border text-ink-muted hover:border-brand-400'
+              typeFilter === f ? 'border-brand-500 bg-brand-50 text-brand-ink' : 'border-surface-border text-ink-muted hover:border-brand-400'
             }`}
           >
             {f === 'all' ? 'All Certificates' : f === 'quiz' ? 'Mock Certificates' : 'Practice Certificates'}
@@ -102,7 +102,7 @@ export function MyCertificatesPage() {
       {!isLoading && error && (
         <div className="rounded-lg border border-surface-border bg-surface-raised p-4 text-sm text-ink-faint">
           We couldn't load your certificates.{' '}
-          <button type="button" onClick={() => refetch()} className="font-semibold text-[#155EEF] hover:underline">
+          <button type="button" onClick={() => refetch()} className="font-semibold text-brand-ink hover:underline">
             Retry
           </button>
         </div>
@@ -146,7 +146,7 @@ export function MyCertificatesPage() {
                   type="button"
                   disabled={cert.status === 'revoked' || downloadingId === cert.id}
                   onClick={() => handleDownload(cert)}
-                  className="rounded-lg bg-[#155EEF] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {downloadingId === cert.id ? 'Preparing…' : 'Download PDF'}
                 </button>

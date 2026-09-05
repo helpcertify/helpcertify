@@ -18,12 +18,12 @@ import { errorText } from '@/lib/errorMessages';
 // referral doc is ever manually seeded into it.
 const STATUS_META: Record<ReferralStatus, { label: string; className: string }> = {
   invited: { label: 'Invited', className: 'bg-surface-raised text-ink-faint' },
-  registered: { label: 'Signed up', className: 'bg-[#EFF6FF] text-[#155EEF]' },
-  purchased: { label: 'Purchased', className: 'bg-[#EFF6FF] text-[#155EEF]' },
-  pending: { label: 'Pending validation', className: 'bg-[#FEF3C7] text-[#92400E]' },
-  rewarded: { label: 'Rewarded', className: 'bg-[#F0FDF4] text-[#16A34A]' },
-  rejected: { label: 'Not eligible', className: 'bg-[#FEF2F2] text-[#DC2626]' },
-  reversed: { label: 'Reversed', className: 'bg-[#FEF2F2] text-[#DC2626]' },
+  registered: { label: 'Signed up', className: 'bg-brand-50 text-brand-ink' },
+  purchased: { label: 'Purchased', className: 'bg-brand-50 text-brand-ink' },
+  pending: { label: 'Pending validation', className: 'bg-warning-soft text-warning' },
+  rewarded: { label: 'Rewarded', className: 'bg-success-soft text-success' },
+  rejected: { label: 'Not eligible', className: 'bg-danger-soft text-danger' },
+  reversed: { label: 'Reversed', className: 'bg-danger-soft text-danger' },
   expired: { label: 'Expired', className: 'bg-surface-raised text-ink-faint' },
 };
 
@@ -106,9 +106,9 @@ export function ReferAndEarnSection() {
   };
 
   return (
-    <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-      <h2 className="mb-1 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">🎁 Refer & Earn</h2>
-      <p className="mb-4 text-sm text-[#64748B]">
+    <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+      <h2 className="mb-1 text-[15px] font-bold uppercase tracking-wide text-brand-ink">🎁 Refer & Earn</h2>
+      <p className="mb-4 text-sm text-ink-faint">
         Share your link with friends. When someone signs up and makes their first eligible purchase, you get
         HelpCertify credit.
       </p>
@@ -116,24 +116,24 @@ export function ReferAndEarnSection() {
       <WelcomeCouponBanner className="mb-5" />
 
       {credits && credits.spendableMinor > 0 && (
-        <div className="mb-5 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
-          <div className="text-sm font-bold text-[#155EEF]">💳 {formatMoney(credits.spendableMinor, 'INR')} HelpCertify credit available</div>
-          <div className="text-xs text-[#64748B]">Non-withdrawable, use it at checkout, up to a percentage of your order.</div>
+        <div className="mb-5 rounded-lg border border-brand-500/30 bg-brand-50 p-3">
+          <div className="text-sm font-bold text-brand-ink">💳 {formatMoney(credits.spendableMinor, 'INR')} HelpCertify credit available</div>
+          <div className="text-xs text-ink-faint">Non-withdrawable, use it at checkout, up to a percentage of your order.</div>
         </div>
       )}
 
-      <div className="mb-5 flex flex-col gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 sm:flex-row sm:items-center">
+      <div className="mb-5 flex flex-col gap-2 rounded-lg border border-brand-500/30 bg-brand-50 p-3 sm:flex-row sm:items-center">
         <input
           readOnly
           value={referralLink ?? 'Generating your referral link…'}
           onFocus={(e) => e.currentTarget.select()}
-          className="min-w-0 flex-1 truncate rounded-lg border border-[#BFDBFE] bg-white px-3 py-2 text-sm text-[#0F172A]"
+          className="min-w-0 flex-1 truncate rounded-lg border border-brand-500/30 bg-surface-raised px-3 py-2 text-sm text-ink"
         />
         <button
           type="button"
           onClick={handleCopy}
           disabled={!referralLink}
-          className="shrink-0 rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+          className="shrink-0 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
         >
           Copy Link
         </button>
@@ -141,7 +141,7 @@ export function ReferAndEarnSection() {
 
       {!wasReferred && (
         <div className="mb-5">
-          <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B]">Have a referral code?</div>
+          <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-faint">Have a referral code?</div>
           <div className="flex gap-2">
             <input
               value={applyCodeInput}
@@ -153,18 +153,18 @@ export function ReferAndEarnSection() {
               type="button"
               disabled={!applyCodeInput.trim() || applyCodeMutation.isPending}
               onClick={() => applyCodeMutation.mutate()}
-              className="rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-semibold text-[#334155] disabled:opacity-50"
+              className="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-ink-muted disabled:opacity-50"
             >
               Apply
             </button>
           </div>
-          <p className="mt-1 text-xs text-[#64748B]">Only works before your first purchase.</p>
+          <p className="mt-1 text-xs text-ink-faint">Only works before your first purchase.</p>
         </div>
       )}
 
-      <div className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Your Referrals</div>
+      <div className="text-xs font-bold uppercase tracking-wide text-ink-faint">Your Referrals</div>
       {!referrals || referrals.length === 0 ? (
-        <p className="mt-2 text-sm text-[#64748B]">No referrals yet. Share your link to start earning.</p>
+        <p className="mt-2 text-sm text-ink-faint">No referrals yet. Share your link to start earning.</p>
       ) : (
         <div className="mt-2 space-y-2">
           {referrals.map((r, i) => {
@@ -173,21 +173,21 @@ export function ReferAndEarnSection() {
             return (
               <div
                 key={r.refereeUid}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2.5"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-surface-border px-3 py-2.5"
               >
                 <div>
                   {/* Referral #N, not the referred person's name - item 16 */}
-                  <div className="text-sm font-semibold text-[#0F172A]">Referral #{referrals.length - i}</div>
-                  <div className="text-xs text-[#64748B]">{toDate(r.createdAt).toLocaleDateString()}</div>
+                  <div className="text-sm font-semibold text-ink">Referral #{referrals.length - i}</div>
+                  <div className="text-xs text-ink-faint">{toDate(r.createdAt).toLocaleDateString()}</div>
                 </div>
                 <div className="text-right">
                   <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.className}`}>{meta.label}</span>
                   {creditEntry && (r.status === 'pending' || r.status === 'rewarded') && (
-                    <div className="mt-1 text-xs text-[#64748B]">
+                    <div className="mt-1 text-xs text-ink-faint">
                       {formatMoney(creditEntry.amountMinor, 'INR')} credit{r.status === 'pending' ? ' (pending validation)' : ''}
                     </div>
                   )}
-                  {r.status === 'rejected' && r.rejectionReason && <div className="mt-1 text-xs text-[#64748B]">{r.rejectionReason}</div>}
+                  {r.status === 'rejected' && r.rejectionReason && <div className="mt-1 text-xs text-ink-faint">{r.rejectionReason}</div>}
                 </div>
               </div>
             );

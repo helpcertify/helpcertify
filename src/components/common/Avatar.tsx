@@ -23,7 +23,7 @@ interface AvatarProps {
 export function Avatar({ name, avatarUrl, size = 32, className = '' }: AvatarProps) {
   return (
     <div
-      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#155EEF] font-semibold text-white ${className}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 font-semibold text-white ${className}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
     >
       {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initials(name ?? undefined)}

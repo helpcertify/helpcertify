@@ -42,17 +42,17 @@ export function ExamSeriesGroup({
     kind === 'practice' ? `${takeBase}/${id}/take?feedbackMode=${feedbackMode}` : `${takeBase}/${id}/take`;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-xl border border-[#BFDBFE] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:border-surface-border dark:bg-surface-raised">
+    <div className="mb-4 overflow-hidden rounded-xl border border-brand-500/30 bg-surface-raised shadow-card dark:border-surface-border">
       <button
         type="button"
         onClick={() => owned && setOpen((v) => !v)}
         aria-expanded={owned ? open : undefined}
-        className={`flex w-full items-center justify-between gap-4 border-l-4 border-[#155EEF] bg-[#F5F9FF] px-5 py-4 text-left dark:bg-[#155EEF]/10 ${
-          owned ? 'cursor-pointer hover:bg-[#EBF3FF] dark:hover:bg-[#155EEF]/20' : 'cursor-default'
+        className={`flex w-full items-center justify-between gap-4 border-l-4 border-brand-500 bg-brand-50 px-5 py-4 text-left dark:bg-brand-500/10 ${
+          owned ? 'cursor-pointer hover:bg-brand-500/10 dark:hover:bg-brand-500/20' : 'cursor-default'
         }`}
       >
         <div>
-          <h2 className="text-base font-bold text-[#155EEF]">
+          <h2 className="text-base font-bold text-brand-ink">
             {certName} {noun}
           </h2>
           <p className="mt-0.5 text-xs text-ink-faint">
@@ -61,7 +61,7 @@ export function ExamSeriesGroup({
           </p>
         </div>
         {owned && (
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#155EEF] px-3 py-1 text-xs font-semibold text-white">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-brand-500 px-3 py-1 text-xs font-semibold text-white">
             {open ? 'Hide exams' : 'View exams'}
             <span className={`transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
           </span>
@@ -69,10 +69,10 @@ export function ExamSeriesGroup({
       </button>
 
       {entitlementLocked ? (
-        <div className="border-t border-[#E2E8F0] px-5 py-4 dark:border-surface-border">
+        <div className="border-t border-surface-border px-5 py-4 dark:border-surface-border">
           <Link
             to="/home"
-            className="block w-full rounded-lg border border-[#155EEF] py-2 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#F8FAFF]"
+            className="block w-full rounded-lg border border-brand-500 py-2 text-center text-sm font-semibold text-brand-ink hover:bg-surface-sunken"
           >
             Unlock with a package
           </Link>
@@ -81,29 +81,29 @@ export function ExamSeriesGroup({
         owned && (
           <>
             {onSetGoal && (
-              <div className="border-t border-[#E2E8F0] px-5 py-3 dark:border-surface-border">
+              <div className="border-t border-surface-border px-5 py-3 dark:border-surface-border">
                 <button
                   type="button"
                   onClick={onSetGoal}
-                  className="rounded-lg border border-[#155EEF] bg-white px-4 py-2 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] dark:bg-transparent"
+                  className="rounded-lg border border-brand-500 bg-surface-raised px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-transparent"
                 >
                   🎯 Set My Study Goal
                 </button>
               </div>
             )}
             {goalPanel && (
-              <div className="border-t border-[#E2E8F0] px-5 py-4 dark:border-surface-border">{goalPanel}</div>
+              <div className="border-t border-surface-border px-5 py-4 dark:border-surface-border">{goalPanel}</div>
             )}
             {open && (
               <>
                 {kind === 'practice' && (
-                  <div className="border-t border-[#E2E8F0] px-5 py-3 dark:border-surface-border">
+                  <div className="border-t border-surface-border px-5 py-3 dark:border-surface-border">
                     <div className="mb-2 text-xs font-medium text-ink-faint">How would you like to practice?</div>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <button
                         type="button"
                         onClick={() => setFeedbackMode('immediate')}
-                        className={`rounded-lg border p-2.5 text-left text-xs ${feedbackMode === 'immediate' ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'}`}
+                        className={`rounded-lg border p-2.5 text-left text-xs ${feedbackMode === 'immediate' ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'}`}
                       >
                         <div className="text-sm font-semibold text-ink">⚡ Learn As You Go</div>
                         <div className="mt-0.5 text-ink-faint">See the answer after every question.</div>
@@ -111,7 +111,7 @@ export function ExamSeriesGroup({
                       <button
                         type="button"
                         onClick={() => setFeedbackMode('end_of_session')}
-                        className={`rounded-lg border p-2.5 text-left text-xs ${feedbackMode === 'end_of_session' ? 'border-[#155EEF] bg-[#EFF6FF]' : 'border-[#E2E8F0] hover:border-[#155EEF]'}`}
+                        className={`rounded-lg border p-2.5 text-left text-xs ${feedbackMode === 'end_of_session' ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'}`}
                       >
                         <div className="text-sm font-semibold text-ink">📝 Review At End</div>
                         <div className="mt-0.5 text-ink-faint">See answers after finishing the session.</div>
@@ -119,15 +119,15 @@ export function ExamSeriesGroup({
                     </div>
                   </div>
                 )}
-                <ul className="divide-y divide-[#E2E8F0] border-t border-[#E2E8F0] dark:divide-surface-border dark:border-surface-border">
+                <ul className="divide-y divide-surface-border border-t border-surface-border dark:divide-surface-border dark:border-surface-border">
                   {sorted.map((item) => (
                     <li key={item.id}>
                       <button
                         type="button"
                         onClick={() => navigate(startHref(item.id))}
-                        className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left text-sm hover:bg-[#F8FAFF] dark:hover:bg-white/5"
+                        className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left text-sm hover:bg-surface-sunken dark:hover:bg-surface-raised/5"
                       >
-                        <span className="font-medium text-[#155EEF]">{item.label}</span>
+                        <span className="font-medium text-brand-ink">{item.label}</span>
                         {item.hint && <span className="shrink-0 text-xs text-ink-faint">{item.hint}</span>}
                       </button>
                     </li>

@@ -81,10 +81,10 @@ export function CourseDetailPage() {
       </Link>
 
       {course.coverImageUrl && (
-        <div className="mb-4 overflow-hidden rounded-xl border border-[#E2E8F0]">
+        <div className="mb-4 overflow-hidden rounded-xl border border-surface-border">
           <img src={course.coverImageUrl} alt="" className="h-56 w-full object-cover" />
           {course.coverImageCredit && (
-            <div className="bg-white px-3 py-1 text-right text-[11px] text-[#94A3B8] dark:bg-surface-raised">
+            <div className="bg-surface-raised px-3 py-1 text-right text-[11px] text-ink-faint">
               Photo:{' '}
               {course.coverImageSourceUrl ? (
                 <a href={course.coverImageSourceUrl} target="_blank" rel="noreferrer" className="underline">
@@ -102,35 +102,35 @@ export function CourseDetailPage() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised sm:flex-row sm:items-center">
+      <div className="mb-6 flex flex-col justify-between gap-6 rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card sm:flex-row sm:items-center">
         <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">
             <span>{course.category ?? 'Other'}</span>
             <span>·</span>
             <span>{course.skillLevel ?? 'Foundation'}</span>
           </div>
-          <h1 className="mb-2 text-[28px] font-bold leading-tight text-[#0F172A]">{course.title}</h1>
+          <h1 className="mb-2 text-[28px] font-bold leading-tight text-ink">{course.title}</h1>
 
           {(course.ratingCount ?? 0) > 0 && (
             <div className="mb-3 flex items-center gap-2">
               <StarRating value={course.ratingAvg ?? 0} size="sm" />
-              <span className="text-sm text-[#64748B]">
+              <span className="text-sm text-ink-faint">
                 {(course.ratingAvg ?? 0).toFixed(1)} ({course.ratingCount} review{course.ratingCount === 1 ? '' : 's'})
               </span>
             </div>
           )}
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#475569]">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
             <span>▤ {course.totalLessons} Lesson{course.totalLessons === 1 ? '' : 's'}</span>
           </div>
 
           {course.description && (
-            <p className="mt-4 max-w-[760px] whitespace-pre-line text-sm leading-relaxed text-[#1E293B]">{course.description}</p>
+            <p className="mt-4 max-w-[760px] whitespace-pre-line text-sm leading-relaxed text-ink">{course.description}</p>
           )}
         </div>
 
         {!course.coverImageUrl && (
-          <div className="hidden shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] p-6 sm:flex">
+          <div className="hidden shrink-0 items-center justify-center rounded-xl bg-brand-50 p-6 sm:flex">
             <div className="scale-[1.8]">
               <CourseIcon id={course.id} title={course.title} itemType="course" />
             </div>
@@ -139,22 +139,22 @@ export function CourseDetailPage() {
       </div>
 
       {!owned && (
-        <div className="mb-6 max-w-sm rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
-          <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-[#155EEF]">Course Access</h2>
+        <div className="mb-6 max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+          <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
           {price > 0 && (
             <div className="mb-4 flex items-center gap-2">
               {course.originalPrice && course.originalPrice > price && (
-                <span className="text-sm text-[#94A3B8] line-through">{formatMoney(course.originalPrice, course.currency)}</span>
+                <span className="text-sm text-ink-faint line-through">{formatMoney(course.originalPrice, course.currency)}</span>
               )}
-              <span className="text-[26px] font-bold text-[#0F172A]">{formatMoney(price, course.currency)}</span>
+              <span className="text-[26px] font-bold text-ink">{formatMoney(price, course.currency)}</span>
             </div>
           )}
 
           {inCart ? (
             <Link
               to="/home/cart"
-              className="block rounded-lg border border-[#155EEF] py-2.5 text-center text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF]"
+              className="block rounded-lg border border-brand-500 py-2.5 text-center text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
             >
               ✓ In Cart · View Cart
             </Link>
@@ -164,7 +164,7 @@ export function CourseDetailPage() {
                 type="button"
                 disabled={paying}
                 onClick={() => setShowBuyNow(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#155EEF] py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB] disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
               >
                 {paying && <Spinner className="h-4 w-4" />}
                 {paying ? 'Opening…' : 'Buy Now'}
@@ -173,7 +173,7 @@ export function CourseDetailPage() {
                 type="button"
                 disabled={addToCartMutation.isPending || paying}
                 onClick={() => addToCartMutation.mutate(course.id)}
-                className="w-full rounded-lg border border-[#155EEF] py-2.5 text-sm font-semibold text-[#155EEF] hover:bg-[#EFF6FF] disabled:opacity-60"
+                className="w-full rounded-lg border border-brand-500 py-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 disabled:opacity-60"
               >
                 {addToCartMutation.isPending ? 'Adding…' : 'Add to Cart'}
               </button>
@@ -184,7 +184,7 @@ export function CourseDetailPage() {
 
       {lessons.length > 0 && (
         <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[0.35fr_0.65fr]">
-          <div className="space-y-1.5 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+          <div className="space-y-1.5 rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card">
             <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-faint">Lessons</h2>
             {lessons.map((l, i) => {
               const completed = (reading?.completedLessonIndexes ?? []).includes(i);
@@ -194,7 +194,7 @@ export function CourseDetailPage() {
                   type="button"
                   onClick={() => setActiveLessonIndex(i)}
                   className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                    i === activeLessonIndex ? 'bg-[#EFF6FF] text-[#155EEF]' : 'text-ink-muted hover:bg-surface'
+                    i === activeLessonIndex ? 'bg-brand-50 text-brand-ink' : 'text-ink-muted hover:bg-surface'
                   }`}
                 >
                   <span className="truncate">
@@ -206,14 +206,14 @@ export function CourseDetailPage() {
             })}
           </div>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:bg-surface-raised">
+          <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
             {activeLesson?.locked ? (
               <div className="py-8 text-center">
                 <p className="mb-4 text-sm text-ink-faint">This lesson is locked. Buy the course to keep reading.</p>
                 <button
                   type="button"
                   onClick={() => setShowBuyNow(true)}
-                  className="rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#004EEB]"
+                  className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
                 >
                   Buy Now
                 </button>

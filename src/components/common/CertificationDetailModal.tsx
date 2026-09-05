@@ -50,8 +50,8 @@ export function CertificationDetailModal({ certification, selectedPackage, onSel
                 onClick={() => onSelectPackage(pkg.id)}
                 className={`flex flex-col rounded-xl border p-4 text-left transition-colors ${
                   isSelected
-                    ? 'border-[#155EEF] bg-[#EFF6FF] ring-1 ring-[#155EEF] dark:bg-[#155EEF]/10'
-                    : 'border-surface-border hover:border-[#B9CEFF]'
+                    ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 dark:bg-brand-500/10'
+                    : 'border-surface-border hover:border-brand-500/30'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -86,14 +86,14 @@ export function CertificationDetailModal({ certification, selectedPackage, onSel
             {certification.independentPrepDisclaimer}
           </p>
         )}
-        <a href="/terms" target="_blank" rel="noopener" className="mt-2 block text-xs font-medium text-[#155EEF] hover:underline">
+        <a href="/terms" target="_blank" rel="noopener" className="mt-2 block text-xs font-medium text-brand-ink hover:underline">
           Terms &amp; refund policy
         </a>
 
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] py-2.5 text-sm font-semibold text-[#155EEF] transition-colors hover:bg-[#DCEAFF] dark:bg-[#155EEF]/10 dark:hover:bg-[#155EEF]/20"
+          className="mt-5 w-full rounded-lg border border-brand-500/30 bg-brand-50 py-2.5 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-500/10 dark:bg-brand-500/10 dark:hover:bg-brand-500/20"
         >
           Close
         </button>

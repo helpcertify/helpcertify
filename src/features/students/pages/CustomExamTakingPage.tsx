@@ -94,7 +94,7 @@ export function CustomExamTakingPage() {
         <button
           type="button"
           onClick={() => navigate('/home/custom-exams')}
-          className="mt-6 rounded-lg bg-[#155EEF] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB]"
+          className="mt-6 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
         >
           Back to Custom Exam Builder
         </button>
@@ -157,7 +157,7 @@ export function CustomExamTakingPage() {
             type="button"
             onClick={() => submitMutation.mutate()}
             disabled={submitMutation.isPending}
-            className="rounded-lg bg-[#155EEF] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#004EEB] disabled:opacity-60"
+            className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
           >
             {submitMutation.isPending ? 'Submitting…' : 'Submit'}
           </button>

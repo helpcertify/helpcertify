@@ -11,14 +11,14 @@ const POINTS = [
 
 export function FreePreviewCallout({ className = '' }: { className?: string }) {
   return (
-    <div className={`rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 ${className}`}>
-      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[#155EEF]">Free preview</div>
-      <ul className="mb-3 grid grid-cols-1 gap-1 text-sm text-[#1E293B] sm:grid-cols-2">
+    <div className={`rounded-xl border border-brand-500/30 bg-brand-50 p-4 ${className}`}>
+      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-brand-ink">Free preview</div>
+      <ul className="mb-3 grid grid-cols-1 gap-1 text-sm text-ink sm:grid-cols-2">
         {POINTS.map((p) => (
           <li key={p}>✓ {p}</li>
         ))}
       </ul>
-      <p className="text-xs text-[#475569]">
+      <p className="text-xs text-ink-muted">
         We recommend using the free preview before purchasing. The preview is provided to help
         you evaluate whether the product meets your learning requirements.
       </p>
