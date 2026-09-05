@@ -3854,45 +3854,56 @@ async function getMyAiUsage(uid: string) {
 // 'application/json' is Gemini's equivalent of forcing JSON output. This
 // is a server-side fetch from a Vercel function, so it's not subject to
 // the browser CSP - no vercel.json connect-src entry needed.
+// Model fallback chain. The free tier throttles per-model, so when the
+// primary returns 503 "high demand" a different model often still has
+// capacity. GEMINI_MODEL (optional) overrides the primary. `latest`
+// aliases always resolve to a current model, so the chain never rots.
+const GEMINI_MODELS = Array.from(
+  new Set([process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean) as string[])
+);
+const AI_RETRYABLE = new Set([429, 500, 502, 503]);
+
 async function callAiJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw Err.failedPrecondition('AI Course Builder is not configured yet. Add GEMINI_API_KEY in Vercel.');
   }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
   const body = JSON.stringify({
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     generationConfig: { temperature: 0.7, responseMimeType: 'application/json', maxOutputTokens: 32768 },
   });
 
-  // Gemini's free tier returns transient 429 (rate limit), 500 and 503
-  // ("high demand") fairly often - retry with exponential backoff before
-  // giving up. Backoff is 1.5s, 3s, 6s, 12s (~22s worst case, inside the
-  // 60s function limit). Raw provider error bodies go to the log, never to
-  // the end user.
+  // Per model: 3 attempts with exponential backoff (1s, 2s, 4s). Across
+  // all models that is at worst ~21s of retrying for a 3-model chain, well
+  // inside the 60s function limit. Raw provider error bodies go to the log
+  // only, never to the end user.
   let lastStatus = 0;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * 2 ** (attempt - 1)));
-    let res: Response;
-    try {
-      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-    } catch (err) {
-      lastStatus = 0;
-      console.warn('[callAiJson] network error', (err as Error).message);
-      continue;
-    }
-    if (res.ok) {
-      const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-      const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof content !== 'string') throw Err.failedPrecondition('The AI returned an unexpected response. Please try again.');
-      return parseAiJson(content);
-    }
-    lastStatus = res.status;
-    const bodyText = (await res.text().catch(() => '')).slice(0, 500);
-    console.warn(`[callAiJson] Gemini ${res.status}: ${bodyText}`);
-    if (res.status !== 429 && res.status !== 500 && res.status !== 503) {
-      throw Err.failedPrecondition('The AI service rejected the request. Please try again in a moment.');
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      } catch (err) {
+        lastStatus = 0;
+        console.warn(`[callAiJson] ${model} network error: ${(err as Error).message}`);
+        continue;
+      }
+      if (res.ok) {
+        const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+        const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (typeof content !== 'string') throw Err.failedPrecondition('The AI returned an unexpected response. Please try again.');
+        return parseAiJson(content);
+      }
+      lastStatus = res.status;
+      console.warn(`[callAiJson] ${model} ${res.status}: ${(await res.text().catch(() => '')).slice(0, 400)}`);
+      if (!AI_RETRYABLE.has(res.status)) {
+        // A non-retryable error (400 bad request, 404 model gone, 403 key)
+        // - try the next model rather than failing the whole call.
+        break;
+      }
     }
   }
   throw Err.failedPrecondition(
