@@ -1292,10 +1292,10 @@ function PackageList({ packages, onChanged }: { packages: PackageAdminRow[]; onC
               <button type="button" onClick={() => act(() => contentAdminApi.publishPackage(pkg.id), 'Package published')} className="rounded-lg bg-brand-500 px-3 py-1.5 text-white hover:bg-brand-600">Publish</button>
             )}
             {pkg.status !== 'archived' && (
-              <button type="button" onClick={() => act(() => contentAdminApi.archivePackage(pkg.id), 'Package archived')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
+              <button type="button" onClick={() => act(() => contentAdminApi.archivePackage(pkg.id), 'Package archived')} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-danger hover:text-danger">Archive</button>
             )}
             {pkg.status === 'draft' && (
-              <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete "${pkg.name}"?` })) act(() => contentAdminApi.deletePackage(pkg.id), 'Package deleted'); }} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-red-500/50 hover:text-red-400">Delete</button>
+              <button type="button" onClick={async () => { if (await confirmDialog({ title: `Delete "${pkg.name}"?` })) act(() => contentAdminApi.deletePackage(pkg.id), 'Package deleted'); }} className="rounded-lg border border-surface-border px-3 py-1.5 text-ink-muted hover:border-danger hover:text-danger">Delete</button>
             )}
           </div>
         </div>
@@ -1466,7 +1466,7 @@ function StepReview({
               {certification.status === 'archived' ? (
                 <button type="button" onClick={() => lifecycle(() => contentAdminApi.restoreCertification(certification.id), 'Restored to Draft')} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">Restore</button>
               ) : (
-                <button type="button" onClick={async () => { if (await confirmDialog({ title: 'Archive this exam preparation?' })) lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived'); }} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400">Archive</button>
+                <button type="button" onClick={async () => { if (await confirmDialog({ title: 'Archive this exam preparation?' })) lifecycle(() => contentAdminApi.archiveCertification(certification.id), 'Archived'); }} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-danger hover:text-danger">Archive</button>
               )}
               <button type="button" onClick={() => setShowHistory((v) => !v)} className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted">{showHistory ? 'Hide' : 'View'} history</button>
             </div>

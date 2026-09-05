@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { contentAdminApi, type PracticeTestSummary } from '../api/contentAdminApi';
 import { PracticeTestFormCard } from '../components/PracticeTestFormCard';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Badge, Button, buttonClasses } from '@/components/ui';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 
@@ -73,11 +74,9 @@ export function PracticeManagerPage() {
             )}
             {tests.map((test) => (
               <div key={test.id} className="rounded-xl border border-surface-border bg-surface-raised p-4">
-                <div className="mb-2 flex items-start justify-between">
+                <div className="mb-2 flex items-start justify-between gap-2">
                   <h3 className="font-bold text-ink">{test.title}</h3>
-                  {isExpired(test) && (
-                    <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-ink-faint">Expired</span>
-                  )}
+                  {isExpired(test) && <Badge tone="warning">Expired</Badge>}
                 </div>
                 <div className="space-y-0.5 text-sm text-ink-faint">
                   <div>Questions: {test.totalQuestions}</div>
@@ -86,27 +85,16 @@ export function PracticeManagerPage() {
                     From {formatDate(test.availableFrom)} to {formatDate(test.availableUntil)}
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
-                  <Link
-                    to={`/admin/practice-tests/${test.id}/view`}
-                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white"
-                  >
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link to={`/admin/practice-tests/${test.id}/view`} className={buttonClasses('primary', 'sm')}>
                     View
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => setEditingTest(test)}
-                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted"
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => setEditingTest(test)}>
                     Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeletingTest(test)}
-                    className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-red-500/50 hover:text-red-400"
-                  >
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => setDeletingTest(test)}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -117,8 +105,8 @@ export function PracticeManagerPage() {
       <ConfirmDialog
         open={!!deletingTest}
         title={`Delete "${deletingTest?.title}"?`}
-        message="This cannot be undone."
-        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+        message="The practice exam and all its questions are removed permanently. Learners lose access to it and this cannot be undone."
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete practice exam'}
         danger
         onConfirm={() => deletingTest && deleteMutation.mutate(deletingTest.id)}
         onCancel={() => setDeletingTest(null)}
