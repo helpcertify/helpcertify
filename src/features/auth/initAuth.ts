@@ -1,6 +1,7 @@
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { callAction } from '@/lib/vercelApi';
 import { useAuthStore } from './store/useAuthStore';
 import type { SafeUser } from '@/types/api';
 
@@ -40,6 +41,19 @@ export function initAuthListener(): () => void {
     if (!firebaseUser) {
       useAuthStore.getState().clearSession();
       return;
+    }
+    // A Google sign-in whose provisionProfile call did not complete (the
+    // popup promise hung, the tab was closed mid-flow) still gets a real
+    // users/{uid} doc here on the next load - provisionProfile is
+    // idempotent, so this is a no-op once the doc exists.
+    const existing = await getDoc(doc(db, 'users', firebaseUser.uid));
+    if (!existing.exists()) {
+      try {
+        await callAction('auth', 'provisionProfile', {});
+      } catch {
+        // Non-fatal: the app still works with the default student profile
+        // loadProfile falls back to.
+      }
     }
     useAuthStore.getState().setSession(firebaseUser, await loadProfile(firebaseUser));
   });

@@ -93,10 +93,10 @@ export function ForgotPasswordPage() {
                   id="email"
                   type="email"
                   autoComplete="email"
-                  className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
+                  className="input-dark w-full"
                   {...register('email')}
                 />
-                {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
+                {errors.email && <p className="mt-1 text-sm text-danger">{errors.email.message}</p>}
               </div>
               <button
                 type="submit"

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
 import { useCompany } from '@/features/marketing/companyInfoStore';
@@ -9,17 +9,7 @@ import { TeachBand } from '@/features/landing/components/TeachBand';
 import { TESTIMONIALS } from '@/features/landing/lib/testimonials';
 import { LEARNING_DOMAINS, LEARNING_PATH_EXAMPLES } from '@/features/landing/lib/learningPaths';
 
-// Lazy so the admin-login form (and the Firebase Auth code it pulls in) is
-// neither in the initial bundle nor in the build-time prerender module
-// graph - scripts/prerender.mjs renders this page to static HTML and must
-// not evaluate Firebase. Only loads when the Admin Portal button is used.
-const AdminAccessModal = lazy(() =>
-  import('@/features/auth/components/AdminAccessModal').then((m) => ({
-    default: m.AdminAccessModal,
-  })),
-);
-
-// Same reasoning: the catalog carousels fetch real published content
+// The catalog carousels fetch real published content
 // through a dynamic import() of publicCatalogApi (Firebase at module
 // scope). Kept behind a lazy() boundary so the prerender never reaches it;
 // the prerendered HTML keeps its own crawlable text sections below.
@@ -97,7 +87,6 @@ const EXAM_PREP_FEATURES = [
 ];
 
 export function LandingPage() {
-  const [showAdminAccess, setShowAdminAccess] = useState(false);
   const COMPANY = useCompany();
   useCaptureReferral();
 
@@ -108,8 +97,9 @@ export function LandingPage() {
         <div className="order-3 w-full sm:order-2 sm:w-auto sm:flex-1">
           <SearchBar to="/search" className="mx-auto max-w-md" />
         </div>
-        {/* No theme toggle here on request - it moved to the login screens
-            (Admin Access modal and the student LoginPage) instead. */}
+        {/* One "Log in" for everyone - it redirects by role once signed in
+            (admin/finance_admin to /admin, otherwise /home), so a separate
+            Admin Portal entry is not needed. */}
         <div className="order-2 ml-auto flex items-center gap-2 sm:order-3">
           <Link
             to="/login"
@@ -123,13 +113,6 @@ export function LandingPage() {
           >
             Sign up
           </Link>
-          <button
-            type="button"
-            onClick={() => setShowAdminAccess(true)}
-            className="rounded-lg border border-surface-border bg-surface-raised px-4 py-2 text-sm font-medium text-ink-muted hover:border-brand-400"
-          >
-            Admin Portal
-          </button>
         </div>
       </header>
 
@@ -338,12 +321,6 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {showAdminAccess && (
-        <Suspense fallback={null}>
-          <AdminAccessModal onClose={() => setShowAdminAccess(false)} />
-        </Suspense>
-      )}
     </div>
   );
 }

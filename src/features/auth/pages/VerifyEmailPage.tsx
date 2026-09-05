@@ -84,7 +84,7 @@ export function VerifyEmailPage() {
             placeholder="123456"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-center text-2xl tracking-[0.5em] text-ink outline-none focus:border-brand-400"
+            className="input-dark w-full text-center text-2xl tracking-[0.5em]"
           />
           <button
             type="submit"

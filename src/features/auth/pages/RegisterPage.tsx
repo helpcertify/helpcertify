@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { authApi, type WelcomeCoupon } from '../api/authApi';
+import { authApi, GoogleSignInCancelled, type WelcomeCoupon } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { GoogleButton } from '@/components/common/GoogleButton';
@@ -80,8 +80,22 @@ export function RegisterPage() {
   const googleMutation = useMutation({
     mutationFn: () => authApi.signInWithGoogle(referralCode),
     onSuccess: (result) => announceWelcomeCoupon(result.welcomeCoupon),
-    onError: (err) => pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error'),
+    onError: (err) => {
+      if (err instanceof GoogleSignInCancelled) return;
+      pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error');
+    },
   });
+
+  // Google sign-up needs the same policy agreement as the email form - but
+  // the button stays fully styled (not greyed) and explains what to do
+  // when tapped early, rather than looking broken.
+  const startGoogle = () => {
+    if (!policiesAccepted) {
+      pushToast('Please agree to the Terms of Service and Privacy Policy first.', 'info');
+      return;
+    }
+    googleMutation.mutate();
+  };
 
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-10">
@@ -93,8 +107,8 @@ export function RegisterPage() {
 
         <GoogleButton
           label={googleMutation.isPending ? 'Signing in…' : 'Continue with Google'}
-          disabled={googleMutation.isPending || !policiesAccepted}
-          onClick={() => googleMutation.mutate()}
+          disabled={googleMutation.isPending}
+          onClick={startGoogle}
         />
         {!policiesAccepted && (
           <p className="mt-2 text-center text-xs text-ink-faint">
@@ -118,10 +132,10 @@ export function RegisterPage() {
             </label>
             <input
               id="name"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
+              className="input-dark w-full"
               {...register('name')}
             />
-            {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>}
+            {errors.name && <p className="mt-1 text-sm text-danger">{errors.name.message}</p>}
           </div>
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink-muted">
@@ -130,10 +144,10 @@ export function RegisterPage() {
             <input
               id="email"
               type="email"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
+              className="input-dark w-full"
               {...register('email')}
             />
-            {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
+            {errors.email && <p className="mt-1 text-sm text-danger">{errors.email.message}</p>}
           </div>
           <div>
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
@@ -141,10 +155,10 @@ export function RegisterPage() {
             </label>
             <PasswordInput
               id="password"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
+              className="input-dark w-full"
               {...register('password')}
             />
-            {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}
+            {errors.password && <p className="mt-1 text-sm text-danger">{errors.password.message}</p>}
           </div>
           <div>
             <label className="flex items-start gap-2 text-sm text-ink-muted">
@@ -161,7 +175,7 @@ export function RegisterPage() {
                 .
               </span>
             </label>
-            {errors.policiesAccepted && <p className="mt-1 text-sm text-red-400">{errors.policiesAccepted.message}</p>}
+            {errors.policiesAccepted && <p className="mt-1 text-sm text-danger">{errors.policiesAccepted.message}</p>}
           </div>
           <button
             type="submit"

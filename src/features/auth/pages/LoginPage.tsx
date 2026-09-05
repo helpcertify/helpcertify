@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { authApi } from '../api/authApi';
+import { authApi, GoogleSignInCancelled } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { GoogleButton } from '@/components/common/GoogleButton';
@@ -47,7 +47,12 @@ export function LoginPage() {
     // No referral code to carry here - that's only ever captured from the
     // register page's "?ref=" link (see RegisterPage.tsx).
     mutationFn: () => authApi.signInWithGoogle(),
-    onError: (err) => pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error'),
+    onError: (err) => {
+      // Closing the Google popup is not an error - just reset the button
+      // (react-query does that on settle) and stay put.
+      if (err instanceof GoogleSignInCancelled) return;
+      pushToast(friendlyAuthError(err, 'Google sign-in failed'), 'error');
+    },
   });
 
   return (
@@ -85,10 +90,10 @@ export function LoginPage() {
             <input
               id="email"
               type="email"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
+              className="input-dark w-full"
               {...register('email')}
             />
-            {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
+            {errors.email && <p className="mt-1 text-sm text-danger">{errors.email.message}</p>}
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between">
@@ -102,10 +107,10 @@ export function LoginPage() {
             <PasswordInput
               id="password"
               autoComplete="current-password"
-              className="w-full rounded-lg border border-surface-border bg-black/30 px-3 py-2 text-ink outline-none focus:border-brand-400"
+              className="input-dark w-full"
               {...register('password')}
             />
-            {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}
+            {errors.password && <p className="mt-1 text-sm text-danger">{errors.password.message}</p>}
           </div>
           <button
             type="submit"

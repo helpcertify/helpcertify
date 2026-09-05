@@ -12,7 +12,7 @@ export function GoogleButton({ onClick, disabled, label }: GoogleButtonProps) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex w-full items-center justify-center gap-2 rounded border border-neutral-300 bg-surface-raised py-2 font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+      className="flex w-full items-center justify-center gap-2 rounded-lg border border-surface-border-strong bg-surface-raised py-2.5 font-semibold text-ink-muted transition-colors hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-60"
     >
       <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
         <path
