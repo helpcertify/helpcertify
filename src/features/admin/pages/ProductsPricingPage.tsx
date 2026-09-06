@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { contentAdminApi, type CertificationAdminRow, type PackageAdminRow } from '../api/contentAdminApi';
+import { confirmDialog } from '@/store/useDialogStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
@@ -122,6 +123,14 @@ export function ProductsPricingPage() {
     },
     onError: (err) => pushToast(errorText(err, 'Could not duplicate exam preparation'), 'error'),
   });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => contentAdminApi.deleteCertification(id),
+    onSuccess: () => {
+      pushToast('Exam preparation deleted', 'success');
+      invalidate();
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not delete exam preparation'), 'error'),
+  });
   const cancelOfferMutation = useMutation({
     mutationFn: (packageId: string) => contentAdminApi.cancelOffer(packageId),
     onSuccess: () => {
@@ -233,6 +242,18 @@ export function ProductsPricingPage() {
                   onArchive={() => archiveMutation.mutate(cert.id)}
                   onRestore={() => restoreMutation.mutate(cert.id)}
                   onDuplicate={() => duplicateMutation.mutate(cert.id)}
+                  onDelete={async () => {
+                    if (
+                      await confirmDialog({
+                        title: `Delete "${cert.name}"?`,
+                        message:
+                          'This permanently removes the exam preparation. It cannot be undone. Any packages must be archived or deleted first.',
+                        confirmLabel: 'Delete',
+                        danger: true,
+                      })
+                    )
+                      deleteMutation.mutate(cert.id);
+                  }}
                 />
               ))}
             </div>
@@ -278,12 +299,14 @@ function CertificationRow({
   onArchive,
   onRestore,
   onDuplicate,
+  onDelete,
 }: {
   certification: CertificationAdminRow;
   packages: PackageAdminRow[];
   onArchive: () => void;
   onRestore: () => void;
   onDuplicate: () => void;
+  onDelete: () => void;
 }) {
   const sortedPackages = [...packages].sort((a, b) => a.displayOrder - b.displayOrder);
   const recommended = sortedPackages.find((p) => p.isRecommended);
@@ -372,6 +395,9 @@ function CertificationRow({
             Archive
           </button>
         )}
+        <button type="button" onClick={onDelete} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-danger hover:border-danger hover:bg-danger-soft">
+          Delete
+        </button>
       </div>
     </div>
   );
