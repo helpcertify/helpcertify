@@ -99,30 +99,6 @@ export function ProductsPricingPage() {
     queryClient.invalidateQueries({ queryKey: ['admin', 'packages'] });
   };
 
-  const archiveMutation = useMutation({
-    mutationFn: (id: string) => contentAdminApi.archiveCertification(id),
-    onSuccess: () => {
-      pushToast('Exam preparation archived', 'success');
-      invalidate();
-    },
-    onError: (err) => pushToast(errorText(err, 'Could not archive exam preparation'), 'error'),
-  });
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => contentAdminApi.restoreCertification(id),
-    onSuccess: () => {
-      pushToast('Exam preparation restored to Draft', 'success');
-      invalidate();
-    },
-    onError: (err) => pushToast(errorText(err, 'Could not restore exam preparation'), 'error'),
-  });
-  const duplicateMutation = useMutation({
-    mutationFn: (id: string) => contentAdminApi.duplicateCertification(id),
-    onSuccess: () => {
-      pushToast('Exam preparation duplicated as a new draft', 'success');
-      invalidate();
-    },
-    onError: (err) => pushToast(errorText(err, 'Could not duplicate exam preparation'), 'error'),
-  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => contentAdminApi.deleteCertification(id),
     onSuccess: () => {
@@ -239,9 +215,6 @@ export function ProductsPricingPage() {
                   key={cert.id}
                   certification={cert}
                   packages={packagesByCert.get(cert.id) ?? []}
-                  onArchive={() => archiveMutation.mutate(cert.id)}
-                  onRestore={() => restoreMutation.mutate(cert.id)}
-                  onDuplicate={() => duplicateMutation.mutate(cert.id)}
                   onDelete={async () => {
                     if (
                       await confirmDialog({
@@ -296,16 +269,10 @@ function CertRowSkeleton() {
 function CertificationRow({
   certification,
   packages,
-  onArchive,
-  onRestore,
-  onDuplicate,
   onDelete,
 }: {
   certification: CertificationAdminRow;
   packages: PackageAdminRow[];
-  onArchive: () => void;
-  onRestore: () => void;
-  onDuplicate: () => void;
   onDelete: () => void;
 }) {
   const sortedPackages = [...packages].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -383,18 +350,6 @@ function CertificationRow({
         >
           Preview
         </Link>
-        <button type="button" onClick={onDuplicate} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-brand-400">
-          Duplicate
-        </button>
-        {certification.status === 'archived' ? (
-          <button type="button" onClick={onRestore} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-brand-400">
-            Restore
-          </button>
-        ) : (
-          <button type="button" onClick={onArchive} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-muted hover:border-danger hover:text-danger">
-            Archive
-          </button>
-        )}
         <button type="button" onClick={onDelete} className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-danger hover:border-danger hover:bg-danger-soft">
           Delete
         </button>
