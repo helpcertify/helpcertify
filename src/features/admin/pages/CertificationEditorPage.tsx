@@ -208,11 +208,11 @@ export function CertificationEditorPage() {
         {step === 3 &&
           (certification ? (
             <StepPackages
-              key={packages.map((p) => p.id).join(',')}
               certification={certification}
               packages={packages}
               onDirty={() => setDirty(true)}
               onExit={exitToList}
+              onRefresh={invalidate}
               onSaved={() => { setDirty(false); invalidate(); goTo(4); }}
               onBack={() => goTo(2)}
             />
@@ -958,6 +958,7 @@ function StepPackages({
   onExit,
   onSaved,
   onBack,
+  onRefresh,
 }: {
   certification: CertificationAdminRow;
   packages: PackageAdminRow[];
@@ -965,6 +966,7 @@ function StepPackages({
   onExit: () => void;
   onSaved: () => void;
   onBack: () => void;
+  onRefresh: () => void;
 }) {
   const pushToast = useUiStore((s) => s.pushToast);
   const { data: allTests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
@@ -1032,45 +1034,51 @@ function StepPackages({
     });
   }, [partsSelling, partsRegular, completePriceTouched, comboDiscount]);
 
+  const saveCard = async (id: TemplateId) => {
+    const card = cards[id];
+    const existing = templatePackages[id];
+    if (card.enabled) {
+      const v: TemplateValues = {
+        ...card.values,
+        validityDays,
+        numberOfQuestions: questionCount || card.values.numberOfQuestions,
+        offerStart: null,
+        offerEnd: null,
+        badgeText: null,
+      };
+      const payload = templateToCreatePayload(id, v, {
+        certificationId: certification.id,
+        practiceBankIds: certification.practiceBankIds?.length
+          ? certification.practiceBankIds
+          : certification.practiceBankId
+            ? [certification.practiceBankId]
+            : [],
+        mockBankIds: certification.mockBankIds?.length
+          ? certification.mockBankIds
+          : certification.mockBankId
+            ? [certification.mockBankId]
+            : [],
+        eligiblePracticeQuestions,
+        defaultValidityDays: validityDays,
+        currency: existing?.currency ?? 'INR',
+        displayOrder: existing?.displayOrder ?? TEMPLATE_ORDER.indexOf(id),
+      });
+      if (existing) await contentAdminApi.updatePackage({ packageId: existing.id, ...payload });
+      else await contentAdminApi.createPackage(payload);
+    } else if (existing && existing.status === 'draft') {
+      await contentAdminApi.deletePackage(existing.id);
+    }
+  };
+
   const save = useMutation({
-    mutationFn: async () => {
-      for (const id of TEMPLATE_ORDER) {
-        const card = cards[id];
-        const existing = templatePackages[id];
-        if (card.enabled) {
-          const v: TemplateValues = {
-            ...card.values,
-            validityDays,
-            numberOfQuestions: questionCount || card.values.numberOfQuestions,
-            offerStart: null,
-            offerEnd: null,
-            badgeText: null,
-          };
-          const payload = templateToCreatePayload(id, v, {
-            certificationId: certification.id,
-            practiceBankIds: certification.practiceBankIds?.length
-              ? certification.practiceBankIds
-              : certification.practiceBankId
-                ? [certification.practiceBankId]
-                : [],
-            mockBankIds: certification.mockBankIds?.length
-              ? certification.mockBankIds
-              : certification.mockBankId
-                ? [certification.mockBankId]
-                : [],
-            eligiblePracticeQuestions,
-            defaultValidityDays: validityDays,
-            currency: existing?.currency ?? 'INR',
-            displayOrder: existing?.displayOrder ?? TEMPLATE_ORDER.indexOf(id),
-          });
-          if (existing) await contentAdminApi.updatePackage({ packageId: existing.id, ...payload });
-          else await contentAdminApi.createPackage(payload);
-        } else if (existing && existing.status === 'draft') {
-          await contentAdminApi.deletePackage(existing.id);
-        }
-      }
-    },
+    mutationFn: async () => { for (const id of TEMPLATE_ORDER) await saveCard(id); },
     onError: (err) => pushToast(cleanError(err, 'Could not save the packages'), 'error'),
+  });
+
+  const saveOne = useMutation({
+    mutationFn: (id: TemplateId) => saveCard(id),
+    onSuccess: (_d, id) => { pushToast(`${PACKAGE_TEMPLATES[id].name} saved`, 'success'); onRefresh(); },
+    onError: (err) => pushToast(cleanError(err, 'Could not save this package'), 'error'),
   });
 
   const anyEnabled = TEMPLATE_ORDER.some((id) => cards[id].enabled);
@@ -1096,6 +1104,8 @@ function StepPackages({
           partsSellingMinor={partsSelling}
           onToggle={(enabled) => setCard(id, { enabled })}
           onValue={(k, val) => setValue(id, k, val)}
+          onSave={() => saveOne.mutate(id)}
+          saving={saveOne.isPending && saveOne.variables === id}
         />
       ))}
 
@@ -1105,7 +1115,7 @@ function StepPackages({
         onBack={onBack}
         draft={{ onClick: () => save.mutate(undefined, { onSuccess: () => { pushToast('Draft saved', 'success'); onExit(); } }), busy: save.isPending }}
         primary={{
-          label: 'Save & continue →',
+          label: 'Continue →',
           onClick: () => save.mutate(undefined, { onSuccess: () => { pushToast('Packages saved', 'success'); onSaved(); } }),
           disabled: !anyEnabled || anyPriceBad || noContent,
           busy: save.isPending,
@@ -1124,6 +1134,8 @@ function TemplateCard({
   partsSellingMinor,
   onToggle,
   onValue,
+  onSave,
+  saving,
 }: {
   id: TemplateId;
   state: CardState;
@@ -1133,12 +1145,15 @@ function TemplateCard({
   partsSellingMinor: number;
   onToggle: (enabled: boolean) => void;
   onValue: <K extends keyof TemplateValues>(key: K, value: TemplateValues[K]) => void;
+  onSave: () => void;
+  saving: boolean;
 }) {
   const def = PACKAGE_TEMPLATES[id];
   const v = state.values;
   const needsMockBank = (id === 'mock' || id === 'complete') && !certification.mockBankId;
   const [priceTouched, setPriceTouched] = useState(false);
   const [offerTouched, setOfferTouched] = useState(false);
+  const [open, setOpen] = useState(state.enabled);
 
   const money = (minor: number | null) => (minor == null ? '' : String(minorToMajor(minor)));
   const setMoney = <K extends keyof TemplateValues>(key: K, raw: string) =>
@@ -1157,17 +1172,31 @@ function TemplateCard({
     .join(' · ');
 
   return (
-    <div className={`rounded-xl border p-5 ${state.enabled ? 'border-brand-500 bg-brand-500/5' : 'border-surface-border bg-surface'}`}>
-      <label className="flex items-start gap-3">
-        <input type="checkbox" checked={state.enabled} onChange={(e) => onToggle(e.target.checked)} className="mt-1 h-4 w-4" />
-        <span>
-          <span className="block font-semibold text-ink">{def.name}</span>
-          <span className="block text-sm text-ink-faint">{def.blurb}</span>
+    <details
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      className={`rounded-xl border ${state.enabled ? 'border-brand-500 bg-brand-500/5' : 'border-surface-border bg-surface'}`}
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-5">
+        <span className="flex items-start gap-3">
+          <span onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={state.enabled}
+              onChange={(e) => { onToggle(e.target.checked); if (e.target.checked) setOpen(true); }}
+              className="mt-1 h-4 w-4"
+            />
+          </span>
+          <span>
+            <span className="block font-semibold text-ink">{def.name}</span>
+            <span className="block text-sm text-ink-faint">{def.blurb}</span>
+          </span>
         </span>
-      </label>
+        <span className="text-ink-faint">{open ? '▴' : '▾'}</span>
+      </summary>
 
-      {state.enabled && (
-        <div className="mt-4 space-y-4">
+      {state.enabled ? (
+        <div className="space-y-4 border-t border-surface-border p-5">
           {needsMockBank && (
             <p className="rounded-lg border border-warning/40 bg-warning-soft p-3 text-xs text-warning">
               Generate or link a mock exam bank in Step 2 to publish this package.
@@ -1243,12 +1272,22 @@ function TemplateCard({
               className="input-dark max-w-2xl"
             />
           </Field>
-          <button type="button" onClick={() => onValue('benefitsOverride', null)} className="text-xs text-brand-ink hover:underline">
-            Reset benefits to auto
+
+          <button
+            type="button"
+            onClick={() => { setPriceTouched(true); setOfferTouched(true); if (!priceBad && !offerBad) onSave(); }}
+            disabled={saving}
+            className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : `Save ${def.name}`}
           </button>
         </div>
+      ) : (
+        <div className="border-t border-surface-border p-5 text-sm text-ink-faint">
+          Turn this on to configure and sell it.
+        </div>
       )}
-    </div>
+    </details>
   );
 }
 
