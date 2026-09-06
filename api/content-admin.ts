@@ -1369,27 +1369,40 @@ async function updateCertification(uid: string, body: unknown) {
 }
 
 const certificationIdSchema = z.object({ certificationId: z.string().min(1) });
+const deleteCertificationSchema = z.object({
+  certificationId: z.string().min(1),
+  // Also wipe the dependent packages' purchase records (learners who bought
+  // them lose access). Only used for clearing test/pre-launch data.
+  force: z.boolean().optional(),
+});
 
 async function deleteCertification(uid: string, body: unknown) {
-  const parsed = certificationIdSchema.safeParse(body);
+  const parsed = deleteCertificationSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { certificationId } = parsed.data;
+  const { certificationId, force } = parsed.data;
 
   const ref = db.collection('certifications').doc(certificationId);
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Certification not found');
 
   // Cascade to the dependent packages so a product can be removed in one
-  // click. A package that already backs a real purchase is never physically
-  // deleted (historical integrity) - the whole delete is refused so the
-  // admin can Archive that certification instead.
+  // click. A package that already backs a real purchase is normally kept for
+  // historical integrity - the whole delete is refused so the admin can
+  // Archive instead - unless `force` is set (test-data cleanup), which also
+  // deletes those purchase records.
   const dependentPackages = await db.collection('packages').where('certificationId', '==', certificationId).get();
   for (const pkg of dependentPackages.docs) {
-    const referenced = await db.collection('purchases').where('sourcePackageId', '==', pkg.id).limit(1).get();
-    if (!referenced.empty) {
+    const referenced = await db.collection('purchases').where('sourcePackageId', '==', pkg.id).get();
+    if (referenced.empty) continue;
+    if (!force) {
       throw Err.failedPrecondition(
-        `"${pkg.data().name}" has purchase history and cannot be deleted. Archive this exam preparation instead.`,
+        `"${pkg.data().name}" has ${referenced.size} purchase record(s). Confirm again to delete it and those records, or Archive this exam preparation instead.`,
       );
+    }
+    for (const grp of chunk(referenced.docs, 400)) {
+      const b = db.batch();
+      for (const d of grp) b.delete(d.ref);
+      await b.commit();
     }
   }
   for (const group of chunk(dependentPackages.docs, 400)) {

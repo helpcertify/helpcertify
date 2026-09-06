@@ -395,8 +395,8 @@ export const contentAdminApi = {
     callAction<{ certificationId: string }>('content-admin', 'createCertification', { ...payload }),
   updateCertification: (payload: { certificationId: string } & Partial<CreateCertificationPayload>) =>
     callAction<{ success: true }>('content-admin', 'updateCertification', { ...payload }),
-  deleteCertification: (certificationId: string) =>
-    callAction<{ success: true }>('content-admin', 'deleteCertification', { certificationId }),
+  deleteCertification: (certificationId: string, force?: boolean) =>
+    callAction<{ success: true; deletedPackages: number }>('content-admin', 'deleteCertification', { certificationId, force }),
   publishCertification: (certificationId: string, scheduledFor?: string | null) =>
     callAction<{ success: true; status: string }>('content-admin', 'publishCertification', { certificationId, scheduledFor }),
   unpublishCertification: (certificationId: string) =>

@@ -100,12 +100,29 @@ export function ProductsPricingPage() {
   };
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => contentAdminApi.deleteCertification(id),
+    mutationFn: (v: { id: string; force?: boolean }) => contentAdminApi.deleteCertification(v.id, v.force),
     onSuccess: () => {
       pushToast('Exam preparation deleted', 'success');
       invalidate();
     },
-    onError: (err) => pushToast(errorText(err, 'Could not delete exam preparation'), 'error'),
+    onError: async (err, v) => {
+      const msg = err instanceof Error ? err.message : '';
+      // Blocked only by purchase records - offer to wipe those too.
+      if (!v.force && /purchase record/i.test(msg)) {
+        if (
+          await confirmDialog({
+            title: 'Delete purchase records too?',
+            message: `${msg.replace(/^[a-z_]+: /i, '')}\n\nAny learner who bought this loses access. Use this only to clear test data.`,
+            confirmLabel: 'Delete everything',
+            danger: true,
+          })
+        ) {
+          deleteMutation.mutate({ id: v.id, force: true });
+        }
+        return;
+      }
+      pushToast(errorText(err, 'Could not delete exam preparation'), 'error');
+    },
   });
   const cancelOfferMutation = useMutation({
     mutationFn: (packageId: string) => contentAdminApi.cancelOffer(packageId),
@@ -225,7 +242,7 @@ export function ProductsPricingPage() {
                         danger: true,
                       })
                     )
-                      deleteMutation.mutate(cert.id);
+                      deleteMutation.mutate({ id: cert.id });
                   }}
                 />
               ))}
