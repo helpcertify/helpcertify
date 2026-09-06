@@ -743,9 +743,9 @@ function StepQuestions({
 function GeneratedList({ title, items }: { title: string; items: { id: string; title: string; count: number }[] }) {
   return (
     <details className="rounded-xl border border-surface-border bg-surface-raised">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-ink-faint">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-brand-ink">
         <span>{title} ({items.length})</span>
-        <span className="text-ink-faint">▾</span>
+        <span className="text-brand-ink">▾</span>
       </summary>
       <ul className="divide-y divide-surface-border border-t border-surface-border">
         {items.map((it, i) => (
