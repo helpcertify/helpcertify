@@ -555,8 +555,6 @@ function StepBasics({
         />
       </Field>
 
-      {certification && <ContentVersionsPanel certification={certification} onDirty={onDirty} />}
-
       <WizardFooter
         draft={{ onClick: () => save.mutate(undefined, { onSuccess: () => { pushToast('Draft saved', 'success'); onExit(); } }), busy: save.isPending }}
         primary={{
@@ -606,12 +604,19 @@ function StepQuestions({
 
   const practiceBanks = tests?.practiceTests ?? [];
   const quizBanks = (quizzes?.quizzes ?? []).filter((q) => q.isPublished);
-  const practiceBankList = practiceBanks.filter((t) => practiceBankIds.includes(t.id));
+  const practiceBankList = practiceBanks
+    .filter((t) => practiceBankIds.includes(t.id))
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
   const practiceQuestionTotal = practiceBankList.reduce((sum, t) => sum + (t.totalQuestions ?? 0), 0);
-  const mockBank = quizBanks.find((q) => q.id === certification.mockBankId) ?? null;
-  const mockCount =
-    (quizzes?.quizzes ?? []).filter((q) => (certification.mockBankIds ?? []).includes(q.id)).length ||
-    (certification.mockBankId ? 1 : 0);
+  const mockBankIds = certification.mockBankIds?.length
+    ? certification.mockBankIds
+    : certification.mockBankId
+      ? [certification.mockBankId]
+      : [];
+  const mockBankList = (quizzes?.quizzes ?? [])
+    .filter((q) => mockBankIds.includes(q.id))
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+  const mockCount = mockBankList.length;
 
   const linkBanks = useMutation({
     mutationFn: async () => {
@@ -645,16 +650,26 @@ function StepQuestions({
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-success/40 bg-success-soft p-4 text-sm">
-          <div className="font-semibold text-ink">Questions are ready</div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold text-ink">Questions are ready</span>
+            <button type="button" onClick={() => setEditing(true)} className="text-xs font-semibold text-brand-ink hover:underline">
+              Change
+            </button>
+          </div>
           <div className="mt-1 text-ink-muted">
             {(certification.seriesId ? practiceQuestionTotal : practiceBankList[0]?.totalQuestions ?? 0).toLocaleString()} practice questions
             {certification.seriesId ? ` · ${practiceBankList.length} practice exams` : ''}
-            {mockCount > 0 ? ` · ${mockCount} mock exam${mockCount === 1 ? '' : 's'}` : mockBank ? ' · 1 mock exam bank' : ''}
+            {mockCount > 0 ? ` · ${mockCount} mock exam${mockCount === 1 ? '' : 's'}` : ''}
           </div>
-          <button type="button" onClick={() => setEditing(true)} className="mt-2 text-xs font-semibold text-brand-ink hover:underline">
-            Change
-          </button>
         </div>
+
+        {practiceBankList.length > 0 && (
+          <GeneratedList title="Practice exams" items={practiceBankList.map((t) => ({ id: t.id, title: t.title, count: t.totalQuestions ?? 0 }))} />
+        )}
+        {mockBankList.length > 0 && (
+          <GeneratedList title="Mock exams" items={mockBankList.map((q) => ({ id: q.id, title: q.title, count: q.totalQuestions ?? 0 }))} />
+        )}
+
         <WizardFooter onBack={onBack} draft={{ onClick: onExit }} primary={{ label: 'Continue →', onClick: onSaved }} />
       </div>
     );
@@ -721,6 +736,27 @@ function StepQuestions({
           />
         </>
       )}
+    </div>
+  );
+}
+
+function GeneratedList({ title, items }: { title: string; items: { id: string; title: string; count: number }[] }) {
+  return (
+    <div className="rounded-xl border border-surface-border bg-surface-raised">
+      <div className="border-b border-surface-border px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-ink-faint">
+        {title} ({items.length})
+      </div>
+      <ul className="divide-y divide-surface-border">
+        {items.map((it, i) => (
+          <li key={it.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="text-ink-faint">{i + 1}.</span>
+              <span className="truncate text-ink">{it.title}</span>
+            </span>
+            <span className="shrink-0 text-xs text-ink-faint">{it.count.toLocaleString()} questions</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -1450,110 +1486,6 @@ function StepPublish({
         </div>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Content Versions (raw) - kept for multi-outline certifications
-// ---------------------------------------------------------------------------
-
-function ContentVersionsPanel({ certification, onDirty }: { certification: CertificationAdminRow; onDirty: () => void }) {
-  const pushToast = useUiStore((s) => s.pushToast);
-  const queryClient = useQueryClient();
-  const { data: quizzes } = useQuery({ queryKey: ['admin', 'quizzes'], queryFn: contentAdminApi.listQuizzesAdmin });
-  const { data: tests } = useQuery({ queryKey: ['admin', 'practiceTests'], queryFn: contentAdminApi.listPracticeTestsAdmin });
-
-  const [versionName, setVersionName] = useState('');
-  const [versionCode, setVersionCode] = useState('');
-  const [bankType, setBankType] = useState<'quiz' | 'practiceTest'>('quiz');
-  const [bankId, setBankId] = useState('');
-  const [effFrom, setEffFrom] = useState('');
-  const [effTo, setEffTo] = useState('');
-  const [notes, setNotes] = useState('');
-
-  const banks = bankType === 'quiz' ? quizzes?.quizzes ?? [] : tests?.practiceTests ?? [];
-
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      contentAdminApi.saveContentVersion(certification.id, {
-        versionName,
-        versionCode,
-        associatedBankType: bankType,
-        associatedBankId: bankId,
-        effectiveFrom: new Date(effFrom).toISOString(),
-        effectiveTo: effTo ? new Date(effTo).toISOString() : null,
-        status: 'active',
-        notes,
-      }),
-    onSuccess: () => {
-      pushToast('Outline saved', 'success');
-      setVersionName(''); setVersionCode(''); setBankId(''); setEffFrom(''); setEffTo(''); setNotes('');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
-      onDirty();
-    },
-    onError: (err) => pushToast(cleanError(err, 'Could not save the outline'), 'error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (versionId: string) => contentAdminApi.deleteContentVersion(certification.id, versionId),
-    onSuccess: () => {
-      pushToast('Outline removed', 'success');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
-    },
-    onError: (err) => pushToast(cleanError(err, 'Could not remove the outline'), 'error'),
-  });
-
-  return (
-    <details className="rounded-xl border border-surface-border bg-surface p-5">
-      <summary className="cursor-pointer list-none text-sm font-medium text-brand-ink">Outline versions (advanced)</summary>
-      <div className="mt-4">
-        {certification.contentVersions.length === 0 ? (
-          <p className="mb-4 text-sm text-ink-faint">None yet. One is created automatically when you generate or link a mock exam bank in Step 2.</p>
-        ) : (
-          <div className="mb-4 space-y-2">
-            {certification.contentVersions.map((v) => (
-              <div key={v.id} className="flex items-center justify-between rounded-lg border border-surface-border p-3 text-sm">
-                <div>
-                  <span className="font-medium text-ink">{v.versionName}</span>{' '}
-                  <span className="text-ink-faint">
-                    ({v.versionCode}) · {v.associatedBankType === 'quiz' ? 'Mock Exam' : 'Practice Test'} bank · effective {toDate(v.effectiveFrom).toLocaleDateString()}
-                    {v.effectiveTo ? ` - ${toDate(v.effectiveTo).toLocaleDateString()}` : ' onward'}
-                  </span>
-                </div>
-                <button type="button" onClick={() => deleteMutation.mutate(v.id)} className="rounded-md border border-danger/40 px-2 py-0.5 text-xs font-semibold text-danger hover:bg-danger-soft">Remove</button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Version name"><input value={versionName} onChange={(e) => setVersionName(e.target.value)} className="input-dark" /></Field>
-          <Field label="Version code"><input value={versionCode} onChange={(e) => setVersionCode(e.target.value)} className="input-dark" /></Field>
-          <Field label="Bank type">
-            <select value={bankType} onChange={(e) => { setBankType(e.target.value as 'quiz' | 'practiceTest'); setBankId(''); }} className="input-dark">
-              <option value="quiz">Mock Exam (quiz) bank</option>
-              <option value="practiceTest">Practice Test bank</option>
-            </select>
-          </Field>
-          <Field label="Question bank">
-            <select value={bankId} onChange={(e) => setBankId(e.target.value)} className="input-dark">
-              <option value="">Select…</option>
-              {banks.map((b) => <option key={b.id} value={b.id}>{b.title} ({b.totalQuestions} questions)</option>)}
-            </select>
-          </Field>
-          <Field label="Effective from"><input type="datetime-local" value={effFrom} onChange={(e) => setEffFrom(e.target.value)} className="input-dark" /></Field>
-          <Field label="Effective to (optional)"><input type="datetime-local" value={effTo} onChange={(e) => setEffTo(e.target.value)} className="input-dark" /></Field>
-        </div>
-        <Field label="Notes"><input value={notes} onChange={(e) => setNotes(e.target.value)} className="input-dark mt-3" /></Field>
-        <button
-          type="button"
-          disabled={!versionName.trim() || !versionCode.trim() || !bankId || !effFrom || saveMutation.isPending}
-          onClick={() => saveMutation.mutate()}
-          className="mt-3 rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted hover:border-brand-400 disabled:opacity-50"
-        >
-          {saveMutation.isPending ? 'Saving…' : '+ Add outline version'}
-        </button>
-      </div>
-    </details>
   );
 }
 
