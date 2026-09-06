@@ -72,10 +72,10 @@ export function GlobalDialog() {
         if (e.target === e.currentTarget) cancel();
       }}
     >
-      <div className="relative w-full max-w-sm rounded-xl border border-surface-border bg-surface-raised p-5 shadow-pop">
+      <div className="relative w-full max-w-lg rounded-xl border border-surface-border bg-surface-raised p-6 shadow-pop">
         <ModalCloseButton onClose={cancel} label={`Close - ${isPrompt ? 'do not submit' : 'do not proceed'}`} />
-        <h2 className="mb-1.5 pr-8 text-base font-bold text-ink">{opts.title}</h2>
-        {opts.message && <p className="text-sm leading-relaxed text-ink-muted">{opts.message}</p>}
+        <h2 className="mb-2 pr-8 text-base font-bold text-ink">{opts.title}</h2>
+        {opts.message && <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{opts.message}</p>}
 
         {isPrompt && (
           <div className="mt-3">
