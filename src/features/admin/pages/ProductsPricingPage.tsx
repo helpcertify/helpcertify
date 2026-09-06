@@ -220,7 +220,7 @@ export function ProductsPricingPage() {
                       await confirmDialog({
                         title: `Delete "${cert.name}"?`,
                         message:
-                          'This permanently removes the exam preparation. It cannot be undone. Any packages must be archived or deleted first.',
+                          'This permanently removes the exam preparation and all of its packages. It cannot be undone. (Products with real purchase history must be archived instead.)',
                         confirmLabel: 'Delete',
                         danger: true,
                       })

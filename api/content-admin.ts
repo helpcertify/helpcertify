@@ -1377,15 +1377,29 @@ async function deleteCertification(uid: string, body: unknown) {
   const snap = await ref.get();
   if (!snap.exists) throw Err.notFound('Certification not found');
 
-  // Refuse a cascading delete - an admin must archive/delete the dependent
-  // packages first. This is a hard delete (only ever reachable for a
-  // certification that never had any packages); once packages exist, the
-  // recommended path is Archive, not delete.
+  // Cascade to the dependent packages so a product can be removed in one
+  // click. A package that already backs a real purchase is never physically
+  // deleted (historical integrity) - the whole delete is refused so the
+  // admin can Archive that certification instead.
   const dependentPackages = await db.collection('packages').where('certificationId', '==', certificationId).get();
-  if (!dependentPackages.empty) {
-    const names = dependentPackages.docs.map((d) => d.data().name).join(', ');
-    throw Err.failedPrecondition(`Delete or archive the dependent package(s) first: ${names}`);
+  for (const pkg of dependentPackages.docs) {
+    const referenced = await db.collection('purchases').where('sourcePackageId', '==', pkg.id).limit(1).get();
+    if (!referenced.empty) {
+      throw Err.failedPrecondition(
+        `"${pkg.data().name}" has purchase history and cannot be deleted. Archive this exam preparation instead.`,
+      );
+    }
   }
+  for (const group of chunk(dependentPackages.docs, 400)) {
+    const batch = db.batch();
+    for (const pkg of group) batch.delete(pkg.ref);
+    await batch.commit();
+  }
+
+  // Drop the generated batched-series pointer doc too (the practice/mock
+  // exam banks themselves are managed on their own admin pages).
+  const seriesId = snap.data()?.seriesId as string | undefined;
+  if (seriesId) await db.collection('contentSeries').doc(seriesId).delete().catch(() => {});
 
   await ref.delete();
   await writeAdminLog({
@@ -1393,9 +1407,9 @@ async function deleteCertification(uid: string, body: unknown) {
     action: 'deleteCertification',
     targetType: 'certification',
     targetId: certificationId,
-    description: `Deleted certification "${snap.data()?.name}"`,
+    description: `Deleted certification "${snap.data()?.name}" and ${dependentPackages.size} package(s)`,
   });
-  return { success: true };
+  return { success: true, deletedPackages: dependentPackages.size };
 }
 
 // Publication lifecycle - Draft/Scheduled/Published/Unpublished/Archived
