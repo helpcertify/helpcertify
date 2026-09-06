@@ -155,7 +155,7 @@ export function ProductsPricingPage() {
               to="/admin/products/new"
               className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
             >
-              + Add Exam Preparation
+              + Create New
             </Link>
             <input
               value={search}
@@ -204,7 +204,7 @@ export function ProductsPricingPage() {
             <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
               <p className="mb-4 text-ink-faint">No exam preparations have been configured.</p>
               <Link to="/admin/products/new" className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-                + Add Exam Preparation
+                + Create New
               </Link>
             </div>
           )}

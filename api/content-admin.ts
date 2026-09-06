@@ -473,16 +473,18 @@ function certificationCoverQueries(cert: Record<string, unknown>): string[] {
   const add = (q: string) => {
     if (!topical.includes(q)) topical.push(q);
   };
-  if (/\baws\b|amazon web|\bgcp\b|google cloud|\bazure\b|\bcloud\b/.test(hay)) add('cloud computing technology');
-  if (/azure|microsoft/.test(hay)) add('data center servers blue');
+  // Prefer clean, corporate technology photography - the earlier "padlock" /
+  // "encryption" style terms returned grungy stock-photo clichés.
+  if (/\baws\b|amazon web|\bgcp\b|google cloud|\bazure\b|\bcloud\b/.test(hay)) add('cloud computing servers technology');
+  if (/azure|microsoft/.test(hay)) add('modern data center blue lights');
   if (/security|\bcism\b|\bcisa\b|\bcissp\b|cyber|infosec|\bsoc\b|privacy|\bgrc\b/.test(hay)) {
-    add('cyber security lock shield');
-    add('data encryption padlock');
+    add('cyber security operations center');
+    add('information technology professional office');
   }
-  if (/server|infrastructure|network|sysadmin|\brhcsa\b|\brhce\b|linux|devops/.test(hay)) add('server racks data center');
-  if (/test|\bqa\b|automation|selenium|\bsdet\b|quality assurance/.test(hay)) add('software testing automation code');
-  if (/data\b|analytics|\bsql\b|database|\bbi\b/.test(hay)) add('data analytics dashboard');
-  return [...topical, typeof cert.category === 'string' ? cert.category : '', 'certification exam preparation study'];
+  if (/server|infrastructure|network|sysadmin|\brhcsa\b|\brhce\b|linux|devops/.test(hay)) add('network server room technology');
+  if (/test|\bqa\b|automation|selenium|\bsdet\b|quality assurance/.test(hay)) add('software developer code screen');
+  if (/data\b|analytics|\bsql\b|database|\bbi\b/.test(hay)) add('business analytics data dashboard');
+  return [...topical, 'information technology office team', 'professional certification study'];
 }
 
 // Deletes every doc in a question subcollection plus each one's private
