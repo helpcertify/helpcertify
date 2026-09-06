@@ -618,6 +618,30 @@ function StepQuestions({
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
   const mockCount = mockBankList.length;
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteExam = async (kind: 'practiceTest' | 'quiz', id: string, title: string) => {
+    if (!(await confirmDialog({
+      title: `Delete "${title}"?`,
+      message: 'The exam and all its questions are removed permanently. Learners lose access to it. This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    }))) return;
+    setDeletingId(id);
+    try {
+      if (kind === 'quiz') await contentAdminApi.deleteQuiz(id);
+      else await contentAdminApi.deletePracticeTest(id);
+      pushToast('Exam deleted', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'practiceTests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'quizzes'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'certifications'] });
+      onDirty();
+    } catch (e) {
+      pushToast(cleanError(e, 'Could not delete the exam'), 'error');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const linkBanks = useMutation({
     mutationFn: async () => {
       await contentAdminApi.updateCertification({
@@ -664,10 +688,20 @@ function StepQuestions({
         </div>
 
         {practiceBankList.length > 0 && (
-          <GeneratedList title="Practice exams" items={practiceBankList.map((t) => ({ id: t.id, title: t.title, count: t.totalQuestions ?? 0 }))} />
+          <GeneratedList
+            title="Practice exams"
+            items={practiceBankList.map((t) => ({ id: t.id, title: t.title, count: t.totalQuestions ?? 0 }))}
+            onDelete={(id, title) => deleteExam('practiceTest', id, title)}
+            deletingId={deletingId}
+          />
         )}
         {mockBankList.length > 0 && (
-          <GeneratedList title="Mock exams" items={mockBankList.map((q) => ({ id: q.id, title: q.title, count: q.totalQuestions ?? 0 }))} />
+          <GeneratedList
+            title="Mock exams"
+            items={mockBankList.map((q) => ({ id: q.id, title: q.title, count: q.totalQuestions ?? 0 }))}
+            onDelete={(id, title) => deleteExam('quiz', id, title)}
+            deletingId={deletingId}
+          />
         )}
 
         <WizardFooter onBack={onBack} draft={{ onClick: onExit }} primary={{ label: 'Continue →', onClick: onSaved }} />
@@ -740,7 +774,17 @@ function StepQuestions({
   );
 }
 
-function GeneratedList({ title, items }: { title: string; items: { id: string; title: string; count: number }[] }) {
+function GeneratedList({
+  title,
+  items,
+  onDelete,
+  deletingId,
+}: {
+  title: string;
+  items: { id: string; title: string; count: number }[];
+  onDelete: (id: string, title: string) => void;
+  deletingId: string | null;
+}) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-raised">
       <div className="border-b border-surface-border px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-ink-faint">
@@ -753,7 +797,17 @@ function GeneratedList({ title, items }: { title: string; items: { id: string; t
               <span className="text-ink-faint">{i + 1}.</span>
               <span className="truncate text-ink">{it.title}</span>
             </span>
-            <span className="shrink-0 text-xs text-ink-faint">{it.count.toLocaleString()} questions</span>
+            <span className="flex shrink-0 items-center gap-3">
+              <span className="text-xs text-ink-faint">{it.count.toLocaleString()} questions</span>
+              <button
+                type="button"
+                disabled={deletingId === it.id}
+                onClick={() => onDelete(it.id, it.title)}
+                className="rounded-md border border-surface-border-strong px-2 py-1 text-xs font-medium text-danger hover:border-danger hover:bg-danger-soft disabled:opacity-50"
+              >
+                {deletingId === it.id ? 'Deleting…' : 'Delete'}
+              </button>
+            </span>
           </li>
         ))}
       </ul>
