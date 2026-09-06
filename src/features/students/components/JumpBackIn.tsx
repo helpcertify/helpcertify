@@ -39,7 +39,7 @@ export function JumpBackIn() {
             </div>
             <div className="mb-2 line-clamp-2 font-semibold text-ink">{item.title}</div>
             <div className="mb-1 text-xs text-ink-faint">{item.subtitle}</div>
-            <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+            <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
               <div className="h-full rounded-full bg-brand-500" style={{ width: `${item.progressPct}%` }} />
             </div>
             <Link

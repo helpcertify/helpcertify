@@ -11,8 +11,8 @@ type TypeFilter = 'all' | 'quiz' | 'practiceTest';
 const STATUS_BADGE: Record<Certificate['status'], string> = {
   issued: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
   revoked: 'bg-red-500/15 text-red-500',
-  superseded: 'bg-neutral-800 text-ink-faint',
-  invalid: 'bg-neutral-800 text-ink-faint',
+  superseded: 'bg-surface-sunken text-ink-faint',
+  invalid: 'bg-surface-sunken text-ink-faint',
 };
 
 // My Certificates - every completion certificate this learner has earned,

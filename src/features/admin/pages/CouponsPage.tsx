@@ -192,7 +192,7 @@ function CouponRow({
           <div className="flex items-center gap-2">
             <span className="font-mono font-semibold text-ink">{c.code}</span>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs ${c.active ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-neutral-800 text-ink-faint'}`}
+              className={`rounded-full px-2 py-0.5 text-xs ${c.active ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-surface-sunken text-ink-faint'}`}
             >
               {c.active ? 'Active' : 'Inactive'}
             </span>

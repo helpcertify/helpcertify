@@ -10,14 +10,14 @@ function formatDate(ts: unknown): string {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  invited: 'bg-neutral-800 text-ink-faint',
+  invited: 'bg-surface-sunken text-ink-faint',
   registered: 'bg-brand-500/15 text-brand-ink',
   purchased: 'bg-brand-500/15 text-brand-ink',
   pending: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   rewarded: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   rejected: 'bg-red-500/15 text-red-500',
   reversed: 'bg-red-500/15 text-red-500',
-  expired: 'bg-neutral-800 text-ink-faint',
+  expired: 'bg-surface-sunken text-ink-faint',
 };
 
 // Item 15's admin audit view - every referral, both directions of PII
@@ -90,7 +90,7 @@ export function AdminReferralAuditPage() {
                   </td>
                   <td className="px-4 py-3 text-ink-muted">{r.refereeName}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${STATUS_BADGE[r.status] ?? 'bg-neutral-800 text-ink-faint'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${STATUS_BADGE[r.status] ?? 'bg-surface-sunken text-ink-faint'}`}>
                       {r.status}
                     </span>
                   </td>
@@ -117,7 +117,7 @@ export function AdminReferralAuditPage() {
               </div>
               <div>
                 <div className="text-xs font-bold uppercase tracking-wide text-ink-faint">Status</div>
-                <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${STATUS_BADGE[selected.status] ?? 'bg-neutral-800 text-ink-faint'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${STATUS_BADGE[selected.status] ?? 'bg-surface-sunken text-ink-faint'}`}>
                   {selected.status}
                 </span>
               </div>

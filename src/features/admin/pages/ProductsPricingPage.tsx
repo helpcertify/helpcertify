@@ -13,18 +13,18 @@ type StatusFilter = 'all' | CertificationAdminRow['status'];
 type SortKey = 'displayOrder' | 'name' | 'updated';
 
 const STATUS_BADGE: Record<CertificationAdminRow['status'], string> = {
-  draft: 'bg-neutral-800 text-ink-faint',
+  draft: 'bg-surface-sunken text-ink-faint',
   scheduled: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   published: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  unpublished: 'bg-neutral-800 text-ink-faint',
+  unpublished: 'bg-surface-sunken text-ink-faint',
   archived: 'bg-red-500/15 text-red-500',
 };
 
 const OFFER_STATUS_BADGE: Record<OfferStatus, string> = {
-  none: 'bg-neutral-800 text-ink-faint',
+  none: 'bg-surface-sunken text-ink-faint',
   scheduled: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  expired: 'bg-neutral-800 text-ink-faint',
+  expired: 'bg-surface-sunken text-ink-faint',
   cancelled: 'bg-red-500/15 text-red-500',
 };
 
@@ -360,7 +360,7 @@ function CertificationRow({
                 {pkg.mockAccessEnabled && <span className="text-xs text-ink-faint">{pkg.fullMockAttempts} mock attempts</span>}
                 {pkg.practiceAccessEnabled && <span className="text-xs text-ink-faint">{pkg.accessibleQuestionCount} questions</span>}
                 {pkg.badgeText && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">{pkg.badgeText}</span>}
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold capitalize ${pkg.status === 'published' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-neutral-800 text-ink-faint'}`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold capitalize ${pkg.status === 'published' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-surface-sunken text-ink-faint'}`}>
                   {pkg.status}
                 </span>
               </div>

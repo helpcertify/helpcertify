@@ -164,7 +164,7 @@ export function AdminSettingsPage() {
             <span>
               <span className="flex items-center gap-2 font-medium text-ink">
                 Mobile OTP verification
-                <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-normal text-ink-faint">
+                <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-xs font-normal text-ink-faint">
                   Coming soon
                 </span>
               </span>

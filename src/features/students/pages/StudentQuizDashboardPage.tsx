@@ -39,7 +39,7 @@ export function StudentQuizDashboardPage() {
           <p className="mb-4 text-sm text-ink-faint">{data.attempt.quizTitle}</p>
           <div className="overflow-x-auto rounded-xl border border-surface-border">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/20 text-xs uppercase tracking-wide text-ink-faint">
+              <thead className="bg-surface-sunken text-xs uppercase tracking-wide text-ink-faint">
                 <tr>
                   <th className="px-4 py-3">Rank</th>
                   <th className="px-4 py-3">Name</th>
