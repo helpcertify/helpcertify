@@ -42,9 +42,20 @@ db.settings({ ignoreUndefinedProperties: true });
 
 // Kept in sync with api/checkout.ts's ItemType - this file's finalizeOrder
 // only ever reads order.items back (already written by checkout.ts's
-// createOrder) and falls through its generic non-package branch for
-// 'customExamBuilder', so no other change is needed here.
-type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder';
+// createOrder). 'customExamBuilder' / 'course' fall through the generic
+// non-package branch; 'creatorProduct' / 'aiCreditPack' get dedicated
+// branches below (duplicated from checkout.ts, same no-shared-code
+// convention).
+type ItemType =
+  | 'quiz'
+  | 'practiceTest'
+  | 'package'
+  | 'customExamBuilder'
+  | 'course'
+  | 'creatorProduct'
+  | 'aiCreditPack';
+const CREATOR_PLAN_DAYS: Record<'monthly' | 'annual', number> = { monthly: 30, annual: 365 };
+type CreatorEntitlement = 'course_creator_manual' | 'course_creator_ai' | 'exam_creator_manual' | 'exam_creator_ai';
 
 // Refer & Earn - the referrer's reward is real HelpCertify credit (not a
 // coupon): non-withdrawable, always a flat money amount (a percentage
@@ -226,7 +237,55 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // (mirrors api/checkout.ts).
   batch.update(ref, { status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
-  for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
+  for (const item of order.items as { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[]) {
+    if (item.itemType === 'creatorProduct') {
+      const plan = item.plan === 'annual' ? 'annual' : 'monthly';
+      const days = CREATOR_PLAN_DAYS[plan];
+      const pSnap = await db.collection('creatorProducts').doc(item.itemId).get();
+      const p = pSnap.data();
+      if (!p) continue;
+      const ents = (p.entitlements ?? []) as CreatorEntitlement[];
+      const nowMs = Date.now();
+      for (const ent of ents) {
+        const eRef = db.collection('creatorEntitlements').doc(`${order.userId}_${ent}`);
+        const cur = (await eRef.get()).data();
+        const base =
+          cur && cur.status !== 'cancelled' && (cur.expiresAt as Timestamp | undefined)?.toMillis?.() > nowMs
+            ? (cur.expiresAt as Timestamp).toMillis()
+            : nowMs;
+        batch.set(eRef, {
+          uid: order.userId,
+          entitlement: ent,
+          grantedByProductId: item.itemId,
+          plan,
+          pricePaidMinor: 0,
+          currency: order.currency ?? 'INR',
+          startsAt: Timestamp.now(),
+          expiresAt: Timestamp.fromMillis(base + days * 24 * 60 * 60 * 1000),
+          orderId,
+          status: 'active',
+          updatedAt: Timestamp.now(),
+        });
+      }
+      const grant = Number(p.aiCreditsIncluded?.[plan]) || 0;
+      if (grant > 0) {
+        const cRef = db.collection('creatorCredits').doc(order.userId);
+        batch.set(cRef, { uid: order.userId, balance: FieldValue.increment(grant), updatedAt: Timestamp.now() }, { merge: true });
+        batch.set(cRef.collection('ledger').doc(), { delta: grant, reason: 'grant', op: null, balanceAfter: null, refId: orderId, at: Timestamp.now() });
+      }
+      continue;
+    }
+    if (item.itemType === 'aiCreditPack') {
+      const cfgSnap = await db.collection('appSettings').doc('aiCredits').get();
+      const pack = ((cfgSnap.data()?.creditPacks ?? []) as { id: string; credits: number }[]).find((x) => x.id === item.itemId);
+      const credits = Number(pack?.credits) || 0;
+      if (credits > 0) {
+        const cRef = db.collection('creatorCredits').doc(order.userId);
+        batch.set(cRef, { uid: order.userId, balance: FieldValue.increment(credits), updatedAt: Timestamp.now() }, { merge: true });
+        batch.set(cRef.collection('ledger').doc(), { delta: credits, reason: 'pack_purchase', op: null, balanceAfter: null, refId: orderId, at: Timestamp.now() });
+      }
+      continue;
+    }
     if (item.itemType === 'package') {
       // A package doesn't get its own purchase doc - it fans out to one
       // purchase doc per included item, same as api/checkout.ts's own

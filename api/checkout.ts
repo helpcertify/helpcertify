@@ -63,7 +63,13 @@ async function requireStudent(req: VercelRequest): Promise<{ uid: string }> {
 // 'customExamBuilder' is not passed to collectionFor - it has no backing
 // catalog doc (see createOrder's dedicated branch, which reads its price
 // from appSettings/customExamBuilder instead).
-type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder' | 'course';
+type ItemType = 'quiz' | 'practiceTest' | 'package' | 'customExamBuilder' | 'course' | 'creatorProduct' | 'aiCreditPack';
+
+// Creator commercial model - a plan grants its entitlements for a fixed
+// window, then lapses (no auto-renew). See api/content-admin.ts's
+// creator-commerce section for the product config.
+const CREATOR_PLAN_DAYS: Record<'monthly' | 'annual', number> = { monthly: 30, annual: 365 };
+type CreatorEntitlement = 'course_creator_manual' | 'course_creator_ai' | 'exam_creator_manual' | 'exam_creator_ai';
 // Was a two-way ternary defaulting to 'packages' - an explicit chain now
 // that a fourth item type exists, so a 'course' can never silently fall
 // through to the packages collection.
@@ -172,7 +178,12 @@ const createOrderSchema = z.object({
   // into the Buy Now dialog, separate from whatever the cart itself has
   // stored.
   buyNowItem: z
-    .object({ itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder', 'course']), itemId: z.string().min(1) })
+    .object({
+      itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder', 'course', 'creatorProduct', 'aiCreditPack']),
+      itemId: z.string().min(1),
+      // Only for itemType 'creatorProduct'.
+      plan: z.enum(['monthly', 'annual']).optional(),
+    })
     .optional(),
   couponCode: z.string().trim().min(1).optional(),
   // Companion one-time code for a coupon created with requiresUnlockCode:
@@ -479,7 +490,7 @@ async function createOrder(uid: string, body: unknown) {
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const { buyNowItem, useCredit, consent } = parsed.data;
 
-  let cartItems: { itemType: ItemType; itemId: string }[];
+  let cartItems: { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[];
   let couponCode: string | null;
   let unlockCode: string | null;
   // A coupon typed directly into Buy Now was never checked anywhere before
@@ -510,9 +521,80 @@ async function createOrder(uid: string, body: unknown) {
     unitPrice: number;
     certificationId: string | null;
     accessPeriodLabel: string;
+    plan?: 'monthly' | 'annual';
   }[] = [];
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
+    if (entry.itemType === 'creatorProduct') {
+      const plan = entry.plan === 'annual' ? 'annual' : 'monthly';
+      const pSnap = await db.collection('creatorProducts').doc(entry.itemId).get();
+      const p = pSnap.data();
+      if (!pSnap.exists || !p || p.status !== 'published' || p.active === false) {
+        throw Err.failedPrecondition('That creator product is not available for purchase right now');
+      }
+      const ents = (p.entitlements ?? []) as CreatorEntitlement[];
+      // Already fully entitled (all of this product's entitlements active) - skip.
+      if (ents.length > 0) {
+        const now = Date.now();
+        const held = await Promise.all(
+          ents.map((e) => db.collection('creatorEntitlements').doc(`${uid}_${e}`).get()),
+        );
+        const allActive = held.every((d) => {
+          const data = d.data();
+          return data && data.status !== 'cancelled' && (data.expiresAt as Timestamp | undefined)?.toMillis?.() > now;
+        });
+        if (allActive) continue;
+      }
+      const planPrice = (p.plans?.[plan] ?? {}) as {
+        sellingPrice?: number;
+        offerPrice?: number | null;
+        offerStart?: Timestamp | null;
+        offerEnd?: Timestamp | null;
+        offerCancelledAt?: Timestamp | null;
+      };
+      const nowMs = Date.now();
+      const offerLive =
+        planPrice.offerPrice != null &&
+        !planPrice.offerCancelledAt &&
+        (!planPrice.offerStart || planPrice.offerStart.toMillis() <= nowMs) &&
+        (!planPrice.offerEnd || planPrice.offerEnd.toMillis() >= nowMs);
+      const unitPrice = offerLive ? planPrice.offerPrice! : planPrice.sellingPrice ?? 0;
+      if (unitPrice <= 0) throw Err.failedPrecondition('That plan has no price set');
+      orderItems.push({
+        itemType: 'creatorProduct',
+        itemId: entry.itemId,
+        title: `${p.name} - ${plan === 'annual' ? 'Annual' : 'Monthly'}`,
+        unitPrice,
+        certificationId: null,
+        accessPeriodLabel: plan === 'annual' ? '1 year access' : '30 days access',
+        plan,
+      });
+      currency = p.currency === 'USD' ? 'USD' : 'INR';
+      continue;
+    }
+    if (entry.itemType === 'aiCreditPack') {
+      const cfgSnap = await db.collection('appSettings').doc('aiCredits').get();
+      const packs = (cfgSnap.data()?.creditPacks ?? []) as {
+        id: string;
+        name: string;
+        credits: number;
+        priceMinor: number;
+        currency: 'INR' | 'USD';
+        active: boolean;
+      }[];
+      const pack = packs.find((x) => x.id === entry.itemId && x.active);
+      if (!pack) throw Err.failedPrecondition('That credit pack is not available');
+      orderItems.push({
+        itemType: 'aiCreditPack',
+        itemId: pack.id,
+        title: `HelpCertify AI Credits - ${pack.name}`,
+        unitPrice: pack.priceMinor,
+        certificationId: null,
+        accessPeriodLabel: `${pack.credits} credits`,
+      });
+      currency = pack.currency === 'USD' ? 'USD' : 'INR';
+      continue;
+    }
     if (entry.itemType === 'customExamBuilder') {
       // No backing catalog doc - price/availability live in
       // appSettings/customExamBuilder (admin-editable, see api/admin.ts's
@@ -842,7 +924,57 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // purchase records. A retry (client or webhook) then re-runs cleanly.
   batch.update(ref, { status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
-  for (const item of order.items as { itemType: ItemType; itemId: string }[]) {
+  for (const item of order.items as { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[]) {
+    if (item.itemType === 'creatorProduct') {
+      // Time-boxed entitlement grant: extend from the later of "now" and any
+      // still-active entitlement's expiry, so re-buying stacks the window.
+      const plan = item.plan === 'annual' ? 'annual' : 'monthly';
+      const days = CREATOR_PLAN_DAYS[plan];
+      const pSnap = await db.collection('creatorProducts').doc(item.itemId).get();
+      const p = pSnap.data();
+      if (!p) continue; // product deleted between order and payment
+      const ents = (p.entitlements ?? []) as CreatorEntitlement[];
+      const nowMs = Date.now();
+      for (const ent of ents) {
+        const eRef = db.collection('creatorEntitlements').doc(`${order.userId}_${ent}`);
+        const cur = (await eRef.get()).data();
+        const base =
+          cur && cur.status !== 'cancelled' && (cur.expiresAt as Timestamp | undefined)?.toMillis?.() > nowMs
+            ? (cur.expiresAt as Timestamp).toMillis()
+            : nowMs;
+        batch.set(eRef, {
+          uid: order.userId,
+          entitlement: ent,
+          grantedByProductId: item.itemId,
+          plan,
+          pricePaidMinor: 0,
+          currency: order.currency ?? 'INR',
+          startsAt: Timestamp.now(),
+          expiresAt: Timestamp.fromMillis(base + days * 24 * 60 * 60 * 1000),
+          orderId,
+          status: 'active',
+          updatedAt: Timestamp.now(),
+        });
+      }
+      const grant = Number(p.aiCreditsIncluded?.[plan]) || 0;
+      if (grant > 0) {
+        const cRef = db.collection('creatorCredits').doc(order.userId);
+        batch.set(cRef, { uid: order.userId, balance: FieldValue.increment(grant), updatedAt: Timestamp.now() }, { merge: true });
+        batch.set(cRef.collection('ledger').doc(), { delta: grant, reason: 'grant', op: null, balanceAfter: null, refId: orderId, at: Timestamp.now() });
+      }
+      continue;
+    }
+    if (item.itemType === 'aiCreditPack') {
+      const cfgSnap = await db.collection('appSettings').doc('aiCredits').get();
+      const pack = ((cfgSnap.data()?.creditPacks ?? []) as { id: string; credits: number }[]).find((x) => x.id === item.itemId);
+      const credits = Number(pack?.credits) || 0;
+      if (credits > 0) {
+        const cRef = db.collection('creatorCredits').doc(order.userId);
+        batch.set(cRef, { uid: order.userId, balance: FieldValue.increment(credits), updatedAt: Timestamp.now() }, { merge: true });
+        batch.set(cRef.collection('ledger').doc(), { delta: credits, reason: 'pack_purchase', op: null, balanceAfter: null, refId: orderId, at: Timestamp.now() });
+      }
+      continue;
+    }
     if (item.itemType === 'package') {
       // A package doesn't get its own purchase doc - it fans out to one
       // purchase doc per included item, the exact same shape an individual
