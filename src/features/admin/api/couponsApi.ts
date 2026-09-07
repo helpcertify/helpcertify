@@ -11,13 +11,26 @@ export interface CouponSummary {
   requiresUnlockCode?: boolean;
 }
 
+export interface CouponScope {
+  itemTypes?: string[];
+  creatorProductIds?: string[];
+  plans?: ('monthly' | 'annual')[];
+}
+
 export interface CreateCouponPayload {
   code: string;
   discountType: 'percent' | 'flat' | 'fixed_price';
   discountValue: number;
+  startsAt?: string | null;
   expiresAt?: string | null;
   maxUses?: number | null;
   requiresUnlockCode?: boolean;
+  perUserLimit?: number | null;
+  firstPurchaseOnly?: boolean;
+  minPurchaseMinor?: number | null;
+  maxDiscountMinor?: number | null;
+  stackable?: boolean;
+  appliesTo?: CouponScope | null;
 }
 
 export interface UnlockCodeRow {
@@ -32,7 +45,7 @@ export interface UnlockCodeRow {
 export const couponsApi = {
   createCoupon: (payload: CreateCouponPayload) => callAction<{ code: string }>('coupons', 'createCoupon', { ...payload }),
   listCoupons: () => callAction<{ coupons: CouponSummary[] }>('coupons', 'listCoupons'),
-  updateCoupon: (payload: { code: string; active?: boolean; expiresAt?: string | null; maxUses?: number | null }) =>
+  updateCoupon: (payload: Partial<CreateCouponPayload> & { code: string; active?: boolean }) =>
     callAction<{ success: true }>('coupons', 'updateCoupon', { ...payload }),
   deleteCoupon: (code: string) => callAction<{ success: true }>('coupons', 'deleteCoupon', { code }),
   // Companion one-time codes for a requiresUnlockCode coupon - see

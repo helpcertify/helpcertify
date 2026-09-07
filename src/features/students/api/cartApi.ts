@@ -66,7 +66,7 @@ export interface CreateOrderResult {
 export const checkoutApi = {
   createOrder: (opts: {
     consent: CheckoutConsentState;
-    buyNowItem?: { itemType: PurchasableItemType; itemId: string };
+    buyNowItem?: { itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack'; itemId: string; plan?: 'monthly' | 'annual' };
     couponCode?: string;
     unlockCode?: string;
     useCredit?: boolean;

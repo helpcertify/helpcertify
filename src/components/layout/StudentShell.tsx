@@ -128,6 +128,9 @@ export function StudentShell() {
           AI Course Builder
         </NavLink>
       )}
+      <NavLink to="/home/creator/plans" onClick={onNavigate} className={navLinkClass}>
+        Creator Plans
+      </NavLink>
       <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>
         My Profile
       </NavLink>

@@ -56,6 +56,7 @@ import { PartnerDetailPage } from '@/features/admin/pages/PartnerDetailPage';
 import { BecomePartnerPage } from '@/features/partner/pages/BecomePartnerPage';
 import { PartnerDashboardPage } from '@/features/partner/pages/PartnerDashboardPage';
 import { CreatorWorkspacePage } from '@/features/creator/pages/CreatorWorkspacePage';
+import { CreatorPlansPage } from '@/features/creatorPlans/pages/CreatorPlansPage';
 import { CourseDraftsPage } from '@/features/courseBuilder/pages/CourseDraftsPage';
 import { CourseEditorPage } from '@/features/courseBuilder/pages/CourseEditorPage';
 import { LessonEditorPage } from '@/features/courseBuilder/pages/LessonEditorPage';
@@ -117,6 +118,7 @@ export function AppRouter() {
           <Route path="/home/become-a-partner" element={<BecomePartnerPage />} />
           <Route path="/home/partner" element={<PartnerDashboardPage />} />
           <Route path="/home/creator" element={<CreatorWorkspacePage />} />
+          <Route path="/home/creator/plans" element={<CreatorPlansPage />} />
           <Route path="/home/creator/courses" element={<CourseDraftsPage />} />
           <Route path="/home/creator/courses/:draftId" element={<CourseEditorPage />} />
           <Route path="/home/creator/courses/:draftId/lessons/:lessonKey" element={<LessonEditorPage />} />

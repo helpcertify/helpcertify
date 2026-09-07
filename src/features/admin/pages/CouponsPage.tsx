@@ -13,22 +13,42 @@ export function CouponsPage() {
   const [code, setCode] = useState('');
   const [discountType, setDiscountType] = useState<'percent' | 'flat' | 'fixed_price'>('percent');
   const [discountValue, setDiscountValue] = useState('10');
+  const [startsAt, setStartsAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [maxUses, setMaxUses] = useState('');
   const [requiresUnlockCode, setRequiresUnlockCode] = useState(false);
+  // Promo Codes v2
+  const [perUserLimit, setPerUserLimit] = useState('');
+  const [firstPurchaseOnly, setFirstPurchaseOnly] = useState(false);
+  const [minPurchase, setMinPurchase] = useState('');
+  const [maxDiscount, setMaxDiscount] = useState('');
+  const [stackable, setStackable] = useState(false);
+  const [scopeTypes, setScopeTypes] = useState<string[]>([]);
+  const [scopePlans, setScopePlans] = useState<('monthly' | 'annual')[]>([]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] });
 
   const createMutation = useMutation({
     mutationFn: () => {
+      const scope =
+        scopeTypes.length || scopePlans.length
+          ? { itemTypes: scopeTypes.length ? scopeTypes : undefined, plans: scopePlans.length ? scopePlans : undefined }
+          : null;
       const payload: CreateCouponPayload = {
         code: code.trim(),
         discountType,
         discountValue:
           discountType === 'percent' ? Number(discountValue) : Math.round(Number(discountValue) * 100),
+        startsAt: startsAt ? new Date(startsAt).toISOString() : null,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         maxUses: maxUses ? Number(maxUses) : null,
         requiresUnlockCode,
+        perUserLimit: perUserLimit ? Number(perUserLimit) : null,
+        firstPurchaseOnly,
+        minPurchaseMinor: minPurchase ? Math.round(Number(minPurchase) * 100) : null,
+        maxDiscountMinor: maxDiscount ? Math.round(Number(maxDiscount) * 100) : null,
+        stackable,
+        appliesTo: scope,
       };
       return couponsApi.createCoupon(payload);
     },
@@ -36,9 +56,17 @@ export function CouponsPage() {
       pushToast('Coupon created', 'success');
       setCode('');
       setDiscountValue('10');
+      setStartsAt('');
       setExpiresAt('');
       setMaxUses('');
       setRequiresUnlockCode(false);
+      setPerUserLimit('');
+      setFirstPurchaseOnly(false);
+      setMinPurchase('');
+      setMaxDiscount('');
+      setStackable(false);
+      setScopeTypes([]);
+      setScopePlans([]);
       invalidate();
     },
     onError: (err) => pushToast(errorText(err, 'Could not create coupon'), 'error'),
@@ -109,9 +137,61 @@ export function CouponsPage() {
           </Field>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Starts (optional)">
+            <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="input-dark" />
+          </Field>
           <Field label="Expires (optional)">
             <input type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="input-dark" />
           </Field>
+          <Field label="Per-user limit (optional)">
+            <input type="number" min={1} value={perUserLimit} onChange={(e) => setPerUserLimit(e.target.value)} placeholder="No limit" className="input-dark" />
+          </Field>
+          <Field label="Minimum purchase ₹ (optional)">
+            <input type="number" min={0} value={minPurchase} onChange={(e) => setMinPurchase(e.target.value)} placeholder="None" className="input-dark" />
+          </Field>
+          <Field label="Maximum discount ₹ (optional)">
+            <input type="number" min={0} value={maxDiscount} onChange={(e) => setMaxDiscount(e.target.value)} placeholder="Uncapped" className="input-dark" />
+          </Field>
+          <Field label="Applies to (blank = everything)">
+            <div className="flex flex-wrap gap-2 pt-1.5">
+              {(['package', 'quiz', 'practiceTest', 'course', 'creatorProduct'] as const).map((t) => (
+                <label key={t} className="flex items-center gap-1.5 rounded-lg border border-surface-border px-2 py-1 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    checked={scopeTypes.includes(t)}
+                    onChange={(e) => setScopeTypes((c) => (e.target.checked ? [...c, t] : c.filter((x) => x !== t)))}
+                    className="h-3.5 w-3.5"
+                  />
+                  {t}
+                </label>
+              ))}
+            </div>
+          </Field>
+          <Field label="Creator plan (blank = both)">
+            <div className="flex gap-2 pt-1.5">
+              {(['monthly', 'annual'] as const).map((p) => (
+                <label key={p} className="flex items-center gap-1.5 rounded-lg border border-surface-border px-2 py-1 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    checked={scopePlans.includes(p)}
+                    onChange={(e) => setScopePlans((c) => (e.target.checked ? [...c, p] : c.filter((x) => x !== p)))}
+                    className="h-3.5 w-3.5"
+                  />
+                  {p}
+                </label>
+              ))}
+            </div>
+          </Field>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={firstPurchaseOnly} onChange={(e) => setFirstPurchaseOnly(e.target.checked)} className="h-4 w-4" />
+            First purchase only
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={stackable} onChange={(e) => setStackable(e.target.checked)} className="h-4 w-4" />
+            Stackable with other codes
+          </label>
         </div>
         <label className="mt-4 flex items-start gap-2.5 text-sm">
           <input

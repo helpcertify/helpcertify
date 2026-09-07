@@ -780,6 +780,27 @@ export interface CouponDoc {
   // unlock code only works once. Absent/false = works standalone, exactly
   // like every coupon before this field existed.
   requiresUnlockCode?: boolean;
+  // --- Promo Codes v2 (all optional; absent = pre-v2 behaviour) ---
+  // Redemption window start (expiresAt is the end). null = usable now.
+  startsAt?: Timestamp | null;
+  // Restrict which order contents the code applies to. null/absent = any.
+  appliesTo?: {
+    itemTypes?: PurchasableItemType[] | ('creatorProduct' | 'aiCreditPack')[];
+    creatorProductIds?: string[];
+    plans?: CreatorPlanKey[];
+  } | null;
+  // Times one uid may redeem this code (across separate orders). null = no cap.
+  perUserLimit?: number | null;
+  // Only redeemable on a uid's very first paid order.
+  firstPurchaseOnly?: boolean;
+  // Order subtotal (minor units) that must be met for the code to apply.
+  minPurchaseMinor?: number | null;
+  // Cap on the discount amount (minor units), applied after computeDiscount.
+  maxDiscountMinor?: number | null;
+  // Whether this code may combine with another. Default false. Checkout
+  // takes a single coupon per order today, so this is stored now and
+  // enforced if/when multi-coupon support is added.
+  stackable?: boolean;
   createdBy: string;
   createdAt: Timestamp;
 }
@@ -796,6 +817,123 @@ export interface CouponUnlockCodeDoc {
   usedAt: Timestamp | null;
   createdBy: string;
   createdAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Creator commercial model - four independently purchasable Creator products
+// plus bundles, sold on monthly / annual plans through the existing one-time
+// checkout (a "plan" grants its entitlements for 30 / 365 days; access lapses
+// and the creator re-purchases to renew). Every price lives in config here,
+// never hardcoded in UI/logic. See api/content-admin.ts's creator-commerce
+// actions and src/features/admin/lib/creatorProducts.ts.
+// ---------------------------------------------------------------------------
+
+export type CreatorEntitlement =
+  | 'course_creator_manual'
+  | 'course_creator_ai'
+  | 'exam_creator_manual'
+  | 'exam_creator_ai';
+
+export const CREATOR_ENTITLEMENTS: readonly CreatorEntitlement[] = [
+  'course_creator_manual',
+  'course_creator_ai',
+  'exam_creator_manual',
+  'exam_creator_ai',
+] as const;
+
+export type CreatorPlanKey = 'monthly' | 'annual';
+
+/** One plan's pricing block - deliberately mirrors PackageDoc's pricing
+ * fields so src/features/admin/lib/offerStatus.ts is reused verbatim. All
+ * amounts in minor units (paise). */
+export interface CreatorPlanPrice {
+  regularPrice: number;
+  sellingPrice: number;
+  offerPrice: number | null;
+  offerStart: Timestamp | null;
+  offerEnd: Timestamp | null;
+  offerCancelledAt: Timestamp | null;
+}
+
+/** creatorProducts/{productId} - the 4 products + 4 bundles. Admin-managed
+ * through Products & Pricing; seeded once (idempotent) with the initial
+ * prices, then fully editable with no deploy. */
+export interface CreatorProductDoc {
+  kind: 'product' | 'bundle';
+  name: string;
+  description: string;
+  // For a product: exactly its own entitlement. For a bundle: the union of
+  // its member products' entitlements (a bundle simply grants several).
+  entitlements: CreatorEntitlement[];
+  // Bundle only - the member product ids, for the admin editor + display.
+  bundledProductIds: string[];
+  plans: Record<CreatorPlanKey, CreatorPlanPrice>;
+  // HelpCertify AI Credits granted on purchase, per plan. 0 for Manual-only
+  // products. Configurable.
+  aiCreditsIncluded: Record<CreatorPlanKey, number>;
+  trial: { enabled: boolean; days: number };
+  taxTreatment: 'inclusive' | 'exclusive' | 'exempt';
+  promoEligible: boolean;
+  // Marketing badge - "Best Value" is seeded on the Creator Complete Suite.
+  badgeText: string | null;
+  currency: 'INR' | 'USD';
+  active: boolean;
+  visible: boolean;
+  displayOrder: number;
+  status: 'draft' | 'published' | 'archived';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/** creatorEntitlements/{uid}_{entitlement} - the single source of truth for
+ * "can this creator do X". Written by api/checkout.ts's finalizeOrder.
+ * Same expiresAt-in-the-past = not-owned convention as purchases/*. */
+export interface CreatorEntitlementDoc {
+  uid: string;
+  entitlement: CreatorEntitlement;
+  grantedByProductId: string;
+  plan: CreatorPlanKey;
+  pricePaidMinor: number;
+  currency: 'INR' | 'USD';
+  startsAt: Timestamp;
+  expiresAt: Timestamp;
+  orderId: string;
+  status: 'active' | 'cancelled';
+  updatedAt: Timestamp;
+}
+
+/** appSettings/aiCredits - the credit economy config. Nothing here is
+ * hardcoded in UI/logic. */
+export interface CreditConfigDoc {
+  // Credits deducted per AI operation.
+  operationCosts: Record<string, number>;
+  // How a creator's monthly/annual allowance refreshes.
+  resetRule: 'monthly_on_grant' | 'calendar_month' | 'none';
+  // Max credits that carry into the next period (0 = no rollover).
+  rolloverCap: number;
+  providerEnabled: { gemini: boolean; openai: boolean; anthropic: boolean };
+  creditPacks: { id: string; name: string; credits: number; priceMinor: number; currency: 'INR' | 'USD'; active: boolean }[];
+  updatedAt: Timestamp;
+}
+
+/** creatorCredits/{uid} - a creator's current HelpCertify AI Credits balance. */
+export interface CreatorCreditsDoc {
+  uid: string;
+  balance: number;
+  grantedThisPeriod: number;
+  periodKey: string;
+  updatedAt: Timestamp;
+}
+
+/** creatorCreditLedger/{uid}/entries/{entryId} - append-only audit of every
+ * balance change. */
+export interface CreatorCreditLedgerEntryDoc {
+  delta: number;
+  reason: 'grant' | 'spend' | 'pack_purchase' | 'admin_adjust' | 'reset';
+  op: string | null;
+  balanceAfter: number;
+  refId: string | null;
+  at: Timestamp;
 }
 
 /** orders/{orderId} - one checkout attempt. Prices are snapshotted here at

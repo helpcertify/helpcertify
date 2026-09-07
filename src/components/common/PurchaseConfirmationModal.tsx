@@ -3,7 +3,7 @@ import type { PurchasableItemType } from '@/types/models';
 import { ModalCloseButton } from './ModalCloseButton';
 
 interface Item {
-  itemType: PurchasableItemType;
+  itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack';
   itemId: string;
   title: string;
 }
