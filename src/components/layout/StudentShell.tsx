@@ -15,6 +15,7 @@ import { useExamCountdowns, featuredExamCountdown } from '@/features/students/ho
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Avatar } from '@/components/common/Avatar';
+import { useMyCreatorEntitlements } from '@/features/creator/hooks/useCreatorCommerce';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -77,6 +78,14 @@ export function StudentShell() {
     staleTime: 5 * 60_000,
   });
 
+  // Once the Creator commercial model is switched on, a purchased Course
+  // Creator plan (Manual or AI) also lights up the builder link - the
+  // legacy feature-access flag above is no longer the only way in.
+  const creatorEnt = useMyCreatorEntitlements();
+  const showCourseBuilder =
+    aiCourseAccess?.allowed ||
+    (creatorEnt.commerceEnabled && (creatorEnt.hasCourseAi || creatorEnt.hasCourseManual));
+
   const handleSignOut = async () => {
     await authApi.logout();
     navigate('/login');
@@ -123,9 +132,9 @@ export function StudentShell() {
       <NavLink to="/home/trainer" onClick={onNavigate} className={navLinkClass}>
         {profile?.trainerId ? 'Trainer Workspace' : 'Become a Trainer'}
       </NavLink>
-      {aiCourseAccess?.allowed && (
+      {showCourseBuilder && (
         <NavLink to="/home/creator/courses" onClick={onNavigate} className={navLinkClass}>
-          AI Course Builder
+          {creatorEnt.commerceEnabled ? 'Course Builder' : 'AI Course Builder'}
         </NavLink>
       )}
       <NavLink to="/home/creator/plans" onClick={onNavigate} className={navLinkClass}>
