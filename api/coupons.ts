@@ -71,6 +71,21 @@ const createCouponSchema = z.object({
   // own until paired with a valid couponUnlockCodes/{CODE} generated via
   // generateUnlockCodes below.
   requiresUnlockCode: z.boolean().default(false),
+  // --- Promo Codes v2 (all optional; omitted = pre-v2 behaviour) ---
+  startsAt: z.string().datetime().nullable().optional(),
+  perUserLimit: z.number().int().min(1).nullable().optional(),
+  firstPurchaseOnly: z.boolean().optional(),
+  minPurchaseMinor: z.number().int().min(0).nullable().optional(),
+  maxDiscountMinor: z.number().int().min(0).nullable().optional(),
+  stackable: z.boolean().optional(),
+  appliesTo: z
+    .object({
+      itemTypes: z.array(z.string()).optional(),
+      creatorProductIds: z.array(z.string()).optional(),
+      plans: z.array(z.enum(['monthly', 'annual'])).optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 async function createCoupon(uid: string, body: unknown) {
@@ -95,10 +110,17 @@ async function createCoupon(uid: string, body: unknown) {
     discountType: d.discountType,
     discountValue: d.discountValue,
     active: true,
+    startsAt: d.startsAt ? Timestamp.fromDate(new Date(d.startsAt)) : null,
     expiresAt: d.expiresAt ? Timestamp.fromDate(new Date(d.expiresAt)) : null,
     maxUses: d.maxUses ?? null,
     usedCount: 0,
     requiresUnlockCode: d.requiresUnlockCode,
+    perUserLimit: d.perUserLimit ?? null,
+    firstPurchaseOnly: d.firstPurchaseOnly ?? false,
+    minPurchaseMinor: d.minPurchaseMinor ?? null,
+    maxDiscountMinor: d.maxDiscountMinor ?? null,
+    stackable: d.stackable ?? false,
+    appliesTo: d.appliesTo ?? null,
     createdBy: uid,
     createdAt: FieldValue.serverTimestamp(),
   });
@@ -115,20 +137,35 @@ const codeSchema = z.object({ code: z.string().min(1) });
 const updateCouponSchema = z.object({
   code: z.string().min(1),
   active: z.boolean().optional(),
+  startsAt: z.string().datetime().nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional(),
   maxUses: z.number().int().min(1).nullable().optional(),
+  perUserLimit: z.number().int().min(1).nullable().optional(),
+  firstPurchaseOnly: z.boolean().optional(),
+  minPurchaseMinor: z.number().int().min(0).nullable().optional(),
+  maxDiscountMinor: z.number().int().min(0).nullable().optional(),
+  stackable: z.boolean().optional(),
+  appliesTo: z
+    .object({
+      itemTypes: z.array(z.string()).optional(),
+      creatorProductIds: z.array(z.string()).optional(),
+      plans: z.array(z.enum(['monthly', 'annual'])).optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 async function updateCoupon(body: unknown) {
   const parsed = updateCouponSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { code, expiresAt, ...rest } = parsed.data;
+  const { code, expiresAt, startsAt, ...rest } = parsed.data;
 
   const ref = db.collection('coupons').doc(code.toUpperCase());
   if (!(await ref.get()).exists) throw Err.notFound('Coupon not found');
 
   const update: Record<string, unknown> = { ...rest };
   if (expiresAt !== undefined) update.expiresAt = expiresAt ? Timestamp.fromDate(new Date(expiresAt)) : null;
+  if (startsAt !== undefined) update.startsAt = startsAt ? Timestamp.fromDate(new Date(startsAt)) : null;
   await ref.update(update);
   return { success: true };
 }

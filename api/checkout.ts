@@ -110,17 +110,58 @@ function getRazorpayCreds() {
   return { keyId, keySecret };
 }
 
-async function validateCoupon(code: string, uid: string) {
+// ctx carries the order being checked out so Promo Codes v2 scope / minimum
+// / per-user rules can be enforced. Absent = the bare pre-v2 checks only.
+async function validateCoupon(
+  code: string,
+  uid: string,
+  ctx?: {
+    subtotalMinor: number;
+    itemTypes: string[];
+    creatorProductIds: string[];
+    plans: string[];
+  },
+) {
   const snap = await db.collection('coupons').doc(code.toUpperCase()).get();
   if (!snap.exists) return null;
   const c = snap.data()!;
   if (!c.active) return null;
-  if (c.expiresAt && (c.expiresAt as Timestamp).toMillis() < Date.now()) return null;
+  const now = Date.now();
+  if (c.startsAt && (c.startsAt as Timestamp).toMillis() > now) return null;
+  if (c.expiresAt && (c.expiresAt as Timestamp).toMillis() < now) return null;
   if (c.maxUses !== null && c.maxUses !== undefined && c.usedCount >= c.maxUses) return null;
   // Refer & Earn reward coupons are minted for one specific learner - see
   // CouponDoc.restrictedToUserId. Absent on every admin-created coupon, so
   // this never affects the normal any-signed-in-learner codes.
   if (c.restrictedToUserId && c.restrictedToUserId !== uid) return null;
+
+  // --- Promo Codes v2 (all fields optional; absent = no restriction) ---
+  if (ctx) {
+    if (typeof c.minPurchaseMinor === 'number' && ctx.subtotalMinor < c.minPurchaseMinor) return null;
+    const scope = c.appliesTo as
+      | { itemTypes?: string[]; creatorProductIds?: string[]; plans?: string[] }
+      | null
+      | undefined;
+    if (scope) {
+      if (scope.itemTypes?.length && !ctx.itemTypes.some((t) => scope.itemTypes!.includes(t))) return null;
+      if (scope.creatorProductIds?.length && !ctx.creatorProductIds.some((id) => scope.creatorProductIds!.includes(id))) return null;
+      if (scope.plans?.length && ctx.plans.length > 0 && !ctx.plans.some((p) => scope.plans!.includes(p))) return null;
+    }
+    if (c.firstPurchaseOnly === true || (typeof c.perUserLimit === 'number' && c.perUserLimit > 0)) {
+      const priorPaid = await db
+        .collection('orders')
+        .where('userId', '==', uid)
+        .where('status', 'in', ['paid', 'partially_refunded'])
+        .get();
+      if (c.firstPurchaseOnly === true && priorPaid.size > 0) return null;
+      if (typeof c.perUserLimit === 'number' && c.perUserLimit > 0) {
+        const usedByUser = priorPaid.docs.filter(
+          (d) => String(d.data().couponCode ?? '').toUpperCase() === code.toUpperCase(),
+        ).length;
+        if (usedByUser >= c.perUserLimit) return null;
+      }
+    }
+  }
   return c;
 }
 
@@ -135,6 +176,10 @@ function computeDiscount(coupon: FirebaseFirestore.DocumentData, subtotal: numbe
     raw = Math.max(0, subtotal - coupon.discountValue);
   } else {
     raw = coupon.discountValue;
+  }
+  // Promo Codes v2: cap the discount amount.
+  if (typeof coupon.maxDiscountMinor === 'number' && coupon.maxDiscountMinor >= 0) {
+    raw = Math.min(raw, coupon.maxDiscountMinor);
   }
   return Math.min(raw, Math.max(subtotal - 100, 0));
 }
@@ -522,6 +567,7 @@ async function createOrder(uid: string, body: unknown) {
     certificationId: string | null;
     accessPeriodLabel: string;
     plan?: 'monthly' | 'annual';
+    promoEligible?: boolean;
   }[] = [];
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
@@ -568,6 +614,7 @@ async function createOrder(uid: string, body: unknown) {
         certificationId: null,
         accessPeriodLabel: plan === 'annual' ? '1 year access' : '30 days access',
         plan,
+        promoEligible: p.promoEligible !== false,
       });
       currency = p.currency === 'USD' ? 'USD' : 'INR';
       continue;
@@ -665,8 +712,17 @@ async function createOrder(uid: string, body: unknown) {
   // one was validated - finalizeOrder marks this doc used, in the same
   // batch as the coupon's own usedCount bump, once payment is confirmed.
   let appliedUnlockCode: string | null = null;
-  if (couponCode) {
-    const coupon = await validateCoupon(couponCode, uid);
+  const couponBlockedByProduct = orderItems.some((i) => i.promoEligible === false);
+  if (couponCode && couponBlockedByProduct && isExplicitBuyNowCoupon) {
+    throw Err.invalidArgument('This product is not eligible for promo codes');
+  }
+  if (couponCode && !couponBlockedByProduct) {
+    const coupon = await validateCoupon(couponCode, uid, {
+      subtotalMinor: subtotal,
+      itemTypes: [...new Set(orderItems.map((i) => i.itemType))],
+      creatorProductIds: orderItems.filter((i) => i.itemType === 'creatorProduct').map((i) => i.itemId),
+      plans: [...new Set(orderItems.map((i) => i.plan).filter((p): p is 'monthly' | 'annual' => !!p))],
+    });
     if (coupon) {
       if (coupon.requiresUnlockCode) {
         // This coupon does nothing on its own (see CouponDoc's own
