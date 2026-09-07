@@ -8,6 +8,7 @@ import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { computeOfferStatus, type OfferStatus } from '../lib/offerStatus';
 import { errorText } from '@/lib/errorMessages';
+import { CreatorProductsTab } from '../components/CreatorProductsTab';
 
 type StatusFilter = 'all' | CertificationAdminRow['status'];
 type SortKey = 'displayOrder' | 'name' | 'updated';
@@ -42,7 +43,7 @@ function toDateOrNull(v: unknown): Date | null {
 export function ProductsPricingPage() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
-  const [tab, setTab] = useState<'certifications' | 'offers'>('certifications');
+  const [tab, setTab] = useState<'certifications' | 'offers' | 'creator'>('certifications');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [providerFilter, setProviderFilter] = useState('all');
@@ -163,7 +164,16 @@ export function ProductsPricingPage() {
         >
           Scheduled Offers
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('creator')}
+          className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === 'creator' ? 'border-brand-500 text-brand-ink' : 'border-transparent text-ink-faint hover:text-ink'}`}
+        >
+          Creator Products
+        </button>
       </div>
+
+      {tab === 'creator' && <CreatorProductsTab />}
 
       {tab === 'certifications' && (
         <>
