@@ -4003,6 +4003,46 @@ async function getMyAiUsage(uid: string) {
   return { used: (usageSnap.data()?.count as number) ?? 0, limit, period: currentUsagePeriod() };
 }
 
+// --- HelpCertify AI Credits (Creator commercial model) -------------------
+// Charged in addition to the monthly-count quota above, but ONLY once
+// appSettings/aiCredits.enabled is flipped on (otherwise a full no-op so
+// existing AI users are unaffected). Admins are never charged. Cost per op
+// is config; a missing/zero cost is a no-op.
+async function creditContext(uid: string, op: string): Promise<{ charge: boolean; cost: number }> {
+  const [cfgSnap, userSnap] = await Promise.all([
+    db.collection('appSettings').doc('aiCredits').get(),
+    db.collection('users').doc(uid).get(),
+  ]);
+  const cfg = cfgSnap.data();
+  if (!cfg?.enabled || userSnap.data()?.role === 'admin') return { charge: false, cost: 0 };
+  const cost = Number((cfg.operationCosts as Record<string, number> | undefined)?.[op]) || 0;
+  return { charge: cost > 0, cost };
+}
+
+async function assertAiCredits(uid: string, op: string): Promise<void> {
+  const { charge, cost } = await creditContext(uid, op);
+  if (!charge) return;
+  const bal = (await db.collection('creatorCredits').doc(uid).get()).data()?.balance ?? 0;
+  if (bal < cost) {
+    throw Err.failedPrecondition(
+      `This needs ${cost} HelpCertify AI Credits and you have ${bal}. Buy a credit pack to continue.`,
+    );
+  }
+}
+
+async function spendAiCredits(uid: string, op: string): Promise<void> {
+  const { charge, cost } = await creditContext(uid, op);
+  if (!charge) return;
+  const ref = db.collection('creatorCredits').doc(uid);
+  await db.runTransaction(async (tx) => {
+    const bal = (await tx.get(ref)).data()?.balance ?? 0;
+    if (bal < cost) throw Err.failedPrecondition(`This needs ${cost} HelpCertify AI Credits and you have ${bal}. Buy a credit pack to continue.`);
+    const next = bal - cost;
+    tx.set(ref, { uid, balance: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    tx.set(ref.collection('ledger').doc(), { delta: -cost, reason: 'spend', op, balanceAfter: next, refId: null, at: FieldValue.serverTimestamp() });
+  });
+}
+
 // ===========================================================================
 // Creator commercial model - 4 purchasable Creator products + 4 bundles, sold
 // monthly/annual through the existing one-time checkout (a plan grants its
@@ -4050,6 +4090,9 @@ const CREATOR_PRODUCT_SEEDS: CreatorProductSeed[] = [
 ];
 
 const DEFAULT_CREDIT_CONFIG = {
+  // Master switch for the whole Creator commercial model. While false,
+  // AI generation is never charged credits and behaves exactly as before.
+  enabled: false,
   operationCosts: { course_blueprint: 10, lesson_content: 5, lesson_quiz: 3, visual_lesson: 8, exam_generation: 10 } as Record<string, number>,
   resetRule: 'monthly_on_grant' as const,
   rolloverCap: 0,
@@ -4215,6 +4258,7 @@ async function upsertCreatorProduct(uid: string, body: unknown) {
 }
 
 const setCreditConfigSchema = z.object({
+  enabled: z.boolean().optional(),
   operationCosts: z.record(z.string(), z.number().int().min(0)).optional(),
   resetRule: z.enum(['monthly_on_grant', 'calendar_month', 'none']).optional(),
   rolloverCap: z.number().int().min(0).optional(),
@@ -4429,6 +4473,7 @@ async function generateCourseOutline(uid: string, body: unknown) {
   });
 
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'course_blueprint');
   return { draftId: ref.id, outline };
 }
 
@@ -4510,6 +4555,7 @@ async function generateCourseBlueprint(uid: string, body: unknown) {
     throw Err.permissionDenied('The AI Course Builder is not available on this account');
   }
   await assertAiGenerationQuota(uid);
+  await assertAiCredits(uid, 'course_blueprint');
   const parsed = courseBlueprintSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
   const d = parsed.data;
@@ -4557,6 +4603,7 @@ async function generateCourseBlueprint(uid: string, body: unknown) {
   });
 
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'course_blueprint');
   return { draftId: ref.id, courseMeta: courseMetaFrom(d, bp.data), outline };
 }
 
@@ -4740,6 +4787,7 @@ async function generateLessonContent(uid: string, body: unknown) {
   }
 
   await assertAiGenerationQuota(uid);
+  await assertAiCredits(uid, 'lesson_content');
   const meta = (draft.courseMeta as Record<string, unknown> | undefined) ?? {};
   const raw = await callAiJson(
     'You write one written lesson for an online course. Respond with strict JSON only, matching: {"overview":string,"content":string,"narrationScript":string}. "overview" is 2-3 sentences on what the lesson covers and why. "content" is the lesson itself, 250-500 words, plain text with paragraph breaks (no markdown headers): plain-language explanation, one concrete example, key takeaways. "narrationScript" is the same lesson rewritten as spoken narration a presenter would read aloud, in short sentences.',
@@ -4762,6 +4810,7 @@ async function generateLessonContent(uid: string, body: unknown) {
     { merge: true }
   );
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'lesson_content');
   return { overview: lc.data.overview, content: lc.data.content, narrationScript: lc.data.narrationScript, cached: false };
 }
 
@@ -4793,6 +4842,7 @@ async function regenerateLessonNarration(uid: string, body: unknown) {
     { merge: true }
   );
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'visual_lesson');
   return { narrationScript: np.data.narrationScript };
 }
 
@@ -4914,6 +4964,7 @@ async function generateLessonStoryboard(uid: string, body: unknown) {
     { merge: true }
   );
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'visual_lesson');
   return { storyboard, cached: false };
 }
 
@@ -4953,6 +5004,7 @@ async function regenerateStoryboardScene(uid: string, body: unknown) {
   const storyboard = { scenes, voice: current.voice ?? '', generatedAt: Date.now() };
   await lessonRef.set({ storyboard, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'visual_lesson');
   return { storyboard };
 }
 
@@ -5105,6 +5157,7 @@ async function generateLessonQuiz(uid: string, body: unknown) {
     { merge: true }
   );
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'lesson_quiz');
   return { quiz };
 }
 
@@ -5215,6 +5268,7 @@ async function generateAllCourseContent(uid: string, body: unknown) {
   await ref.update({ generatedQuestions, generatedLessons, status: 'CONTENT_READY', updatedAt: FieldValue.serverTimestamp() });
 
   await incrementAiUsage(uid);
+  await spendAiCredits(uid, 'lesson_content');
   return { draftId: ref.id, generatedQuestions, generatedLessons, warnings };
 }
 

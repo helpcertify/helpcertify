@@ -330,6 +330,7 @@ function CreditConfigEditor({ config }: { config: CreditConfigView }) {
   const [costs, setCosts] = useState<Record<string, string>>(
     Object.fromEntries(Object.entries(config.operationCosts).map(([k, v]) => [k, String(v)])),
   );
+  const [enabled, setEnabled] = useState(config.enabled ?? false);
   const [resetRule, setResetRule] = useState(config.resetRule);
   const [rolloverCap, setRolloverCap] = useState(String(config.rolloverCap));
   const [providers, setProviders] = useState(config.providerEnabled);
@@ -338,6 +339,7 @@ function CreditConfigEditor({ config }: { config: CreditConfigView }) {
   const save = useMutation({
     mutationFn: () =>
       creatorCommerceApi.setCreditConfig({
+        enabled,
         operationCosts: Object.fromEntries(Object.entries(costs).map(([k, v]) => [k, Number(v) || 0])),
         resetRule,
         rolloverCap: Number(rolloverCap) || 0,
@@ -357,6 +359,14 @@ function CreditConfigEditor({ config }: { config: CreditConfigView }) {
       <p className="mb-4 max-w-2xl text-sm text-ink-faint">
         Credits gate every AI generation. Customers see a simple credit balance - never provider tokens.
       </p>
+
+      <label className="mb-4 flex items-center gap-2 rounded-lg border border-brand-500/30 bg-brand-50 px-3 py-2 text-sm text-ink dark:bg-brand-500/10">
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="h-4 w-4" />
+        <span>
+          <span className="font-semibold">Enforce credits &amp; sell Creator products</span> - the master switch for the
+          whole Creator commercial model. While off, AI generation is never charged and existing users are unaffected.
+        </span>
+      </label>
 
       <Field label="Credits per AI operation">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

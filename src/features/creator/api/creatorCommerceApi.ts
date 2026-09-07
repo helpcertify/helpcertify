@@ -35,6 +35,7 @@ export interface CreatorProductView {
 }
 
 export interface CreditConfigView {
+  enabled: boolean;
   operationCosts: Record<string, number>;
   resetRule: 'monthly_on_grant' | 'calendar_month' | 'none';
   rolloverCap: number;
