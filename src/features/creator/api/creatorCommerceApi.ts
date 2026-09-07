@@ -52,9 +52,13 @@ export interface MyEntitlement {
 
 export const creatorCommerceApi = {
   // Storefront + creator-facing
-  listProducts: () => callAction<{ products: CreatorProductView[] }>('content-admin', 'listCreatorProducts'),
+  listProducts: () =>
+    callAction<{ products: CreatorProductView[]; enabled: boolean }>('content-admin', 'listCreatorProducts'),
   getMyEntitlements: () =>
-    callAction<{ entitlements: MyEntitlement[]; aiCourseBuilderFlag: boolean }>('content-admin', 'getMyCreatorEntitlements'),
+    callAction<{ entitlements: MyEntitlement[]; aiCourseBuilderFlag: boolean; commerceEnabled: boolean }>(
+      'content-admin',
+      'getMyCreatorEntitlements',
+    ),
   getMyCredits: () =>
     callAction<{
       balance: number;

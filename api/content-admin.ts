@@ -4174,14 +4174,18 @@ async function listCreatorProductsAdmin() {
   return { products, creditConfig: cfgSnap.exists ? cfgSnap.data() : DEFAULT_CREDIT_CONFIG };
 }
 
-// Public storefront list - only what a buyer should see.
+// Public storefront list - only what a buyer should see, and only once the
+// Creator commercial model master switch (appSettings/aiCredits.enabled) is
+// on. While off, the storefront is empty and nothing is purchasable.
 async function listCreatorProducts() {
+  const cfgSnap = await db.collection('appSettings').doc('aiCredits').get();
+  if (!cfgSnap.data()?.enabled) return { products: [], enabled: false };
   const snap = await db.collection('creatorProducts').where('status', '==', 'published').get();
   const products = snap.docs
     .map(creatorProductRow)
     .filter((p) => p.active !== false && p.visible !== false)
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
-  return { products };
+  return { products, enabled: true };
 }
 
 const creatorProductUpsertSchema = z.object({
@@ -4276,6 +4280,24 @@ async function setCreditConfig(uid: string, body: unknown) {
   return { success: true };
 }
 
+// True when the user may use a given Creator capability. Until the master
+// switch is on, this is exactly the legacy `ai_course_builder` feature flag
+// (so no current creator loses access). Once on, a live
+// creatorEntitlements/{uid}_{entitlement} doc, an admin, or the legacy flag
+// (still an admin override for the AI paths) all grant it.
+async function creatorCanCreate(uid: string, entitlement: CreatorEntitlement): Promise<boolean> {
+  const [cfgSnap, flag] = await Promise.all([
+    db.collection('appSettings').doc('aiCredits').get(),
+    hasFeatureAccess(uid, 'ai_course_builder').catch(() => false),
+  ]);
+  if (!cfgSnap.data()?.enabled) return flag;
+  if (flag && (entitlement === 'course_creator_ai' || entitlement === 'exam_creator_ai')) return true;
+  const userSnap = await db.collection('users').doc(uid).get();
+  if (userSnap.data()?.role === 'admin') return true;
+  const e = (await db.collection('creatorEntitlements').doc(`${uid}_${entitlement}`).get()).data();
+  return !!e && e.status !== 'cancelled' && (e.expiresAt as Timestamp | undefined)?.toMillis?.() > Date.now();
+}
+
 // --- Creator-facing reads (student-reachable) ---
 
 async function getMyCreatorEntitlements(uid: string) {
@@ -4291,8 +4313,11 @@ async function getMyCreatorEntitlements(uid: string) {
       grantedByProductId: e.grantedByProductId as string,
     }));
   // Admin override: the legacy ai_course_builder flag still unlocks the AI paths.
-  const aiFlag = await hasFeatureAccess(uid, 'ai_course_builder').catch(() => false);
-  return { entitlements: active, aiCourseBuilderFlag: aiFlag };
+  const [aiFlag, cfgSnap] = await Promise.all([
+    hasFeatureAccess(uid, 'ai_course_builder').catch(() => false),
+    db.collection('appSettings').doc('aiCredits').get(),
+  ]);
+  return { entitlements: active, aiCourseBuilderFlag: aiFlag, commerceEnabled: !!cfgSnap.data()?.enabled };
 }
 
 async function getMyCreatorCredits(uid: string) {
@@ -4551,8 +4576,8 @@ function courseMetaFrom(d: z.infer<typeof courseBlueprintSchema>, parsed: z.infe
 }
 
 async function generateCourseBlueprint(uid: string, body: unknown) {
-  if (!(await hasFeatureAccess(uid, 'ai_course_builder'))) {
-    throw Err.permissionDenied('The AI Course Builder is not available on this account');
+  if (!(await creatorCanCreate(uid, 'course_creator_ai'))) {
+    throw Err.permissionDenied('AI course creation is not available on this account');
   }
   await assertAiGenerationQuota(uid);
   await assertAiCredits(uid, 'course_blueprint');
@@ -4605,6 +4630,67 @@ async function generateCourseBlueprint(uid: string, body: unknown) {
   await incrementAiUsage(uid);
   await spendAiCredits(uid, 'course_blueprint');
   return { draftId: ref.id, courseMeta: courseMetaFrom(d, bp.data), outline };
+}
+
+// Manual course path - a blank draft (no AI, no credit spend) that lands in
+// the same editor as an AI-generated one. Gated on course_creator_manual.
+const createBlankCourseDraftSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  description: z.string().trim().max(2000).default(''),
+  targetAudience: z.string().trim().max(300).default(''),
+  difficulty: z.enum(SKILL_LEVELS).default('Foundation'),
+  language: z.string().trim().min(2).max(40).default('English'),
+  category: z.string().trim().min(1).max(100).default('Other'),
+  lessonCount: z.number().int().min(1).max(20).default(5),
+});
+
+async function createBlankCourseDraft(uid: string, body: unknown) {
+  if (!(await creatorCanCreate(uid, 'course_creator_manual'))) {
+    throw Err.permissionDenied('Manual course creation is not available on this account');
+  }
+  const parsed = createBlankCourseDraftSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const d = parsed.data;
+  const { authorType, authorId } = await resolveAiCourseAuthor(uid);
+
+  const outline = Array.from({ length: d.lessonCount }, (_, i) => ({
+    moduleIndex: i,
+    lessonKey: courseLessonKey(),
+    title: `Lesson ${i + 1}`,
+    description: '',
+    objectives: [] as string[],
+    estimatedMinutes: 10,
+    questionsPerModule: 10,
+  }));
+
+  const now = FieldValue.serverTimestamp();
+  const ref = db.collection('aiCourseDrafts').doc();
+  await ref.set({
+    authorUid: uid,
+    authorType,
+    authorId,
+    itemType: 'course',
+    creationMethod: 'manual',
+    topic: d.title,
+    category: d.category,
+    skillLevel: d.difficulty,
+    courseMeta: {
+      title: d.title,
+      description: d.description,
+      targetAudience: d.targetAudience,
+      difficulty: d.difficulty,
+      language: d.language,
+      learningObjectives: [] as string[],
+    },
+    status: 'OUTLINE_READY',
+    outline,
+    generatedQuestions: {},
+    generatedLessons: {},
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeAdminLog({ performedBy: uid, action: 'createBlankCourseDraft', targetType: 'aiCourseDraft', targetId: ref.id, description: `Started a manual course "${d.title}"` });
+  return { draftId: ref.id };
 }
 
 const courseMetaSchema = z.object({
@@ -5560,6 +5646,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'updateDraftOutline',
       'generateAllCourseContent',
       'generateCourseBlueprint',
+      'createBlankCourseDraft',
       'updateCourseDraft',
       'getCourseDraft',
       'listMyCourseDrafts',
@@ -5645,6 +5732,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'generateCourseBlueprint':
         res.status(200).json(await generateCourseBlueprint(uid, data));
+        return;
+      case 'createBlankCourseDraft':
+        res.status(200).json(await createBlankCourseDraft(uid, data));
         return;
       case 'updateCourseDraft':
         res.status(200).json(await updateCourseDraft(uid, data));

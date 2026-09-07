@@ -68,9 +68,9 @@ export function CreatorPlansPage() {
       </div>
 
       {isLoading && <p className="mt-6 text-sm text-ink-faint">Loading…</p>}
-      {!isLoading && products.length === 0 && (
+      {!isLoading && (products.length === 0 || data?.enabled === false) && (
         <p className="mt-6 rounded-xl border border-dashed border-surface-border p-8 text-center text-sm text-ink-faint">
-          Creator plans are not available yet.
+          Creator plans are not available yet - check back soon.
         </p>
       )}
 

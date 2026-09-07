@@ -92,6 +92,16 @@ export const courseBuilderApi = {
       payload,
     ),
 
+  createBlankDraft: (payload: {
+    title: string;
+    description?: string;
+    targetAudience?: string;
+    difficulty?: SkillLevel;
+    language?: string;
+    category?: string;
+    lessonCount?: number;
+  }) => callAction<{ draftId: string }>('content-admin', 'createBlankCourseDraft', payload),
+
   updateDraft: (draftId: string, courseMeta: CourseMeta, outline: CourseLessonOutline[]) =>
     callAction<{ success: true }>('content-admin', 'updateCourseDraft', { draftId, courseMeta, outline }),
 

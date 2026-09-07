@@ -8,6 +8,7 @@ import { SKILL_LEVELS, type SkillLevel } from '@/types/models';
 import { aiCourseBuilderApi } from '@/features/catalogSubmissions/api/aiCourseBuilderApi';
 import { courseBuilderApi } from '../courseBuilderApi';
 import { courseBuilderBase } from '../basePath';
+import { useMyCreatorEntitlements, useMyCreatorCredits } from '@/features/creator/hooks/useCreatorCommerce';
 
 // Stage 1 of AI course creation: the brief form + a list of the creator's
 // existing course drafts. "Generate Course with AI" creates a draft and
@@ -31,6 +32,33 @@ export function CourseDraftsPage() {
   const [language, setLanguage] = useState('English');
   const [category, setCategory] = useState('Other');
 
+  const ent = useMyCreatorEntitlements();
+  const { data: credits } = useMyCreatorCredits();
+  // The method chooser only appears once the Creator commercial model is
+  // switched on; before that the page behaves exactly as before.
+  const commerce = ent.commerceEnabled;
+  const [method, setMethod] = useState<'ai' | 'manual'>('ai');
+  const activeMethod = !commerce ? 'ai' : method;
+
+  const startManual = useMutation({
+    mutationFn: () =>
+      courseBuilderApi.createBlankDraft({
+        title: title.trim(),
+        description: description.trim(),
+        targetAudience: audience.trim(),
+        difficulty,
+        language: language.trim() || 'English',
+        category,
+        lessonCount: Number(lessonCount) || 5,
+      }),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ['courseBuilder', 'myDrafts'] });
+      pushToast('Course started. Add your lessons in the editor.', 'success');
+      navigate(`${base}/${r.draftId}`);
+    },
+    onError: (err) => pushToast(errorText(err, 'Could not start the course'), 'error'),
+  });
+
   const generate = useMutation({
     mutationFn: () =>
       courseBuilderApi.generateBlueprint({
@@ -51,7 +79,7 @@ export function CourseDraftsPage() {
     onError: (err) => pushToast(errorText(err, 'Could not generate the course'), 'error'),
   });
 
-  if (access && !access.allowed) {
+  if (!commerce && access && !access.allowed) {
     return (
       <div className="mx-auto max-w-4xl">
         <p className="rounded-xl border border-dashed border-surface-border p-6 text-center text-sm text-ink-faint">
@@ -64,19 +92,54 @@ export function CourseDraftsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-ink">Create a course with AI</h1>
+        <h1 className="text-2xl font-bold text-ink">Create a course</h1>
         <p className="mt-1 text-sm text-ink-faint">
-          Describe the course. AI drafts a structure you can edit lesson by lesson. Lesson content and visual
-          lessons are generated later, on demand, one at a time.
+          {activeMethod === 'ai'
+            ? 'Describe the course. AI drafts a structure you can edit lesson by lesson; lesson content is generated later, on demand.'
+            : 'Set up the course, then write each lesson yourself in the editor.'}
         </p>
-        {usage && usage.limit >= 0 && (
-          <p className={`mt-2 text-xs font-medium ${usage.used >= usage.limit ? 'text-red-500' : 'text-ink-faint'}`}>
-            {Math.max(0, usage.limit - usage.used)} of {usage.limit} AI generations left this month
-            {usage.used >= usage.limit && ' - limit reached, resets on the 1st'}
-          </p>
-        )}
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          {commerce && (
+            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-ink">
+              HelpCertify AI Credits: {credits?.balance ?? 0}
+            </span>
+          )}
+          {usage && usage.limit >= 0 && (
+            <span className={`text-xs font-medium ${usage.used >= usage.limit ? 'text-danger' : 'text-ink-faint'}`}>
+              {Math.max(0, usage.limit - usage.used)} of {usage.limit} AI generations left this month
+            </span>
+          )}
+        </div>
       </div>
 
+      {commerce && (
+        <div className="flex flex-wrap gap-3">
+          {(['manual', 'ai'] as const).map((m) => {
+            const owned = m === 'ai' ? ent.hasCourseAi : ent.hasCourseManual;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                  activeMethod === m
+                    ? 'border-brand-500 bg-brand-500 text-white'
+                    : 'border-surface-border-strong bg-surface-raised text-ink-muted hover:border-brand-400'
+                }`}
+              >
+                {m === 'ai' ? 'Create with AI' : 'Build Manually'}
+                {!owned && <span className="ml-1.5 opacity-70">· locked</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {commerce && activeMethod === 'ai' && !ent.hasCourseAi ? (
+        <UpgradeCard message="AI course creation needs the Course Creator - AI plan." />
+      ) : commerce && activeMethod === 'manual' && !ent.hasCourseManual ? (
+        <UpgradeCard message="Manual course creation needs the Course Creator - Manual plan." />
+      ) : (
       <section className="space-y-3 rounded-xl border border-surface-border bg-surface-raised p-6">
         <label className="block text-xs font-medium uppercase tracking-wide text-ink-faint">Course title</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Networking Basics" className="input-dark w-full" />
@@ -109,15 +172,27 @@ export function CourseDraftsPage() {
         <label className="block text-xs font-medium uppercase tracking-wide text-ink-faint">Category</label>
         <CategorySelect value={category} onChange={setCategory} />
 
-        <button
-          type="button"
-          disabled={generate.isPending || title.trim().length < 3}
-          onClick={() => generate.mutate()}
-          className="mt-2 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
-        >
-          {generate.isPending ? 'Generating course…' : 'Generate Course with AI'}
-        </button>
+        {activeMethod === 'ai' ? (
+          <button
+            type="button"
+            disabled={generate.isPending || title.trim().length < 3}
+            onClick={() => generate.mutate()}
+            className="mt-2 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+          >
+            {generate.isPending ? 'Generating course…' : 'Generate Course with AI'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={startManual.isPending || title.trim().length < 3}
+            onClick={() => startManual.mutate()}
+            className="mt-2 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+          >
+            {startManual.isPending ? 'Starting…' : 'Start building'}
+          </button>
+        )}
       </section>
+      )}
 
       <section className="rounded-xl border border-surface-border bg-surface-raised p-6">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">My course drafts</h2>
@@ -143,6 +218,20 @@ export function CourseDraftsPage() {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+function UpgradeCard({ message }: { message: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-surface-border bg-surface-raised p-6 text-center">
+      <p className="text-sm text-ink-faint">{message}</p>
+      <Link
+        to="/home/creator/plans"
+        className="mt-3 inline-block rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+      >
+        View Creator plans
+      </Link>
     </div>
   );
 }

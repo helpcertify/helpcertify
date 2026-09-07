@@ -18,6 +18,7 @@ export function useMyCreatorEntitlements() {
     ...q,
     held,
     aiCourseBuilderFlag: flag,
+    commerceEnabled: q.data?.commerceEnabled ?? false,
     hasCourseManual: has('course_creator_manual'),
     hasCourseAi: has('course_creator_ai'),
     hasExamManual: has('exam_creator_manual'),

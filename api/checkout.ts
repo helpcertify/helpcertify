@@ -571,6 +571,11 @@ async function createOrder(uid: string, body: unknown) {
   }[] = [];
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
+    if (entry.itemType === 'creatorProduct' || entry.itemType === 'aiCreditPack') {
+      // Master switch for the whole Creator commercial model.
+      const ccCfg = (await db.collection('appSettings').doc('aiCredits').get()).data();
+      if (!ccCfg?.enabled) throw Err.failedPrecondition('Creator plans are not available for purchase right now');
+    }
     if (entry.itemType === 'creatorProduct') {
       const plan = entry.plan === 'annual' ? 'annual' : 'monthly';
       const pSnap = await db.collection('creatorProducts').doc(entry.itemId).get();
