@@ -11,7 +11,7 @@ import type { PurchasableItemType } from '@/types/models';
 import type { CheckoutConsentState } from '../lib/checkoutConsent';
 
 interface CheckoutItem {
-  itemType: PurchasableItemType;
+  itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack';
   itemId: string;
   title: string;
 }
@@ -32,7 +32,7 @@ export function useCheckout() {
   const checkout = async (opts: {
     items: CheckoutItem[];
     consent: CheckoutConsentState;
-    buyNowItem?: { itemType: PurchasableItemType; itemId: string };
+    buyNowItem?: { itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack'; itemId: string; plan?: 'monthly' | 'annual' };
     couponCode?: string;
     unlockCode?: string;
     useCredit?: boolean;
