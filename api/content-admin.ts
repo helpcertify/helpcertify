@@ -4003,6 +4003,287 @@ async function getMyAiUsage(uid: string) {
   return { used: (usageSnap.data()?.count as number) ?? 0, limit, period: currentUsagePeriod() };
 }
 
+// ===========================================================================
+// Creator commercial model - 4 purchasable Creator products + 4 bundles, sold
+// monthly/annual through the existing one-time checkout (a plan grants its
+// entitlements for 30/365 days). Every price is config here, editable by
+// admin with no deploy. Checkout wiring lives in api/checkout.ts; this file
+// owns the product config, entitlement reads and the AI-credit economy.
+// Self-contained per this repo's no-shared-api-code convention - the seed
+// catalogue below is the paise mirror of
+// src/features/admin/lib/creatorProducts.ts.
+// ===========================================================================
+
+const CREATOR_ENTITLEMENTS = [
+  'course_creator_manual',
+  'course_creator_ai',
+  'exam_creator_manual',
+  'exam_creator_ai',
+] as const;
+type CreatorEntitlement = (typeof CREATOR_ENTITLEMENTS)[number];
+type CreatorPlanKey = 'monthly' | 'annual';
+
+const R = (rupees: number) => rupees * 100; // whole rupees -> paise
+
+interface CreatorProductSeed {
+  id: string;
+  kind: 'product' | 'bundle';
+  name: string;
+  description: string;
+  entitlement: CreatorEntitlement | null;
+  bundledProductIds: string[];
+  price: Record<CreatorPlanKey, number>;
+  aiCredits: Record<CreatorPlanKey, number>;
+  badgeText: string | null;
+  displayOrder: number;
+}
+
+const CREATOR_PRODUCT_SEEDS: CreatorProductSeed[] = [
+  { id: 'course_creator_manual', kind: 'product', name: 'Course Creator - Manual', description: 'Build courses by hand - structure, lessons and content authored yourself.', entitlement: 'course_creator_manual', bundledProductIds: [], price: { monthly: R(499), annual: R(4999) }, aiCredits: { monthly: 0, annual: 0 }, badgeText: null, displayOrder: 1 },
+  { id: 'course_creator_ai', kind: 'product', name: 'Course Creator - AI', description: 'Generate a full course structure and lesson content with HelpCertify AI, then refine.', entitlement: 'course_creator_ai', bundledProductIds: [], price: { monthly: R(1299), annual: R(12999) }, aiCredits: { monthly: 100, annual: 1200 }, badgeText: null, displayOrder: 2 },
+  { id: 'exam_creator_manual', kind: 'product', name: 'Exam Creator - Manual', description: 'Author practice exams and mock exams by hand or from your own question document.', entitlement: 'exam_creator_manual', bundledProductIds: [], price: { monthly: R(399), annual: R(3999) }, aiCredits: { monthly: 0, annual: 0 }, badgeText: null, displayOrder: 3 },
+  { id: 'exam_creator_ai', kind: 'product', name: 'Exam Creator - AI', description: 'Generate practice and mock exam questions on any topic with HelpCertify AI.', entitlement: 'exam_creator_ai', bundledProductIds: [], price: { monthly: R(999), annual: R(9999) }, aiCredits: { monthly: 60, annual: 720 }, badgeText: null, displayOrder: 4 },
+  { id: 'manual_creator_pack', kind: 'bundle', name: 'Manual Creator Pack', description: 'Build both courses and exams by hand.', entitlement: null, bundledProductIds: ['course_creator_manual', 'exam_creator_manual'], price: { monthly: R(749), annual: R(7499) }, aiCredits: { monthly: 0, annual: 0 }, badgeText: null, displayOrder: 5 },
+  { id: 'course_creator_complete', kind: 'bundle', name: 'Course Creator Complete', description: 'Everything for courses - build by hand or generate with AI, your choice every time.', entitlement: null, bundledProductIds: ['course_creator_manual', 'course_creator_ai'], price: { monthly: R(1499), annual: R(14999) }, aiCredits: { monthly: 100, annual: 1200 }, badgeText: null, displayOrder: 6 },
+  { id: 'exam_creator_complete', kind: 'bundle', name: 'Exam Creator Complete', description: 'Everything for exams - author by hand or generate with AI, your choice every time.', entitlement: null, bundledProductIds: ['exam_creator_manual', 'exam_creator_ai'], price: { monthly: R(1199), annual: R(11999) }, aiCredits: { monthly: 60, annual: 720 }, badgeText: null, displayOrder: 7 },
+  { id: 'creator_complete_suite', kind: 'bundle', name: 'Creator Complete Suite', description: 'The complete Creator toolkit - build courses and exams, by hand or with AI.', entitlement: null, bundledProductIds: ['course_creator_manual', 'course_creator_ai', 'exam_creator_manual', 'exam_creator_ai'], price: { monthly: R(2499), annual: R(24999) }, aiCredits: { monthly: 160, annual: 1920 }, badgeText: 'Best Value', displayOrder: 8 },
+];
+
+const DEFAULT_CREDIT_CONFIG = {
+  operationCosts: { course_blueprint: 10, lesson_content: 5, lesson_quiz: 3, visual_lesson: 8, exam_generation: 10 } as Record<string, number>,
+  resetRule: 'monthly_on_grant' as const,
+  rolloverCap: 0,
+  providerEnabled: { gemini: true, openai: false, anthropic: false },
+  creditPacks: [
+    { id: 'pack_small', name: '100 credits', credits: 100, priceMinor: R(299), currency: 'INR' as const, active: true },
+    { id: 'pack_large', name: '500 credits', credits: 500, priceMinor: R(1199), currency: 'INR' as const, active: true },
+  ],
+};
+
+function creatorSeedById(id: string): CreatorProductSeed | undefined {
+  return CREATOR_PRODUCT_SEEDS.find((s) => s.id === id);
+}
+
+// Union of a bundle's members' own entitlements (deduped, order-stable).
+function expandBundleEntitlements(bundledProductIds: string[]): CreatorEntitlement[] {
+  const out: CreatorEntitlement[] = [];
+  for (const id of bundledProductIds) {
+    const m = creatorSeedById(id);
+    if (m?.entitlement && !out.includes(m.entitlement)) out.push(m.entitlement);
+  }
+  return out;
+}
+
+// The one-time idempotent seed - writes any missing creatorProducts/{id}
+// with the initial prices; never overwrites a product the admin has since
+// edited (checked by doc existence).
+async function seedCreatorProducts(uid: string) {
+  const now = FieldValue.serverTimestamp();
+  let created = 0;
+  for (const s of CREATOR_PRODUCT_SEEDS) {
+    const ref = db.collection('creatorProducts').doc(s.id);
+    if ((await ref.get()).exists) continue;
+    const entitlements = s.kind === 'bundle' ? expandBundleEntitlements(s.bundledProductIds) : s.entitlement ? [s.entitlement] : [];
+    const plan = (minor: number) => ({
+      regularPrice: minor,
+      sellingPrice: minor,
+      offerPrice: null,
+      offerStart: null,
+      offerEnd: null,
+      offerCancelledAt: null,
+    });
+    await ref.set({
+      kind: s.kind,
+      name: s.name,
+      description: s.description,
+      entitlements,
+      bundledProductIds: s.bundledProductIds,
+      plans: { monthly: plan(s.price.monthly), annual: plan(s.price.annual) },
+      aiCreditsIncluded: s.aiCredits,
+      trial: { enabled: false, days: 0 },
+      taxTreatment: 'inclusive',
+      promoEligible: true,
+      badgeText: s.badgeText,
+      currency: 'INR',
+      active: true,
+      visible: true,
+      displayOrder: s.displayOrder,
+      status: 'published',
+      createdAt: now,
+      updatedAt: now,
+    });
+    created += 1;
+  }
+  const cfgRef = db.collection('appSettings').doc('aiCredits');
+  if (!(await cfgRef.get()).exists) await cfgRef.set({ ...DEFAULT_CREDIT_CONFIG, updatedAt: now });
+  await writeAdminLog({ performedBy: uid, action: 'seedCreatorProducts', targetType: 'creatorProduct', targetId: 'batch', description: `Seeded ${created} creator product(s)` });
+  return { created, total: CREATOR_PRODUCT_SEEDS.length };
+}
+
+function creatorProductRow(d: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot) {
+  return { id: d.id, ...d.data() } as FirebaseFirestore.DocumentData & { id: string };
+}
+
+async function listCreatorProductsAdmin() {
+  const snap = await db.collection('creatorProducts').get();
+  const products = snap.docs.map(creatorProductRow).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const cfgSnap = await db.collection('appSettings').doc('aiCredits').get();
+  return { products, creditConfig: cfgSnap.exists ? cfgSnap.data() : DEFAULT_CREDIT_CONFIG };
+}
+
+// Public storefront list - only what a buyer should see.
+async function listCreatorProducts() {
+  const snap = await db.collection('creatorProducts').where('status', '==', 'published').get();
+  const products = snap.docs
+    .map(creatorProductRow)
+    .filter((p) => p.active !== false && p.visible !== false)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  return { products };
+}
+
+const creatorProductUpsertSchema = z.object({
+  productId: z.string().trim().min(1),
+  name: z.string().trim().min(2).max(120).optional(),
+  description: z.string().trim().max(2000).optional(),
+  badgeText: z.string().trim().max(40).nullable().optional(),
+  active: z.boolean().optional(),
+  visible: z.boolean().optional(),
+  promoEligible: z.boolean().optional(),
+  taxTreatment: z.enum(['inclusive', 'exclusive', 'exempt']).optional(),
+  displayOrder: z.number().int().min(0).optional(),
+  trial: z.object({ enabled: z.boolean(), days: z.number().int().min(0).max(90) }).optional(),
+  aiCreditsIncluded: z.object({ monthly: z.number().int().min(0), annual: z.number().int().min(0) }).optional(),
+  bundledProductIds: z.array(z.string().min(1)).optional(),
+  plans: z
+    .object({
+      monthly: z
+        .object({
+          regularPrice: z.number().int().min(0),
+          sellingPrice: z.number().int().min(0),
+          offerPrice: z.number().int().min(0).nullable(),
+          offerStart: z.string().datetime().nullable(),
+          offerEnd: z.string().datetime().nullable(),
+        })
+        .partial()
+        .optional(),
+      annual: z
+        .object({
+          regularPrice: z.number().int().min(0),
+          sellingPrice: z.number().int().min(0),
+          offerPrice: z.number().int().min(0).nullable(),
+          offerStart: z.string().datetime().nullable(),
+          offerEnd: z.string().datetime().nullable(),
+        })
+        .partial()
+        .optional(),
+    })
+    .optional(),
+});
+
+async function upsertCreatorProduct(uid: string, body: unknown) {
+  const parsed = creatorProductUpsertSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { productId, plans, bundledProductIds, ...rest } = parsed.data;
+  const ref = db.collection('creatorProducts').doc(productId);
+  const snap = await ref.get();
+  if (!snap.exists) throw Err.notFound('Creator product not found - run "Seed products" first');
+  const existing = snap.data()!;
+
+  const update: Record<string, unknown> = { ...rest, updatedAt: FieldValue.serverTimestamp() };
+  if (bundledProductIds) {
+    update.bundledProductIds = bundledProductIds;
+    update.entitlements = expandBundleEntitlements(bundledProductIds);
+  }
+  if (plans) {
+    const merged = { ...(existing.plans ?? {}) } as Record<string, Record<string, unknown>>;
+    for (const key of ['monthly', 'annual'] as const) {
+      const p = plans[key];
+      if (!p) continue;
+      const cur = { ...(merged[key] ?? {}) };
+      if (p.regularPrice !== undefined) cur.regularPrice = p.regularPrice;
+      if (p.sellingPrice !== undefined) cur.sellingPrice = p.sellingPrice;
+      if (p.offerPrice !== undefined) cur.offerPrice = p.offerPrice;
+      if (p.offerStart !== undefined) cur.offerStart = p.offerStart ? Timestamp.fromDate(new Date(p.offerStart)) : null;
+      if (p.offerEnd !== undefined) cur.offerEnd = p.offerEnd ? Timestamp.fromDate(new Date(p.offerEnd)) : null;
+      merged[key] = cur;
+    }
+    update.plans = merged;
+  }
+  await ref.update(update);
+  await writeAdminLog({ performedBy: uid, action: 'upsertCreatorProduct', targetType: 'creatorProduct', targetId: productId, description: `Updated creator product "${existing.name}"` });
+  return { success: true };
+}
+
+const setCreditConfigSchema = z.object({
+  operationCosts: z.record(z.string(), z.number().int().min(0)).optional(),
+  resetRule: z.enum(['monthly_on_grant', 'calendar_month', 'none']).optional(),
+  rolloverCap: z.number().int().min(0).optional(),
+  providerEnabled: z.object({ gemini: z.boolean(), openai: z.boolean(), anthropic: z.boolean() }).optional(),
+  creditPacks: z
+    .array(z.object({ id: z.string().min(1), name: z.string().min(1), credits: z.number().int().min(1), priceMinor: z.number().int().min(0), currency: z.enum(['INR', 'USD']), active: z.boolean() }))
+    .optional(),
+});
+
+async function setCreditConfig(uid: string, body: unknown) {
+  const parsed = setCreditConfigSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  await db.collection('appSettings').doc('aiCredits').set({ ...parsed.data, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await writeAdminLog({ performedBy: uid, action: 'setCreditConfig', targetType: 'appSettings', targetId: 'aiCredits', description: 'Updated AI credit config' });
+  return { success: true };
+}
+
+// --- Creator-facing reads (student-reachable) ---
+
+async function getMyCreatorEntitlements(uid: string) {
+  const snap = await db.collection('creatorEntitlements').where('uid', '==', uid).get();
+  const now = Date.now();
+  const active = snap.docs
+    .map((d) => d.data())
+    .filter((e) => e.status !== 'cancelled' && (e.expiresAt as Timestamp | undefined)?.toMillis?.() > now)
+    .map((e) => ({
+      entitlement: e.entitlement as string,
+      plan: e.plan as string,
+      expiresAt: (e.expiresAt as Timestamp).toDate().toISOString(),
+      grantedByProductId: e.grantedByProductId as string,
+    }));
+  // Admin override: the legacy ai_course_builder flag still unlocks the AI paths.
+  const aiFlag = await hasFeatureAccess(uid, 'ai_course_builder').catch(() => false);
+  return { entitlements: active, aiCourseBuilderFlag: aiFlag };
+}
+
+async function getMyCreatorCredits(uid: string) {
+  const [creditsSnap, cfgSnap] = await Promise.all([
+    db.collection('creatorCredits').doc(uid).get(),
+    db.collection('appSettings').doc('aiCredits').get(),
+  ]);
+  const cfg = cfgSnap.exists ? cfgSnap.data()! : DEFAULT_CREDIT_CONFIG;
+  return {
+    balance: (creditsSnap.data()?.balance as number) ?? 0,
+    operationCosts: cfg.operationCosts ?? DEFAULT_CREDIT_CONFIG.operationCosts,
+    resetRule: cfg.resetRule ?? DEFAULT_CREDIT_CONFIG.resetRule,
+    creditPacks: (cfg.creditPacks ?? DEFAULT_CREDIT_CONFIG.creditPacks).filter((p: { active: boolean }) => p.active),
+  };
+}
+
+const adminAdjustCreditsSchema = z.object({ uid: z.string().min(1), delta: z.number().int(), note: z.string().trim().max(200).optional() });
+
+async function adminAdjustCredits(adminUid: string, body: unknown) {
+  const parsed = adminAdjustCreditsSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { uid, delta, note } = parsed.data;
+  const ref = db.collection('creatorCredits').doc(uid);
+  const now = FieldValue.serverTimestamp();
+  const balanceAfter = await db.runTransaction(async (tx) => {
+    const cur = (await tx.get(ref)).data()?.balance ?? 0;
+    const next = Math.max(0, cur + delta);
+    tx.set(ref, { uid, balance: next, updatedAt: now }, { merge: true });
+    tx.set(ref.collection('ledger').doc(), { delta: next - cur, reason: 'admin_adjust', op: null, balanceAfter: next, refId: adminUid, at: now, note: note ?? null });
+    return next;
+  });
+  await writeAdminLog({ performedBy: adminUid, action: 'adminAdjustCredits', targetType: 'creatorCredits', targetId: uid, description: `Adjusted credits by ${delta} (now ${balanceAfter})` });
+  return { balance: balanceAfter };
+}
+
 // Google Gemini (gemini-3.6-flash) via its REST API - has a genuine free
 // tier through Google AI Studio, unlike OpenAI. responseMimeType
 // 'application/json' is Gemini's equivalent of forcing JSON output. This
@@ -5242,6 +5523,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       'markLessonComplete',
       'listMyCourseProgress',
       'getMyAiUsage',
+      'listCreatorProducts',
+      'getMyCreatorEntitlements',
+      'getMyCreatorCredits',
     ]);
     const { uid } = STUDENT_REACHABLE_ACTIONS.has(String(action))
       ? await verifyAuthedUser(req)
@@ -5376,6 +5660,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'backfillCertificationCovers':
         res.status(200).json(await backfillCertificationCovers(uid));
+        return;
+      case 'seedCreatorProducts':
+        res.status(200).json(await seedCreatorProducts(uid));
+        return;
+      case 'listCreatorProductsAdmin':
+        res.status(200).json(await listCreatorProductsAdmin());
+        return;
+      case 'upsertCreatorProduct':
+        res.status(200).json(await upsertCreatorProduct(uid, data));
+        return;
+      case 'setCreditConfig':
+        res.status(200).json(await setCreditConfig(uid, data));
+        return;
+      case 'adminAdjustCredits':
+        res.status(200).json(await adminAdjustCredits(uid, data));
+        return;
+      case 'listCreatorProducts':
+        res.status(200).json(await listCreatorProducts());
+        return;
+      case 'getMyCreatorEntitlements':
+        res.status(200).json(await getMyCreatorEntitlements(uid));
+        return;
+      case 'getMyCreatorCredits':
+        res.status(200).json(await getMyCreatorCredits(uid));
         return;
       case 'createQuiz':
         res.status(200).json(await createQuiz(uid, data));
