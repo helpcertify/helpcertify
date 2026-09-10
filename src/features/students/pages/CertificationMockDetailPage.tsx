@@ -4,7 +4,7 @@ import { Tabs, EmptyState, DataTable, StatCard, type TabItem } from '@/component
 import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
 import { toDate } from '@/utils/formatDate';
 import { useMockSeries, useMyMockAttempts } from '../hooks/useExamSeries';
-import { ExamDetailHeader, MockExamRow, formatDuration, pad2 } from '../components/exam';
+import { ExamDetailHeader, MockExamRow, ScoreTrend, formatDuration, pad2 } from '../components/exam';
 
 type TabId = 'mocks' | 'performance' | 'reviews';
 
@@ -115,6 +115,18 @@ export function CertificationMockDetailPage() {
                   <StatCard label="Latest score" value={scores[0] != null ? `${scores[0]}%` : '-'} />
                   <StatCard label="Average score" value={avgScore != null ? `${avgScore}%` : '-'} />
                 </div>
+                <ScoreTrend
+                  className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-card"
+                  points={[...seriesAttempts]
+                    .filter((a) => a.scorePct != null)
+                    .reverse()
+                    .map((a) => ({
+                      label: a.submittedAtMs
+                        ? toDate(a.submittedAtMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                        : '',
+                      scorePct: a.scorePct as number,
+                    }))}
+                />
                 <div className="rounded-xl border border-surface-border bg-surface-raised p-0 shadow-card">
                   <DataTable
                     head={

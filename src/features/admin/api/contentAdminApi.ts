@@ -380,6 +380,14 @@ export const contentAdminApi = {
     correctOptionId: string;
     domain?: string;
   }) => callAction<{ success: true }>('content-admin', 'updatePracticeTestQuestion', { ...payload }),
+  // Bulk AI domain tagging - tags one slice per call; loop following
+  // nextOffset until it comes back null.
+  autoTagPracticeDomains: (payload: { bankId: string; domains?: string[]; offset?: number }) =>
+    callAction<{ tagged: number; total: number; nextOffset: number | null; domainsUsed: string[] }>(
+      'content-admin',
+      'autoTagPracticeDomains',
+      { ...payload }
+    ),
 
   // --- Products & Pricing ---
   createBatchedSeries: (payload: CreateBatchedSeriesPayload) =>
