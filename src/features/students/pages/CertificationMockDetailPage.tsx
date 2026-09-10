@@ -4,7 +4,17 @@ import { Tabs, EmptyState, DataTable, StatCard, type TabItem } from '@/component
 import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
 import { toDate } from '@/utils/formatDate';
 import { useMockSeries, useMyMockAttempts } from '../hooks/useExamSeries';
-import { ExamDetailHeader, MockExamRow, ScoreTrend, CertificationPurchasePanel, formatDuration, pad2 } from '../components/exam';
+import {
+  ExamDetailHeader,
+  ExamSummaryMetrics,
+  MetricIcons,
+  ExamProgressBar,
+  MockExamRow,
+  ScoreTrend,
+  CertificationPurchasePanel,
+  formatDuration,
+  pad2,
+} from '../components/exam';
 
 type TabId = 'mocks' | 'performance' | 'reviews';
 
@@ -47,6 +57,10 @@ export function CertificationMockDetailPage() {
   const duration = s.sets[0]?.durationMinutes ?? 0;
   const scores = seriesAttempts.map((a) => a.scorePct).filter((v): v is number => v != null);
   const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const progressPct = s.sets.length > 0 ? (s.mocksCompleted / s.sets.length) * 100 : 0;
+
+  const continueSet = s.sets.find((x) => x.owned && x.status !== 'completed') ?? s.sets.find((x) => x.owned) ?? s.sets[0];
+  const continueHref = continueSet ? `/quizzes/${continueSet.itemId}/take` : '/home/mock-exams';
 
   const tabs: TabItem<TabId>[] = [
     { id: 'mocks', label: 'Mock Exams' },
@@ -56,37 +70,56 @@ export function CertificationMockDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px]">
-      <ExamDetailHeader
-        backTo="/home/mock-exams"
-        backLabel="Back to Mock Exams"
-        title={`${s.cert.name} Mock Exams`}
-        provider={s.cert.provider}
-        description={
-          s.cert.description || 'Experience real exam conditions with full-length mock exams. Answers are shown after submission.'
-        }
-        coverImageUrl={s.cert.coverImageUrl}
-        iconKey={s.cert.iconKey}
-        favorite={{ itemType: 'quiz', itemId: s.sets[0]?.itemId ?? '' }}
-        metrics={[
-          { label: 'Mock Exams', value: s.sets.length },
-          { label: 'Questions / Exam', value: perExam || '-' },
-          { label: 'Exam Duration', value: formatDuration(duration) },
-          { label: 'Completed', value: `${s.mocksCompleted} / ${s.sets.length}` },
-        ]}
-        progressPct={s.sets.length > 0 ? (s.mocksCompleted / s.sets.length) * 100 : 0}
-        progressLabel={`${s.mocksCompleted} / ${s.sets.length} completed`}
-        accuracy={s.bestScorePct != null ? { label: 'Best score', value: s.bestScorePct } : null}
-      />
+      <Link to="/home/mock-exams" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
+        &larr; Mock Exams
+      </Link>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        <aside className="order-1 lg:order-2 lg:sticky lg:top-4">
-          <CertificationPurchasePanel cert={s.cert} favoriteItemType="quiz" favoriteItemId={s.sets[0]?.itemId ?? ''} />
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-x-6 lg:gap-y-5">
+        <div className="order-1 lg:col-start-1 lg:row-start-1">
+          <ExamDetailHeader
+            title={s.cert.name}
+            eyebrow="Mock Exams"
+            provider={s.cert.provider}
+            description={
+              s.cert.description ||
+              'Experience real exam conditions with full-length mock exams. Answers are shown after submission.'
+            }
+            coverImageUrl={s.cert.coverImageUrl}
+            iconKey={s.cert.iconKey}
+            favorite={{ itemType: 'quiz', itemId: s.sets[0]?.itemId ?? '' }}
+          />
+        </div>
+
+        <aside className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]">
+          <CertificationPurchasePanel cert={s.cert} continueHref={continueHref} />
         </aside>
 
-        <div className="order-2 min-w-0 lg:order-1">
-          <Tabs items={tabs} value={tab} onChange={setTab} />
+        <div className="order-3 min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">
+          <ExamSummaryMetrics
+            metrics={[
+              { label: 'Mock Exams', value: s.sets.length, icon: MetricIcons.sets },
+              { label: 'Questions / Exam', value: perExam || '-', icon: MetricIcons.help },
+              { label: 'Exam Duration', value: formatDuration(duration), icon: MetricIcons.clock },
+              { label: 'Completed', value: `${s.mocksCompleted} / ${s.sets.length}`, icon: MetricIcons.practiced },
+            ]}
+          />
 
-          <div className="mt-4">
+          <div className="rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Overall Progress</span>
+              {s.bestScorePct != null && (
+                <span className="text-sm font-semibold text-ink-muted">
+                  Best score <span className="text-ink">{s.bestScorePct}%</span>
+                </span>
+              )}
+            </div>
+            <ExamProgressBar pct={progressPct} label={`${s.mocksCompleted} / ${s.sets.length} completed`} className="mt-2" />
+          </div>
+
+          <div>
+            <Tabs items={tabs} value={tab} onChange={setTab} />
+
+            <div className="mt-4">
             {tab === 'mocks' && (
             <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface-raised shadow-card">
               {s.sets.map((set) => (
@@ -199,6 +232,7 @@ export function CertificationMockDetailPage() {
                 </DataTable>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>

@@ -1,11 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Tabs, EmptyState, DataTable, StatCard, type TabItem } from '@/components/ui';
 import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
 import { usePracticeSeries, type ExamSeries } from '../hooks/useExamSeries';
 import { usePracticeQuestionBank, groupByDomain, type BankQuestion } from '../hooks/usePracticeQuestionBank';
 import { bankBuckets, weakAreaCount } from '../lib/practiceStats';
-import { ExamDetailHeader, PracticeSetRow, ExamProgressBar, CertificationPurchasePanel } from '../components/exam';
+import {
+  ExamDetailHeader,
+  ExamSummaryMetrics,
+  MetricIcons,
+  PracticeSetRow,
+  ExamProgressBar,
+  CertificationPurchasePanel,
+} from '../components/exam';
 
 type TabId = 'sets' | 'topics' | 'history' | 'analytics';
 
@@ -48,6 +55,13 @@ export function CertificationPracticeDetailPage() {
   const remaining = Math.max(0, ownedTotal - answered);
   const setsCompleted = s.sets.filter((x) => x.status === 'completed').length;
   const buckets = bankBuckets(s.progress, ownedTotal);
+  const progressPct = ownedTotal > 0 ? (answered / ownedTotal) * 100 : 0;
+
+  // "Continue Practice" from the purchase card -> the first owned set the
+  // learner has not finished, else the first owned set, else the first set.
+  const continueSet =
+    s.sets.find((x) => x.owned && x.status !== 'completed') ?? s.sets.find((x) => x.owned) ?? s.sets[0];
+  const continueHref = continueSet ? `/practice-tests/${continueSet.itemId}/take` : '/home/practice-tests';
 
   const tabs: TabItem<TabId>[] = [
     { id: 'sets', label: 'Practice Sets' },
@@ -58,39 +72,57 @@ export function CertificationPracticeDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px]">
-      <ExamDetailHeader
-        backTo="/home/practice-tests"
-        backLabel="Back to Practice Exams"
-        title={`${s.cert.name} Practice Exams`}
-        provider={s.cert.provider}
-        description={s.cert.description}
-        coverImageUrl={s.cert.coverImageUrl}
-        iconKey={s.cert.iconKey}
-        favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
-        metrics={[
-          { label: 'Total Questions', value: s.totalQuestions.toLocaleString() },
-          { label: 'Practice Sets', value: s.sets.length },
-          { label: 'Questions Practiced', value: answered.toLocaleString() },
-          { label: 'Questions Remaining', value: remaining.toLocaleString() },
-        ]}
-        progressPct={ownedTotal > 0 ? (answered / ownedTotal) * 100 : 0}
-        progressLabel={`${answered.toLocaleString()} / ${ownedTotal.toLocaleString()} practiced`}
-        accuracy={s.practiceAccuracyPct != null ? { label: 'Accuracy', value: s.practiceAccuracyPct } : null}
-      />
+      <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
+        &larr; Practice Exams
+      </Link>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        <aside className="order-1 lg:order-2 lg:sticky lg:top-4">
-          <CertificationPurchasePanel
-            cert={s.cert}
-            favoriteItemType="practiceTest"
-            favoriteItemId={s.sets[0]?.itemId ?? ''}
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-x-6 lg:gap-y-5">
+        <div className="order-1 lg:col-start-1 lg:row-start-1">
+          <ExamDetailHeader
+            title={s.cert.name}
+            eyebrow="Practice Exams"
+            provider={s.cert.provider}
+            description={s.cert.description || 'Practice at your own pace, review explanations and track your progress.'}
+            coverImageUrl={s.cert.coverImageUrl}
+            iconKey={s.cert.iconKey}
+            favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
           />
+        </div>
+
+        <aside className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]">
+          <CertificationPurchasePanel cert={s.cert} continueHref={continueHref} />
         </aside>
 
-        <div className="order-2 min-w-0 lg:order-1">
-          <Tabs items={tabs} value={tab} onChange={setTab} />
+        <div className="order-3 min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">
+          <ExamSummaryMetrics
+            metrics={[
+              { label: 'Questions', value: s.totalQuestions.toLocaleString(), icon: MetricIcons.questions },
+              { label: 'Practice Sets', value: s.sets.length, icon: MetricIcons.sets },
+              { label: 'Practiced', value: answered.toLocaleString(), icon: MetricIcons.practiced },
+              { label: 'Remaining', value: remaining.toLocaleString(), icon: MetricIcons.remaining },
+            ]}
+          />
 
-          <div className="mt-4">
+          <div className="rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Overall Progress</span>
+              {s.practiceAccuracyPct != null && (
+                <span className="text-sm font-semibold text-ink-muted">
+                  Accuracy <span className="text-ink">{s.practiceAccuracyPct}%</span>
+                </span>
+              )}
+            </div>
+            <ExamProgressBar
+              pct={progressPct}
+              label={`${answered.toLocaleString()} / ${ownedTotal.toLocaleString()} questions practiced`}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Tabs items={tabs} value={tab} onChange={setTab} />
+
+            <div className="mt-4">
           {tab === 'sets' && (
             <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface-raised shadow-card">
               {s.sets.map((set) => (
@@ -152,6 +184,7 @@ export function CertificationPracticeDetailPage() {
                 <StatCard label="Unseen" value={buckets.unseen} />
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>

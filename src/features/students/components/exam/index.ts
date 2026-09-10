@@ -4,6 +4,7 @@ export { ExamProgressBar } from './ExamProgressBar';
 export { ExamStatusBadge } from './ExamStatusBadge';
 export { ExamRowCta } from './ExamRowCta';
 export { ExamSummaryMetrics, type SummaryMetric } from './ExamSummaryMetrics';
+export { MetricIcons } from './metricIcons';
 export { ExamProductCard, type ExamCardModel } from './ExamProductCard';
 export { PracticeSetRow, type PracticeSetRowModel } from './PracticeSetRow';
 export { MockExamRow, type MockExamRowModel } from './MockExamRow';
