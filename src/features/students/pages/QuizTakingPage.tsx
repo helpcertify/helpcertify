@@ -14,10 +14,15 @@ interface AnswerFeedback {
   correctOptionId: string | null;
 }
 
+const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+// HH:MM:SS - a mock exam runs for hours, so a bare MM:SS reads as a
+// confusing three-digit minute count ("239:38").
 function formatClock(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
 export function QuizTakingPage() {
@@ -215,12 +220,21 @@ export function QuizTakingPage() {
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-ink">{quiz.title}</h1>
-          <div className="flex items-center gap-3">
-            {markedCount > 0 && <span className="text-sm text-warning">🚩 {markedCount} marked</span>}
-            <span className="rounded-lg border border-surface-border px-3 py-1.5 text-sm font-mono text-brand-ink">
-              ⏱ {formatClock(remainingSeconds)}
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h1 className="min-w-0 truncate text-lg font-bold text-ink">{quiz.title}</h1>
+          <div className="flex shrink-0 items-center gap-3">
+            {markedCount > 0 && <span className="hidden text-sm text-warning sm:inline">🚩 {markedCount} marked</span>}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 font-mono text-base font-bold tabular-nums text-white ${
+                remainingSeconds <= 300 ? 'animate-pulse bg-danger' : 'bg-brand-500'
+              }`}
+              aria-label="Time remaining"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {formatClock(remainingSeconds)}
             </span>
           </div>
         </div>
@@ -234,28 +248,21 @@ export function QuizTakingPage() {
             appeared. */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="order-2 lg:order-1">
-            <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-              <h2 className="mb-4 font-medium text-ink">
-                Q{currentIndex + 1}. {current.questionText}
+            <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+              <h2 className="mb-4 text-lg font-semibold leading-relaxed text-ink">
+                <span className="font-bold text-brand-ink">Q{currentIndex + 1}.</span> {current.questionText}
               </h2>
-              <div className="space-y-2">
-                {current.options.map((opt) => {
+              <div className="space-y-2.5">
+                {current.options.map((opt, i) => {
                   const selected = answers[current.id] === opt.id;
                   const isTheCorrectOption = answered && result.correctOptionId === opt.id;
                   const isWrongPick = answered && selected && !result.isCorrect;
 
-                  // The plain -300 shades read fine on a near-black dark-theme
-                  // card but washed out to near-illegible on the light theme's
-                  // white card - dark: variants pick a solid, readable shade
-                  // per theme instead of one compromise color for both.
-                  let cls = 'border-surface-border text-ink-muted hover:border-neutral-600';
-                  if (answered) {
-                    if (isTheCorrectOption) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-                    else if (isWrongPick) cls = 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-300';
-                    else cls = 'border-surface-border text-ink-faint opacity-60';
-                  } else if (selected) {
-                    cls = 'border-brand-400 bg-brand-500/10 text-brand-ink';
-                  }
+                  let cls = 'border-surface-border bg-surface-raised text-ink hover:border-brand-400 dark:bg-transparent';
+                  if (isWrongPick) cls = 'border-danger/50 bg-danger-soft text-ink';
+                  else if (isTheCorrectOption) cls = 'border-success/50 bg-success-soft text-ink';
+                  else if (answered) cls = 'border-surface-border bg-surface-raised text-ink-faint opacity-70 dark:bg-transparent';
+                  else if (selected) cls = 'border-brand-500 bg-brand-50 text-ink';
 
                   return (
                     <button
@@ -263,16 +270,42 @@ export function QuizTakingPage() {
                       type="button"
                       disabled={saving}
                       onClick={() => handleSelect(opt.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-left text-sm disabled:cursor-not-allowed ${cls}`}
+                      className={`flex min-h-[58px] w-full items-center gap-3 rounded-lg border px-4 py-3 text-left disabled:cursor-not-allowed ${cls}`}
                     >
-                      <span>{opt.text}</span>
-                      {isTheCorrectOption && <span className="shrink-0 text-xs font-semibold">✓ Correct answer</span>}
-                      {isWrongPick && <span className="shrink-0 text-xs font-semibold">✗ Incorrect</span>}
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm font-bold ${
+                          isWrongPick
+                            ? 'bg-danger/10 text-danger'
+                            : isTheCorrectOption
+                              ? 'bg-success/10 text-success'
+                              : selected
+                                ? 'bg-brand-500/10 text-brand-ink'
+                                : 'bg-surface-sunken text-ink-faint'
+                        }`}
+                      >
+                        {OPTION_LETTERS[i] ?? i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 text-[15px] font-medium">{opt.text}</span>
+                      {answered && (isWrongPick || isTheCorrectOption) ? (
+                        <span
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
+                            isWrongPick ? 'bg-danger' : 'bg-success'
+                          }`}
+                        >
+                          {isWrongPick ? '✕' : '✓'}
+                        </span>
+                      ) : (
+                        <span
+                          className={`h-4 w-4 shrink-0 rounded-full border-2 ${
+                            selected ? 'border-brand-500 bg-brand-500' : 'border-surface-border'
+                          }`}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
-              {saving && <div className="mt-3 text-sm text-ink-faint">Checking…</div>}
+              {saving && <div className="mt-3 text-sm text-ink-faint">Saving…</div>}
               {/* Only a positive confirmation banner - a wrong pick is
                   already unambiguous from the red/green option highlighting
                   above, so a second "Incorrect" line was redundant and (per
