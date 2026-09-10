@@ -12,3 +12,4 @@ export { matchesTab, type ExamBrowseTab, type ExamLayout } from './browseFilter'
 export { ExamBrowsePage } from './ExamBrowsePage';
 export { ExamDetailHeader } from './ExamDetailHeader';
 export { ScoreTrend, type ScorePoint } from './ScoreTrend';
+export { CertificationPurchasePanel } from './CertificationPurchasePanel';
