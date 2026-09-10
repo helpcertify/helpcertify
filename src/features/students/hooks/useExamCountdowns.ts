@@ -12,12 +12,9 @@ export interface ExamCountdown {
   provider: string;
   examDate: Date;
   daysToExam: number;
-  /**
-   * When the learner most recently created or changed this exam goal
-   * (the study plan's `updatedAt`). The sidebar's "Your Exams" section
-   * uses this to feature the single most recently set-up exam - see
-   * `featuredExamCountdown`.
-   */
+  // When the learner most recently created or changed this exam goal (the
+  // study plan's `updatedAt`) - carried across the practice tests of one
+  // goal during the merge below.
   updatedAt: Date;
 }
 
@@ -28,22 +25,9 @@ const ms = (d: Date): number => {
   return Number.isNaN(t) ? 0 : t;
 };
 
-/**
- * The one exam goal the "Your Exams" sidebar section shows: the goal the
- * learner most recently created or changed, not the soonest. Returns
- * undefined when there are no upcoming committed exam dates.
- */
-export function featuredExamCountdown(
-  list: ExamCountdown[] | undefined,
-): ExamCountdown | undefined {
-  if (!list || list.length === 0) return undefined;
-  return list.reduce((best, c) => (ms(c.updatedAt) > ms(best.updatedAt) ? c : best));
-}
-
-// Shared by StudentShell's sidebar (which features just the most recently
-// set-up goal - see featuredExamCountdown) and StudentHomePage's header
-// badge (just the nearest one) - only considers plans where the learner
-// actually chose a target exam date (Option A). A pace-mode
+// Feeds StudentHomePage's header countdown badge (the nearest committed
+// exam) - only considers plans where the learner actually chose a target
+// exam date (Option A). A pace-mode
 // plan's "suggested" exam date is a rolling estimate, not a date the
 // learner committed to, so it isn't a fitting countdown here (it's already
 // shown on that plan's own card on the Home dashboard). One entry per exam
@@ -102,9 +86,8 @@ export function useExamCountdowns() {
           byGoal.set(key, entry);
           continue;
         }
-        // Keep the soonest date for the goal, but carry the most recent
-        // updatedAt across all of its practice tests so `featuredExamCountdown`
-        // still favours a goal the learner just touched on any of its tests.
+        // Keep the soonest date for the goal, carrying the most recent
+        // updatedAt across all of its practice tests.
         const soonest = entry.examDate < existing.examDate ? entry : existing;
         byGoal.set(key, {
           ...soonest,

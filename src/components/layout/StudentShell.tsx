@@ -10,8 +10,6 @@ import { SearchBar } from '@/components/common/SearchBar';
 import { aiCourseBuilderApi } from '@/features/catalogSubmissions/api/aiCourseBuilderApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
-import { formatShortDate } from '@/utils/formatDate';
-import { useExamCountdowns, featuredExamCountdown } from '@/features/students/hooks/useExamCountdowns';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Avatar } from '@/components/common/Avatar';
@@ -61,13 +59,6 @@ export function StudentShell() {
   // mutations already invalidate this same query key themselves.
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart, staleTime: 30_000 });
   const cartCount = cart?.items.length ?? 0;
-
-  // The exam countdown pinned above Sign Out, visible on every page. The
-  // "Your Exams" section shows a single card: the exam goal the learner most
-  // recently created or changed (not the soonest, and not one per goal) -
-  // see featuredExamCountdown.
-  const { data: examCountdowns } = useExamCountdowns();
-  const featuredExam = featuredExamCountdown(examCountdowns);
 
   // The AI course builder nav link appears only for accounts that actually
   // have the feature (admin / trainer / content partner by default, plus
@@ -202,12 +193,6 @@ export function StudentShell() {
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
           {navLinks(() => setMobileNavOpen(false))}
-          {featuredExam && (
-            <div className="mt-2">
-              <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Your Exams</div>
-              <ExamCountdownCard {...featuredExam} />
-            </div>
-          )}
           <ReferAndEarnCard className="mt-2" />
           <button
             type="button"
@@ -228,12 +213,6 @@ export function StudentShell() {
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border bg-surface-raised p-6 lg:flex">
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
           <div className="mt-auto shrink-0">
-            {featuredExam && (
-              <div className="mb-3">
-                <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Your Exams</div>
-                <ExamCountdownCard {...featuredExam} />
-              </div>
-            )}
             <ReferAndEarnCard className="mb-3" />
             <button
               type="button"
@@ -282,39 +261,3 @@ function ReferAndEarnCard({ className = '' }: { className?: string }) {
   );
 }
 
-// The single "Your Exams" card, pinned above Sign Out on every page so a
-// learner who committed to an exam date never has to go looking for it. It
-// shows the exam goal the learner most recently created or changed (see
-// featuredExamCountdown); the card leads with the certification name, since
-// that's the fact the learner is orienting by.
-function ExamCountdownCard({
-  examName,
-  provider,
-  examDate,
-  daysToExam,
-  className = '',
-}: {
-  examName: string;
-  provider: string;
-  examDate: Date;
-  daysToExam: number;
-  testId?: string;
-  className?: string;
-}) {
-  // Certification name is visually strongest; provider is small/muted since
-  // it's supporting context, not the headline. The countdown keeps the
-  // flat dark amber (#D87F1D) requested for emphasis; the exam date itself
-  // is small secondary text, same treatment as provider.
-  return (
-    <div className={`rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 ${className}`}>
-      <div className="truncate text-base font-bold text-[#0F172A]" title={examName}>
-        {examName}
-      </div>
-      <div className="mb-2 truncate text-xs text-[#64748B]">{provider}</div>
-      <div className="text-lg font-bold text-[#D87F1D]">
-        {daysToExam === 0 ? 'Exam is today' : `${daysToExam} Day${daysToExam === 1 ? '' : 's'} to Go`}
-      </div>
-      <div className="text-xs text-[#64748B]">{formatShortDate(examDate)}</div>
-    </div>
-  );
-}
