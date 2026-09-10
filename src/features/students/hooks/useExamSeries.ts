@@ -54,7 +54,12 @@ interface RawPracticeProgress extends PracticeProgressLike {
 
 function usePracticeProgress(uid: string | undefined) {
   return useQuery({
-    queryKey: ['student', 'practiceProgress', uid],
+    // Distinct key: other callers of ['student','practiceProgress',uid] /
+    // ['student','practiceProgressFull',uid] (usePrimaryGoal,
+    // ProfileActivitySections) return a trimmed {testId, answeredQuestionIds}
+    // shape. Sharing a key would let this hook read those objects and blow
+    // up on the missing questionStats / incorrectQuestionIds.
+    queryKey: ['student', 'practiceProgressStats', uid],
     enabled: !!uid,
     queryFn: async (): Promise<RawPracticeProgress[]> => {
       const snap = await getDocs(query(collection(db, 'practiceProgress'), where('userId', '==', uid)));

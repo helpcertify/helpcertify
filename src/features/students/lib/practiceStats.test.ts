@@ -35,4 +35,16 @@ describe('practiceStats', () => {
     expect(merged.incorrectQuestionIds).toEqual(['b']);
     expect(merged.questionStats.a).toEqual({ attempts: 3, correct: 2, lastConfidence: undefined });
   });
+
+  // A trimmed {testId, answeredQuestionIds} object can reach these
+  // functions when another query hook has cached it under a shared key -
+  // must not throw on the missing questionStats / incorrectQuestionIds.
+  it('tolerates a partially-shaped progress object', () => {
+    const trimmed = { testId: 't1', answeredQuestionIds: ['a', 'b'] } as never;
+    expect(() => accuracyPct(trimmed)).not.toThrow();
+    expect(accuracyPct(trimmed)).toBeNull();
+    expect(weakAreaCount(trimmed)).toBe(0);
+    expect(bankBuckets(trimmed, 10)).toEqual({ mastered: 0, learning: 2, needsReview: 0, unseen: 8 });
+    expect(() => mergePracticeProgress([trimmed, null, undefined])).not.toThrow();
+  });
 });
