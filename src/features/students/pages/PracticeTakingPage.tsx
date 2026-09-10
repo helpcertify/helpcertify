@@ -62,7 +62,10 @@ export function PracticeTakingPage() {
   const [saving, setSaving] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
-  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  // Review At End only: the "Practice Summary" gate shown before the final
+  // submit, and whether the post-submit answer list has been revealed.
+  const [showPreSubmit, setShowPreSubmit] = useState(false);
+  const [answersRevealed, setAnswersRevealed] = useState(false);
   const [streak, setStreak] = useState(0);
   const [review, setReview] = useState<{
     questions: BatchReviewQuestion[];
@@ -198,15 +201,35 @@ export function PracticeTakingPage() {
   const current = questions[currentIndex];
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
 
+  // Review At End records the answer silently as soon as it is picked (no
+  // Check button in that mode) and the learner can keep changing it right
+  // up until they submit; saveAnswer overwrites and the score is
+  // recomputed from the final answers at review time. Learn As You Go
+  // locks the choice the moment Check Answer grades it.
+  const saveEndOfSessionAnswer = (questionId: string, optionId: string) => {
+    if (!sessionId) return;
+    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+    practiceSessionApi.saveAnswer(sessionId, questionId, optionId).catch(() => {
+      pushToast('Could not save that answer - check your connection', 'error');
+    });
+  };
+
   const selectOption = (optionId: string) => {
-    if (!current || answers[current.id]) return;
-    setPendingOption((prev) => ({ ...prev, [current.id]: optionId }));
+    if (!current) return;
+    if (isImmediate) {
+      if (answers[current.id]) return; // locked once graded
+      setPendingOption((prev) => ({ ...prev, [current.id]: optionId }));
+    } else {
+      setPendingOption((prev) => ({ ...prev, [current.id]: optionId }));
+      saveEndOfSessionAnswer(current.id, optionId);
+    }
   };
 
   // Grading a practice answer is a real network round-trip (the answer key
   // lives server-side, on purpose - it's never shipped to the client up
-  // front). `saving` blocks the Submit button and every option until the
-  // result is back, so fast taps can't outrun the response.
+  // front). `saving` blocks the Check Answer button and every option until
+  // the result is back, so fast taps can't outrun the response. Learn As
+  // You Go only.
   const submitAnswer = async () => {
     const optionId = current && pendingOption[current.id];
     if (!sessionId || !current || !optionId || saving) return;
@@ -240,37 +263,28 @@ export function PracticeTakingPage() {
     }
   };
 
+  const markedCount = useMemo(() => Object.values(marked).filter(Boolean).length, [marked]);
   const unansweredCount = questions.length - answeredCount;
   const isLastQuestion = currentIndex === questions.length - 1;
 
-  // Finish is available from any question in the session, not just the
-  // last one - clicking it with questions still unanswered confirms first
-  // (with the actual count) rather than finishing immediately.
+  // Ends the session. Review At End always routes through the "Practice
+  // Summary" gate. Learn As You Go submits straight away, confirming first
+  // if questions are still unanswered.
   const handleFinishClick = () => {
-    if (unansweredCount > 0) {
+    if (!isImmediate) {
+      setShowPreSubmit(true);
+    } else if (unansweredCount > 0) {
       setShowFinishConfirm(true);
     } else {
       handleFinish();
     }
   };
 
-  // Next Question is always available - a question is never a hard gate
-  // on moving forward, whether or not it's been submitted. Submit Answer
-  // (below) is the only place an unanswered question needs a confirmation,
-  // since that's an explicit "I'm choosing to skip this" action rather
-  // than just browsing past it.
-  const goToNextOrFinish = () => {
+  // The bottom-right primary button. Not on the last question -> advance;
+  // on the last question -> finish (via handleFinishClick).
+  const handlePrimaryNav = () => {
     if (isLastQuestion) handleFinishClick();
     else setCurrentIndex((i) => i + 1);
-  };
-
-  const handleSubmitClick = () => {
-    if (!current) return;
-    if (pendingOption[current.id]) {
-      submitAnswer();
-    } else {
-      setShowSkipConfirm(true);
-    }
   };
 
   if (review) {
@@ -279,12 +293,96 @@ export function PracticeTakingPage() {
         review={review}
         testId={testId!}
         testTotalQuestions={test?.totalQuestions ?? review.summary.totalQuestions}
+        gateAnswers={!isImmediate}
+        answersRevealed={answersRevealed}
+        onRevealAnswers={() => setAnswersRevealed(true)}
         onDone={() => navigate('/home/practice-tests')}
       />
     );
   }
 
   if (!session || !current) return <div className="p-8 text-ink-faint">Loading practice session…</div>;
+
+  // Review At End: the "Practice Summary" gate between the last question
+  // and the final submit. Learn As You Go never reaches this.
+  if (showPreSubmit && !isImmediate) {
+    const jump = (i: number) => {
+      setShowPreSubmit(false);
+      setCurrentIndex(i);
+    };
+    return (
+      <div className="min-h-screen bg-surface px-4 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-xl">
+          <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+            <h1 className="text-xl font-bold text-ink">Practice Summary</h1>
+            <p className="mt-1 text-sm text-ink-faint">
+              {questions.length} question{questions.length === 1 ? '' : 's'} in this session. Review anything you want to
+              change, then submit to see your score and explanations.
+            </p>
+
+            <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg border border-surface-border p-3">
+                <div className="text-2xl font-extrabold text-ink">{answeredCount}</div>
+                <div className="text-xs text-ink-faint">Answered</div>
+              </div>
+              <div className="rounded-lg border border-surface-border p-3">
+                <div className="text-2xl font-extrabold text-ink">{unansweredCount}</div>
+                <div className="text-xs text-ink-faint">Unanswered</div>
+              </div>
+              <div className="rounded-lg border border-surface-border p-3">
+                <div className="text-2xl font-extrabold text-warning">{markedCount}</div>
+                <div className="text-xs text-ink-faint">Marked for Review</div>
+              </div>
+            </div>
+
+            {(unansweredCount > 0 || markedCount > 0) && (
+              <div className="mt-4">
+                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">Jump back to</div>
+                <div className="flex flex-wrap gap-2">
+                  {questions.map((q, i) => {
+                    const needs = !answers[q.id] || marked[q.id];
+                    if (!needs) return null;
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => jump(i)}
+                        className={`flex h-9 min-w-9 items-center justify-center rounded-md border px-2 text-xs font-semibold ${
+                          marked[q.id]
+                            ? 'border-warning bg-warning/10 text-warning'
+                            : 'border-surface-border text-ink-muted'
+                        }`}
+                      >
+                        {i + 1}
+                        {marked[q.id] && ' 🚩'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setShowPreSubmit(false)}
+                className="w-full rounded-lg border border-brand-500 py-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-50"
+              >
+                Review Questions
+              </button>
+              <button
+                type="button"
+                onClick={handleFinish}
+                className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+              >
+                Submit Practice
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const result = feedback[current.id];
   // Only 'immediate' mode ever has a non-null isCorrect - 'end_of_session'
@@ -366,7 +464,7 @@ export function PracticeTakingPage() {
                     <button
                       key={opt.id}
                       type="button"
-                      disabled={saving || isSubmittedForCurrent}
+                      disabled={saving || (isImmediate && isSubmittedForCurrent)}
                       onClick={() => selectOption(opt.id)}
                       className={`flex w-full min-h-[58px] items-center gap-3 rounded-lg border px-4 py-3 text-left disabled:cursor-not-allowed ${cls}`}
                     >
@@ -415,21 +513,21 @@ export function PracticeTakingPage() {
                 })}
               </div>
 
-              {/* Always visible while unanswered, whether or not an option
-                  is picked yet - clicking it with nothing selected warns
-                  first rather than silently doing nothing (see
-                  showSkipConfirm below). */}
-              {!isSubmittedForCurrent && (
-                <div className="mt-4 flex sm:justify-end">
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={handleSubmitClick}
-                    className="w-full rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
-                  >
-                    {saving ? 'Checking…' : 'Submit Answer'}
-                  </button>
-                </div>
+              {/* Learn As You Go: a full-width "Check Answer" action bar
+                  under the options (disabled until one is picked). It grades
+                  the answer, then this bar is replaced by the explanation
+                  and the bottom-nav "Next Question" unlocks. Review At End
+                  has no Check button at all - the answer is saved silently
+                  on selection and stays changeable until the final submit. */}
+              {isImmediate && !isSubmittedForCurrent && (
+                <button
+                  type="button"
+                  disabled={saving || !pendingOption[current.id]}
+                  onClick={submitAnswer}
+                  className="mt-4 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {saving ? 'Checking…' : '✓ Check Answer'}
+                </button>
               )}
 
               {/* Learn As You Go: one unified explanation panel, not
@@ -453,21 +551,14 @@ export function PracticeTakingPage() {
                 </div>
               )}
 
-              {/* Review At End: no correctness of any kind, just a neutral
-                  confirmation that the answer was saved. */}
-              {!isImmediate && isSubmittedForCurrent && (
-                <div className="mt-3 rounded-lg bg-surface-sunken px-4 py-2 text-sm text-ink-faint">Answer saved.</div>
-              )}
             </div>
 
-            {/* Bottom navigation - one static row, always in the same
-                three positions regardless of session state: Previous /
-                Mark for Review / Next Question (the only strong primary
-                CTA, becoming Finish Practice on the last question). Never
-                hidden or reflowed based on whether the current question has
-                been answered - an unanswered question is never a hard gate
-                on moving forward. Finish Session lives in the sidebar
-                instead of competing with Next. */}
+            {/* Bottom navigation. Previous / Mark for Review always sit
+                left; the primary button sits right. Learn As You Go: the
+                primary button is disabled until the current answer is
+                graded, then reads Next Question / Finish Practice. Review
+                At End: always enabled (free navigation), reading Next
+                Question / Review & Submit on the last question. */}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
@@ -488,11 +579,15 @@ export function PracticeTakingPage() {
               </button>
               <button
                 type="button"
-                disabled={saving}
-                onClick={goToNextOrFinish}
-                className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+                disabled={saving || (isImmediate && !isSubmittedForCurrent)}
+                onClick={handlePrimaryNav}
+                className="rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
               >
-                {isLastQuestion ? 'Finish Practice →' : 'Next Question →'}
+                {!isLastQuestion
+                  ? 'Next Question →'
+                  : isImmediate
+                    ? 'Finish Practice →'
+                    : 'Review & Submit →'}
               </button>
             </div>
           </div>
@@ -649,21 +744,6 @@ export function PracticeTakingPage() {
         onCancel={() => setShowEndConfirm(false)}
       />
 
-      {/* No option selected yet - confirming just moves on (Next Question
-          is always enabled regardless), it doesn't submit anything since
-          there's nothing to grade without a selected option. */}
-      <ConfirmDialog
-        open={showSkipConfirm}
-        title="Submit without answering?"
-        message="You haven't selected an answer for this question. You can move on and it will be counted as unanswered."
-        confirmLabel="Submit Unanswered"
-        cancelLabel="Go Back"
-        onConfirm={() => {
-          setShowSkipConfirm(false);
-          goToNextOrFinish();
-        }}
-        onCancel={() => setShowSkipConfirm(false)}
-      />
     </div>
   );
 }
@@ -677,6 +757,9 @@ function PracticeReviewScreen({
   review,
   testId,
   testTotalQuestions,
+  gateAnswers,
+  answersRevealed,
+  onRevealAnswers,
   onDone,
 }: {
   review: {
@@ -690,6 +773,11 @@ function PracticeReviewScreen({
   // review.summary.totalQuestions, which is only this one batch's size.
   // Certificate eligibility is whole-test coverage, not one batch.
   testTotalQuestions: number;
+  // Review At End: show the score first, behind a "Review Answers" gate.
+  // Learn As You Go: answers were already seen per-question, so no gate.
+  gateAnswers: boolean;
+  answersRevealed: boolean;
+  onRevealAnswers: () => void;
   onDone: () => void;
 }) {
   const [filter, setFilter] = useState<ReviewFilter>('all');
@@ -716,7 +804,19 @@ function PracticeReviewScreen({
     retry: false,
   });
 
-  const accuracy = review.summary.answeredCount > 0 ? Math.round((review.summary.correctCount / review.summary.answeredCount) * 100) : 0;
+  // Recompute from the final answer docs rather than the session counters:
+  // in Review At End the learner can change answers, and saveAnswer only
+  // increments correctCount/incorrectCount on the first answer per
+  // question, so the session summary can drift. review.questions carries
+  // the final selectedOptionId / isCorrect.
+  const answeredCount = review.questions.filter((q) => q.selectedOptionId !== null).length;
+  const correctCount = review.questions.filter((q) => q.isCorrect).length;
+  const incorrectCount = answeredCount - correctCount;
+  const unansweredCount = review.summary.totalQuestions - answeredCount;
+  const scorePct = review.summary.totalQuestions > 0 ? Math.round((correctCount / review.summary.totalQuestions) * 100) : 0;
+  const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+
+  const showAnswers = !gateAnswers || answersRevealed;
   const filtered = review.questions.filter((q) => {
     if (filter === 'correct') return q.isCorrect;
     if (filter === 'incorrect') return q.selectedOptionId !== null && !q.isCorrect;
@@ -737,46 +837,56 @@ function PracticeReviewScreen({
       <div className="mx-auto max-w-6xl">
         {certData && <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />}
         <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 text-center shadow-card">
-          <h1 className="mb-5 text-[22px] font-bold text-ink">Practice Complete</h1>
-          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-ink">Practice Momentum</div>
+          <h1 className="text-[22px] font-bold text-ink">{gateAnswers ? 'Practice Completed' : 'Practice Complete'}</h1>
 
-          <div className="mx-auto mb-4 grid max-w-md grid-cols-2 gap-x-4 gap-y-4 text-left">
-            <div>
-              <div className="text-lg font-bold text-warning">
-                {review.newPersonalBest ? '🏆' : '🔥'} {review.bestStreak}
-              </div>
-              <div className="text-xs text-ink-faint">Correct Streak</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-brand-ink">🎯 {accuracy}%</div>
-              <div className="text-xs text-ink-faint">Session Accuracy</div>
-            </div>
-          </div>
+          <div className="mt-4 text-4xl font-extrabold tracking-tight text-brand-ink">Score: {scorePct}%</div>
 
-          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-x-4 gap-y-4 border-t border-surface-border pt-4 text-left sm:grid-cols-4">
+          <div className="mx-auto mt-5 grid max-w-2xl grid-cols-2 gap-x-4 gap-y-4 border-t border-surface-border pt-4 text-left sm:grid-cols-4">
             <div>
-              <div className="text-lg font-bold text-ink">
-                📚 {review.summary.answeredCount}/{review.summary.totalQuestions}
-              </div>
-              <div className="text-xs text-ink-faint">Questions</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-success">✓ {review.summary.correctCount}</div>
+              <div className="text-lg font-bold text-success">✓ {correctCount}</div>
               <div className="text-xs text-ink-faint">Correct</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-danger">✕ {review.summary.incorrectCount}</div>
+              <div className="text-lg font-bold text-danger">✕ {incorrectCount}</div>
               <div className="text-xs text-ink-faint">Incorrect</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-ink-faint">
-                {review.summary.totalQuestions - review.summary.answeredCount}
-              </div>
+              <div className="text-lg font-bold text-ink-faint">{unansweredCount}</div>
               <div className="text-xs text-ink-faint">Unanswered</div>
             </div>
+            <div>
+              <div className="text-lg font-bold text-brand-ink">🎯 {accuracy}%</div>
+              <div className="text-xs text-ink-faint">Accuracy</div>
+            </div>
           </div>
+
+          {review.bestStreak >= 2 && (
+            <div className="mt-4 text-sm font-semibold text-warning">
+              {review.newPersonalBest ? '🏆 New personal best streak' : '🔥 Best streak this session'}: {review.bestStreak}
+            </div>
+          )}
+
+          {gateAnswers && !answersRevealed && (
+            <div className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={onRevealAnswers}
+                className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+              >
+                Review Answers
+              </button>
+              <Link
+                to={`/home/practice-tests/${testId}`}
+                className="w-full rounded-lg border border-brand-500 py-2.5 text-center text-sm font-semibold text-brand-ink hover:bg-brand-50"
+              >
+                View Analytics
+              </Link>
+            </div>
+          )}
         </div>
 
+        {showAnswers && (
+        <>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[15px] font-bold uppercase tracking-wide text-brand-ink">Answer Review</h2>
           <div className="flex gap-1">
@@ -856,13 +966,19 @@ function PracticeReviewScreen({
             </div>
           )}
         </div>
+        </>
+        )}
 
         <button
           type="button"
           onClick={onDone}
-          className="mt-6 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
+          className={`mt-6 w-full rounded-lg py-2.5 text-sm font-semibold ${
+            showAnswers
+              ? 'bg-brand-500 text-white hover:bg-brand-600'
+              : 'border border-surface-border text-ink-muted hover:border-brand-400'
+          }`}
         >
-          Finish Session
+          Back to Practice Exams
         </button>
       </div>
     </div>
