@@ -420,14 +420,16 @@ export function PracticeTakingPage() {
                   first rather than silently doing nothing (see
                   showSkipConfirm below). */}
               {!isSubmittedForCurrent && (
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleSubmitClick}
-                  className="mt-4 w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-                >
-                  {saving ? 'Checking…' : 'Submit Answer'}
-                </button>
+                <div className="mt-4 flex sm:justify-end">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={handleSubmitClick}
+                    className="w-full rounded-lg bg-brand-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
+                  >
+                    {saving ? 'Checking…' : 'Submit Answer'}
+                  </button>
+                </div>
               )}
 
               {/* Learn As You Go: one unified explanation panel, not
