@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import type { CertificationIconKey } from '@/types/models';
-import { WishlistButton } from '@/components/common/WishlistButton';
 
 const FALLBACK_ICON: Record<CertificationIconKey, string> = {
   shield: 'M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5l-8-3Z',
@@ -13,9 +12,9 @@ const FALLBACK_ICON: Record<CertificationIconKey, string> = {
 };
 
 // The compact header card at the top of a per-certification detail page:
-// image, provider, title, one-line description, Add to Favorites. Summary
-// metrics and progress render below it (separate components), and the
-// breadcrumb/back link sits above it on the page.
+// image, provider, title, one-line description. Summary metrics and
+// progress render below it (separate components); the breadcrumb sits
+// above it; "Add to Favorites" lives in the purchase panel (buy view only).
 export function ExamDetailHeader({
   title,
   eyebrow,
@@ -23,7 +22,6 @@ export function ExamDetailHeader({
   description,
   coverImageUrl,
   iconKey,
-  favorite,
 }: {
   title: string;
   // Small label above the H1, e.g. "Practice Exams" / "Mock Exams".
@@ -32,7 +30,6 @@ export function ExamDetailHeader({
   description?: string;
   coverImageUrl?: string | null;
   iconKey: CertificationIconKey;
-  favorite: { itemType: 'quiz' | 'practiceTest'; itemId: string };
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card sm:flex-row sm:p-5">
@@ -56,17 +53,9 @@ export function ExamDetailHeader({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{provider}</div>
-            <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight text-ink sm:text-[22px]">{title}</h1>
-            {eyebrow && <div className="mt-0.5 text-sm font-semibold text-brand-ink">{eyebrow}</div>}
-          </div>
-          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-surface-border px-1.5 py-1 text-xs font-semibold text-ink-muted">
-            <WishlistButton itemType={favorite.itemType} itemId={favorite.itemId} variant="inline" />
-            <span className="hidden pr-1 sm:inline">Add to Favorites</span>
-          </div>
-        </div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">{provider}</div>
+        <h1 className="mt-0.5 text-xl font-extrabold leading-tight tracking-tight text-ink sm:text-[22px]">{title}</h1>
+        {eyebrow && <div className="mt-0.5 text-sm font-semibold text-brand-ink">{eyebrow}</div>}
         {description && <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">{description}</p>}
       </div>
     </div>
