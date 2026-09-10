@@ -941,6 +941,92 @@ async function updatePracticeTestQuestion(uid: string, body: unknown) {
   return updateQuestionCommon(uid, 'practiceTests', testId, d);
 }
 
+// --- Bulk AI domain tagging -------------------------------------------------
+// The bulk .docx upload never sets question.domain, so a 1,600-question bank
+// has no domain tags and the learner's "Topic Performance" tab stays empty.
+// This classifies a slice of a bank's questions per call (one Gemini round
+// trip) and writes `domain` onto each; the admin UI loops it via nextOffset
+// until done. A manual edit in QuestionEditorList still overrides any tag.
+const AUTO_TAG_BATCH = 80;
+const autoTagPracticeDomainsSchema = z.object({
+  bankId: z.string().min(1),
+  // When given, the model must pick one of these exactly; otherwise it
+  // infers a small domain set from the questions themselves.
+  domains: z.array(z.string().trim().min(1).max(100)).max(30).optional(),
+  offset: z.number().int().min(0).default(0),
+});
+
+async function autoTagPracticeDomains(uid: string, body: unknown) {
+  const parsed = autoTagPracticeDomainsSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { bankId, domains, offset } = parsed.data;
+
+  const bankRef = db.collection('practiceTests').doc(bankId);
+  const [bankSnap, questionsSnap] = await Promise.all([
+    bankRef.get(),
+    bankRef.collection('questions').orderBy('order').get(),
+  ]);
+  if (!bankSnap.exists) throw Err.notFound('Practice test not found');
+
+  const all = questionsSnap.docs;
+  const slice = all.slice(offset, offset + AUTO_TAG_BATCH);
+  if (slice.length === 0) {
+    return { tagged: 0, total: all.length, nextOffset: null as number | null, domainsUsed: domains ?? [] };
+  }
+
+  const examName = (bankSnap.data()?.examName as string | undefined)?.trim() || (bankSnap.data()?.title as string) || 'this exam';
+  const payload = slice.map((d, i) => {
+    const q = d.data();
+    return {
+      i,
+      q: String(q.questionText ?? '').slice(0, 600),
+      options: ((q.options as { text?: string }[]) ?? []).map((o) => String(o.text ?? '').slice(0, 160)),
+    };
+  });
+
+  const system =
+    'You label certification-exam practice questions with the knowledge domain each one tests. ' +
+    (domains && domains.length
+      ? `Use EXACTLY one of these domain names for every question, copied verbatim: ${domains.join(' | ')}.`
+      : `Infer a small set (4-8) of standard exam domains for ${examName} and assign each question to exactly one. Reuse the same domain names consistently.`) +
+    ' Respond with JSON only: {"labels":[{"i":<number>,"domain":<string>}]} covering every question index given.';
+  const user = JSON.stringify({ exam: examName, questions: payload });
+
+  const raw = (await callAiJson(system, user)) as { labels?: { i?: number; domain?: string }[] };
+  const labels = Array.isArray(raw?.labels) ? raw.labels : [];
+  const byIndex = new Map<number, string>();
+  for (const l of labels) {
+    if (typeof l?.i === 'number' && typeof l?.domain === 'string' && l.domain.trim()) {
+      byIndex.set(l.i, l.domain.trim().slice(0, 100));
+    }
+  }
+
+  const batch = db.batch();
+  const domainsUsed = new Set<string>(domains ?? []);
+  let tagged = 0;
+  slice.forEach((d, i) => {
+    const domain = byIndex.get(i);
+    if (!domain) return;
+    batch.update(d.ref, { domain });
+    domainsUsed.add(domain);
+    tagged += 1;
+  });
+  if (tagged > 0) await batch.commit();
+
+  const nextOffset = offset + slice.length < all.length ? offset + slice.length : null;
+  if (nextOffset === null) {
+    await writeAdminLog({
+      performedBy: uid,
+      action: 'autoTagPracticeDomains',
+      targetType: 'practiceTest',
+      targetId: bankId,
+      description: `AI-tagged domains across ${all.length} question(s) in practice bank ${bankId}`,
+    });
+  }
+
+  return { tagged, total: all.length, nextOffset, domainsUsed: [...domainsUsed] };
+}
+
 // ---------------------------------------------------------------------------
 // Products & Pricing: Certification / Content Version / Package / Mock
 // Blueprint actions - the admin configuration side of the "Certification ->
@@ -5861,6 +5947,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'getPracticeTestAnswerKey':
         res.status(200).json(await getPracticeTestAnswerKey(data));
+        return;
+      case 'autoTagPracticeDomains':
+        res.status(200).json(await autoTagPracticeDomains(uid, data));
         return;
       case 'updatePracticeTestQuestion':
         res.status(200).json(await updatePracticeTestQuestion(uid, data));
