@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CertificationPlansModal } from './CertificationPlansModal';
 import { formatMoney } from '@/utils/currency';
 import {
@@ -23,11 +24,9 @@ interface Props {
 }
 
 // One card in the learner home page's "Prepare for Your Certification"
-// row. Same fixed footprint as the course cards in "Courses to explore" /
-// "New courses" (compact ProductCardShell: w-60 / sm:w-72, h-24 cover) so
-// every card on the home page reads as the same size. "View Plans" opens a
-// full-detail popup with the package selector + Buy / Add to Cart and the
-// post-purchase confirmation, all reused from CertificationCard.
+// row. The whole card is clickable (like the course cards) and opens the
+// certification's detail page; "View Plans" is a separate control that
+// opens the package selector / Buy popup without leaving the page.
 export function CertificationPrepCard({ certification }: Props) {
   const [open, setOpen] = useState(false);
   const summary = summarizeCertificationPrep(certification);
@@ -38,18 +37,21 @@ export function CertificationPrepCard({ certification }: Props) {
   if (summary.mockExams > 0) meta.push(`${summary.mockExams} mock exam${summary.mockExams === 1 ? '' : 's'}`);
   if (summary.accessDays > 0) meta.push(`${summary.accessDays} days access`);
 
+  // The per-certification detail page, keyed by the batched-content series
+  // id. Practice page when there's a question bank, else the mock page.
+  const detailHref = certification.seriesId
+    ? summary.practiceQuestions > 0
+      ? `/home/practice-tests/series/${certification.seriesId}`
+      : `/home/mock-exams/series/${certification.seriesId}`
+    : null;
+
   return (
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
+    <div className="relative flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
       {/* Fixed-height cover - the top ~half of the card, matching the course
           cards' cover so every card on the page keeps the same footprint. */}
       {certification.coverImageUrl ? (
         <div className="h-32 overflow-hidden">
-          <img
-            src={certification.coverImageUrl}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
+          <img src={certification.coverImageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
         </div>
       ) : (
         <div className="flex h-32 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
@@ -81,14 +83,34 @@ export function CertificationPrepCard({ certification }: Props) {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="mt-3 w-full rounded-lg bg-brand-500 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
-        >
-          View Plans
-        </button>
+        {detailHref ? (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="relative z-10 mt-3 w-full rounded-lg border border-brand-500 bg-surface-raised py-2 text-center text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-50"
+          >
+            View Plans
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="mt-3 w-full rounded-lg bg-brand-500 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
+          >
+            View Plans
+          </button>
+        )}
       </div>
+
+      {/* Whole-card click target. Rendered last so it sits over the static
+          content for click-catching; the "View Plans" button is lifted
+          above it with z-10. Only when there is a detail page to go to -
+          otherwise the button above is the only action. */}
+      {detailHref && (
+        <Link to={detailHref} className="absolute inset-0" aria-label={`${certification.name} details`}>
+          <span className="sr-only">Open {certification.name}</span>
+        </Link>
+      )}
 
       {open && <CertificationPlansModal certification={certification} onClose={() => setOpen(false)} />}
     </div>
