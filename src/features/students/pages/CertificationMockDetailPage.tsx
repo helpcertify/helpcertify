@@ -4,7 +4,7 @@ import { Tabs, EmptyState, DataTable, StatCard, type TabItem } from '@/component
 import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
 import { toDate } from '@/utils/formatDate';
 import { useMockSeries, useMyMockAttempts } from '../hooks/useExamSeries';
-import { ExamDetailHeader, MockExamRow, ScoreTrend, formatDuration, pad2 } from '../components/exam';
+import { ExamDetailHeader, MockExamRow, ScoreTrend, CertificationPurchasePanel, formatDuration, pad2 } from '../components/exam';
 
 type TabId = 'mocks' | 'performance' | 'reviews';
 
@@ -55,7 +55,7 @@ export function CertificationMockDetailPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1200px]">
+    <div className="mx-auto w-full max-w-[1400px]">
       <ExamDetailHeader
         backTo="/home/mock-exams"
         backLabel="Back to Mock Exams"
@@ -78,11 +78,16 @@ export function CertificationMockDetailPage() {
         accuracy={s.bestScorePct != null ? { label: 'Best score', value: s.bestScorePct } : null}
       />
 
-      <div className="mt-6">
-        <Tabs items={tabs} value={tab} onChange={setTab} />
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <aside className="order-1 lg:order-2 lg:sticky lg:top-4">
+          <CertificationPurchasePanel cert={s.cert} favoriteItemType="quiz" favoriteItemId={s.sets[0]?.itemId ?? ''} />
+        </aside>
 
-        <div className="mt-4">
-          {tab === 'mocks' && (
+        <div className="order-2 min-w-0 lg:order-1">
+          <Tabs items={tabs} value={tab} onChange={setTab} />
+
+          <div className="mt-4">
+            {tab === 'mocks' && (
             <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface-raised shadow-card">
               {s.sets.map((set) => (
                 <MockExamRow
@@ -194,6 +199,7 @@ export function CertificationMockDetailPage() {
                 </DataTable>
               </div>
             ))}
+          </div>
         </div>
       </div>
 

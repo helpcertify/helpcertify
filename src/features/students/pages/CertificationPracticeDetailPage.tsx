@@ -5,7 +5,7 @@ import { CertificationPlansModal } from '@/components/common/CertificationPlansM
 import { usePracticeSeries, type ExamSeries } from '../hooks/useExamSeries';
 import { usePracticeQuestionBank, groupByDomain, type BankQuestion } from '../hooks/usePracticeQuestionBank';
 import { bankBuckets, weakAreaCount } from '../lib/practiceStats';
-import { ExamDetailHeader, PracticeSetRow, ExamProgressBar } from '../components/exam';
+import { ExamDetailHeader, PracticeSetRow, ExamProgressBar, CertificationPurchasePanel } from '../components/exam';
 
 type TabId = 'sets' | 'topics' | 'history' | 'analytics';
 
@@ -57,7 +57,7 @@ export function CertificationPracticeDetailPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1200px]">
+    <div className="mx-auto w-full max-w-[1400px]">
       <ExamDetailHeader
         backTo="/home/practice-tests"
         backLabel="Back to Practice Exams"
@@ -78,10 +78,19 @@ export function CertificationPracticeDetailPage() {
         accuracy={s.practiceAccuracyPct != null ? { label: 'Accuracy', value: s.practiceAccuracyPct } : null}
       />
 
-      <div className="mt-6">
-        <Tabs items={tabs} value={tab} onChange={setTab} />
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <aside className="order-1 lg:order-2 lg:sticky lg:top-4">
+          <CertificationPurchasePanel
+            cert={s.cert}
+            favoriteItemType="practiceTest"
+            favoriteItemId={s.sets[0]?.itemId ?? ''}
+          />
+        </aside>
 
-        <div className="mt-4">
+        <div className="order-2 min-w-0 lg:order-1">
+          <Tabs items={tabs} value={tab} onChange={setTab} />
+
+          <div className="mt-4">
           {tab === 'sets' && (
             <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface-raised shadow-card">
               {s.sets.map((set) => (
@@ -143,6 +152,7 @@ export function CertificationPracticeDetailPage() {
                 <StatCard label="Unseen" value={buckets.unseen} />
               </div>
             ))}
+          </div>
         </div>
       </div>
 
