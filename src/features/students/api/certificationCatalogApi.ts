@@ -68,6 +68,12 @@ export interface CatalogCertification {
   coverImageUrl?: string | null;
   coverImageCredit?: string | null;
   coverImageSourceUrl?: string | null;
+  // The batched content series this certification's practice/mock banks
+  // belong to (getLearnerCatalog spreads the whole doc, so it rides along).
+  // Absent on a certification whose content was linked as single banks
+  // rather than a batched upload; the per-certification detail routes are
+  // keyed by it.
+  seriesId?: string | null;
   packages: CatalogPackage[];
 }
 
