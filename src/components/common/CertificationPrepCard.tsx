@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ModalCloseButton } from './ModalCloseButton';
-import { CertificationCard } from './CertificationCard';
+import { CertificationPlansModal } from './CertificationPlansModal';
 import { formatMoney } from '@/utils/currency';
 import {
   summarizeCertificationPrep,
@@ -92,55 +90,7 @@ export function CertificationPrepCard({ certification }: Props) {
         </button>
       </div>
 
-      {open && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="relative my-auto w-full max-w-4xl rounded-2xl border border-surface-border bg-surface-raised p-4 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ModalCloseButton onClose={() => setOpen(false)} />
-
-            {certification.coverImageUrl && (
-              <img
-                src={certification.coverImageUrl}
-                alt=""
-                className="mb-4 h-40 w-full rounded-xl object-cover"
-              />
-            )}
-            <div className="pr-8 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-              {certification.provider}
-            </div>
-            <h2 className="mt-0.5 text-xl font-bold text-ink">{certification.name}</h2>
-            {certification.description && (
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{certification.description}</p>
-            )}
-
-            {/* Package selector + Buy / Add to Cart + post-purchase
-                confirmation - reused as-is from the certification card. */}
-            <div className="mt-5">
-              <CertificationCard certification={certification} />
-            </div>
-
-            {certification.independentPrepDisclaimer && (
-              <p className="mt-5 border-t border-surface-border pt-4 text-[11px] leading-relaxed text-ink-faint">
-                {certification.independentPrepDisclaimer}
-              </p>
-            )}
-            <a
-              href="/terms"
-              target="_blank"
-              rel="noopener"
-              className="mt-2 block text-xs font-medium text-brand-ink hover:underline"
-            >
-              Terms &amp; refund policy
-            </a>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {open && <CertificationPlansModal certification={certification} onClose={() => setOpen(false)} />}
     </div>
   );
 }
