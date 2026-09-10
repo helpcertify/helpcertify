@@ -76,7 +76,7 @@ export function CertificationPracticeDetailPage() {
         &larr; Practice Exams
       </Link>
 
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-x-6 lg:gap-y-5">
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_416px] lg:gap-x-6 lg:gap-y-5">
         <div className="order-1 lg:col-start-1 lg:row-start-1">
           <ExamDetailHeader
             title={s.cert.name}
