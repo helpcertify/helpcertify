@@ -110,7 +110,18 @@ export function CertificationPurchasePanel({
         }`,
       );
     }
-    for (const f of ownedPackage.includedFeatures ?? []) includes.push(f);
+    // The two lines above already spell out the practice-bank and mock
+    // counts, and the Access section below shows the validity window - so
+    // drop any admin-authored feature that just restates one of those, and
+    // keep only the genuinely additive ones (study plan, analytics,
+    // certificates, ...).
+    for (const f of ownedPackage.includedFeatures ?? []) {
+      const t = f.toLowerCase();
+      if (t.includes('practice question')) continue;
+      if (t.includes('mock')) continue;
+      if (t.includes('access') && /\bdays?\b/.test(t)) continue;
+      includes.push(f);
+    }
 
     const upgrade = packages.find(
       (p) =>
