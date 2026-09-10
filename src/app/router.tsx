@@ -32,6 +32,8 @@ import { CoursesPage } from '@/features/students/pages/CoursesPage';
 import { CourseDetailPage } from '@/features/students/pages/CourseDetailPage';
 import { QuizDetailPage } from '@/features/students/pages/QuizDetailPage';
 import { PracticeTestDetailPage } from '@/features/students/pages/PracticeTestDetailPage';
+import { CertificationPracticeDetailPage } from '@/features/students/pages/CertificationPracticeDetailPage';
+import { CertificationMockDetailPage } from '@/features/students/pages/CertificationMockDetailPage';
 import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
 import { MyCertificatesPage } from '@/features/students/pages/MyCertificatesPage';
@@ -99,10 +101,12 @@ export function AppRouter() {
         <Route element={<StudentShell />}>
           <Route path="/home" element={<StudentHomePage />} />
           <Route path="/home/mock-exams" element={<MockExamsPage />} />
+          <Route path="/home/mock-exams/series/:seriesId" element={<CertificationMockDetailPage />} />
           <Route path="/home/past-quizzes" element={<PastQuizzesPage />} />
           <Route path="/home/past-quizzes/:quizId" element={<StudentQuizDashboardPage />} />
           <Route path="/home/certificates" element={<MyCertificatesPage />} />
           <Route path="/home/practice-tests" element={<PracticeTestsPage />} />
+          <Route path="/home/practice-tests/series/:seriesId" element={<CertificationPracticeDetailPage />} />
           <Route path="/home/courses" element={<CoursesPage />} />
           <Route path="/home/courses/:courseId" element={<CourseDetailPage />} />
           <Route path="/home/quizzes/:quizId" element={<QuizDetailPage />} />
