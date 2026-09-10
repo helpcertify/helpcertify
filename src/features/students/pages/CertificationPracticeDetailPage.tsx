@@ -5,6 +5,7 @@ import { CertificationPlansModal } from '@/components/common/CertificationPlansM
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
 import { usePracticeSeries, type ExamSeries } from '../hooks/useExamSeries';
 import { usePracticeQuestionBank, groupByDomain, type BankQuestion } from '../hooks/usePracticeQuestionBank';
+import { useSeriesStudyGoal } from '../hooks/useSeriesStudyGoal';
 import { bankBuckets, weakAreaCount } from '../lib/practiceStats';
 import {
   ExamDetailHeader,
@@ -13,6 +14,7 @@ import {
   PracticeSetRow,
   ExamProgressBar,
   CertificationPurchasePanel,
+  StudyGoalCard,
 } from '../components/exam';
 
 type TabId = 'sets' | 'topics' | 'history' | 'analytics';
@@ -39,6 +41,15 @@ export function CertificationPracticeDetailPage() {
 
   const ownedBankIds = useMemo(() => (s?.sets ?? []).filter((x) => x.owned).map((x) => x.itemId), [s]);
   const bankQ = usePracticeQuestionBank(ownedBankIds, tab === 'topics' || tab === 'history');
+  const seriesBatchIds = useMemo(() => (s?.sets ?? []).map((x) => x.itemId), [s]);
+  const { data: goal, isLoading: goalLoading, hasPlan: goalHasPlan } = useSeriesStudyGoal({
+    seriesId: s?.seriesId ?? '',
+    batchIds: seriesBatchIds,
+    totalQuestions: s?.totalQuestions ?? 0,
+    uniqueAnsweredCount: s?.answeredUnique ?? 0,
+    revisionBufferDays: s?.revisionBufferDays ?? 3,
+    defaultMinutesPerQuestion: s?.defaultMinutesPerQuestion ?? 1.8,
+  });
 
   if (isLoading && !s) return <p className="text-sm text-ink-faint">Loading…</p>;
   if (!s) {
@@ -96,18 +107,31 @@ export function CertificationPracticeDetailPage() {
         </div>
 
         <aside className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]">
-          <CertificationPurchasePanel
-            cert={s.cert}
-            continueHref={continueHref}
-            continueLabel="Continue Practice"
-            favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
-            planProgress={{
-              label: 'Practice questions',
-              done: answered,
-              total: ownedTotal,
-              note: s.practiceAccuracyPct != null ? `${s.practiceAccuracyPct}% accuracy` : undefined,
-            }}
-          />
+          <div className="flex flex-col gap-3.5">
+            <CertificationPurchasePanel
+              cert={s.cert}
+              continueHref={continueHref}
+              continueLabel="Continue Practice"
+              favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
+              planProgress={{
+                label: 'Practice questions',
+                done: answered,
+                total: ownedTotal,
+                note: s.practiceAccuracyPct != null ? `${s.practiceAccuracyPct}% accuracy` : undefined,
+              }}
+            />
+            {s.owned && (
+              <StudyGoalCard
+                hasLoaded={!goalLoading}
+                hasPlan={goalHasPlan}
+                goal={goal}
+                answered={answered}
+                total={ownedTotal}
+                accuracyPct={s.practiceAccuracyPct}
+                onOpen={() => setGoalOpen(true)}
+              />
+            )}
+          </div>
         </aside>
 
         <div className="order-3 min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">
@@ -136,27 +160,25 @@ export function CertificationPracticeDetailPage() {
             />
           </div>
 
-          {s.owned && (
+          {s.owned && goalOpen && (
             <div>
               <button
                 type="button"
-                onClick={() => setGoalOpen((v) => !v)}
-                className="rounded-lg border border-brand-500 bg-surface-raised px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-transparent"
+                onClick={() => setGoalOpen(false)}
+                className="text-sm font-semibold text-brand-ink hover:underline"
               >
-                {goalOpen ? '✕ Hide Study Goal' : '🎯 Set My Study Goal'}
+                ✕ Hide Study Goal
               </button>
-              {goalOpen && (
-                <StudyGoalPanel
-                  series={{
-                    seriesId: s.seriesId,
-                    batchIds: s.sets.map((x) => x.itemId),
-                    totalQuestions: s.totalQuestions,
-                    revisionBufferDays: s.revisionBufferDays,
-                    defaultMinutesPerQuestion: s.defaultMinutesPerQuestion,
-                  }}
-                  onSaved={() => setGoalOpen(false)}
-                />
-              )}
+              <StudyGoalPanel
+                series={{
+                  seriesId: s.seriesId,
+                  batchIds: s.sets.map((x) => x.itemId),
+                  totalQuestions: s.totalQuestions,
+                  revisionBufferDays: s.revisionBufferDays,
+                  defaultMinutesPerQuestion: s.defaultMinutesPerQuestion,
+                }}
+                onSaved={() => setGoalOpen(false)}
+              />
             </div>
           )}
 
