@@ -11,6 +11,7 @@ import { formatMoney } from '@/utils/currency';
 import { toDate } from '@/utils/formatDate';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
+import { WishlistButton } from '@/components/common/WishlistButton';
 
 // The purchase / access card for a per-certification detail page. Owns
 // nothing new: same cart / useCheckout / BuyNowModal flow as
@@ -21,14 +22,32 @@ import { Spinner } from '@/components/common/Spinner';
 //   - upgrading  -> owned, but the learner tapped "View upgrade" -> buy the
 //                   more inclusive plan (no duplicate entitlement logic;
 //                   the batched items they already own just are not charged)
+export interface PlanProgress {
+  // "Practice questions" | "Mock exams"
+  label: string;
+  done: number;
+  total: number;
+  // "76% accuracy" | "best score 82%"
+  note?: string;
+}
+
 export function CertificationPurchasePanel({
   cert,
   continueHref,
+  continueLabel = 'Continue Practice',
+  planProgress,
+  favorite,
 }: {
   cert: CatalogCertification;
   // Where "Continue Practice" / "Continue" goes for an owner (the first
   // still-unfinished set's take route, decided by the page).
   continueHref: string;
+  continueLabel?: string;
+  // The owner's progress on this series, supplied by the page (the panel
+  // only knows the catalogue, not the learner's attempts).
+  planProgress?: PlanProgress;
+  // Shown as "Add to Favorites" in the buy view only (not once owned).
+  favorite: { itemType: 'quiz' | 'practiceTest'; itemId: string };
 }) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
@@ -72,7 +91,27 @@ export function CertificationPurchasePanel({
 
   // --- Owned view ----------------------------------------------------------
   if (ownedPackage && !upgradeMode) {
-    const accessUntil = latestExpiry(ownedPackage, purchases?.purchases);
+    const expiryMs = latestExpiryMs(ownedPackage, purchases?.purchases);
+    const daysLeft = expiryMs ? Math.ceil((expiryMs - Date.now()) / 86_400_000) : null;
+    const practiceQ = ownedPackage.practiceQuestionCount || ownedPackage.accessibleQuestionCount || ownedPackage.aggregateTotalQuestions;
+    const practiceSets = ownedPackage.includedPracticeTestIds.length;
+    const includes: string[] = [];
+    if (ownedPackage.practiceAccessEnabled && practiceQ > 0) {
+      includes.push(
+        `${practiceQ.toLocaleString()} practice question${practiceQ === 1 ? '' : 's'}${
+          practiceSets > 0 ? ` across ${practiceSets} set${practiceSets === 1 ? '' : 's'}` : ''
+        }`,
+      );
+    }
+    if (ownedPackage.mockAccessEnabled && ownedPackage.fullMockAttempts > 0) {
+      includes.push(
+        `${ownedPackage.fullMockAttempts} full-length mock exam${ownedPackage.fullMockAttempts === 1 ? '' : 's'}${
+          ownedPackage.questionsPerMock > 0 ? ` (${ownedPackage.questionsPerMock} questions each)` : ''
+        }`,
+      );
+    }
+    for (const f of ownedPackage.includedFeatures ?? []) includes.push(f);
+
     const upgrade = packages.find(
       (p) =>
         p.state !== 'ACTIVE' &&
@@ -81,60 +120,129 @@ export function CertificationPurchasePanel({
         Number(p.mockAccessEnabled) + Number(p.practiceAccessEnabled) >
           Number(ownedPackage.mockAccessEnabled) + Number(ownedPackage.practiceAccessEnabled),
     );
+
+    const pct = planProgress && planProgress.total > 0 ? Math.round((planProgress.done / planProgress.total) * 100) : 0;
+
     return (
-      <Panel>
-        <div className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">Your plan</div>
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <span className="text-base font-bold text-ink">{ownedPackage.name}</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-bold text-success">
-            &#10003; Active
-          </span>
+      <div className="overflow-hidden rounded-xl border border-brand-500/40 bg-surface-raised shadow-pop">
+        <div className="bg-brand-500 px-5 py-4 text-white">
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/75">Your plan</div>
+          <div className="mt-1 flex items-start justify-between gap-2">
+            <span className="text-lg font-extrabold leading-tight">{ownedPackage.name}</span>
+            <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
+              &#10003; Active
+            </span>
+          </div>
         </div>
 
-        <ul className="mt-3 space-y-1.5 text-sm text-ink-muted">
-          {ownedPackage.practiceAccessEnabled && (
-            <li className="flex items-center gap-2">
-              <span className="text-success">&#10003;</span> Practice Questions
-            </li>
-          )}
-          {ownedPackage.mockAccessEnabled && (
-            <li className="flex items-center gap-2">
-              <span className="text-success">&#10003;</span> Mock Exams
-            </li>
-          )}
-          <li className="pt-1 text-xs text-ink-faint">
-            {accessUntil ? `Access until ${accessUntil}` : 'Lifetime access'}
-          </li>
-        </ul>
-
-        <Link
-          to={continueHref}
-          className="mt-4 block w-full rounded-lg bg-brand-500 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
-        >
-          Continue Practice
-        </Link>
-
-        {upgrade && (
-          <div className="mt-4 border-t border-surface-border pt-3">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">Upgrade your preparation</div>
-            <div className="mt-1 text-sm font-semibold text-ink">{upgrade.name}</div>
-            {upgrade.mockAccessEnabled && !ownedPackage.mockAccessEnabled && (
-              <div className="text-xs text-ink-faint">Adds Mock Exams</div>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedId(upgrade.id);
-                setUpgradeMode(true);
-              }}
-              className="mt-2 w-full rounded-lg border border-brand-500 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-50"
-            >
-              View upgrade
-            </button>
+        <div className="space-y-4 p-5">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">What&rsquo;s included</div>
+            <ul className="mt-1.5 space-y-1.5 text-sm text-ink-muted">
+              {includes.map((line) => (
+                <li key={line} className="flex gap-2">
+                  <span className="mt-px shrink-0 text-success">&#10003;</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+              {includes.length === 0 && (
+                <>
+                  {ownedPackage.practiceAccessEnabled && (
+                    <li className="flex gap-2">
+                      <span className="text-success">&#10003;</span> Practice Questions
+                    </li>
+                  )}
+                  {ownedPackage.mockAccessEnabled && (
+                    <li className="flex gap-2">
+                      <span className="text-success">&#10003;</span> Mock Exams
+                    </li>
+                  )}
+                </>
+              )}
+            </ul>
           </div>
-        )}
+
+          {planProgress && (
+            <div className="border-t border-surface-border pt-3">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+                <span>Your progress</span>
+                {planProgress.note && <span className="normal-case text-ink-muted">{planProgress.note}</span>}
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-sm">
+                <span className="text-ink-muted">{planProgress.label}</span>
+                <span className="font-semibold text-ink [font-variant-numeric:tabular-nums]">
+                  {planProgress.done.toLocaleString()} / {planProgress.total.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
+                <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, pct)}%` }} />
+              </div>
+              <div className="mt-1 text-xs text-ink-faint">{pct}% complete</div>
+            </div>
+          )}
+
+          <div className="border-t border-surface-border pt-3">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">Access</div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm">
+              {expiryMs ? (
+                <>
+                  <span className="text-ink-muted">
+                    Until <span className="font-semibold text-ink">{formatAccessDate(expiryMs)}</span>
+                  </span>
+                  {daysLeft != null && daysLeft > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                        daysLeft <= 7 ? 'bg-warning-soft text-warning' : 'bg-surface-sunken text-ink-faint'
+                      }`}
+                    >
+                      {daysLeft} day{daysLeft === 1 ? '' : 's'} left
+                    </span>
+                  )}
+                  {daysLeft != null && daysLeft <= 0 && (
+                    <span className="rounded-full bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger">Expired</span>
+                  )}
+                </>
+              ) : (
+                <span className="font-semibold text-ink">Lifetime access</span>
+              )}
+            </div>
+          </div>
+
+          <Link
+            to={continueHref}
+            className="block w-full rounded-lg bg-brand-500 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
+          >
+            {continueLabel}
+          </Link>
+          <Link
+            to="/home/purchases"
+            className="block text-center text-xs font-semibold text-brand-ink hover:underline"
+          >
+            Manage in Billing &amp; Orders
+          </Link>
+
+          {upgrade && (
+            <div className="rounded-lg border border-surface-border bg-surface-sunken p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">Upgrade your preparation</div>
+              <div className="mt-1 text-sm font-semibold text-ink">{upgrade.name}</div>
+              {upgrade.mockAccessEnabled && !ownedPackage.mockAccessEnabled && (
+                <div className="text-xs text-ink-faint">Adds full-length mock exams</div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId(upgrade.id);
+                  setUpgradeMode(true);
+                }}
+                className="mt-2 w-full rounded-lg border border-brand-500 bg-surface-raised py-2 text-sm font-semibold text-brand-ink hover:bg-brand-50"
+              >
+                View upgrade
+              </button>
+            </div>
+          )}
+        </div>
         {confirmation}
-      </Panel>
+      </div>
     );
   }
 
@@ -249,6 +357,11 @@ export function CertificationPurchasePanel({
               </button>
             </>
           )}
+
+          <div className="flex items-center justify-center gap-1.5 rounded-lg border border-surface-border py-2 text-sm font-semibold text-ink-muted">
+            <WishlistButton itemType={favorite.itemType} itemId={favorite.itemId} variant="inline" />
+            <span>Add to Favorites</span>
+          </div>
         </div>
       </div>
 
@@ -282,19 +395,19 @@ export function CertificationPurchasePanel({
 function Panel({ children, padded = true }: { children: ReactNode; padded?: boolean }) {
   return (
     <div
-      className={`overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-card ${padded ? 'p-5' : ''}`}
+      className={`overflow-hidden rounded-xl border border-surface-border-strong bg-surface-raised shadow-pop ${padded ? 'p-5' : ''}`}
     >
       {children}
     </div>
   );
 }
 
-// Latest access expiry across the package's included items the learner
-// actually owns. Returns a formatted date, or null for lifetime / unknown.
-function latestExpiry(
+// Latest access expiry (epoch ms) across the package's included items the
+// learner actually owns. null = lifetime access or unknown.
+function latestExpiryMs(
   pkg: CatalogPackage,
   purchases: { itemType: string; itemId: string; expiresAt?: unknown }[] | undefined,
-): string | null {
+): number | null {
   if (!purchases?.length) return null;
   const keys = new Set(pkg.includedItems.map((i) => `${i.itemType}_${i.itemId}`));
   let maxMs = 0;
@@ -308,5 +421,9 @@ function latestExpiry(
     maxMs = Math.max(maxMs, toDate(p.expiresAt).getTime());
   }
   if (sawLifetime || maxMs === 0) return null;
-  return new Date(maxMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return maxMs;
+}
+
+function formatAccessDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }

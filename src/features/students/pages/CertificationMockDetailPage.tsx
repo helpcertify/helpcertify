@@ -86,12 +86,22 @@ export function CertificationMockDetailPage() {
             }
             coverImageUrl={s.cert.coverImageUrl}
             iconKey={s.cert.iconKey}
-            favorite={{ itemType: 'quiz', itemId: s.sets[0]?.itemId ?? '' }}
           />
         </div>
 
         <aside className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]">
-          <CertificationPurchasePanel cert={s.cert} continueHref={continueHref} />
+          <CertificationPurchasePanel
+            cert={s.cert}
+            continueHref={continueHref}
+            continueLabel="Continue Mock Exams"
+            favorite={{ itemType: 'quiz', itemId: s.sets[0]?.itemId ?? '' }}
+            planProgress={{
+              label: 'Mock exams',
+              done: s.mocksCompleted,
+              total: s.sets.length,
+              note: s.bestScorePct != null ? `best ${s.bestScorePct}%` : undefined,
+            }}
+          />
         </aside>
 
         <div className="order-3 min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">

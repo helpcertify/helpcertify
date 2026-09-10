@@ -85,12 +85,22 @@ export function CertificationPracticeDetailPage() {
             description={s.cert.description || 'Practice at your own pace, review explanations and track your progress.'}
             coverImageUrl={s.cert.coverImageUrl}
             iconKey={s.cert.iconKey}
-            favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
           />
         </div>
 
         <aside className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]">
-          <CertificationPurchasePanel cert={s.cert} continueHref={continueHref} />
+          <CertificationPurchasePanel
+            cert={s.cert}
+            continueHref={continueHref}
+            continueLabel="Continue Practice"
+            favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
+            planProgress={{
+              label: 'Practice questions',
+              done: answered,
+              total: ownedTotal,
+              note: s.practiceAccuracyPct != null ? `${s.practiceAccuracyPct}% accuracy` : undefined,
+            }}
+          />
         </aside>
 
         <div className="order-3 min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">
