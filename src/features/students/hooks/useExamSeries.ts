@@ -46,6 +46,11 @@ export interface ExamSeries {
   // Pricing (lowest "from" across the cert's packages)
   fromPrice: number | null;
   currency: 'INR' | 'USD';
+  // Practice only - the series' own Study Planner defaults (from the first
+  // batch; every batch in a generated series shares these), used to drive
+  // StudyGoalPanel's series-scoped exam-date / pace planning.
+  revisionBufferDays: number;
+  defaultMinutesPerQuestion: number;
 }
 
 interface RawPracticeProgress extends PracticeProgressLike {
@@ -249,6 +254,8 @@ export function usePracticeSeries() {
         bestScorePct: null,
         fromPrice: lowestPrice(cert),
         currency: cert.packages[0]?.currency ?? 'INR',
+        revisionBufferDays: resolved.sorted[0]?.revisionBufferDays ?? 3,
+        defaultMinutesPerQuestion: resolved.sorted[0]?.defaultMinutesPerQuestion ?? 1.8,
       });
     }
     return out.sort((a, b) => a.cert.name.localeCompare(b.cert.name));
@@ -327,6 +334,10 @@ export function useMockSeries() {
         bestScorePct: scores.length ? Math.max(...scores) : null,
         fromPrice: lowestPrice(cert),
         currency: cert.packages[0]?.currency ?? 'INR',
+        // Not applicable to mock series - the Study Planner is a practice-
+        // bank feature only.
+        revisionBufferDays: 0,
+        defaultMinutesPerQuestion: 0,
       });
     }
     return out.sort((a, b) => a.cert.name.localeCompare(b.cert.name));

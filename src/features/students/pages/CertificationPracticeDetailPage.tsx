@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Tabs, EmptyState, DataTable, StatCard, type TabItem } from '@/components/ui';
 import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
+import { StudyGoalPanel } from '../components/StudyGoalPanel';
 import { usePracticeSeries, type ExamSeries } from '../hooks/useExamSeries';
 import { usePracticeQuestionBank, groupByDomain, type BankQuestion } from '../hooks/usePracticeQuestionBank';
 import { bankBuckets, weakAreaCount } from '../lib/practiceStats';
@@ -29,6 +30,10 @@ export function CertificationPracticeDetailPage() {
   const [tab, setTab] = useState<TabId>('sets');
   const [plansOpen, setPlansOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState('');
+  // How a not-yet-started/in-progress set is opened - same choice
+  // ExamSeriesGroup used to offer, now made once for the whole series.
+  const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_of_session'>('immediate');
+  const [goalOpen, setGoalOpen] = useState(false);
 
   const s = useMemo(() => series.find((x) => x.seriesId === seriesId), [series, seriesId]);
 
@@ -61,7 +66,9 @@ export function CertificationPracticeDetailPage() {
   // learner has not finished, else the first owned set, else the first set.
   const continueSet =
     s.sets.find((x) => x.owned && x.status !== 'completed') ?? s.sets.find((x) => x.owned) ?? s.sets[0];
-  const continueHref = continueSet ? `/practice-tests/${continueSet.itemId}/take` : '/home/practice-tests';
+  const continueHref = continueSet
+    ? `/practice-tests/${continueSet.itemId}/take?feedbackMode=${feedbackMode}`
+    : '/home/practice-tests';
 
   const tabs: TabItem<TabId>[] = [
     { id: 'sets', label: 'Practice Sets' },
@@ -129,32 +136,81 @@ export function CertificationPracticeDetailPage() {
             />
           </div>
 
+          {s.owned && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setGoalOpen((v) => !v)}
+                className="rounded-lg border border-brand-500 bg-surface-raised px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-500/10 dark:bg-transparent"
+              >
+                {goalOpen ? '✕ Hide Study Goal' : '🎯 Set My Study Goal'}
+              </button>
+              {goalOpen && (
+                <StudyGoalPanel
+                  series={{
+                    seriesId: s.seriesId,
+                    batchIds: s.sets.map((x) => x.itemId),
+                    totalQuestions: s.totalQuestions,
+                    revisionBufferDays: s.revisionBufferDays,
+                    defaultMinutesPerQuestion: s.defaultMinutesPerQuestion,
+                  }}
+                  onSaved={() => setGoalOpen(false)}
+                />
+              )}
+            </div>
+          )}
+
           <div>
             <Tabs items={tabs} value={tab} onChange={setTab} />
 
             <div className="mt-4">
           {tab === 'sets' && (
-            <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface-raised shadow-card">
-              {s.sets.map((set) => (
-                <PracticeSetRow
-                  key={set.itemId}
-                  set={{
-                    testId: set.itemId,
-                    index: set.index,
-                    totalQuestions: set.totalQuestions,
-                    answered: set.answered,
-                    accuracyPct: set.setAccuracyPct,
-                    status: set.status,
-                  }}
-                  takeHref={
-                    set.status === 'completed'
-                      ? `/home/practice-tests/${set.itemId}`
-                      : `/practice-tests/${set.itemId}/take`
-                  }
-                  onViewPlans={() => setPlansOpen(true)}
-                />
-              ))}
-            </div>
+            <>
+              {s.owned && (
+                <div className="mb-3 rounded-xl border border-surface-border bg-surface-raised p-4 shadow-card">
+                  <div className="mb-2 text-xs font-medium text-ink-faint">How would you like to practice?</div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackMode('immediate')}
+                      className={`rounded-lg border p-2.5 text-left text-xs ${feedbackMode === 'immediate' ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'}`}
+                    >
+                      <div className="text-sm font-semibold text-ink">⚡ Learn As You Go</div>
+                      <div className="mt-0.5 text-ink-faint">See the answer after every question.</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFeedbackMode('end_of_session')}
+                      className={`rounded-lg border p-2.5 text-left text-xs ${feedbackMode === 'end_of_session' ? 'border-brand-500 bg-brand-50' : 'border-surface-border hover:border-brand-500'}`}
+                    >
+                      <div className="text-sm font-semibold text-ink">📝 Review At End</div>
+                      <div className="mt-0.5 text-ink-faint">See answers after finishing the session.</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface-raised shadow-card">
+                {s.sets.map((set) => (
+                  <PracticeSetRow
+                    key={set.itemId}
+                    set={{
+                      testId: set.itemId,
+                      index: set.index,
+                      totalQuestions: set.totalQuestions,
+                      answered: set.answered,
+                      accuracyPct: set.setAccuracyPct,
+                      status: set.status,
+                    }}
+                    takeHref={
+                      set.status === 'completed'
+                        ? `/home/practice-tests/${set.itemId}`
+                        : `/practice-tests/${set.itemId}/take?feedbackMode=${feedbackMode}`
+                    }
+                    onViewPlans={() => setPlansOpen(true)}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
           {tab === 'topics' && (
