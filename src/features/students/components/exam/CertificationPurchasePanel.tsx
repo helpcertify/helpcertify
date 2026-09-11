@@ -263,9 +263,16 @@ export function CertificationPurchasePanel({
   const selectable = packages.filter((p) => (upgradeMode ? p.state !== 'ACTIVE' : true));
 
   return (
-    <Panel padded={false}>
+    <div className="overflow-hidden rounded-xl border border-brand-500/40 bg-surface-raised shadow-pop">
+      <div className="bg-brand-500 px-5 py-4 text-white">
+        <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/75">
+          {upgradeMode ? 'Upgrade your plan' : 'Get started'}
+        </div>
+        <div className="mt-1 text-lg font-extrabold leading-tight">Choose your preparation</div>
+      </div>
+
       <div className="p-5">
-        {upgradeMode ? (
+        {upgradeMode && (
           <button
             type="button"
             onClick={() => setUpgradeMode(false)}
@@ -273,8 +280,6 @@ export function CertificationPurchasePanel({
           >
             &larr; Back to your plan
           </button>
-        ) : (
-          <div className="mb-3 text-sm font-bold text-ink">Choose your preparation</div>
         )}
 
         {selectable.length > 1 && (
@@ -399,7 +404,7 @@ export function CertificationPurchasePanel({
         />
       )}
       {confirmation}
-    </Panel>
+    </div>
   );
 }
 
