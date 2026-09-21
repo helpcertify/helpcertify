@@ -21,6 +21,10 @@ export function CartPage() {
 
   const [couponInput, setCouponInput] = useState('');
   const [unlockCodeInput, setUnlockCodeInput] = useState('');
+  // The unlock-code box only shows up once a coupon actually needs one
+  // (CouponDoc.requiresUnlockCode) - most coupons don't, so there's no
+  // reason to show a second code box up front.
+  const [needsUnlockCode, setNeedsUnlockCode] = useState(false);
   const [referralInput, setReferralInput] = useState('');
   const [useCredit, setUseCredit] = useState(false);
   const [consent, setConsent] = useState<CheckoutConsentState>(EMPTY_CONSENT);
@@ -41,9 +45,19 @@ export function CartPage() {
       queryClient.setQueryData(['student', 'cart'], data);
       setCouponInput('');
       setUnlockCodeInput('');
+      setNeedsUnlockCode(false);
       pushToast('Coupon applied', 'success');
     },
-    onError: (err) => pushToast(errorText(err, 'Could not apply that coupon'), 'error'),
+    onError: (err) => {
+      const msg = errorText(err, 'Could not apply that coupon');
+      // Distinguish "needs a second code" from a genuine failure so the
+      // unlock-code box only appears when it's actually needed.
+      if (/personal unlock code/i.test(msg)) {
+        setNeedsUnlockCode(true);
+      } else {
+        pushToast(msg, 'error');
+      }
+    },
   });
 
   const removeCouponMutation = useMutation({
@@ -172,27 +186,38 @@ export function CartPage() {
                   <div className="flex gap-2">
                     <input
                       value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value)}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value);
+                        setNeedsUnlockCode(false);
+                      }}
                       placeholder="Enter coupon code"
-                      className="input-dark flex-1"
-                    />
-                    <input
-                      value={unlockCodeInput}
-                      onChange={(e) => setUnlockCodeInput(e.target.value)}
-                      placeholder="Unlock code (optional)"
                       className="input-dark flex-1"
                     />
                     <button
                       type="button"
-                      disabled={!couponInput.trim() || applyCouponMutation.isPending}
+                      disabled={!couponInput.trim() || applyCouponMutation.isPending || (needsUnlockCode && !unlockCodeInput.trim())}
                       onClick={() =>
                         applyCouponMutation.mutate({ code: couponInput.trim(), unlockCode: unlockCodeInput.trim() || undefined })
                       }
                       className="rounded-lg border border-surface-border px-4 py-2 text-sm text-ink-muted disabled:opacity-50"
                     >
-                      Apply
+                      {applyCouponMutation.isPending ? 'Checking…' : 'Apply'}
                     </button>
                   </div>
+                  {needsUnlockCode && (
+                    <div className="mt-2">
+                      <label className="mb-1 block text-xs font-semibold text-ink-faint">
+                        This code needs your personal unlock code
+                      </label>
+                      <input
+                        value={unlockCodeInput}
+                        onChange={(e) => setUnlockCodeInput(e.target.value)}
+                        placeholder="Personal unlock code"
+                        className="input-dark w-full"
+                        autoFocus
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -94,7 +94,28 @@ export const checkoutApi = {
     razorpay_payment_id: string;
     razorpay_signature: string;
   }) => callAction<{ success: true }>('checkout', 'verifyPayment', payload),
+  // Read-only coupon check for Buy Now (bypasses the cart, so cartApi's
+  // applyCoupon can't be reused): validates the code against this one item
+  // and returns the real discounted total, without creating an order.
+  previewDiscount: (opts: {
+    buyNowItem: { itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack'; itemId: string; plan?: 'monthly' | 'annual' };
+    couponCode: string;
+    unlockCode?: string;
+  }) =>
+    callAction<PreviewDiscountResult>('checkout', 'previewDiscount', {
+      buyNowItem: opts.buyNowItem,
+      couponCode: opts.couponCode,
+      ...(opts.unlockCode ? { unlockCode: opts.unlockCode } : {}),
+    }),
 };
+
+export interface PreviewDiscountResult {
+  itemTitle: string;
+  currency: 'INR' | 'USD';
+  subtotal: number;
+  discount: number;
+  total: number;
+}
 
 export interface MyOrder {
   id: string;

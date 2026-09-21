@@ -302,6 +302,7 @@ export function CertificationCard({ certification }: CertificationCardProps) {
           originalPrice={selected.originalPrice}
           currency={selected.currency}
           paying={paying}
+          buyNowItem={{ itemType: 'package', itemId: selected.id }}
           summaryItem={{ itemType: 'package', accessPeriodDays: selected.accessValidityDays }}
           onClose={() => setBuyNowOpen(false)}
           onConfirm={(consent, couponCode, useCredit, unlockCode) => {

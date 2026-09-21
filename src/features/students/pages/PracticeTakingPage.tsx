@@ -784,23 +784,34 @@ function PracticeReviewScreen({
   const [selectedId, setSelectedId] = useState<string | null>(review.questions[0]?.questionId ?? null);
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
 
-  // Certificate eligibility is the *whole test's* coverage (every
-  // currently-published question answered at least once across every past
-  // session), not just this one batch's summary - re-read fresh here since
+  // Certificate eligibility is the *whole test's* coverage and accuracy
+  // (every currently-published question answered at least once across
+  // every past session, and every one of them currently correct - a 100%
+  // score), not just this one batch's summary - re-read fresh here since
   // this batch's submit may be exactly what pushed the test to 100%.
-  const { data: overallAnsweredCount } = useQuery({
-    queryKey: ['student', 'practiceOverallAnswered', uid, testId],
+  const { data: overallProgress } = useQuery({
+    queryKey: ['student', 'practiceOverallProgress', uid, testId],
     queryFn: async () => {
       const snap = await getDoc(doc(db, 'practiceProgress', `${uid}_${testId}`));
-      return snap.exists() ? ((snap.data().answeredQuestionIds as string[] | undefined)?.length ?? 0) : 0;
+      if (!snap.exists()) return { answeredCount: 0, incorrectCount: 0 };
+      const data = snap.data();
+      return {
+        answeredCount: (data.answeredQuestionIds as string[] | undefined)?.length ?? 0,
+        // Reflects only the most recent answer per question, so a question
+        // missed earlier and then re-answered correctly no longer counts
+        // against 100%.
+        incorrectCount: (data.incorrectQuestionIds as string[] | undefined)?.length ?? 0,
+      };
     },
     enabled: !!uid && !!testId,
   });
-  const isFullyComplete = !!overallAnsweredCount && overallAnsweredCount >= testTotalQuestions;
+  const isFullyComplete = !!overallProgress && overallProgress.answeredCount >= testTotalQuestions;
+  const isFullyCorrect = !!overallProgress && overallProgress.incorrectCount === 0;
+  const isCertificateEligible = isFullyComplete && isFullyCorrect;
   const { data: certData } = useQuery({
     queryKey: ['student', 'certificate', 'practiceTest', testId],
     queryFn: () => certificatesApi.issueOrGetCertificate('practiceTest', testId),
-    enabled: isFullyComplete,
+    enabled: isCertificateEligible,
     retry: false,
   });
 
@@ -835,7 +846,27 @@ function PracticeReviewScreen({
   return (
     <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-6xl">
-        {certData && <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />}
+        {certData ? (
+          <CertificateReadyPanel certificate={certData.certificate} dashboardHref="/home" />
+        ) : (
+          overallProgress && (
+            <div className="mb-6 rounded-xl border border-warning/30 bg-warning/10 p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-xl" aria-hidden="true">
+                  🎯
+                </span>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-warning">Score 100% to receive a completion certificate</h2>
+              </div>
+              <p className="text-sm text-ink-faint">
+                {!isFullyComplete
+                  ? `Answer every question in this test correctly to unlock it - you've covered ${overallProgress.answeredCount} of ${testTotalQuestions} so far.`
+                  : `You've answered every question at least once, but ${overallProgress.incorrectCount} ${
+                      overallProgress.incorrectCount === 1 ? 'is' : 'are'
+                    } still incorrect. Get every question right to unlock your certificate.`}
+              </p>
+            </div>
+          )
+        )}
         <div className="mb-6 rounded-xl border border-surface-border bg-surface-raised p-6 text-center shadow-card">
           <h1 className="text-[22px] font-bold text-ink">{gateAnswers ? 'Practice Completed' : 'Practice Complete'}</h1>
 

@@ -84,13 +84,12 @@ export function CertificationPrepCard({ certification }: Props) {
         </div>
 
         {detailHref ? (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="relative z-10 mt-3 w-full rounded-lg border border-brand-500 bg-surface-raised py-2 text-center text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-50"
+          <Link
+            to={detailHref}
+            className="relative z-10 mt-3 block w-full rounded-lg border border-brand-500 bg-surface-raised py-2 text-center text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-50"
           >
             View Plans
-          </button>
+          </Link>
         ) : (
           <button
             type="button"

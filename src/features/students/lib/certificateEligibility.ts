@@ -23,12 +23,17 @@ export function isQuizAttemptCertificateEligible(args: {
   return percent >= args.passMarkPercent;
 }
 
-// A practice test has no pass/fail concept - it's eligible once every
-// currently-published question has been answered at least once (matching
-// the existing "Download Certificate" gate already live on
-// PracticeTestsPage.tsx before this feature added server-side issuance).
-export function isPracticeTestCertificateEligible(args: { answeredCount: number; totalQuestions: number }): boolean {
-  return args.totalQuestions > 0 && args.answeredCount >= args.totalQuestions;
+// A practice test has no pass/fail concept, but a completion certificate is
+// only earned by mastering the whole bank: every currently-published
+// question answered at least once AND every one of them correct on its
+// latest attempt (incorrectCount reflects only the most recent answer per
+// question - see practiceProgress.incorrectQuestionIds - so re-answering a
+// previously-missed question correctly clears it and can restore
+// eligibility). Answering everything but missing even one no longer earns
+// the certificate - the learner is told to reach a 100% score instead (see
+// PracticeReviewScreen in PracticeTakingPage.tsx).
+export function isPracticeTestCertificateEligible(args: { answeredCount: number; totalQuestions: number; incorrectCount: number }): boolean {
+  return args.totalQuestions > 0 && args.answeredCount >= args.totalQuestions && args.incorrectCount === 0;
 }
 
 export function computeCompletionPercent(completed: number, total: number): number {

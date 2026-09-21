@@ -27,7 +27,7 @@ export function useCheckout() {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [paying, setPaying] = useState(false);
-  const [justPurchased, setJustPurchased] = useState<CheckoutItem[] | null>(null);
+  const [justPurchased, setJustPurchased] = useState<{ items: CheckoutItem[]; amount: number; currency: string } | null>(null);
 
   const checkout = async (opts: {
     items: CheckoutItem[];
@@ -59,7 +59,7 @@ export function useCheckout() {
         onSuccess: async (response) => {
           try {
             await checkoutApi.verifyPayment({ orderId: order.orderId, ...response });
-            setJustPurchased(opts.items);
+            setJustPurchased({ items: opts.items, amount: order.amount, currency: order.currency });
             queryClient.invalidateQueries({ queryKey: ['student', 'cart'] });
             queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] });
             queryClient.invalidateQueries({ queryKey: ['student', 'certificationCatalog'] });
@@ -84,7 +84,12 @@ export function useCheckout() {
   };
 
   const confirmation = justPurchased ? (
-    <PurchaseConfirmationModal items={justPurchased} onClose={() => setJustPurchased(null)} />
+    <PurchaseConfirmationModal
+      items={justPurchased.items}
+      amountPaid={justPurchased.amount}
+      currency={justPurchased.currency}
+      onClose={() => setJustPurchased(null)}
+    />
   ) : null;
 
   return { checkout, paying, confirmation };

@@ -397,6 +397,7 @@ export function PracticeTestDetailPage() {
           originalPrice={test.originalPrice ?? null}
           currency={test.currency ?? 'INR'}
           paying={paying}
+          buyNowItem={{ itemType: 'practiceTest', itemId: test.id }}
           summaryItem={{ itemType: 'practiceTest', questionCount: test.totalQuestions, accessPeriodDays: test.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
           onConfirm={(consent, couponCode, useCredit, unlockCode) => {

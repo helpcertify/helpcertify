@@ -32,15 +32,19 @@ describe('isQuizAttemptCertificateEligible', () => {
 
 describe('isPracticeTestCertificateEligible', () => {
   it('is not eligible until every question has been answered', () => {
-    expect(isPracticeTestCertificateEligible({ answeredCount: 900, totalQuestions: 1500 })).toBe(false);
+    expect(isPracticeTestCertificateEligible({ answeredCount: 900, totalQuestions: 1500, incorrectCount: 0 })).toBe(false);
   });
 
-  it('is eligible once every question has been answered at least once', () => {
-    expect(isPracticeTestCertificateEligible({ answeredCount: 1500, totalQuestions: 1500 })).toBe(true);
+  it('is not eligible once fully answered but at least one is still wrong', () => {
+    expect(isPracticeTestCertificateEligible({ answeredCount: 1500, totalQuestions: 1500, incorrectCount: 1 })).toBe(false);
+  });
+
+  it('is eligible once every question has been answered and every one is correct', () => {
+    expect(isPracticeTestCertificateEligible({ answeredCount: 1500, totalQuestions: 1500, incorrectCount: 0 })).toBe(true);
   });
 
   it('is not eligible for a bank with zero questions', () => {
-    expect(isPracticeTestCertificateEligible({ answeredCount: 0, totalQuestions: 0 })).toBe(false);
+    expect(isPracticeTestCertificateEligible({ answeredCount: 0, totalQuestions: 0, incorrectCount: 0 })).toBe(false);
   });
 });
 

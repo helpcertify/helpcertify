@@ -149,8 +149,8 @@ function isQuizAttemptCertificateEligible(status: string, correctCount: number, 
   if (totalQuestions <= 0) return false;
   return (correctCount / totalQuestions) * 100 >= passMarkPercent;
 }
-function isPracticeTestCertificateEligible(answeredCount: number, totalQuestions: number): boolean {
-  return totalQuestions > 0 && answeredCount >= totalQuestions;
+function isPracticeTestCertificateEligible(answeredCount: number, totalQuestions: number, incorrectCount: number): boolean {
+  return totalQuestions > 0 && answeredCount >= totalQuestions && incorrectCount === 0;
 }
 function buildSourceAttemptKey(learnerUid: string, sourceType: 'quiz' | 'practiceTest', sourceId: string, attemptId: string): string {
   return `${learnerUid}_${sourceType}_${sourceId}_${attemptId}`;
@@ -237,15 +237,20 @@ async function issueOrGetCertificate(uid: string, body: unknown) {
     const test = testSnap.data()!;
 
     const answeredCount: number = (progress.answeredQuestionIds ?? []).length;
-    const eligible = isPracticeTestCertificateEligible(answeredCount, test.totalQuestions ?? 0);
-    if (!eligible) throw Err.failedPrecondition('This practice test is not fully completed yet');
+    // incorrectQuestionIds reflects only the most recent answer per
+    // question, so re-answering a previously-missed one correctly clears
+    // it - a certificate is only earned once every question is both
+    // answered and currently correct (a 100% score), not just covered.
+    const incorrectCount: number = (progress.incorrectQuestionIds ?? []).length;
+    const eligible = isPracticeTestCertificateEligible(answeredCount, test.totalQuestions ?? 0, incorrectCount);
+    if (!eligible) throw Err.failedPrecondition('Score 100% on every question to receive a completion certificate');
 
     sourceTitle = test.title ?? 'Practice Test';
     certificationName = test.examName || test.category || 'Other';
     attemptNumber = 1; // one completion certificate per (learner, practice test) - see CertificateDoc's own comment
     questionsCompleted = answeredCount;
     totalQuestions = test.totalQuestions ?? 0;
-    scoreCorrect = null; // practice tests have no pass/fail score
+    scoreCorrect = answeredCount - incorrectCount; // always 100% once eligible, but recorded like a quiz score for the PDF/verify page
     completionPercent = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
     passMarkPercent = null;
     completedAtMillis = progress.updatedAt?.toMillis?.() ?? Date.now();

@@ -530,45 +530,27 @@ function computeCreditApplicableInline(subtotalMinor: number, availableMinor: nu
   return Math.max(0, Math.min(cap, availableMinor, subtotalMinor));
 }
 
-async function createOrder(uid: string, body: unknown) {
-  const parsed = createOrderSchema.safeParse(body);
-  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { buyNowItem, useCredit, consent } = parsed.data;
+// Recompute everything from the live docs - never trust the cart (or any
+// client input) as a price source for a real payment. Shared by createOrder
+// (the real payment-order path below) and previewDiscount (a read-only
+// coupon preview for Buy Now, further below) so both price an item
+// identically.
+type OrderItem = {
+  itemType: ItemType;
+  itemId: string;
+  title: string;
+  unitPrice: number;
+  certificationId: string | null;
+  accessPeriodLabel: string;
+  plan?: 'monthly' | 'annual';
+  promoEligible?: boolean;
+};
 
-  let cartItems: { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[];
-  let couponCode: string | null;
-  let unlockCode: string | null;
-  // A coupon typed directly into Buy Now was never checked anywhere before
-  // now, so an invalid one should fail loudly here rather than silently
-  // charging full price - the cart path already validated (or self-healed)
-  // its stored code before this point, so it keeps the existing quiet
-  // drop-if-now-invalid behavior instead.
-  const isExplicitBuyNowCoupon = !!buyNowItem;
-  const fromCart = !buyNowItem;
-  if (buyNowItem) {
-    cartItems = [buyNowItem];
-    couponCode = parsed.data.couponCode ?? null;
-    unlockCode = parsed.data.unlockCode ?? null;
-  } else {
-    const cartSnap = await db.collection('carts').doc(uid).get();
-    cartItems = (cartSnap.exists ? cartSnap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
-    if (cartItems.length === 0) throw Err.failedPrecondition('Your cart is empty');
-    couponCode = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
-    unlockCode = cartSnap.exists ? (cartSnap.data()!.unlockCode ?? null) : null;
-  }
-
-  // Recompute everything from the live docs - never trust the cart (or any
-  // client input) as a price source for a real payment.
-  const orderItems: {
-    itemType: ItemType;
-    itemId: string;
-    title: string;
-    unitPrice: number;
-    certificationId: string | null;
-    accessPeriodLabel: string;
-    plan?: 'monthly' | 'annual';
-    promoEligible?: boolean;
-  }[] = [];
+async function hydrateOrderItems(
+  uid: string,
+  cartItems: { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[],
+): Promise<{ orderItems: OrderItem[]; currency: 'INR' | 'USD' }> {
+  const orderItems: OrderItem[] = [];
   let currency: 'INR' | 'USD' = 'INR';
   for (const entry of cartItems) {
     if (entry.itemType === 'creatorProduct' || entry.itemType === 'aiCreditPack') {
@@ -708,6 +690,37 @@ async function createOrder(uid: string, body: unknown) {
     }
     currency = data.currency ?? 'INR'; // api/cart.ts's addItem guarantees every item in a cart shares one currency
   }
+  return { orderItems, currency };
+}
+
+async function createOrder(uid: string, body: unknown) {
+  const parsed = createOrderSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const { buyNowItem, useCredit, consent } = parsed.data;
+
+  let cartItems: { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[];
+  let couponCode: string | null;
+  let unlockCode: string | null;
+  // A coupon typed directly into Buy Now was never checked anywhere before
+  // now, so an invalid one should fail loudly here rather than silently
+  // charging full price - the cart path already validated (or self-healed)
+  // its stored code before this point, so it keeps the existing quiet
+  // drop-if-now-invalid behavior instead.
+  const isExplicitBuyNowCoupon = !!buyNowItem;
+  const fromCart = !buyNowItem;
+  if (buyNowItem) {
+    cartItems = [buyNowItem];
+    couponCode = parsed.data.couponCode ?? null;
+    unlockCode = parsed.data.unlockCode ?? null;
+  } else {
+    const cartSnap = await db.collection('carts').doc(uid).get();
+    cartItems = (cartSnap.exists ? cartSnap.data()!.items : []) as { itemType: ItemType; itemId: string }[];
+    if (cartItems.length === 0) throw Err.failedPrecondition('Your cart is empty');
+    couponCode = cartSnap.exists ? (cartSnap.data()!.couponCode ?? null) : null;
+    unlockCode = cartSnap.exists ? (cartSnap.data()!.unlockCode ?? null) : null;
+  }
+
+  const { orderItems, currency } = await hydrateOrderItems(uid, cartItems);
   if (orderItems.length === 0) throw Err.failedPrecondition('Nothing left to check out: everything in your cart was already purchased');
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.unitPrice, 0);
@@ -862,6 +875,58 @@ async function createOrder(uid: string, body: unknown) {
   credit.writes();
 
   return { orderId: orderRef.id, razorpayOrderId: rzpOrder.id, amount: total, currency, keyId };
+}
+
+const previewDiscountSchema = z.object({
+  buyNowItem: z.object({
+    itemType: z.enum(['quiz', 'practiceTest', 'package', 'customExamBuilder', 'course', 'creatorProduct', 'aiCreditPack']),
+    itemId: z.string().min(1),
+    plan: z.enum(['monthly', 'annual']).optional(),
+  }),
+  couponCode: z.string().trim().min(1).max(40),
+  unlockCode: z.string().trim().min(1).max(40).optional(),
+});
+
+// Read-only coupon preview for Buy Now (bypasses the cart entirely, so
+// api/cart.ts's applyCoupon can't be reused): prices the single item
+// exactly like createOrder above and reports what a coupon would do,
+// without creating a Razorpay order or writing anything. Lets BuyNowModal
+// show the real discounted total before the learner commits to paying,
+// instead of only finding out on the external Razorpay screen.
+async function previewDiscount(uid: string, body: unknown) {
+  const parsed = previewDiscountSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const couponCode = parsed.data.couponCode.trim();
+
+  const { orderItems, currency } = await hydrateOrderItems(uid, [parsed.data.buyNowItem]);
+  if (orderItems.length === 0) throw Err.failedPrecondition('You already own this item');
+  const item = orderItems[0];
+  if (item.promoEligible === false) throw Err.invalidArgument('This product is not eligible for promo codes');
+
+  const coupon = await validateCoupon(couponCode, uid, {
+    subtotalMinor: item.unitPrice,
+    itemTypes: [item.itemType],
+    creatorProductIds: item.itemType === 'creatorProduct' ? [item.itemId] : [],
+    plans: item.plan ? [item.plan] : [],
+  });
+  if (!coupon) throw Err.invalidArgument('This coupon code is invalid or has expired');
+
+  if (coupon.requiresUnlockCode) {
+    if (!parsed.data.unlockCode) throw Err.invalidArgument('This code needs a personal unlock code to be used.');
+    const unlockData = (await db.collection('couponUnlockCodes').doc(parsed.data.unlockCode.toUpperCase()).get()).data();
+    if (!unlockData || unlockData.used === true || unlockData.parentCouponCode !== couponCode.toUpperCase()) {
+      throw Err.invalidArgument('This unlock code is invalid, already used, or does not match this coupon.');
+    }
+  }
+
+  const discount = computeDiscount(coupon, item.unitPrice);
+  return {
+    itemTitle: item.title,
+    currency,
+    subtotal: item.unitPrice,
+    discount,
+    total: item.unitPrice - discount,
+  };
 }
 
 // Refer & Earn - the referrer's reward is real HelpCertify credit (not a
@@ -1207,6 +1272,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     switch (action) {
       case 'createOrder':
         res.status(200).json(await createOrder(uid, data));
+        return;
+      case 'previewDiscount':
+        res.status(200).json(await previewDiscount(uid, data));
         return;
       case 'verifyPayment':
         res.status(200).json(await verifyPayment(uid, data));

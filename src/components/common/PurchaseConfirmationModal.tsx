@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { formatMoney } from '@/utils/currency';
 import type { PurchasableItemType } from '@/types/models';
 import { ModalCloseButton } from './ModalCloseButton';
 
@@ -13,29 +14,50 @@ interface Item {
 // of which route got the student there - a plain toast wasn't a strong
 // enough confirmation, and only the Cart page had a dedicated success
 // screen at all.
-export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; onClose: () => void }) {
+export function PurchaseConfirmationModal({
+  items,
+  amountPaid,
+  currency,
+  onClose,
+}: {
+  items: Item[];
+  /** The amount actually charged, in minor units (paise/cents) - from the same order Razorpay confirmed. */
+  amountPaid?: number;
+  currency?: string;
+  onClose: () => void;
+}) {
   const hasPracticeTest = items.some((i) => i.itemType === 'practiceTest');
+  const firstName = items[0]?.title;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-xl border border-surface-border bg-surface-raised shadow-xl"
+        className="relative w-full max-w-md overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalCloseButton onClose={onClose} />
-        {/* Same plain white-card convention as ConfirmDialog/BuyNowModal
-            elsewhere in the app - no colored gradient hero. The checkmark
-            stays semantic green (a "this worked" signal) inside a small
-            circle instead of a full-width banner. */}
-        <div className="p-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-success-soft text-3xl text-success">✓</div>
-          <h2 className="mb-1 text-xl font-bold text-ink">Payment Successful!</h2>
-          <p className="text-sm text-ink-muted">
-            {items.length === 1 ? "It's" : "They're"} unlocked on your account now, with no time limit.
+        <ModalCloseButton onClose={onClose} className="bg-white/15 text-white hover:bg-white/25 hover:text-white" />
+        {/* A warm hero band (same brand-500 header convention as the
+            purchase panel's "Your plan" card) instead of a plain white top -
+            this is the one moment in checkout that should feel like a
+            genuine "you did it", not just a form finishing. */}
+        <div className="bg-gradient-to-br from-brand-500 to-brand-600 px-6 pb-7 pt-8 text-center text-white">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/15 text-4xl ring-4 ring-white/25">
+            ✓
+          </div>
+          <h2 className="text-2xl font-extrabold leading-tight">Payment Successful!</h2>
+          <p className="mt-1.5 text-sm text-white/85">
+            {items.length === 1
+              ? `${firstName} is unlocked on your account now, with no time limit.`
+              : `All ${items.length} items are unlocked on your account now, with no time limit.`}
           </p>
+          {typeof amountPaid === 'number' && currency && (
+            <div className="mx-auto mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
+              You paid {formatMoney(amountPaid, currency as 'INR' | 'USD')}
+            </div>
+          )}
         </div>
 
-        <div className="border-t border-surface-border p-6">
+        <div className="p-6">
           <div className="mb-5 space-y-2 text-left">
             {items.map((i) => (
               <div key={`${i.itemType}_${i.itemId}`} className="overflow-hidden rounded-lg border border-surface-border bg-surface">
@@ -71,8 +93,14 @@ export function PurchaseConfirmationModal({ items, onClose }: { items: Item[]; o
               test purchase specifically (a quiz's fixed exam-style format
               has no daily target to set). */}
           <p className="mb-5 text-xs text-ink-faint">
-            📄 Your receipt is saved under <Link to="/home/purchases" onClick={onClose} className="text-brand-ink hover:underline">Billing & Orders</Link>.{' '}
-            {hasPracticeTest && 'Set a study goal to get a personalized daily target and track your progress toward exam day.'}
+            📄 Your receipt is saved under{' '}
+            <Link to="/home/purchases" onClick={onClose} className="text-brand-ink hover:underline">
+              Billing &amp; Orders
+            </Link>
+            .{' '}
+            {hasPracticeTest
+              ? 'Set a study goal to get a personalized daily target and track your progress toward exam day.'
+              : "Good luck - you've got this!"}
           </p>
 
           <button

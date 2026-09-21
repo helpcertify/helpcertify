@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Tabs, EmptyState, DataTable, StatCard, type TabItem } from '@/components/ui';
-import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
 import { usePracticeSeries, type ExamSeries } from '../hooks/useExamSeries';
 import { usePracticeQuestionBank, groupByDomain, type BankQuestion } from '../hooks/usePracticeQuestionBank';
@@ -30,7 +29,6 @@ export function CertificationPracticeDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>();
   const { series, isLoading } = usePracticeSeries();
   const [tab, setTab] = useState<TabId>('sets');
-  const [plansOpen, setPlansOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState('');
   // How a not-yet-started/in-progress set is opened - same choice
   // ExamSeriesGroup used to offer, now made once for the whole series.
@@ -88,13 +86,18 @@ export function CertificationPracticeDetailPage() {
     { id: 'analytics', label: 'Analytics' },
   ];
 
+  // Locked sets no longer open a "View Plans" popup - the purchase panel is
+  // already right here on this page, so just bring it into view.
+  const scrollToPurchasePanel = () =>
+    document.getElementById('purchase-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   return (
     <div className="mx-auto w-full max-w-[1400px]">
       <Link to="/home/practice-tests" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         &larr; Practice Exams
       </Link>
 
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_416px] lg:gap-x-6 lg:gap-y-5">
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_416px] lg:auto-rows-min lg:gap-x-6 lg:gap-y-5">
         <div className="order-1 lg:col-start-1 lg:row-start-1">
           <ExamDetailHeader
             title={s.cert.name}
@@ -106,7 +109,10 @@ export function CertificationPracticeDetailPage() {
           />
         </div>
 
-        <aside className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]">
+        <aside
+          id="purchase-panel"
+          className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]"
+        >
           <div className="flex flex-col gap-3.5">
             <CertificationPurchasePanel
               cert={s.cert}
@@ -228,7 +234,7 @@ export function CertificationPracticeDetailPage() {
                         ? `/home/practice-tests/${set.itemId}`
                         : `/practice-tests/${set.itemId}/take?feedbackMode=${feedbackMode}`
                     }
-                    onViewPlans={() => setPlansOpen(true)}
+                    onViewPlans={scrollToPurchasePanel}
                   />
                 ))}
               </div>
@@ -277,7 +283,6 @@ export function CertificationPracticeDetailPage() {
         </div>
       </div>
 
-      {plansOpen && <CertificationPlansModal certification={s.cert} onClose={() => setPlansOpen(false)} />}
     </div>
   );
 }

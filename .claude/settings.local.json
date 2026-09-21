@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git branch *)",
+      "Bash(git credential *)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(JSON.stringify\\({state:j.state, merged:j.merged, mergeable_state:j.mergeable_state, head:j.head.ref, base:j.base.ref},null,2\\)\\);}\\)\")",
+      "Bash(xargs grep -l \"callAction\\('admin'\")"
+    ]
+  }
+}

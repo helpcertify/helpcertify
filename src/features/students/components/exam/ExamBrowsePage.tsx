@@ -1,8 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader, EmptyState } from '@/components/ui';
-import type { CatalogCertification } from '../../api/certificationCatalogApi';
 import type { ExamSeries } from '../../hooks/useExamSeries';
-import { CertificationPlansModal } from '@/components/common/CertificationPlansModal';
 import { ExamProductCard, type ExamCardModel } from './ExamProductCard';
 import { ExamBrowseControls } from './ExamBrowseControls';
 import { matchesTab, type ExamBrowseTab, type ExamLayout } from './browseFilter';
@@ -56,10 +55,10 @@ export function ExamBrowsePage({
   detailBase: string;
   topSlot?: ReactNode;
 }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ExamBrowseTab>('all');
   const [search, setSearch] = useState('');
   const [layout, setLayout] = useState<ExamLayout>('grid');
-  const [plansFor, setPlansFor] = useState<CatalogCertification | null>(null);
 
   const models = useMemo(() => series.map((s) => ({ s, model: toCardModel(s, kind) })), [series, kind]);
 
@@ -128,7 +127,7 @@ export function ExamBrowsePage({
                   key={s.seriesId}
                   model={model}
                   detailHref={`${detailBase}/${s.seriesId}`}
-                  onViewPlans={() => setPlansFor(s.cert)}
+                  onViewPlans={() => navigate(`${detailBase}/${s.seriesId}`)}
                 />
               ))}
             </div>
@@ -140,15 +139,13 @@ export function ExamBrowsePage({
                   model={model}
                   layout="list"
                   detailHref={`${detailBase}/${s.seriesId}`}
-                  onViewPlans={() => setPlansFor(s.cert)}
+                  onViewPlans={() => navigate(`${detailBase}/${s.seriesId}`)}
                 />
               ))}
             </div>
           )}
         </>
       )}
-
-      {plansFor && <CertificationPlansModal certification={plansFor} onClose={() => setPlansFor(null)} />}
     </div>
   );
 }
