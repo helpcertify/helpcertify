@@ -247,6 +247,7 @@ export function CustomExamsPage() {
           originalPrice={originalPrice}
           currency={currency}
           paying={paying}
+          buyNowItem={{ itemType: 'customExamBuilder', itemId: 'capability' }}
           summaryItem={{ itemType: 'customExamBuilder', accessPeriodDays: 0 }}
           onClose={() => setShowBuyNow(false)}
           onConfirm={(consent, couponCode, useCredit, unlockCode) => {

@@ -225,6 +225,7 @@ export function QuizDetailPage() {
           originalPrice={quiz.originalPrice ?? null}
           currency={quiz.currency ?? 'INR'}
           paying={paying}
+          buyNowItem={{ itemType: 'quiz', itemId: quiz.id }}
           summaryItem={{ itemType: 'quiz', questionCount: quiz.totalQuestions, accessPeriodDays: quiz.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
           onConfirm={(consent, couponCode, useCredit, unlockCode) => {

@@ -20,6 +20,7 @@ function renderModal(onConfirm = vi.fn()) {
       originalPrice={null}
       currency="INR"
       paying={false}
+      buyNowItem={{ itemType: 'quiz', itemId: 'quiz-1' }}
       summaryItem={{ itemType: 'quiz', questionCount: 1500, accessPeriodDays: 180 }}
       onClose={vi.fn()}
       onConfirm={onConfirm}

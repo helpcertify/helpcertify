@@ -121,6 +121,7 @@ export function CourseCarousel({ title, items }: CourseCarouselProps) {
           originalPrice={buyNowItem.originalPrice}
           currency={buyNowItem.currency}
           paying={paying}
+          buyNowItem={{ itemType: buyNowItem.itemType, itemId: buyNowItem.id }}
           summaryItem={{ itemType: buyNowItem.itemType, questionCount: buyNowItem.totalQuestions, accessPeriodDays: buyNowItem.accessPeriodDays }}
           onClose={() => setBuyNowItem(null)}
           onConfirm={(consent, couponCode, _useCredit, unlockCode) => {

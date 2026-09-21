@@ -260,6 +260,7 @@ export function CourseDetailPage() {
           originalPrice={course.originalPrice ?? null}
           currency={course.currency ?? 'INR'}
           paying={paying}
+          buyNowItem={{ itemType: 'course', itemId: course.id }}
           summaryItem={{ itemType: 'course', accessPeriodDays: course.accessPeriodDays }}
           onClose={() => setShowBuyNow(false)}
           onConfirm={(consent, couponCode, useCredit, unlockCode) => {
