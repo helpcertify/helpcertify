@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getCourseById, courseApi } from '../api/courseApi';
@@ -10,6 +10,9 @@ import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
+import { TrustBadgeStrip } from '@/components/common/TrustBadgeStrip';
+import { StickyBuyBar } from '@/components/common/StickyBuyBar';
+import { RelatedItemsRow } from '../components/RelatedItemsRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { CourseLessonReader } from '../components/CourseLessonReader';
 import { errorText } from '@/lib/errorMessages';
@@ -24,6 +27,7 @@ export function CourseDetailPage() {
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
+  const purchasePanelRef = useRef<HTMLDivElement>(null);
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['student', 'course', courseId],
@@ -139,7 +143,7 @@ export function CourseDetailPage() {
       </div>
 
       {!owned && (
-        <div className="mb-6 max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+        <div ref={purchasePanelRef} className="mb-6 max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
           <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
           {price > 0 && (
@@ -176,6 +180,8 @@ export function CourseDetailPage() {
               </button>
             </div>
           )}
+
+          <TrustBadgeStrip className="mt-4 border-t border-surface-border pt-4" />
         </div>
       )}
 
@@ -248,6 +254,21 @@ export function CourseDetailPage() {
             )}
           </div>
         </div>
+      )}
+
+      <RelatedItemsRow anchor={{ id: course.id, itemType: 'course', category: course.category ?? 'Other', skillLevel: course.skillLevel ?? 'Foundation' }} />
+
+      {!owned && !inCart && (
+        <StickyBuyBar
+          title={course.title}
+          price={price}
+          originalPrice={course.originalPrice}
+          currency={course.currency ?? 'INR'}
+          ctaLabel="Buy Now"
+          paying={paying}
+          onBuy={() => setShowBuyNow(true)}
+          watchRef={purchasePanelRef}
+        />
       )}
 
       {showBuyNow && (

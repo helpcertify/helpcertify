@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getQuizById } from '../api/studentContentApi';
@@ -15,6 +15,9 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { TrustBadgeStrip } from '@/components/common/TrustBadgeStrip';
+import { StickyBuyBar } from '@/components/common/StickyBuyBar';
+import { RelatedItemsRow } from '../components/RelatedItemsRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { errorText } from '@/lib/errorMessages';
 
@@ -33,6 +36,7 @@ export function QuizDetailPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
+  const purchasePanelRef = useRef<HTMLDivElement>(null);
 
   const { data: quiz, isLoading } = useQuery({
     queryKey: ['student', 'quiz', quizId],
@@ -126,7 +130,7 @@ export function QuizDetailPage() {
           study-plan equivalent for a timed Mock Exam. */}
       <div className={`mb-6 grid grid-cols-1 gap-6 ${!owned && previewCount > 0 ? 'lg:grid-cols-[0.7fr_1.3fr] lg:items-start' : ''}`}>
         <div className={!owned && previewCount > 0 ? '' : 'max-w-sm'}>
-          <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+          <div ref={purchasePanelRef} className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
             <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
             {price > 0 && (
@@ -193,6 +197,8 @@ export function QuizDetailPage() {
                 Start Mock Exam
               </Link>
             )}
+
+            {!owned && <TrustBadgeStrip className="mt-4 border-t border-surface-border pt-4" />}
           </div>
         </div>
 
@@ -212,6 +218,21 @@ export function QuizDetailPage() {
       </div>
 
       <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
+
+      <RelatedItemsRow anchor={{ id: quiz.id, itemType: 'quiz', category: quiz.category ?? 'Other', skillLevel: quiz.skillLevel ?? 'Foundation' }} />
+
+      {!owned && !quiz.requiresEntitlement && !inCart && (
+        <StickyBuyBar
+          title={quiz.title}
+          price={price}
+          originalPrice={quiz.originalPrice}
+          currency={quiz.currency ?? 'INR'}
+          ctaLabel="Buy Now"
+          paying={paying}
+          onBuy={() => setShowBuyNow(true)}
+          watchRef={purchasePanelRef}
+        />
+      )}
 
       {showBuyNow && (
         <BuyNowModal

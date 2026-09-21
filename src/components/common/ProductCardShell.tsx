@@ -5,6 +5,12 @@ import { WishlistButton } from './WishlistButton';
 import { CourseIcon } from './CourseIcon';
 import { ClickHereLink, CategoryBadge } from './CardBits';
 import { PriceTag } from './PriceTag';
+import { discountPercent } from '@/utils/currency';
+
+// Below this, a ribbon reads as noise rather than a real deal - only a
+// genuinely large, admin-set discount earns the extra visual weight on top
+// of PriceTag's own "N% off" badge.
+const RIBBON_THRESHOLD_PCT = 20;
 
 interface ProductCardShellProps {
   id: string;
@@ -63,6 +69,14 @@ export function ProductCardShell({
   extra,
   footer,
 }: ProductCardShellProps) {
+  const pct = discountPercent(price, originalPrice);
+  const showRibbon = pct >= RIBBON_THRESHOLD_PCT;
+  const ribbon = showRibbon ? (
+    <div className="absolute left-3 top-3 rounded-full bg-danger px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm">
+      Save {pct}%
+    </div>
+  ) : null;
+
   return (
     <div className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
       {/* The cover (or gradient fallback) occupies the top ~half of the card
@@ -72,12 +86,14 @@ export function ProductCardShell({
       {coverImageUrl ? (
         <Link to={detailHref} className={`relative block ${compact ? 'h-32' : 'h-36'} overflow-hidden`}>
           <img src={coverImageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+          {ribbon}
           <WishlistButton itemType={itemType} itemId={id} variant="overlay" className="absolute right-3 top-3" />
         </Link>
       ) : (
         <div className={`relative flex flex-col justify-between bg-gradient-to-br from-brand-50 to-brand-50 p-3 ${compact ? 'h-32' : 'h-36'}`}>
+          {ribbon}
           <WishlistButton itemType={itemType} itemId={id} variant="inline" className="absolute right-3 top-3" />
-          <Link to={detailHref} className="flex items-start gap-3 overflow-hidden pr-8">
+          <Link to={detailHref} className="flex items-start gap-3 overflow-hidden pr-8 pt-4">
             <CourseIcon id={id} title={title} itemType={itemType} />
             <h3 className="line-clamp-3 pt-1 text-[15px] font-semibold leading-snug text-ink">{title}</h3>
           </Link>

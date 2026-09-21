@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -19,7 +19,10 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { TrustBadgeStrip } from '@/components/common/TrustBadgeStrip';
+import { StickyBuyBar } from '@/components/common/StickyBuyBar';
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
+import { RelatedItemsRow } from '../components/RelatedItemsRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes, calendarDaysBetween } from '../lib/studyPlan';
 import type { PracticeConfidence } from '@/types/models';
@@ -59,6 +62,7 @@ export function PracticeTestDetailPage() {
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
   const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_of_session'>('immediate');
+  const purchasePanelRef = useRef<HTMLDivElement>(null);
   // Inline goal-setup, not a separate page/route - every other entry point
   // (the Practice Exams card, its hover popover, the dashboard nudge, the
   // purchase-success modal) links here with ?goal=1 rather than to a
@@ -336,18 +340,20 @@ export function PracticeTestDetailPage() {
         </div>
       ) : (
         <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[0.7fr_1.3fr] lg:items-start">
-          <CourseAccessCard
-            test={test}
-            price={price}
-            state={state}
-            owned={owned}
-            entitlementLocked={entitlementLocked}
-            inCart={inCart}
-            paying={paying}
-            addingToCart={addToCartMutation.isPending}
-            onAddToCart={() => addToCartMutation.mutate(test.id)}
-            onBuyNow={() => setShowBuyNow(true)}
-          />
+          <div ref={purchasePanelRef}>
+            <CourseAccessCard
+              test={test}
+              price={price}
+              state={state}
+              owned={owned}
+              entitlementLocked={entitlementLocked}
+              inCart={inCart}
+              paying={paying}
+              addingToCart={addToCartMutation.isPending}
+              onAddToCart={() => addToCartMutation.mutate(test.id)}
+              onBuyNow={() => setShowBuyNow(true)}
+            />
+          </div>
           {previewCount > 0 ? (
             <div className="space-y-4">
               <FreePreviewCallout />
@@ -389,6 +395,23 @@ export function PracticeTestDetailPage() {
       )}
 
       <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
+
+      <RelatedItemsRow
+        anchor={{ id: test.id, itemType: 'practiceTest', category: test.category ?? 'Other', skillLevel: test.skillLevel ?? 'Foundation' }}
+      />
+
+      {!owned && !entitlementLocked && state === 'available' && !inCart && (
+        <StickyBuyBar
+          title={test.title}
+          price={price}
+          originalPrice={test.originalPrice}
+          currency={test.currency ?? 'INR'}
+          ctaLabel="Buy Now"
+          paying={paying}
+          onBuy={() => setShowBuyNow(true)}
+          watchRef={purchasePanelRef}
+        />
+      )}
 
       {showBuyNow && (
         <BuyNowModal
@@ -658,6 +681,8 @@ function CourseAccessCard({
           </button>
         </div>
       )}
+
+      {!owned && <TrustBadgeStrip className="mt-4 border-t border-surface-border pt-4" />}
     </div>
   );
 }

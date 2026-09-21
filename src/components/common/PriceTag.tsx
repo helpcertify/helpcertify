@@ -1,4 +1,4 @@
-import { formatMoney, type SupportedCurrency } from '@/utils/currency';
+import { formatMoney, discountPercent, type SupportedCurrency } from '@/utils/currency';
 import { Badge } from '@/components/ui';
 
 interface PriceTagProps {
@@ -46,8 +46,8 @@ export function PriceTag({ price, originalPrice, currency, size = 'md', showDisc
     return <span className={`font-extrabold text-success ${FREE_SIZE[size]} ${className}`}>Free</span>;
   }
 
-  const hasDiscount = !!originalPrice && originalPrice > price;
-  const pct = hasDiscount ? Math.round(((originalPrice! - price) / originalPrice!) * 100) : 0;
+  const pct = discountPercent(price, originalPrice);
+  const hasDiscount = pct > 0;
 
   return (
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 gap-y-1 ${className}`}>
