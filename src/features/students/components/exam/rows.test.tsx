@@ -34,7 +34,7 @@ describe('PracticeSetRow', () => {
     expect(screen.getByRole('link', { name: 'Continue' })).toBeInTheDocument();
   });
 
-  it('locked shows an Add to Cart button that calls onViewPlans', async () => {
+  it('locked shows a View Plans button that calls onViewPlans', async () => {
     const onViewPlans = vi.fn();
     wrap(
       <PracticeSetRow
@@ -43,7 +43,7 @@ describe('PracticeSetRow', () => {
         onViewPlans={onViewPlans}
       />,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Add to Cart' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View Plans' }));
     expect(onViewPlans).toHaveBeenCalledOnce();
   });
 });

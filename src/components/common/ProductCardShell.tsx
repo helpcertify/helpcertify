@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { StarRating } from './StarRating';
 import { WishlistButton } from './WishlistButton';
 import { CourseIcon } from './CourseIcon';
-import { ClickHereLink, CategoryBadge } from './CardBits';
+import { ClickHereLink, CategoryBadge, NewBadge } from './CardBits';
 import { PriceTag } from './PriceTag';
 import { discountPercent } from '@/utils/currency';
+import { isRecentlyPublished } from '@/utils/formatDate';
 
 // Below this, a ribbon reads as noise rather than a real deal - only a
 // genuinely large, admin-set discount earns the extra visual weight on top
@@ -30,6 +31,11 @@ interface ProductCardShellProps {
   // publish - see api/content-admin.ts). When absent the card falls back
   // to the gradient header + CourseIcon tile.
   coverImageUrl?: string | null;
+  // When present and recent (see isRecentlyPublished), shows a "New" badge
+  // next to the category pill. Optional since not every caller has this
+  // loaded (or wants it - Billing & Orders' purchase-history cards, for
+  // example, care about when it was bought, not when it was published).
+  createdAt?: unknown;
   // Shorter cover + tighter padding for the home-page discovery rows
   // ("Courses to explore", "New courses") where the row should not dominate
   // the page. Anatomy and width stay identical everywhere else.
@@ -65,10 +71,12 @@ export function ProductCardShell({
   currency,
   detailHref,
   coverImageUrl,
+  createdAt,
   compact,
   extra,
   footer,
 }: ProductCardShellProps) {
+  const isNew = isRecentlyPublished(createdAt);
   const pct = discountPercent(price, originalPrice);
   const showRibbon = pct >= RIBBON_THRESHOLD_PCT;
   const ribbon = showRibbon ? (
@@ -108,8 +116,9 @@ export function ProductCardShell({
         </div>
       )}
       <div className={`flex flex-1 flex-col ${compact ? 'gap-0 p-3' : 'p-4'}`}>
-        <div className="mb-2">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <CategoryBadge category={category} skillLevel={skillLevel} />
+          {isNew && <NewBadge />}
         </div>
         {ratingCount > 0 ? (
           <div className="mb-2 flex items-center gap-1.5">

@@ -29,7 +29,14 @@ const REVIEW_LABEL: Record<ExamKind, string> = {
 // resolved status. `href` is the destination for every non-locked state
 // (the caller decides whether that is the detail page or a take route).
 export function examCta(status: ExamStatus, kind: ExamKind, href: string): CtaSpec {
-  if (status === 'locked') return { label: 'Add to Cart', action: 'plans', variant: 'primary' };
+  // Deliberately not "Add to Cart" - a locked practice set / mock exam can
+  // never be bought individually (it's entitlement-gated, requiresEntitlement:
+  // true), so this always opens the certification plans modal instead of
+  // adding anything to the cart. Labeling it "Add to Cart" (as this briefly
+  // did) read as broken - clicking it never actually put anything in the
+  // cart, and a whole certification's worth of rows each carrying their own
+  // (identical, non-functional-as-labeled) Add to Cart button was noise.
+  if (status === 'locked') return { label: 'View Plans', action: 'plans', variant: 'primary' };
   if (status === 'completed') return { label: REVIEW_LABEL[kind], action: 'link', href, variant: 'secondary' };
   if (status === 'in_progress') return { label: 'Continue', action: 'link', href, variant: 'primary' };
   return { label: START_LABEL[kind], action: 'link', href, variant: 'primary' };

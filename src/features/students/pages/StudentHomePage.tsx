@@ -9,6 +9,7 @@ import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { CertificationPrepSection } from '../components/CertificationPrepSection';
 import { Avatar } from '@/components/common/Avatar';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
+import { CartReminderBanner } from '../components/CartReminderBanner';
 
 // A time-of-day greeting reads as personal without needing any extra data
 // collection: `new Date()` in the browser already reflects the learner's own
@@ -56,6 +57,7 @@ export function StudentHomePage() {
       ratingCount: c.ratingCount,
       coverImageUrl: c.coverImageUrl,
       owned: purchasedSet.has(`course_${c.id}`),
+      createdAt: c.createdAt,
     }));
 
   return (
@@ -88,6 +90,11 @@ export function StudentHomePage() {
           </div>
         )}
       </div>
+
+      {/* A plain nudge back to checkout when something real is already
+          sitting in the cart - see CartReminderBanner. Above the discovery
+          rows since it's actionable, not just more browsing. */}
+      <CartReminderBanner className="mb-6" />
 
       {/* Recommended courses ("Courses to explore") - ranked from the
           categories the learner is already active in. Compact row so it

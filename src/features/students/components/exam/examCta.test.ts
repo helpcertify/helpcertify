@@ -3,8 +3,8 @@ import { examCta, rollUpStatus } from './examCta';
 
 describe('examCta', () => {
   it('locked always routes to the plans modal', () => {
-    expect(examCta('locked', 'practice', '/x')).toMatchObject({ label: 'Add to Cart', action: 'plans' });
-    expect(examCta('locked', 'mock', '/x')).toMatchObject({ label: 'Add to Cart', action: 'plans' });
+    expect(examCta('locked', 'practice', '/x')).toMatchObject({ label: 'View Plans', action: 'plans' });
+    expect(examCta('locked', 'mock', '/x')).toMatchObject({ label: 'View Plans', action: 'plans' });
   });
 
   it('uses kind-specific start and review labels', () => {

@@ -17,6 +17,9 @@ export interface CourseRowItem {
   // only ever lists unowned items (e.g. RecommendedCourses) can leave it
   // out. Defaults to not-owned so the CTA reads "Add to Cart".
   owned?: boolean;
+  // Drives ProductCardShell's "New" badge - optional, since not every
+  // caller has this loaded.
+  createdAt?: unknown;
 }
 
 interface CourseRowProps {
@@ -106,6 +109,7 @@ export function CourseRow({
             originalPrice={c.originalPrice}
             currency={c.currency}
             coverImageUrl={c.coverImageUrl}
+            createdAt={c.createdAt}
             compact={compact}
             detailHref={href(c.id)}
             footer={

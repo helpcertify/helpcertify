@@ -32,3 +32,11 @@ export function CategoryBadge({ category, skillLevel }: { category: string; skil
     </span>
   );
 }
+
+// A small solid-green pill flagging genuinely recent content (see
+// isRecentlyPublished) - sits next to CategoryBadge rather than on the
+// cover image, so it never collides with ProductCardShell's discount
+// ribbon or the wishlist heart.
+export function NewBadge() {
+  return <span className="inline-block rounded-md bg-success px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">New</span>;
+}

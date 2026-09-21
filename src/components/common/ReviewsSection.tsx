@@ -4,6 +4,7 @@ import { reviewsApi } from '@/features/students/api/reviewsApi';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate } from '@/utils/formatDate';
 import { StarRating } from './StarRating';
+import { RatingBreakdown } from './RatingBreakdown';
 import type { PurchasableItemType } from '@/types/models';
 import { errorText } from '@/lib/errorMessages';
 
@@ -87,6 +88,8 @@ export function ReviewsSection({ itemType, itemId, owned }: ReviewsSectionProps)
       <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-faint">
         Reviews{reviews.length > 0 ? ` (${reviews.length})` : ''}
       </h2>
+
+      <RatingBreakdown reviews={reviews} />
 
       {owned && (
         <div className="mb-5 rounded-xl border border-surface-border bg-surface p-4">

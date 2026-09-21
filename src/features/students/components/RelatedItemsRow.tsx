@@ -67,6 +67,7 @@ export function RelatedItemsRow({ anchor }: { anchor: RelatedAnchor }) {
       price: q.price ?? 0,
       originalPrice: q.originalPrice ?? null,
       currency: q.currency ?? 'INR',
+      createdAt: q.createdAt,
     })),
     ...(practiceBuckets?.available ?? []).map((t) => ({
       id: t.id,
@@ -79,6 +80,7 @@ export function RelatedItemsRow({ anchor }: { anchor: RelatedAnchor }) {
       price: t.price ?? 0,
       originalPrice: t.originalPrice ?? null,
       currency: t.currency ?? 'INR',
+      createdAt: t.createdAt,
     })),
     ...(courses ?? []).map((c) => ({
       id: c.id,
@@ -91,6 +93,7 @@ export function RelatedItemsRow({ anchor }: { anchor: RelatedAnchor }) {
       price: c.price ?? 0,
       originalPrice: c.originalPrice ?? null,
       currency: c.currency ?? 'INR',
+      createdAt: c.createdAt,
     })),
   ];
 
@@ -168,6 +171,7 @@ export function RelatedItemsRow({ anchor }: { anchor: RelatedAnchor }) {
               price={item.price}
               originalPrice={item.originalPrice}
               currency={item.currency}
+              createdAt={item.createdAt}
               detailHref={href}
               compact
               footer={footer}

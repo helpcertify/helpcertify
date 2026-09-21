@@ -23,6 +23,9 @@ export interface RelatableItem {
   price: number;
   originalPrice: number | null;
   currency: 'INR' | 'USD';
+  // Passed straight through to ProductCardShell's "New" badge - optional
+  // and never used for ranking, just display.
+  createdAt?: unknown;
 }
 
 export interface RelatedAnchor {

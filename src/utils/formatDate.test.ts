@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, toDate } from './formatDate';
+import { formatDate, toDate, isRecentlyPublished } from './formatDate';
 
 describe('formatDate', () => {
   it('formats an ISO string as a readable date and time', () => {
@@ -26,5 +26,27 @@ describe('toDate', () => {
 
   it('returns an invalid Date for unrecognized input rather than throwing', () => {
     expect(Number.isNaN(toDate(undefined).getTime())).toBe(true);
+  });
+});
+
+describe('isRecentlyPublished', () => {
+  const now = new Date('2026-09-21T00:00:00Z');
+
+  it('is true for something created a few days ago', () => {
+    expect(isRecentlyPublished('2026-09-18T00:00:00Z', now)).toBe(true);
+  });
+
+  it('is false for something created well outside the window', () => {
+    expect(isRecentlyPublished('2026-01-01T00:00:00Z', now)).toBe(false);
+  });
+
+  it('respects a custom window', () => {
+    expect(isRecentlyPublished('2026-09-01T00:00:00Z', now, 30)).toBe(true);
+    expect(isRecentlyPublished('2026-09-01T00:00:00Z', now, 10)).toBe(false);
+  });
+
+  it('is false for a future or missing date rather than throwing', () => {
+    expect(isRecentlyPublished(undefined, now)).toBe(false);
+    expect(isRecentlyPublished('2026-10-01T00:00:00Z', now)).toBe(false);
   });
 });
