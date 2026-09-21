@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { listAvailableCourses } from '../api/courseApi';
+import { cartApi } from '../api/cartApi';
+import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { RecommendedCourses } from '../components/RecommendedCourses';
 import { CourseRow, type CourseRowItem } from '@/components/common/CourseRow';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -28,12 +30,17 @@ export function StudentHomePage() {
   const profile = useAuthStore((s) => s.profile);
 
   const { data: allCourses } = useQuery({ queryKey: ['student', 'availableCourses'], queryFn: listAvailableCourses });
+  const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: examCountdowns } = useExamCountdowns();
 
   const nearestExam = examCountdowns?.[0] ?? null;
+  const purchasedSet = activePurchaseKeys(purchases?.purchases);
 
   // "New courses" - the most recently created published courses, newest
-  // first. createdAt predates some course docs, so fall back to 0.
+  // first. createdAt predates some course docs, so fall back to 0. Newest
+  // can include courses the learner already owns, so each item carries its
+  // own `owned` flag (unlike RecommendedCourses, which excludes owned
+  // courses entirely) - see CourseRow's per-item CTA label.
   const newCourses: CourseRowItem[] = [...(allCourses ?? [])]
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
     .slice(0, 10)
@@ -48,6 +55,7 @@ export function StudentHomePage() {
       ratingAvg: c.ratingAvg,
       ratingCount: c.ratingCount,
       coverImageUrl: c.coverImageUrl,
+      owned: purchasedSet.has(`course_${c.id}`),
     }));
 
   return (

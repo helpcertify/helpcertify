@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from './PriceTag';
 import { ModalCloseButton } from './ModalCloseButton';
 import { visibleBenefits } from '@/features/admin/lib/packageTemplates';
 import type { CatalogCertification, CatalogPackage } from '@/features/students/api/certificationCatalogApi';
@@ -62,13 +62,8 @@ export function CertificationDetailModal({ certification, selectedPackage, onSel
                     </span>
                   )}
                 </div>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  {pkg.originalPrice && pkg.originalPrice > pkg.price && (
-                    <span className="text-xs text-ink-faint line-through">{formatMoney(pkg.originalPrice, pkg.currency)}</span>
-                  )}
-                  <span className="text-lg font-bold text-ink">
-                    {pkg.price > 0 ? formatMoney(pkg.price, pkg.currency) : 'Free'}
-                  </span>
+                <div className="mt-1">
+                  <PriceTag price={pkg.price} originalPrice={pkg.originalPrice} currency={pkg.currency} size="md" showDiscountBadge={false} />
                 </div>
                 <ul className="mt-3 flex-1 space-y-1 text-xs text-ink-muted">
                   {visibleBenefits(pkg.includedFeatures).map((f) => (

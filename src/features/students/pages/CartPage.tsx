@@ -7,6 +7,7 @@ import { useMyAvailableCoupons } from '../hooks/useMyAvailableCoupons';
 import { useMyCredits } from '../hooks/useMyCredits';
 import { useUiStore } from '@/store/useUiStore';
 import { formatMoney, formatReward } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 import type { PurchasableItemType } from '@/types/models';
 import { OrderSummary } from '../components/OrderSummary';
 import { CheckoutConsent } from '../components/CheckoutConsent';
@@ -115,12 +116,14 @@ export function CartPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    {item.originalPrice && item.originalPrice > item.price && (
-                      <div className="text-xs text-ink-faint line-through">{formatMoney(item.originalPrice, item.currency)}</div>
-                    )}
-                    <div className="font-semibold text-ink">{formatMoney(item.price, item.currency)}</div>
-                  </div>
+                  <PriceTag
+                    price={item.price}
+                    originalPrice={item.originalPrice}
+                    currency={item.currency}
+                    size="sm"
+                    showDiscountBadge={false}
+                    className="justify-end"
+                  />
                   <button
                     type="button"
                     onClick={() => removeMutation.mutate(item)}
@@ -259,9 +262,11 @@ export function CartPage() {
                   <span>-{formatMoney(cart.discount, cart.currency)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-surface-border pt-1.5 text-base font-semibold text-ink">
-                <span>Total</span>
-                <span>{formatMoney(cart.total, cart.currency)}</span>
+              <div className="flex items-baseline justify-between border-t border-surface-border pt-1.5 text-ink">
+                <span className="font-semibold">Total</span>
+                <span className="text-xl font-extrabold tracking-tight [font-variant-numeric:tabular-nums]">
+                  {formatMoney(cart.total, cart.currency)}
+                </span>
               </div>
             </div>
 

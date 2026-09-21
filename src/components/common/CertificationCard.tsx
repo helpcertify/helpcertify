@@ -7,6 +7,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { BuyNowModal } from './BuyNowModal';
 import { Spinner } from './Spinner';
 import { CertificationDetailModal } from './CertificationDetailModal';
+import { PriceTag } from './PriceTag';
 import { formatMoney } from '@/utils/currency';
 import { pickDefaultPackage } from '@/features/students/lib/certificationCatalog';
 import type { CatalogCertification, CatalogPackage } from '@/features/students/api/certificationCatalogApi';
@@ -275,13 +276,8 @@ export function CertificationCard({ certification }: CertificationCardProps) {
                 {isSelected && <span className="text-[10px] leading-none text-brand-ink">✓</span>}
                 {pkg.name}
               </span>
-              <span className="mt-1 flex items-baseline gap-1.5">
-                {pkg.originalPrice && pkg.originalPrice > pkg.price && (
-                  <span className="text-xs text-ink-faint line-through">{formatMoney(pkg.originalPrice, pkg.currency)}</span>
-                )}
-                <span className="text-base font-bold text-ink dark:text-ink">
-                  {pkg.price > 0 ? formatMoney(pkg.price, pkg.currency) : 'Free'}
-                </span>
+              <span className="mt-1 block">
+                <PriceTag price={pkg.price} originalPrice={pkg.originalPrice} currency={pkg.currency} size="md" showDiscountBadge={false} />
               </span>
               <span className="mt-1 text-[11px] leading-tight text-ink-faint">{packageKeyDetail(pkg)}</span>
             </button>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import type { CertificationIconKey } from '@/types/models';
 import { WishlistButton } from '@/components/common/WishlistButton';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 import { ExamProgressBar } from './ExamProgressBar';
 import { ExamStatusBadge } from './ExamStatusBadge';
 import { ExamRowCta } from './ExamRowCta';
@@ -76,13 +76,14 @@ function MetaLine({ model }: { model: ExamCardModel }) {
 function ProgressBlock({ model }: { model: ExamCardModel }) {
   if (model.status === 'locked') {
     return (
-      <div className="text-xs text-ink-faint">
+      <div>
         {model.fromPrice != null ? (
-          <>
-            From <span className="font-bold text-ink">{formatMoney(model.fromPrice, model.currency)}</span>
-          </>
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-xs text-ink-faint">From</span>
+            <PriceTag price={model.fromPrice} currency={model.currency} size="sm" />
+          </span>
         ) : (
-          'Included with a certification plan'
+          <span className="text-xs text-ink-faint">Included with a certification plan</span>
         )}
       </div>
     );

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { errorText } from '@/lib/errorMessages';
 import { formatMoney } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 import { cartApi } from '../api/cartApi';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useCheckout } from '../hooks/useCheckout';
@@ -120,12 +121,7 @@ export function CustomExamsPage() {
             </p>
           ) : (
             <>
-              <div className="flex items-baseline gap-2.5">
-                {hasOffer && (
-                  <span className="text-sm text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
-                )}
-                <span className="text-lg font-bold text-ink">{formatMoney(price, currency)}</span>
-              </div>
+              <PriceTag price={price} originalPrice={hasOffer ? originalPrice : null} currency={currency} size="lg" />
               <p className="mt-1 text-sm text-ink-muted">
                 One-time purchase - unlocks uploading and managing as many of your own question banks as
                 you want, no per-upload charge.

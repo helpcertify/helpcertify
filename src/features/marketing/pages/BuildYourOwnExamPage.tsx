@@ -1,7 +1,7 @@
 import { MarketingPage, P, Section, UL } from '../MarketingPage';
 import { downloadTemplate } from '@/lib/downloadTemplate';
 import { useCustomExamBuilderInfo } from '../customExamBuilderStore';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 
 // Marketing page for the Custom Exam Builder feature ("Bring Your Own
 // Question Bank"). Price/offer shown below come from the live,
@@ -69,14 +69,7 @@ export function BuildYourOwnExamPage() {
       </Section>
 
       <Section heading="Pricing">
-        <div className="flex items-baseline gap-2.5">
-          {hasOffer && (
-            <span className="text-base text-ink-faint line-through">
-              {formatMoney(originalPriceMinor, currency)}
-            </span>
-          )}
-          <span className="text-xl font-bold text-ink">{formatMoney(priceMinor, currency)}</span>
-        </div>
+        <PriceTag price={priceMinor} originalPrice={hasOffer ? originalPriceMinor : null} currency={currency} size="lg" />
         <P>
           Custom Exam Builder is a one-time purchase. Buy it once and upload and manage as many of
           your own question banks as you want - there is no per-upload charge.

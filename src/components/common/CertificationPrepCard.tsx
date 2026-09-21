@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CertificationPlansModal } from './CertificationPlansModal';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from './PriceTag';
 import {
   summarizeCertificationPrep,
   type CatalogCertification,
@@ -31,6 +31,11 @@ export function CertificationPrepCard({ certification }: Props) {
   const [open, setOpen] = useState(false);
   const summary = summarizeCertificationPrep(certification);
   const iconPath = FALLBACK_ICON[certification.iconKey] ?? FALLBACK_ICON.generic;
+  // At least one package already owned - keep "View Plans" so the learner
+  // can see what they have and pick up the rest. Nothing owned yet reads
+  // as "Add to Cart", matching the browse cards elsewhere on the page.
+  const anyOwned = certification.packages.some((p) => p.state === 'ACTIVE');
+  const ctaLabel = anyOwned ? 'View Plans' : 'Add to Cart';
 
   const meta: string[] = [];
   if (summary.practiceQuestions > 0) meta.push(`${summary.practiceQuestions.toLocaleString()} practice questions`);
@@ -75,8 +80,9 @@ export function CertificationPrepCard({ certification }: Props) {
 
         <div className="mt-2">
           {summary.fromPrice !== null ? (
-            <span className="text-sm text-ink-muted">
-              From <span className="text-base font-bold text-ink">{formatMoney(summary.fromPrice, summary.currency)}</span>
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-xs text-ink-muted">From</span>
+              <PriceTag price={summary.fromPrice} originalPrice={summary.fromOriginalPrice} currency={summary.currency} size="sm" />
             </span>
           ) : (
             <span className="text-sm font-semibold text-ink-faint">Coming soon</span>
@@ -88,7 +94,7 @@ export function CertificationPrepCard({ certification }: Props) {
             to={detailHref}
             className="relative z-10 mt-3 block w-full rounded-lg border border-brand-500 bg-surface-raised py-2 text-center text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-50"
           >
-            View Plans
+            {ctaLabel}
           </Link>
         ) : (
           <button
@@ -96,7 +102,7 @@ export function CertificationPrepCard({ certification }: Props) {
             onClick={() => setOpen(true)}
             className="mt-3 w-full rounded-lg bg-brand-500 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
           >
-            View Plans
+            {ctaLabel}
           </button>
         )}
       </div>

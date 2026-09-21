@@ -10,7 +10,7 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate, formatShortDate } from '@/utils/formatDate';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
@@ -614,12 +614,7 @@ function CourseAccessCard({
 
       {price > 0 && (
         <div className="mb-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {test.originalPrice && test.originalPrice > price && (
-              <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
-            )}
-            <span className="text-[26px] font-bold text-ink">{formatMoney(price, test.currency)}</span>
-          </div>
+          <PriceTag price={price} originalPrice={test.originalPrice} currency={test.currency} size="lg" />
           {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" />}
         </div>
       )}

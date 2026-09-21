@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import logoLockup from '@/assets/logo-lockup.png';
 import { SearchBar } from '@/components/common/SearchBar';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 import { filterCatalog, totalResults } from '../lib/searchCatalog';
 import { getPublicCatalog } from '@/features/landing/api/publicCatalogApi';
 
@@ -99,6 +99,7 @@ export function PublicSearchPage() {
                 title: c.title,
                 category: c.category,
                 price: c.price,
+                originalPrice: c.originalPrice,
                 currency: c.currency,
               }))}
             />
@@ -109,7 +110,9 @@ export function PublicSearchPage() {
                 title: x.name,
                 category: x.provider,
                 price: x.fromPriceMinor,
+                originalPrice: null,
                 currency: x.currency,
+                fromPrefix: true,
               }))}
             />
             <ResultSection
@@ -119,6 +122,7 @@ export function PublicSearchPage() {
                 title: q.title,
                 category: q.category,
                 price: q.price,
+                originalPrice: q.originalPrice,
                 currency: q.currency,
               }))}
             />
@@ -129,6 +133,7 @@ export function PublicSearchPage() {
                 title: p.title,
                 category: p.category,
                 price: p.price,
+                originalPrice: p.originalPrice,
                 currency: p.currency,
               }))}
             />
@@ -144,7 +149,9 @@ interface Card {
   title: string;
   category: string;
   price: number;
+  originalPrice: number | null;
   currency: 'INR' | 'USD';
+  fromPrefix?: boolean;
 }
 
 function ResultSection({ heading, items }: { heading: string; items: Card[] }) {
@@ -163,8 +170,9 @@ function ResultSection({ heading, items }: { heading: string; items: Card[] }) {
             <div className="flex flex-1 flex-col p-3.5">
               <div className="mb-0.5 text-xs uppercase tracking-wide text-ink-faint">{c.category}</div>
               <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{c.title}</h3>
-              <div className="mt-auto text-xs font-semibold text-ink">
-                {c.price > 0 ? formatMoney(c.price, c.currency) : 'Free'}
+              <div className="mt-auto flex items-baseline gap-1 pt-1">
+                {c.fromPrefix && c.price > 0 && <span className="text-[10px] text-ink-faint">From</span>}
+                <PriceTag price={c.price} originalPrice={c.originalPrice} currency={c.currency} size="sm" showDiscountBadge={false} />
               </div>
             </div>
           </Link>

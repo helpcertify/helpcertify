@@ -49,7 +49,7 @@ export function CoursesPage() {
                     to={`/home/courses/${c.id}`}
                     className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
                   >
-                    {owned ? 'Continue Reading' : 'View'}
+                    {owned ? 'Continue Reading' : 'Add to Cart'}
                   </Link>
                 }
               />

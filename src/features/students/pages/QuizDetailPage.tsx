@@ -6,8 +6,8 @@ import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
-import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
+import { PriceTag } from '@/components/common/PriceTag';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
@@ -131,12 +131,7 @@ export function QuizDetailPage() {
 
             {price > 0 && (
               <div className="mb-4 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  {quiz.originalPrice && quiz.originalPrice > price && (
-                    <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
-                  )}
-                  <span className="text-[26px] font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
-                </div>
+                <PriceTag price={price} originalPrice={quiz.originalPrice} currency={quiz.currency} size="lg" />
                 {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" />}
               </div>
             )}

@@ -4,7 +4,7 @@ import { StarRating } from './StarRating';
 import { WishlistButton } from './WishlistButton';
 import { CourseIcon } from './CourseIcon';
 import { ClickHereLink, CategoryBadge } from './CardBits';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from './PriceTag';
 
 interface ProductCardShellProps {
   id: string;
@@ -103,17 +103,8 @@ export function ProductCardShell({
         ) : (
           <div className="mb-2 text-xs text-ink-faint">No ratings yet</div>
         )}
-        <div className="mb-3 flex items-center gap-2">
-          {price > 0 ? (
-            <>
-              {originalPrice && originalPrice > price && (
-                <span className="text-xs text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
-              )}
-              <span className="text-lg font-bold text-ink">{formatMoney(price, currency)}</span>
-            </>
-          ) : (
-            <span className="font-bold text-success">Free</span>
-          )}
+        <div className="mb-3">
+          <PriceTag price={price} originalPrice={originalPrice} currency={currency} size="md" />
         </div>
 
         {extra}

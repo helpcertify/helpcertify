@@ -29,7 +29,7 @@ const REVIEW_LABEL: Record<ExamKind, string> = {
 // resolved status. `href` is the destination for every non-locked state
 // (the caller decides whether that is the detail page or a take route).
 export function examCta(status: ExamStatus, kind: ExamKind, href: string): CtaSpec {
-  if (status === 'locked') return { label: 'View Plans', action: 'plans', variant: 'primary' };
+  if (status === 'locked') return { label: 'Add to Cart', action: 'plans', variant: 'primary' };
   if (status === 'completed') return { label: REVIEW_LABEL[kind], action: 'link', href, variant: 'secondary' };
   if (status === 'in_progress') return { label: 'Continue', action: 'link', href, variant: 'primary' };
   return { label: START_LABEL[kind], action: 'link', href, variant: 'primary' };

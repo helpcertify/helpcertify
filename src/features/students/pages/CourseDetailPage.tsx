@@ -5,7 +5,7 @@ import { getCourseById, courseApi } from '../api/courseApi';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
-import { formatMoney } from '@/utils/currency';
+import { PriceTag } from '@/components/common/PriceTag';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
@@ -143,11 +143,8 @@ export function CourseDetailPage() {
           <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
           {price > 0 && (
-            <div className="mb-4 flex items-center gap-2">
-              {course.originalPrice && course.originalPrice > price && (
-                <span className="text-sm text-ink-faint line-through">{formatMoney(course.originalPrice, course.currency)}</span>
-              )}
-              <span className="text-[26px] font-bold text-ink">{formatMoney(price, course.currency)}</span>
+            <div className="mb-4">
+              <PriceTag price={price} originalPrice={course.originalPrice} currency={course.currency} size="lg" />
             </div>
           )}
 

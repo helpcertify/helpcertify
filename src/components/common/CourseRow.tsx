@@ -13,6 +13,10 @@ export interface CourseRowItem {
   ratingAvg: number;
   ratingCount: number;
   coverImageUrl: string | null;
+  // Whether the learner already owns this course. Optional - a caller that
+  // only ever lists unowned items (e.g. RecommendedCourses) can leave it
+  // out. Defaults to not-owned so the CTA reads "Add to Cart".
+  owned?: boolean;
 }
 
 interface CourseRowProps {
@@ -20,7 +24,10 @@ interface CourseRowProps {
   items: CourseRowItem[];
   // Where a card links. Default: the signed-in course detail page.
   hrefFor?: (id: string) => string;
+  // Label for a not-yet-purchased item's CTA.
   ctaLabel?: string;
+  // Label for an already-owned item's CTA.
+  ownedCtaLabel?: string;
   seeAllHref?: string;
   // Shorter cards + tighter vertical rhythm for the home-page discovery rows.
   compact?: boolean;
@@ -31,8 +38,17 @@ interface CourseRowProps {
 // purchases and has no Buy-Now modal - the caller decides where a card
 // links (a signed-in learner goes to the reader; a logged-out visitor
 // goes to sign-up). Presentational; owned/price logic stays with the
-// caller.
-export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref, compact }: CourseRowProps) {
+// caller (each item's optional `owned` flag just picks which CTA label
+// to show).
+export function CourseRow({
+  title,
+  items,
+  hrefFor,
+  ctaLabel = 'Add to Cart',
+  ownedCtaLabel = 'Continue Reading',
+  seeAllHref,
+  compact,
+}: CourseRowProps) {
   const { ref, canScrollLeft, canScrollRight, hasOverflow, scrollBy } = useHorizontalScroll(items.length);
   const href = hrefFor ?? ((id: string) => `/home/courses/${id}`);
 
@@ -97,7 +113,7 @@ export function CourseRow({ title, items, hrefFor, ctaLabel = 'View', seeAllHref
                 to={href(c.id)}
                 className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
               >
-                {ctaLabel}
+                {c.owned ? ownedCtaLabel : ctaLabel}
               </Link>
             }
           />

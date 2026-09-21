@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { formatMoney, formatReward } from '@/utils/currency';
+import { PriceTag } from './PriceTag';
 import { useMyAvailableCoupons } from '@/features/students/hooks/useMyAvailableCoupons';
 import { useMyCredits } from '@/features/students/hooks/useMyCredits';
 import { OrderSummary, type OrderSummaryItem } from '@/features/students/components/OrderSummary';
@@ -106,12 +107,7 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, buy
               </span>
             </>
           ) : (
-            <>
-              {originalPrice && originalPrice > price && (
-                <span className="text-base text-ink-faint line-through">{formatMoney(originalPrice, currency)}</span>
-              )}
-              <span className="text-2xl font-bold text-ink">{formatMoney(price, currency)}</span>
-            </>
+            <PriceTag price={price} originalPrice={originalPrice} currency={currency} size="lg" />
           )}
         </div>
 
