@@ -163,9 +163,18 @@ const EMPTY_PROGRESS: PracticeProgressLike = {
   questionStats: {},
 };
 
-function lowestPrice(cert: CatalogCertification): number | null {
+// Lowest "from" price across only the packages that actually grant the
+// given kind of access. Used to be kind-unscoped (lowest price across
+// every package on the cert, Practice/Mock/Complete alike), which could
+// show the Practice Exams card a "From ₹X" borrowed from a cheaper
+// Mock-only or Complete package that doesn't even unlock practice access -
+// misleading on a card whose Buy button leads to a Practice-only purchase
+// flow.
+function lowestPrice(cert: CatalogCertification, kind: 'practice' | 'mock'): number | null {
   let from: number | null = null;
   for (const p of cert.packages) {
+    if (kind === 'practice' && !p.practiceAccessEnabled) continue;
+    if (kind === 'mock' && !p.mockAccessEnabled) continue;
     if (p.price > 0 && (from === null || p.price < from)) from = p.price;
   }
   return from;
@@ -252,7 +261,7 @@ export function usePracticeSeries() {
         practiceAccuracyPct: accuracyPct(merged),
         mocksCompleted: 0,
         bestScorePct: null,
-        fromPrice: lowestPrice(cert),
+        fromPrice: lowestPrice(cert, 'practice'),
         currency: cert.packages[0]?.currency ?? 'INR',
         revisionBufferDays: resolved.sorted[0]?.revisionBufferDays ?? 3,
         defaultMinutesPerQuestion: resolved.sorted[0]?.defaultMinutesPerQuestion ?? 1.8,
@@ -332,7 +341,7 @@ export function useMockSeries() {
         practiceAccuracyPct: null,
         mocksCompleted: sets.filter((s) => s.status === 'completed').length,
         bestScorePct: scores.length ? Math.max(...scores) : null,
-        fromPrice: lowestPrice(cert),
+        fromPrice: lowestPrice(cert, 'mock'),
         currency: cert.packages[0]?.currency ?? 'INR',
         // Not applicable to mock series - the Study Planner is a practice-
         // bank feature only.

@@ -1,24 +1,13 @@
-import { Link } from 'react-router-dom';
-
 // Shared pieces used by every product card (Practice Exams, Mock Exams,
 // Recommended for you, Saved Items, Search Results) so the "this card is
 // clickable" and "what is this" signals look and read identically
 // everywhere, per request.
-
-// Sits at the bottom-right of a card's light-blue header section, telling
-// the learner the card itself is clickable (not just its title/icon) -
-// blue-on-light-blue since the header is now a soft gradient rather than
-// the old dark colored banner (white text would have no contrast here).
-export function ClickHereLink({ href }: { href: string }) {
-  return (
-    <Link
-      to={href}
-      className="absolute bottom-2 right-3 text-xs font-semibold text-brand-ink underline decoration-brand-ink/60 underline-offset-2 hover:decoration-brand-ink"
-    >
-      Click here →
-    </Link>
-  );
-}
+//
+// ClickHereLink (a "Click here ->" text link on the gradient-header
+// fallback) used to live here - removed per Phase 0's audit, which
+// flagged it as exactly the kind of vague card-CTA the redesign calls to
+// remove. ProductCardShell now makes that whole header one Link instead,
+// so the affordance is a bigger click target rather than a text label.
 
 // A soft blue pill (light background, blue text) instead of plain uppercase
 // gray text or a strong saturated fill, so "ISACA · Associate" reads as a

@@ -524,6 +524,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- appSettings/referralProgram --- { creditAmountMinor,
+    // refereeRewardType, refereeRewardValue }. Signed-in read so the
+    // learner sidebar's "Refer & Earn" card can show the real configured
+    // reward instead of a hardcoded figure (it used to say a fixed "₹500"
+    // no matter what appSettings/general.referralCreditAmountMinor - the
+    // actual amount credited - was set to). Mirrors
+    // appSettings/general's referral fields; written only by
+    // api/admin.ts's updateAppSettings (Admin SDK, admin-gated), same
+    // pattern as appSettings/appearance. Unioned with the catch-all below.
+    match /appSettings/referralProgram {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // --- appSettings/{id} --- e.g. appSettings/general: emailOtpEnabled,
     // mobileOtpEnabled. Read/written only via api/admin.ts's
     // getAppSettings/updateAppSettings actions (admin-gated there) — never

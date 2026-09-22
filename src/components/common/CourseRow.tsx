@@ -117,7 +117,16 @@ export function CourseRow({
                 to={href(c.id)}
                 className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
               >
-                {c.owned ? ownedCtaLabel : ctaLabel}
+                {/* This link only ever navigates to the detail page (no
+                    add-to-cart mutation actually runs here) - it used to
+                    say "Add to Cart" even for a free course, which Phase
+                    0's audit flagged as misleading on two counts: the
+                    label promised an action this button doesn't perform,
+                    and "Add to Cart" makes no sense for something that
+                    doesn't need a cart. A free, unowned course now reads
+                    "Start Free Course", matching the blueprint's own
+                    access-driven button rule. */}
+                {c.owned ? ownedCtaLabel : c.price <= 0 ? 'Start Free Course' : ctaLabel}
               </Link>
             }
           />

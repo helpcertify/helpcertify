@@ -46,8 +46,19 @@ export const cartApi = {
     callAction<CartSummary>('cart', 'applyCoupon', { code, ...(unlockCode ? { unlockCode } : {}) }),
   removeCoupon: () => callAction<CartSummary>('cart', 'removeCoupon'),
   listMyPurchases: () =>
+    // itemType is typed wider than PurchasableItemType here on purpose -
+    // api/checkout.ts's/api/razorpay-webhook.ts's finalizeOrder also
+    // writes 'creatorProduct'/'aiCreditPack' purchase docs (Creator Plans,
+    // AI Credit packs), which this same server action already returns.
+    // The narrower PurchasableItemType-only type here was itself the gap
+    // MyPurchasesPage's "Your content" fell into (see its own comment).
     callAction<{
-      purchases: { itemType: PurchasableItemType; itemId: string; purchasedAt: unknown; expiresAt?: unknown }[];
+      purchases: {
+        itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack';
+        itemId: string;
+        purchasedAt: unknown;
+        expiresAt?: unknown;
+      }[];
     }>(
       'cart',
       'listMyPurchases'
@@ -155,5 +166,10 @@ export interface MyOrder {
   razorpayPaymentId: string | null;
   paidAt: unknown;
   createdAt: unknown;
-  items: { itemType: string; title: string; accessPeriodLabel: string | null }[];
+  // Set only on a gift order - the buyer's own account never gets a
+  // purchases doc for it (the recipient does, once claimed), so this is
+  // what lets Billing & Orders explain a paid order with nothing to show
+  // in "Your content" as "Gift sent to X" instead of looking broken.
+  giftRecipientName: string | null;
+  items: { itemType: string; itemId: string; title: string; accessPeriodLabel: string | null }[];
 }

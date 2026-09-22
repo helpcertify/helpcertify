@@ -100,6 +100,7 @@ export function CertificationMockDetailPage() {
             continueHref={continueHref}
             continueLabel="Continue Mock Exams"
             favorite={{ itemType: 'quiz', itemId: s.sets[0]?.itemId ?? '' }}
+            preferredKind="mock"
           />
         </aside>
 

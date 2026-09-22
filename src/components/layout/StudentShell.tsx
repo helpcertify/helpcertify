@@ -14,6 +14,8 @@ import { SiteFooter } from '@/components/layout/SiteFooter';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Avatar } from '@/components/common/Avatar';
 import { useMyCreatorEntitlements } from '@/features/creator/hooks/useCreatorCommerce';
+import { useReferralProgramSettings } from '@/features/students/hooks/useReferralProgramSettings';
+import { formatMoney } from '@/utils/currency';
 
 // "Exam Categories" used to be its own tab; its filtering moved inline onto
 // the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
@@ -241,7 +243,17 @@ export function StudentShell() {
 // actual referral link, copy button, and referral history live (see
 // ReferAndEarnSection.tsx); this sidebar card is just a permanent
 // reminder/entry point, same role the exam countdown cards play above it.
+//
+// The reward figure below used to be a hardcoded "₹500" with no relation
+// to the actual admin-configured reward (appSettings/general.
+// referralCreditAmountMinor, which defaults to ₹250) - see
+// useReferralProgramSettings for where the real value now comes from. If
+// that setting hasn't been re-saved since this fix shipped, the doc it
+// reads won't exist yet and the card falls back to generic copy with no
+// number, rather than guessing one.
 function ReferAndEarnCard({ className = '' }: { className?: string }) {
+  const { data: referralSettings } = useReferralProgramSettings();
+
   return (
     <Link to="/home/profile" className={`block w-full rounded-lg border border-brand-500/30 bg-brand-50 p-3 text-left ${className}`}>
       <div className="flex items-center gap-2.5">
@@ -250,12 +262,12 @@ function ReferAndEarnCard({ className = '' }: { className?: string }) {
         </span>
         <div className="min-w-0">
           <div className="text-sm font-semibold text-ink">Refer & Earn</div>
-          <div className="text-xs text-ink-faint">Invite friends and earn up to</div>
+          <div className="text-xs text-ink-faint">{referralSettings ? 'Invite friends and earn' : 'Invite friends and earn HelpCertify credit'}</div>
         </div>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <span className="text-base font-bold text-brand-ink">₹500</span>
-        <span className="text-sm text-brand-ink">→</span>
+        {referralSettings && <span className="text-base font-bold text-brand-ink">{formatMoney(referralSettings.creditAmountMinor, 'INR')}</span>}
+        <span className="ml-auto text-sm text-brand-ink">→</span>
       </div>
     </Link>
   );

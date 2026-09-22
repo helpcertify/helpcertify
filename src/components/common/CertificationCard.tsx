@@ -194,6 +194,28 @@ export function CertificationCard({ certification }: CertificationCardProps) {
         </button>
       );
     }
+    if (selected.price <= 0) {
+      // A package can be marked Free (sellingPrice 0) - "Buy for ₹0" and
+      // an "Add to Cart" that api/cart.ts's addItem rejects server-side
+      // ("This item is free, no need to add it to your cart") were both
+      // real gaps here, not just copy. Same access-driven button rule as
+      // the other card shells (CourseRow/CourseCarousel): a free, unowned
+      // item gets one "Start Free" action straight to its first item.
+      const firstItem = selected.includedItems[0];
+      const href = firstItem
+        ? firstItem.itemType === 'quiz'
+          ? `/home/quizzes/${firstItem.itemId}`
+          : `/home/practice-tests/${firstItem.itemId}`
+        : '/home/purchases';
+      return (
+        <Link
+          to={href}
+          className="block w-full rounded-lg bg-brand-500 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
+        >
+          Start Free
+        </Link>
+      );
+    }
     return (
       <div className="flex flex-col gap-2">
         <button

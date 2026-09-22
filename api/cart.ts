@@ -162,6 +162,22 @@ async function hydrateCart(
         continue;
       }
       const pkgData = pkgSnap.data()!;
+      // A package's own isPublished isn't the whole story - it can go
+      // stale if its parent certification was archived/unpublished after
+      // the package was added to a cart (archiveCertification now
+      // cascades to packages going forward, but this is the defense-in-
+      // depth check for anything that doesn't, plus any data that
+      // predates that fix). Same reasoning as publishPackage's own
+      // "unpublished certification cannot expose a published package"
+      // check at publish time - this is that same rule enforced again
+      // here, at cart-hydration time.
+      if (pkgData.certificationId) {
+        const certSnap = await db.collection('certifications').doc(pkgData.certificationId as string).get();
+        if (!certSnap.exists || certSnap.data()?.status !== 'published') {
+          dirty = true;
+          continue;
+        }
+      }
       if (await isPackageFullyOwned(uid, pkgData)) {
         dirty = true; // every included item already owned since being added
         continue;
@@ -539,39 +555,51 @@ async function getPublicCatalog() {
     };
   });
 
-  const practiceTests = testsSnap.docs.map((d) => {
-    const t = d.data();
-    return {
-      id: d.id,
-      title: (t.title as string) ?? 'Practice Test',
-      category: (t.category as string) ?? 'Other',
-      examName: (t.examName as string | null) ?? null,
-      skillLevel: (t.skillLevel as string) ?? 'Foundation',
-      price: (t.price as number) ?? 0,
-      originalPrice: (t.originalPrice as number | null) ?? null,
-      currency: (t.currency as 'INR' | 'USD') ?? 'INR',
-      ratingAvg: (t.ratingAvg as number) ?? 0,
-      ratingCount: (t.ratingCount as number) ?? 0,
-      totalQuestions: (t.totalQuestions as number) ?? 0,
-    };
-  });
+  // requiresEntitlement:true marks a practice test/quiz that's a
+  // price-0 component of a certification package's batched series (see
+  // api/practice-session.ts's/api/quiz-session.ts's own comments) - it's
+  // meant to be unlocked only by owning that package, not independently
+  // free-standing. Phase 0's audit found these leaking into the public
+  // catalog as a generic "Free" card: price is 0, so nothing before this
+  // filtered them out, even though attempting one without the real
+  // entitlement is immediately blocked server-side anyway.
+  const practiceTests = testsSnap.docs
+    .filter((d) => !d.data().requiresEntitlement)
+    .map((d) => {
+      const t = d.data();
+      return {
+        id: d.id,
+        title: (t.title as string) ?? 'Practice Test',
+        category: (t.category as string) ?? 'Other',
+        examName: (t.examName as string | null) ?? null,
+        skillLevel: (t.skillLevel as string) ?? 'Foundation',
+        price: (t.price as number) ?? 0,
+        originalPrice: (t.originalPrice as number | null) ?? null,
+        currency: (t.currency as 'INR' | 'USD') ?? 'INR',
+        ratingAvg: (t.ratingAvg as number) ?? 0,
+        ratingCount: (t.ratingCount as number) ?? 0,
+        totalQuestions: (t.totalQuestions as number) ?? 0,
+      };
+    });
 
-  const quizzes = quizzesSnap.docs.map((d) => {
-    const q = d.data();
-    return {
-      id: d.id,
-      title: (q.title as string) ?? 'Mock Exam',
-      category: (q.category as string) ?? 'Other',
-      skillLevel: (q.skillLevel as string) ?? 'Foundation',
-      price: (q.price as number) ?? 0,
-      originalPrice: (q.originalPrice as number | null) ?? null,
-      currency: (q.currency as 'INR' | 'USD') ?? 'INR',
-      ratingAvg: (q.ratingAvg as number) ?? 0,
-      ratingCount: (q.ratingCount as number) ?? 0,
-      totalQuestions: (q.totalQuestions as number) ?? 0,
-      durationMinutes: (q.durationMinutes as number | null) ?? null,
-    };
-  });
+  const quizzes = quizzesSnap.docs
+    .filter((d) => !d.data().requiresEntitlement)
+    .map((d) => {
+      const q = d.data();
+      return {
+        id: d.id,
+        title: (q.title as string) ?? 'Mock Exam',
+        category: (q.category as string) ?? 'Other',
+        skillLevel: (q.skillLevel as string) ?? 'Foundation',
+        price: (q.price as number) ?? 0,
+        originalPrice: (q.originalPrice as number | null) ?? null,
+        currency: (q.currency as 'INR' | 'USD') ?? 'INR',
+        ratingAvg: (q.ratingAvg as number) ?? 0,
+        ratingCount: (q.ratingCount as number) ?? 0,
+        totalQuestions: (q.totalQuestions as number) ?? 0,
+        durationMinutes: (q.durationMinutes as number | null) ?? null,
+      };
+    });
 
   return { certifications, courses, practiceTests, quizzes };
 }

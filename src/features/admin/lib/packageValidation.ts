@@ -18,6 +18,36 @@ export function isPriceNonNegative(price: number): boolean {
   return price >= 0;
 }
 
+// A minimum selling price for a non-Free package, in paise. Phase 0's audit
+// found ₹1/₹2 seeded test prices reaching the live public catalog with
+// nothing to stop them - this floor is the guard. ₹49 is a placeholder
+// chosen to sit comfortably above every seed/test value seen (₹1, ₹2) while
+// staying low enough not to block a genuinely inexpensive real product;
+// it's a product decision, not a technical one; adjust it (or make it
+// admin-configurable) once real production pricing is set - see the
+// blueprint's own section 8 note not to infer real prices from ₹1/₹2 test
+// data. A package explicitly marked Free is exempt (it's supposed to be
+// ₹0), same as hasPublishablePrice's existing isFree exemption below.
+export const MIN_PUBLISHABLE_PRICE_MINOR = 4900;
+
+export function isSellingPriceAboveFloor(sellingPrice: number, isFree: boolean): boolean {
+  return isFree || sellingPrice >= MIN_PUBLISHABLE_PRICE_MINOR;
+}
+
+// Caps how large a "compare-at" regular price can be relative to the
+// actual selling price, so a package can't advertise an implausible
+// discount (Phase 0's audit found "some very large crossed-out prices").
+// 5x means at most an 80%-off headline; generous enough for a genuine
+// launch sale, tight enough to block a stray zero or a copy/paste error.
+// Only applies once sellingPrice is positive - a still-unpriced draft (0)
+// shouldn't trip this.
+export const MAX_COMPARE_AT_RATIO = 5;
+
+export function isCompareAtRatioValid(regularPrice: number, sellingPrice: number): boolean {
+  if (sellingPrice <= 0) return true;
+  return regularPrice <= sellingPrice * MAX_COMPARE_AT_RATIO;
+}
+
 export function isOfferPriceValid(offerPrice: number | null, regularPrice: number): boolean {
   if (offerPrice === null) return true;
   return offerPrice >= 0 && offerPrice <= regularPrice;

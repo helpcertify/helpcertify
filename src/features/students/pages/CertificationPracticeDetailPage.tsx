@@ -118,6 +118,7 @@ export function CertificationPracticeDetailPage() {
               continueHref={continueHref}
               continueLabel="Continue Practice"
               favorite={{ itemType: 'practiceTest', itemId: s.sets[0]?.itemId ?? '' }}
+              preferredKind="practice"
             />
             {s.owned && (
               <StudyGoalCard

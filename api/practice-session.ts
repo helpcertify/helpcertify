@@ -204,6 +204,59 @@ async function startOrResumeBatch(uid: string, body: unknown) {
   });
 }
 
+// Shared find-or-create for the four "special" session kinds below
+// (Reattempt Last Batch, Master My Mistakes, Weak Areas, Revision Cycle).
+// Each of these used to call practiceSessions.doc().set() unconditionally,
+// so re-triggering the same action (a double click, a back-navigation
+// retry, opening the same page in two tabs) created a brand-new
+// in_progress session every time instead of resuming the one already
+// open - one of the sources Phase 0's audit traced the duplicate,
+// 0-answered resume cards to. Mirrors startOrResumeBatch's own
+// transaction-wrapped existing-session check above, scoped to sessions of
+// the same kind (a mastery session in progress shouldn't block starting a
+// weak-areas session for the same test - those are legitimately different
+// batches, not duplicates of each other).
+type SpecialSessionKind = 'reattempt' | 'mastery' | 'weakAreas' | 'revision';
+
+function matchesSpecialKind(session: FirebaseFirestore.DocumentData, kind: SpecialSessionKind): boolean {
+  if (kind === 'reattempt') return session.isReattempt === true;
+  if (kind === 'mastery') return session.isMastery === true;
+  if (kind === 'weakAreas') return session.isWeakAreas === true;
+  return session.isRevision === true;
+}
+
+async function findOrCreateSpecialSession(
+  uid: string,
+  testId: string,
+  kind: SpecialSessionKind,
+  buildSession: (now: Timestamp) => Record<string, unknown>
+): Promise<{ sessionId: string; session: FirebaseFirestore.DocumentData; resumed: boolean }> {
+  return db.runTransaction(async (t) => {
+    const now = Timestamp.now();
+    const existingQuery = db
+      .collection('practiceSessions')
+      .where('userId', '==', uid)
+      .where('testId', '==', testId)
+      .where('status', '==', 'in_progress');
+    const existing = await t.get(existingQuery);
+    const staleMs = SESSION_STALE_HOURS * 60 * 60 * 1000;
+
+    for (const doc of existing.docs) {
+      const session = doc.data();
+      if (!matchesSpecialKind(session, kind)) continue;
+      if (now.toMillis() - (session.startedAt as Timestamp).toMillis() < staleMs) {
+        return { sessionId: doc.id, session, resumed: true };
+      }
+      t.update(doc.ref, { status: 'expired' });
+    }
+
+    const sessionRef = db.collection('practiceSessions').doc();
+    const session = buildSession(now);
+    t.set(sessionRef, session);
+    return { sessionId: sessionRef.id, session, resumed: false };
+  });
+}
+
 const reattemptSchema = z.object({
   testId: z.string().min(1),
   feedbackMode: z.enum(['immediate', 'end_of_session']).optional(),
@@ -222,9 +275,7 @@ async function reattemptLastBatch(uid: string, body: unknown) {
   const { progress } = await getOrCreateProgress(uid, testId);
   if (progress.lastBatchQuestionIds.length === 0) throw Err.failedPrecondition('No previous batch to reattempt');
 
-  const now = Timestamp.now();
-  const sessionRef = db.collection('practiceSessions').doc();
-  const session = {
+  return findOrCreateSpecialSession(uid, testId, 'reattempt', (now) => ({
     userId: uid,
     testId,
     batchQuestionIds: progress.lastBatchQuestionIds,
@@ -237,9 +288,7 @@ async function reattemptLastBatch(uid: string, body: unknown) {
     incorrectCount: 0,
     isReattempt: true,
     feedbackMode: feedbackMode ?? 'immediate',
-  };
-  await sessionRef.set(session);
-  return { sessionId: sessionRef.id, session };
+  }));
 }
 
 const masterySchema = z.object({
@@ -266,9 +315,7 @@ async function startMasteryBatch(uid: string, body: unknown) {
   const incorrectQuestionIds = (progress.incorrectQuestionIds as string[] | undefined) ?? [];
   if (incorrectQuestionIds.length === 0) throw Err.failedPrecondition('No mistakes to master right now');
 
-  const now = Timestamp.now();
-  const sessionRef = db.collection('practiceSessions').doc();
-  const session = {
+  return findOrCreateSpecialSession(uid, testId, 'mastery', (now) => ({
     userId: uid,
     testId,
     batchQuestionIds: incorrectQuestionIds.slice(0, MAX_MASTERY_SIZE),
@@ -282,9 +329,7 @@ async function startMasteryBatch(uid: string, body: unknown) {
     isReattempt: false,
     isMastery: true,
     feedbackMode: feedbackMode ?? 'immediate',
-  };
-  await sessionRef.set(session);
-  return { sessionId: sessionRef.id, session };
+  }));
 }
 
 // Weak Areas (Section 5/11) - without question-level domain metadata (see
@@ -318,9 +363,7 @@ async function startWeakAreasBatch(uid: string, body: unknown) {
     .map(([id]) => id);
   if (weakIds.length === 0) throw Err.failedPrecondition('No weak areas to practice right now');
 
-  const now = Timestamp.now();
-  const sessionRef = db.collection('practiceSessions').doc();
-  const session = {
+  return findOrCreateSpecialSession(uid, testId, 'weakAreas', (now) => ({
     userId: uid,
     testId,
     batchQuestionIds: weakIds.slice(0, MAX_WEAK_AREAS_SIZE),
@@ -334,9 +377,7 @@ async function startWeakAreasBatch(uid: string, body: unknown) {
     isReattempt: false,
     isWeakAreas: true,
     feedbackMode: feedbackMode ?? 'immediate',
-  };
-  await sessionRef.set(session);
-  return { sessionId: sessionRef.id, session };
+  }));
 }
 
 // Revision Cycle (Section 32) - only once the whole bank has genuinely
@@ -364,9 +405,7 @@ async function startRevisionCycle(uid: string, body: unknown) {
   const allQuestionsSnap = await db.collection('practiceTests').doc(testId).collection('questions').select().get();
   const allIds = allQuestionsSnap.docs.map((d) => d.id);
 
-  const now = Timestamp.now();
-  const sessionRef = db.collection('practiceSessions').doc();
-  const session = {
+  return findOrCreateSpecialSession(uid, testId, 'revision', (now) => ({
     userId: uid,
     testId,
     batchQuestionIds: allIds.slice(0, MAX_REVISION_SIZE),
@@ -380,9 +419,7 @@ async function startRevisionCycle(uid: string, body: unknown) {
     isReattempt: false,
     isRevision: true,
     feedbackMode: feedbackMode ?? 'immediate',
-  };
-  await sessionRef.set(session);
-  return { sessionId: sessionRef.id, session };
+  }));
 }
 
 async function loadOwnedInProgressSession(uid: string, sessionId: string) {

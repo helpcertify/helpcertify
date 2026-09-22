@@ -887,7 +887,14 @@ function PracticeReviewScreen({
             </div>
             <div>
               <div className="text-lg font-bold text-brand-ink">🎯 {accuracy}%</div>
-              <div className="text-xs text-ink-faint">Accuracy</div>
+              {/* "This session" - explicitly scoped, since the test detail
+                  page shows a differently-scoped "Lifetime accuracy"
+                  (cumulative across every session ever run on this test).
+                  Phase 0's audit found the two, both previously labeled
+                  just "Accuracy", read as contradicting each other right
+                  after finishing a session (e.g. a 100%-this-session
+                  result next to a much lower lifetime number). */}
+              <div className="text-xs text-ink-faint">This session's accuracy</div>
             </div>
           </div>
 

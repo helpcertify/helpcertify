@@ -94,13 +94,14 @@ export function LandingPage() {
     <div className="min-h-screen bg-surface">
       <header className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-6">
         <Logo />
-        <div className="order-3 w-full sm:order-2 sm:w-auto sm:flex-1">
-          <SearchBar to="/search" className="mx-auto max-w-md" />
-        </div>
         {/* One "Log in" for everyone - it redirects by role once signed in
             (admin/finance_admin to /admin, otherwise /home), so a separate
-            Admin Portal entry is not needed. */}
-        <div className="order-2 ml-auto flex items-center gap-2 sm:order-3">
+            Admin Portal entry is not needed.
+            No header search here - Phase 0's audit flagged this page for
+            showing two search inputs (this one plus the larger hero one
+            below); the hero's is the more prominent, primary one, so this
+            one was the redundant duplicate. */}
+        <div className="ml-auto flex items-center gap-2">
           <Link
             to="/login"
             className="rounded-lg px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink"

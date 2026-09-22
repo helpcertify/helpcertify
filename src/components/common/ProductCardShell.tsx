@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { StarRating } from './StarRating';
 import { WishlistButton } from './WishlistButton';
 import { CourseIcon } from './CourseIcon';
-import { ClickHereLink, CategoryBadge, NewBadge } from './CardBits';
+import { CategoryBadge, NewBadge } from './CardBits';
 import { PriceTag } from './PriceTag';
 import { discountPercent } from '@/utils/currency';
 import { isRecentlyPublished } from '@/utils/formatDate';
@@ -98,15 +98,24 @@ export function ProductCardShell({
           <WishlistButton itemType={itemType} itemId={id} variant="overlay" className="absolute right-3 top-3" />
         </Link>
       ) : (
-        <div className={`relative flex flex-col justify-between bg-gradient-to-br from-brand-50 to-brand-50 p-3 ${compact ? 'h-32' : 'h-36'}`}>
+        // The whole gradient region is one Link (not just the icon/title),
+        // so the card is clickable everywhere a learner might tap it -
+        // Phase 0's audit flagged the old "Click here" text link here as
+        // exactly the kind of vague affordance the redesign calls to
+        // remove; a bigger click target makes the text unnecessary rather
+        // than needing a replacement label. WishlistButton still works
+        // inside it - it stops its own click from bubbling to this Link.
+        <Link
+          to={detailHref}
+          className={`relative flex flex-col justify-between bg-gradient-to-br from-brand-50 to-brand-50 p-3 ${compact ? 'h-32' : 'h-36'}`}
+        >
           {ribbon}
           <WishlistButton itemType={itemType} itemId={id} variant="inline" className="absolute right-3 top-3" />
-          <Link to={detailHref} className="flex items-start gap-3 overflow-hidden pr-8 pt-4">
+          <div className="flex items-start gap-3 overflow-hidden pr-8 pt-4">
             <CourseIcon id={id} title={title} itemType={itemType} />
             <h3 className="line-clamp-3 pt-1 text-[15px] font-semibold leading-snug text-ink">{title}</h3>
-          </Link>
-          <ClickHereLink href={detailHref} />
-        </div>
+          </div>
+        </Link>
       )}
       {coverImageUrl && (
         <div className={compact ? 'px-3 pt-2' : 'px-4 pt-3'}>

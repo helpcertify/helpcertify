@@ -503,7 +503,14 @@ function PracticeSetupCard({
         <div className="rounded-lg border border-surface-border bg-brand-50 p-4 text-center">
           <div className="mb-1 text-sm font-bold text-ink">🎯 Question Bank Complete</div>
           <p className="mb-3 text-xs text-ink-faint">
-            You've practiced all {test.totalQuestions} questions. Accuracy: {accuracy}%
+            {/* Explicitly "Lifetime accuracy" - this is cumulative
+                correct/attempts across every session ever run on this test
+                (see overallAccuracy above), not this one session's score.
+                Phase 0's audit found an unlabeled "Accuracy: N%" here read
+                as contradicting a just-finished session's own 100%-style
+                result, which is a *different*, session-scoped number (see
+                PracticeTakingPage's own "Accuracy" label). */}
+            You've practiced all {test.totalQuestions} questions. Lifetime accuracy: {accuracy}%
             {incorrectCount > 0 && ` · ${incorrectCount} question${incorrectCount === 1 ? '' : 's'} to review`}
           </p>
           <div className="flex flex-col gap-2">

@@ -1505,6 +1505,19 @@ async function listMyOrders(uid: string) {
   const orders = snap.docs
     .map((d) => {
       const o = d.data();
+      // Phase 0's audit flagged two related gaps in Billing & Orders, both
+      // fixed here by exposing data the order doc already has but this
+      // response previously dropped:
+      //  - itemId per line item, so the learner-facing "Your content" view
+      //    can fall back to this order's own title when the live
+      //    quiz/practiceTest doc it points at no longer resolves (deleted,
+      //    or unpublished after purchase) instead of silently vanishing.
+      //  - giftDetails.recipientName, surfaced as giftRecipientName, so a
+      //    gift order reads as "Gift sent to X" rather than looking like a
+      //    paid order that mysteriously granted the buyer nothing (by
+      //    design, a gift's entitlement goes to the recipient, not the
+      //    buyer - see createOrder's giftDetails comment).
+      const giftDetails = o.giftDetails as { recipientName?: string } | null | undefined;
       return {
         id: d.id,
         status: o.status as string,
@@ -1516,8 +1529,9 @@ async function listMyOrders(uid: string) {
         razorpayPaymentId: (o.razorpayPaymentId as string | null) ?? null,
         paidAt: (o.paidAt as unknown) ?? null,
         createdAt: (o.createdAt as unknown) ?? null,
+        giftRecipientName: giftDetails?.recipientName ?? null,
         items: ((o.items as { itemType: string; title?: string; itemId: string; accessPeriodLabel?: string }[]) ?? []).map(
-          (i) => ({ itemType: i.itemType, title: i.title ?? i.itemId, accessPeriodLabel: i.accessPeriodLabel ?? null }),
+          (i) => ({ itemType: i.itemType, itemId: i.itemId, title: i.title ?? i.itemId, accessPeriodLabel: i.accessPeriodLabel ?? null }),
         ),
       };
     })

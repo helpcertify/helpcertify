@@ -31,6 +31,7 @@ export function CertificationPurchasePanel({
   continueHref,
   continueLabel = 'Continue Practice',
   favorite,
+  preferredKind,
 }: {
   cert: CatalogCertification;
   // Where "Continue Practice" / "Continue" goes for an owner (the first
@@ -39,6 +40,11 @@ export function CertificationPurchasePanel({
   continueLabel?: string;
   // Shown as "Add to Favorites" in the buy view only (not once owned).
   favorite: { itemType: 'quiz' | 'practiceTest'; itemId: string };
+  // Which arrival catalog brought the learner to this detail page
+  // (CertificationPracticeDetailPage / CertificationMockDetailPage pass
+  // their own kind) - see pickDefaultPackage's own comment for why this
+  // matters for the pre-selected plan.
+  preferredKind?: 'practice' | 'mock';
 }) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
@@ -56,7 +62,7 @@ export function CertificationPurchasePanel({
   }, [packages]);
 
   const [upgradeMode, setUpgradeMode] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(() => pickDefaultPackage(packages)?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => pickDefaultPackage(packages, preferredKind)?.id ?? null);
   const [buyNowOpen, setBuyNowOpen] = useState(false);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
   // Set once GiftModal collects who the gift is for - switches the Buy Now
@@ -64,7 +70,7 @@ export function CertificationPurchasePanel({
   // prop) and gets threaded through to checkout() on confirm.
   const [pendingGift, setPendingGift] = useState<GiftOrderDetails | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const selected = packages.find((p) => p.id === selectedId) ?? pickDefaultPackage(packages);
+  const selected = packages.find((p) => p.id === selectedId) ?? pickDefaultPackage(packages, preferredKind);
 
   const share = async () => {
     const url = window.location.href;
@@ -369,6 +375,21 @@ export function CertificationPurchasePanel({
             >
               Coming soon
             </button>
+          ) : selected.price <= 0 ? (
+            // A package can be marked Free (sellingPrice 0) - Add to Cart
+            // and Buy Now both make no sense for it (Add to Cart is
+            // rejected server-side for a price<=0 item - see api/cart.ts's
+            // addItem). Same access-driven button rule as the browse
+            // cards: one "Start Free" action straight to the first
+            // included item.
+            <Link
+              to={
+                favorite.itemType === 'quiz' ? `/home/quizzes/${favorite.itemId}` : `/home/practice-tests/${favorite.itemId}`
+              }
+              className="block w-full rounded-lg bg-brand-500 py-3 text-center text-[15px] font-semibold text-white hover:bg-brand-600"
+            >
+              Start Free
+            </Link>
           ) : (
             <>
               <button
