@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { examCta, rollUpStatus } from './examCta';
 
 describe('examCta', () => {
-  it('locked always routes to the plans modal', () => {
-    expect(examCta('locked', 'practice', '/x')).toMatchObject({ label: 'View Plans', action: 'plans' });
-    expect(examCta('locked', 'mock', '/x')).toMatchObject({ label: 'View Plans', action: 'plans' });
-  });
+  // Locked items never reach examCta at all now - PracticeSetRow/MockExamRow/
+  // ExamProductCard show the question count as plain text instead of calling
+  // it, since a locked item never gets a button (see examCta's comment).
 
   it('uses kind-specific start and review labels', () => {
     expect(examCta('not_started', 'practice', '/x')).toMatchObject({ label: 'Start Practice', action: 'link', href: '/x' });

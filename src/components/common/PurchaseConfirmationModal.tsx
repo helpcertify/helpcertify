@@ -18,16 +18,65 @@ export function PurchaseConfirmationModal({
   items,
   amountPaid,
   currency,
+  giftRecipientName,
   onClose,
 }: {
   items: Item[];
   /** The amount actually charged, in minor units (paise/cents) - from the same order Razorpay confirmed. */
   amountPaid?: number;
   currency?: string;
+  // Set only for a gift order (see useCheckout's checkout()) - the buyer
+  // gets no entitlement at all here, so this swaps the whole body for
+  // "your gift is on its way" instead of the "go start it" item list,
+  // which would otherwise link the buyer into access they don't have.
+  giftRecipientName?: string;
   onClose: () => void;
 }) {
   const hasPracticeTest = items.some((i) => i.itemType === 'practiceTest');
   const firstName = items[0]?.title;
+
+  if (giftRecipientName) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+        <div
+          className="relative w-full max-w-md overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ModalCloseButton onClose={onClose} className="bg-white/15 text-white hover:bg-white/25 hover:text-white" />
+          <div className="bg-gradient-to-br from-brand-500 to-brand-600 px-6 pb-7 pt-8 text-center text-white">
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/15 text-4xl ring-4 ring-white/25">
+              🎁
+            </div>
+            <h2 className="text-2xl font-extrabold leading-tight">Your gift is on its way!</h2>
+            <p className="mt-1.5 text-sm text-white/85">
+              {firstName} for {giftRecipientName} will arrive by email with a link to claim it.
+            </p>
+            {typeof amountPaid === 'number' && currency && (
+              <div className="mx-auto mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
+                You paid {formatMoney(amountPaid, currency as 'INR' | 'USD')}
+              </div>
+            )}
+          </div>
+          <div className="p-6">
+            <p className="mb-5 text-xs text-ink-faint">
+              📄 Your receipt is saved under{' '}
+              <Link to="/home/purchases" onClick={onClose} className="text-brand-ink hover:underline">
+                Billing &amp; Orders
+              </Link>
+              . {giftRecipientName} keeps their own account and access once they claim it - nothing unlocks on your account for this order.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-lg border border-surface-border py-2.5 text-sm text-ink-muted hover:border-brand-400"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>

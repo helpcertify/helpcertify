@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { PracticeSetRow } from './PracticeSetRow';
 import { MockExamRow } from './MockExamRow';
@@ -14,7 +13,6 @@ describe('PracticeSetRow', () => {
       <PracticeSetRow
         set={{ testId: 't1', index: 1, totalQuestions: 150, answered: 150, accuracyPct: 82, status: 'completed' }}
         takeHref="/home/practice-tests/t1"
-        onViewPlans={() => {}}
       />,
     );
     expect(screen.getByText('Practice Set 01')).toBeInTheDocument();
@@ -27,24 +25,22 @@ describe('PracticeSetRow', () => {
       <PracticeSetRow
         set={{ testId: 't2', index: 3, totalQuestions: 150, answered: 92, accuracyPct: null, status: 'in_progress' }}
         takeHref="/practice-tests/t2/take"
-        onViewPlans={() => {}}
       />,
     );
     expect(screen.getByText('92 / 150 completed')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue' })).toBeInTheDocument();
   });
 
-  it('locked shows a View Plans button that calls onViewPlans', async () => {
-    const onViewPlans = vi.fn();
+  it('locked shows the question count and no button', () => {
     wrap(
       <PracticeSetRow
         set={{ testId: 't3', index: 7, totalQuestions: 150, answered: 0, accuracyPct: null, status: 'locked' }}
         takeHref="#"
-        onViewPlans={onViewPlans}
       />,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'View Plans' }));
-    expect(onViewPlans).toHaveBeenCalledOnce();
+    expect(screen.getByText('150 Questions')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /view plans/i })).not.toBeInTheDocument();
   });
 });
 
@@ -55,7 +51,6 @@ describe('MockExamRow', () => {
         mock={{ quizId: 'q1', index: 1, totalQuestions: 150, durationMinutes: 240, status: 'completed', scorePct: 78 }}
         takeHref="/quizzes/q1/take"
         resultHref="/home/past-quizzes/q1"
-        onViewPlans={() => {}}
       />,
     );
     expect(screen.getByText('Score 78%')).toBeInTheDocument();
@@ -68,11 +63,23 @@ describe('MockExamRow', () => {
         mock={{ quizId: 'q2', index: 2, totalQuestions: 150, durationMinutes: 240, status: 'not_started', scorePct: null }}
         takeHref="/quizzes/q2/take"
         resultHref="/home/past-quizzes/q2"
-        onViewPlans={() => {}}
       />,
     );
     expect(screen.getByText('150 Questions · 4 Hours')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Start Mock Exam' })).toHaveAttribute('href', '/quizzes/q2/take');
+  });
+
+  it('locked shows the question count and no button', () => {
+    wrap(
+      <MockExamRow
+        mock={{ quizId: 'q3', index: 3, totalQuestions: 150, durationMinutes: 240, status: 'locked', scorePct: null }}
+        takeHref="/quizzes/q3/take"
+        resultHref="/home/past-quizzes/q3"
+      />,
+    );
+    expect(screen.getByText('150 Questions · 4 Hours')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /view plans/i })).not.toBeInTheDocument();
   });
 });
 

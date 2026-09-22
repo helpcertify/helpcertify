@@ -24,6 +24,12 @@ interface Props {
   buyNowItem: { itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack'; itemId: string; plan?: 'monthly' | 'annual' };
   /** For the order summary: item type, question count, and access period. */
   summaryItem: Omit<OrderSummaryItem, 'key' | 'title' | 'price' | 'originalPrice'>;
+  // Set when this Buy Now is really a gift purchase (opened after
+  // GiftModal collected who it's for) - the recipient's name/email is
+  // already decided by then, so this just shows a confirmation banner and
+  // relabels the pay button; the caller is the one that actually threads
+  // giftDetails through to checkout() in onConfirm.
+  giftRecipientName?: string;
   onClose: () => void;
   onConfirm: (consent: CheckoutConsentState, couponCode?: string, useCredit?: boolean, unlockCode?: string) => void;
 }
@@ -35,7 +41,18 @@ type AppliedCoupon = PreviewDiscountResult & { code: string; unlockCode?: string
 // coupon field that validates against the real backend (api/checkout.ts's
 // previewDiscount) and updates the price shown right here - no more "the
 // discount shows on the next screen".
-export function BuyNowModal({ title, price, originalPrice, currency, paying, buyNowItem, summaryItem, onClose, onConfirm }: Props) {
+export function BuyNowModal({
+  title,
+  price,
+  originalPrice,
+  currency,
+  paying,
+  buyNowItem,
+  summaryItem,
+  giftRecipientName,
+  onClose,
+  onConfirm,
+}: Props) {
   const [couponInput, setCouponInput] = useState('');
   const [applied, setApplied] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -97,6 +114,14 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, buy
       >
         <ModalCloseButton onClose={onClose} />
         <h2 className="mb-2 pr-8 text-xl font-bold text-ink">{title}</h2>
+        {giftRecipientName && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-brand-500/30 bg-brand-50 px-3 py-2 text-sm text-brand-ink dark:bg-brand-500/10">
+            <span aria-hidden="true">🎁</span>
+            <span>
+              Gifting to <span className="font-semibold">{giftRecipientName}</span> - they&rsquo;ll get an email to claim it.
+            </span>
+          </div>
+        )}
         <div className="mb-5 flex flex-wrap items-baseline gap-2.5">
           {applied ? (
             <>
@@ -118,8 +143,9 @@ export function BuyNowModal({ title, price, originalPrice, currency, paying, buy
         />
 
         <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-          A free preview is available on the product page to evaluate the question, answer and
-          explanation format before you buy.
+          {giftRecipientName
+            ? `${giftRecipientName} will get their own account access once they claim this gift - it never unlocks on your account.`
+            : 'A free preview is available on the product page to evaluate the question, answer and explanation format before you buy.'}
         </p>
 
         <div className="my-5 border-t border-surface-border pt-5">

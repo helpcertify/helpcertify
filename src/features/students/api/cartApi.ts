@@ -63,6 +63,18 @@ export interface CreateOrderResult {
   keyId: string;
 }
 
+// Gift order details, collected by GiftModal - always paired with a
+// buyNowItem (see api/checkout.ts's createOrder: a gift is always one
+// specific item for one specific recipient). sendAt absent = send as soon
+// as payment clears; a future ISO datetime schedules it for
+// processDueGifts to send later instead.
+export interface GiftOrderDetails {
+  recipientName: string;
+  recipientEmail: string;
+  sendAt?: string;
+  message?: string;
+}
+
 export const checkoutApi = {
   createOrder: (opts: {
     consent: CheckoutConsentState;
@@ -71,6 +83,7 @@ export const checkoutApi = {
     unlockCode?: string;
     useCredit?: boolean;
     referralCode?: string;
+    giftDetails?: GiftOrderDetails;
   }) =>
     callAction<CreateOrderResult>('checkout', 'createOrder', {
       ...(opts.buyNowItem ? { buyNowItem: opts.buyNowItem } : {}),
@@ -82,12 +95,28 @@ export const checkoutApi = {
       // the buyer typed at checkout. Both are re-validated server-side.
       ...(readRefToken() ? { referralToken: readRefToken() } : {}),
       ...(opts.referralCode ? { referralCode: opts.referralCode } : {}),
+      ...(opts.giftDetails ? { giftDetails: opts.giftDetails } : {}),
       consent: {
         ...opts.consent,
         acceptedAt: new Date().toISOString(),
         policyVersions: POLICY_VERSIONS,
       },
     }),
+  // Public preview of a gift before the recipient signs in - see
+  // api/checkout.ts's getGift.
+  getGift: (claimCode: string) =>
+    callAction<{
+      buyerName: string;
+      recipientName: string;
+      itemTitle: string;
+      message: string | null;
+      status: 'scheduled' | 'sent' | 'claimed' | 'expired' | 'cancelled';
+      expired: boolean;
+    }>('checkout', 'getGift', { claimCode }),
+  // Authenticated redemption - the signed-in account must match the gift's
+  // recipientEmail (see api/checkout.ts's claimGift).
+  claimGift: (claimCode: string) =>
+    callAction<{ itemType: PurchasableItemType; itemId: string; itemTitle: string }>('checkout', 'claimGift', { claimCode }),
   verifyPayment: (payload: {
     orderId: string;
     razorpay_order_id: string;

@@ -1,5 +1,4 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { PageHeader, EmptyState } from '@/components/ui';
 import type { ExamSeries } from '../../hooks/useExamSeries';
 import { ExamProductCard, type ExamCardModel } from './ExamProductCard';
@@ -55,7 +54,6 @@ export function ExamBrowsePage({
   detailBase: string;
   topSlot?: ReactNode;
 }) {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<ExamBrowseTab>('all');
   const [search, setSearch] = useState('');
   const [layout, setLayout] = useState<ExamLayout>('grid');
@@ -89,9 +87,9 @@ export function ExamBrowsePage({
       {topSlot}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="flex flex-wrap gap-4">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-72 animate-pulse rounded-xl border border-surface-border bg-surface-raised" />
+            <div key={i} className="h-80 w-60 shrink-0 animate-pulse rounded-[14px] border border-surface-border bg-surface-raised sm:w-72" />
           ))}
         </div>
       ) : isError ? (
@@ -121,26 +119,19 @@ export function ExamBrowsePage({
           {visible.length === 0 ? (
             <EmptyState title="Nothing matches this filter" hint="Try a different tab or clear the search." />
           ) : layout === 'grid' ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            // Fixed-width cards (matching ProductCardShell's Home/Courses
+            // cards, not a stretching grid cell) wrap in a flex row, same
+            // layout CoursesPage/MyPurchasesPage/WishlistPage already use -
+            // so the browse grid reads as the same card size everywhere.
+            <div className="flex flex-wrap gap-4">
               {visible.map(({ s, model }) => (
-                <ExamProductCard
-                  key={s.seriesId}
-                  model={model}
-                  detailHref={`${detailBase}/${s.seriesId}`}
-                  onViewPlans={() => navigate(`${detailBase}/${s.seriesId}`)}
-                />
+                <ExamProductCard key={s.seriesId} model={model} detailHref={`${detailBase}/${s.seriesId}`} />
               ))}
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {visible.map(({ s, model }) => (
-                <ExamProductCard
-                  key={s.seriesId}
-                  model={model}
-                  layout="list"
-                  detailHref={`${detailBase}/${s.seriesId}`}
-                  onViewPlans={() => navigate(`${detailBase}/${s.seriesId}`)}
-                />
+                <ExamProductCard key={s.seriesId} model={model} layout="list" detailHref={`${detailBase}/${s.seriesId}`} />
               ))}
             </div>
           )}

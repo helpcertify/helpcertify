@@ -66,51 +66,44 @@ export function CertificationMockDetailPage() {
     { id: 'reviews', label: 'Review History' },
   ];
 
-  // Locked mocks no longer open a "View Plans" popup - the purchase panel is
-  // already right here on this page, so just bring it into view.
-  const scrollToPurchasePanel = () =>
-    document.getElementById('purchase-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
   return (
     <div className="mx-auto w-full max-w-[1400px]">
       <Link to="/home/mock-exams" className="mb-4 inline-block text-sm text-brand-ink hover:underline">
         &larr; Mock Exams
       </Link>
 
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_416px] lg:auto-rows-min lg:gap-x-6 lg:gap-y-5">
-        <div className="order-1 lg:col-start-1 lg:row-start-1">
-          <ExamDetailHeader
-            title={s.cert.name}
-            eyebrow="Mock Exams"
-            provider={s.cert.provider}
-            description={
-              s.cert.description ||
-              'Experience real exam conditions with full-length mock exams. Answers are shown after submission.'
-            }
-            coverImageUrl={s.cert.coverImageUrl}
-            iconKey={s.cert.iconKey}
-          />
-        </div>
+      {/* Header renders as its own full-width block above the two-column
+          layout, never as a row-1 grid item next to a row-spanning sticky
+          aside - see CourseDetailPage/QuizDetailPage/PracticeTestDetailPage
+          for the same pattern. A `row-span-2` item taller than its own two
+          spanned min-content rows forces CSS Grid to inflate row 1 to fit
+          it, which pushed an empty gap in between the header and the stats
+          row below it. */}
+      <div className="mb-5">
+        <ExamDetailHeader
+          title={s.cert.name}
+          eyebrow="Mock Exams"
+          provider={s.cert.provider}
+          description={
+            s.cert.description ||
+            'Experience real exam conditions with full-length mock exams. Answers are shown after submission.'
+          }
+          coverImageUrl={s.cert.coverImageUrl}
+          iconKey={s.cert.iconKey}
+        />
+      </div>
 
-        <aside
-          id="purchase-panel"
-          className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-[4.5rem]"
-        >
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_416px] lg:items-start lg:gap-x-6 lg:gap-y-5">
+        <aside id="purchase-panel" className="lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-[4.5rem]">
           <CertificationPurchasePanel
             cert={s.cert}
             continueHref={continueHref}
             continueLabel="Continue Mock Exams"
             favorite={{ itemType: 'quiz', itemId: s.sets[0]?.itemId ?? '' }}
-            planProgress={{
-              label: 'Mock exams',
-              done: s.mocksCompleted,
-              total: s.sets.length,
-              note: s.bestScorePct != null ? `best ${s.bestScorePct}%` : undefined,
-            }}
           />
         </aside>
 
-        <div className="order-3 min-w-0 space-y-5 lg:col-start-1 lg:row-start-2">
+        <div className="min-w-0 space-y-5 lg:col-start-1 lg:row-start-1">
           <ExamSummaryMetrics
             metrics={[
               { label: 'Mock Exams', value: s.sets.length, icon: MetricIcons.sets },
@@ -151,7 +144,6 @@ export function CertificationMockDetailPage() {
                   }}
                   takeHref={`/quizzes/${set.itemId}/take`}
                   resultHref={`/home/past-quizzes/${set.itemId}`}
-                  onViewPlans={scrollToPurchasePanel}
                 />
               ))}
             </div>

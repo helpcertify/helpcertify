@@ -3,7 +3,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual, randomBytes } from 'crypto';
 
 // Razorpay checkout: create an Order server-side (recomputing every price
 // from the live quiz/practiceTest docs - the client never gets to state an
@@ -246,6 +246,20 @@ const createOrderSchema = z.object({
   // resolveOrderAttribution re-validates server-side.
   referralToken: z.string().trim().max(500).optional(),
   referralCode: z.string().trim().max(20).optional(),
+  // Gifting: only ever paired with buyNowItem (a gift is always one
+  // specific item for one specific recipient, never a whole-cart
+  // checkout) - enforced below, not in the schema, so the error message
+  // can be specific. sendAt absent/past = send immediately on payment;
+  // a future date only actually goes out once processDueGifts (the cron
+  // action below) next runs.
+  giftDetails: z
+    .object({
+      recipientName: z.string().trim().min(1).max(200),
+      recipientEmail: z.string().trim().email().max(320),
+      sendAt: z.string().datetime().optional(),
+      message: z.string().trim().max(500).optional(),
+    })
+    .optional(),
 });
 
 // --- Partner attribution (Phase 2) ---------------------------------------
@@ -696,7 +710,14 @@ async function hydrateOrderItems(
 async function createOrder(uid: string, body: unknown) {
   const parsed = createOrderSchema.safeParse(body);
   if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
-  const { buyNowItem, useCredit, consent } = parsed.data;
+  const { buyNowItem, useCredit, consent, giftDetails } = parsed.data;
+
+  if (giftDetails) {
+    if (!buyNowItem) throw Err.invalidArgument('A gift order must specify a single item to gift');
+    if (buyNowItem.itemType === 'creatorProduct' || buyNowItem.itemType === 'aiCreditPack' || buyNowItem.itemType === 'customExamBuilder') {
+      throw Err.invalidArgument('This item cannot be gifted');
+    }
+  }
 
   let cartItems: { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[];
   let couponCode: string | null;
@@ -840,6 +861,20 @@ async function createOrder(uid: string, body: unknown) {
     policyVersions: POLICY_VERSIONS,
     createdAt: Timestamp.now(),
     paidAt: null,
+    // Gifting: when set, finalizeOrder grants access to recipientEmail's
+    // account once they claim it (see claimGift), not to the buyer - the
+    // buyer never gets a purchases doc for this order's item.
+    giftDetails: giftDetails
+      ? {
+          recipientName: giftDetails.recipientName,
+          recipientEmail: giftDetails.recipientEmail.toLowerCase(),
+          sendAt: giftDetails.sendAt ? Timestamp.fromDate(new Date(giftDetails.sendAt)) : Timestamp.now(),
+          message: giftDetails.message ?? null,
+          itemType: orderItems[0].itemType,
+          itemId: orderItems[0].itemId,
+          itemTitle: orderItems[0].title,
+        }
+      : null,
   });
 
   // Immutable purchase-consent record - a separate write-once doc (id =
@@ -1015,6 +1050,43 @@ async function processReferralOnPurchase(
   });
 }
 
+// --- Gifting --------------------------------------------------------------
+// Resend's REST API directly via fetch, same as api/auth.ts's own sendEmail
+// (duplicated rather than imported, per this project's
+// no-shared-code-across-api/*.ts convention).
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY is not configured');
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: 'Helpcertify <no-reply@verify.helpcertify.com>', to: [to], subject, html }),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`Resend request failed (${resp.status}): ${detail}`);
+  }
+}
+
+const SITE_URL = process.env.SITE_URL ?? 'https://helpcertify.com';
+
+function giftEmailHtml(buyerName: string, recipientName: string, itemTitle: string, message: string | null, claimUrl: string): string {
+  return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+    <h2 style="color:#155EEF">You've been gifted a HelpCertify plan 🎁</h2>
+    <p>Hi ${recipientName},</p>
+    <p><strong>${buyerName}</strong> sent you <strong>${itemTitle}</strong> on HelpCertify.</p>
+    ${message ? `<p style="padding:12px;background:#F8FAFC;border-radius:8px;color:#334155">"${message}"</p>` : ''}
+    <p><a href="${claimUrl}" style="display:inline-block;padding:10px 20px;background:#155EEF;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Claim your gift</a></p>
+    <p style="color:#64748B;font-size:14px">Sign in (or create a free account) with this email address to claim it. If you weren't expecting this, you can ignore this email.</p>
+  </div>`;
+}
+
+// url-safe, unguessable (144 bits) - this is the only credential guarding a
+// free entitlement grant, so it's sized well past what a coupon code needs.
+function generateClaimCode(): string {
+  return randomBytes(18).toString('base64url');
+}
+
 // Shared by both the client-verify path (here) and the webhook - kept as a
 // small duplicated function rather than an import, per this project's
 // no-shared-code-across-api/*.ts convention. Idempotent: safe to call twice
@@ -1050,7 +1122,46 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
   // purchase records. A retry (client or webhook) then re-runs cleanly.
   batch.update(ref, { status: 'paid', razorpayPaymentId, paidAt: Timestamp.now() });
 
-  for (const item of order.items as { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[]) {
+  // Gifting: the buyer gets no entitlement at all for this order (the item
+  // loop below is skipped entirely) - only the recipient does, once they
+  // claim it (see claimGift). One gift per order, keyed by orderId so a
+  // client+webhook double-finalize can't create two.
+  const giftDetails = order.giftDetails as
+    | { recipientName: string; recipientEmail: string; sendAt: Timestamp; message: string | null; itemType: ItemType; itemId: string; itemTitle: string }
+    | null
+    | undefined;
+  let giftClaimCode: string | null = null;
+  let giftBuyerName: string | null = null;
+  if (giftDetails) {
+    giftClaimCode = generateClaimCode();
+    const sendNow = giftDetails.sendAt.toMillis() <= Date.now();
+    const buyerSnap = await db.collection('users').doc(order.userId).get();
+    const buyerName = (buyerSnap.data()?.name as string | undefined) ?? 'A HelpCertify learner';
+    giftBuyerName = buyerName;
+    batch.set(db.collection('gifts').doc(orderId), {
+      orderId,
+      buyerUid: order.userId,
+      buyerName,
+      recipientName: giftDetails.recipientName,
+      recipientEmail: giftDetails.recipientEmail,
+      itemType: giftDetails.itemType,
+      itemId: giftDetails.itemId,
+      itemTitle: giftDetails.itemTitle,
+      message: giftDetails.message,
+      claimCode: giftClaimCode,
+      status: sendNow ? 'sent' : 'scheduled',
+      sendAt: giftDetails.sendAt,
+      sentAt: sendNow ? Timestamp.now() : null,
+      claimedAt: null,
+      claimedByUid: null,
+      // Claim window: 180 days from when it's actually sent (not from
+      // purchase, for a future-dated gift) - generous, but not forever.
+      expiresAt: Timestamp.fromMillis(Math.max(giftDetails.sendAt.toMillis(), Date.now()) + 180 * 24 * 60 * 60 * 1000),
+      createdAt: Timestamp.now(),
+    });
+  }
+
+  for (const item of giftDetails ? [] : (order.items as { itemType: ItemType; itemId: string; plan?: 'monthly' | 'annual' }[])) {
     if (item.itemType === 'creatorProduct') {
       // Time-boxed entitlement grant: extend from the later of "now" and any
       // still-active entitlement's expiry, so re-buying stacks the window.
@@ -1188,7 +1299,159 @@ async function finalizeOrder(orderId: string, razorpayPaymentId: string): Promis
     .set({ razorpayPaymentId, paidAt: Timestamp.now() }, { merge: true })
     .catch((e) => console.error('purchaseConsents paidAt patch failed:', orderId, e));
 
+  // Email is a side effect that can't be part of the batch - best-effort,
+  // after the gift doc is already durably committed as 'sent'. A failure
+  // here never un-charges the buyer or un-schedules the gift; the recipient
+  // can still be pointed to the claim link some other way if this fails.
+  // A future-dated gift (status 'scheduled') is sent later by
+  // processDueGifts instead.
+  if (giftDetails && giftClaimCode && giftDetails.sendAt.toMillis() <= Date.now()) {
+    await sendEmail(
+      giftDetails.recipientEmail,
+      `${giftDetails.itemTitle} - a gift from a HelpCertify learner`,
+      giftEmailHtml(giftBuyerName ?? 'A HelpCertify learner', giftDetails.recipientName, giftDetails.itemTitle, giftDetails.message, `${SITE_URL}/gift/${giftClaimCode}`),
+    ).catch((e) => console.error('gift email send failed:', orderId, e));
+  }
+
   return 'paid';
+}
+
+interface GiftDoc {
+  orderId: string;
+  buyerUid: string;
+  buyerName: string;
+  recipientName: string;
+  recipientEmail: string;
+  itemType: ItemType;
+  itemId: string;
+  itemTitle: string;
+  message: string | null;
+  claimCode: string;
+  status: 'scheduled' | 'sent' | 'claimed' | 'expired' | 'cancelled';
+  sendAt: Timestamp;
+  sentAt: Timestamp | null;
+  claimedAt: Timestamp | null;
+  claimedByUid: string | null;
+  expiresAt: Timestamp;
+}
+
+const getGiftSchema = z.object({ claimCode: z.string().trim().min(1) });
+
+// The signed-in learner's own view of a gift before claiming it - just
+// enough to render "X sent you Y", never the buyer's email or the order.
+async function getGift(body: unknown) {
+  const parsed = getGiftSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+  const snap = await db.collection('gifts').where('claimCode', '==', parsed.data.claimCode).limit(1).get();
+  if (snap.empty) throw Err.notFound('This gift link is invalid or has expired');
+  const gift = snap.docs[0].data() as GiftDoc;
+  return {
+    buyerName: gift.buyerName,
+    recipientName: gift.recipientName,
+    itemTitle: gift.itemTitle,
+    message: gift.message,
+    status: gift.status,
+    expired: gift.expiresAt.toMillis() < Date.now(),
+  };
+}
+
+// Grants the same entitlement finalizeOrder would have granted the buyer,
+// but to the claiming learner instead - same package-expansion vs
+// single-item shape, so every existing ownership check keeps working
+// unmodified. Access windows (package accessValidityDays) start from the
+// claim, not the original purchase - the recipient hadn't received it yet.
+async function claimGift(uid: string, body: unknown) {
+  const parsed = getGiftSchema.safeParse(body);
+  if (!parsed.success) throw Err.invalidArgument('Validation failed', parsed.error.issues);
+
+  const snap = await db.collection('gifts').where('claimCode', '==', parsed.data.claimCode).limit(1).get();
+  if (snap.empty) throw Err.notFound('This gift link is invalid or has expired');
+  const giftRef = snap.docs[0].ref;
+  const gift = snap.docs[0].data() as GiftDoc;
+
+  if (gift.status === 'claimed') throw Err.failedPrecondition('This gift has already been claimed');
+  if (gift.status === 'cancelled') throw Err.failedPrecondition('This gift was cancelled by the sender');
+  if (gift.status === 'scheduled') throw Err.failedPrecondition('This gift has not been sent yet');
+  if (gift.expiresAt.toMillis() < Date.now()) throw Err.failedPrecondition('This gift link has expired');
+
+  const userSnap = await db.collection('users').doc(uid).get();
+  const userEmail = (userSnap.data()?.email as string | undefined)?.toLowerCase();
+  if (!userEmail || userEmail !== gift.recipientEmail) {
+    throw Err.invalidArgument(`Sign in with ${gift.recipientEmail} to claim this gift`);
+  }
+
+  const batch = db.batch();
+  batch.update(giftRef, { status: 'claimed', claimedAt: Timestamp.now(), claimedByUid: uid });
+
+  if (gift.itemType === 'package') {
+    const pkgSnap = await db.collection('packages').doc(gift.itemId).get();
+    const pkgData = pkgSnap.data();
+    if (!pkgData) throw Err.failedPrecondition('This package is no longer available');
+    const includedQuizIds: string[] = pkgData.includedQuizIds ?? [];
+    const includedPracticeTestIds: string[] = pkgData.includedPracticeTestIds ?? [];
+    const validityDays: number = pkgData.accessValidityDays ?? 0;
+    const expiresAt = validityDays > 0 ? Timestamp.fromMillis(Date.now() + validityDays * 24 * 60 * 60 * 1000) : null;
+    for (const quizId of includedQuizIds) {
+      batch.set(db.collection('purchases').doc(`${uid}_quiz_${quizId}`), {
+        userId: uid,
+        itemType: 'quiz',
+        itemId: quizId,
+        orderId: gift.orderId,
+        purchasedAt: Timestamp.now(),
+        sourcePackageId: gift.itemId,
+        expiresAt,
+        giftedBy: gift.buyerUid,
+      });
+    }
+    for (const testId of includedPracticeTestIds) {
+      batch.set(db.collection('purchases').doc(`${uid}_practiceTest_${testId}`), {
+        userId: uid,
+        itemType: 'practiceTest',
+        itemId: testId,
+        orderId: gift.orderId,
+        purchasedAt: Timestamp.now(),
+        sourcePackageId: gift.itemId,
+        expiresAt,
+        giftedBy: gift.buyerUid,
+      });
+    }
+  } else {
+    batch.set(db.collection('purchases').doc(`${uid}_${gift.itemType}_${gift.itemId}`), {
+      userId: uid,
+      itemType: gift.itemType,
+      itemId: gift.itemId,
+      orderId: gift.orderId,
+      purchasedAt: Timestamp.now(),
+      giftedBy: gift.buyerUid,
+    });
+  }
+
+  await batch.commit();
+  return { itemType: gift.itemType, itemId: gift.itemId, itemTitle: gift.itemTitle };
+}
+
+// Cron-only: sends every gift whose scheduled sendAt has arrived. Reached
+// only via the handler's GET branch (Authorization: Bearer CRON_SECRET,
+// same convention as api/admin.ts) - see the vercel.json "crons" entry for
+// this endpoint.
+async function processDueGifts(): Promise<{ sent: number }> {
+  const snap = await db.collection('gifts').where('status', '==', 'scheduled').where('sendAt', '<=', Timestamp.now()).limit(200).get();
+  let sent = 0;
+  for (const doc of snap.docs) {
+    const gift = doc.data() as GiftDoc;
+    try {
+      await sendEmail(
+        gift.recipientEmail,
+        `${gift.itemTitle} - a gift from a HelpCertify learner`,
+        giftEmailHtml(gift.buyerName, gift.recipientName, gift.itemTitle, gift.message, `${SITE_URL}/gift/${gift.claimCode}`),
+      );
+      await doc.ref.update({ status: 'sent', sentAt: Timestamp.now() });
+      sent += 1;
+    } catch (e) {
+      console.error('processDueGifts: send failed for gift', doc.id, e);
+    }
+  }
+  return { sent };
 }
 
 const verifyPaymentSchema = z.object({
@@ -1245,7 +1508,9 @@ async function listMyOrders(uid: string) {
       return {
         id: d.id,
         status: o.status as string,
-        amount: (o.amount as number) ?? 0,
+        // createOrder (above) stores the paid amount as "total", not "amount" -
+        // this used to read the wrong field and always fell back to 0.
+        amount: (o.total as number) ?? 0,
         currency: (o.currency as string) ?? 'INR',
         couponCode: (o.couponCode as string | null) ?? null,
         razorpayPaymentId: (o.razorpayPaymentId as string | null) ?? null,
@@ -1261,12 +1526,40 @@ async function listMyOrders(uid: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // Vercel Cron hits this endpoint with a GET and an Authorization: Bearer
+  // <CRON_SECRET> header (see vercel.json "crons" and api/admin.ts's own
+  // cron branch, same convention) - no Firebase session, so this is
+  // checked well before the POST-only / requireStudent gates below.
+  if (req.method === 'GET') {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    try {
+      res.status(200).json(await processDueGifts());
+    } catch (err) {
+      console.error('processDueGifts failed:', err);
+      res.status(500).json({ error: 'Internal error' });
+    }
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
   try {
     const { action, ...data } = (req.body ?? {}) as { action?: string; [key: string]: unknown };
+
+    // Public: a not-yet-signed-in recipient needs to see "X sent you Y"
+    // before they sign in/up to claim it, so this one runs before the auth
+    // gate below.
+    if (action === 'getGift') {
+      res.status(200).json(await getGift(data));
+      return;
+    }
+
     const { uid } = await requireStudent(req);
 
     switch (action) {
@@ -1281,6 +1574,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       case 'listMyOrders':
         res.status(200).json(await listMyOrders(uid));
+        return;
+      case 'claimGift':
+        res.status(200).json(await claimGift(uid, data));
         return;
       default:
         throw Err.invalidArgument(`Unknown action: ${String(action)}`);

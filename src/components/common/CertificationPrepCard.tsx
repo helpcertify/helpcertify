@@ -52,21 +52,22 @@ export function CertificationPrepCard({ certification }: Props) {
 
   return (
     <div className="relative flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
-      {/* Fixed-height cover - the top ~half of the card, matching the course
-          cards' cover so every card on the page keeps the same footprint. */}
+      {/* Fixed-height cover - the top ~half of the card, matching
+          ProductCardShell's h-36 cover so every card on the page (and every
+          browsable card app-wide) keeps the same footprint. */}
       {certification.coverImageUrl ? (
-        <div className="h-32 overflow-hidden">
+        <div className="h-36 overflow-hidden">
           <img src={certification.coverImageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
         </div>
       ) : (
-        <div className="flex h-32 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
+        <div className="flex h-36 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
           <svg viewBox="0 0 24 24" className="h-12 w-12 text-brand-500" fill="currentColor" aria-hidden="true">
             <path d={iconPath} />
           </svg>
         </div>
       )}
 
-      <div className="flex flex-1 flex-col p-3">
+      <div className="flex flex-1 flex-col p-4">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{certification.provider}</div>
         <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{certification.name}</h3>
 

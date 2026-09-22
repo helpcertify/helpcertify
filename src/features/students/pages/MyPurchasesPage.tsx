@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { db } from '@/lib/firebase';
 import { cartApi } from '../api/cartApi';
 import { useCertificationCatalog } from '../api/certificationCatalogApi';
+import { getCourseById } from '../api/courseApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
@@ -27,6 +28,28 @@ interface PurchasedItem {
   answered: number;
 }
 
+interface PurchasedCourse {
+  itemType: 'course';
+  id: string;
+  title: string;
+  category: string;
+  skillLevel: string;
+  ratingAvg: number;
+  ratingCount: number;
+  price: number;
+  currency: 'INR' | 'USD';
+  coverImageUrl: string | null;
+  purchasedAt: unknown;
+}
+
+// A customExamBuilder purchase unlocks the whole Bring-Your-Own-Question-Bank
+// feature, not a single browsable item - so there's nothing to fetch, just a
+// "you own this feature" line linking to it.
+interface PurchasedFeature {
+  itemType: 'customExamBuilder';
+  purchasedAt: unknown;
+}
+
 function formatDate(v: unknown): string {
   return v ? toDate(v).toLocaleDateString() : '-';
 }
@@ -42,6 +65,12 @@ export function MyPurchasesPage() {
   const { data: items, isLoading } = useQuery({
     queryKey: ['student', 'purchasedItems', purchases?.purchases],
     queryFn: async (): Promise<PurchasedItem[]> => {
+      // Package purchases (Practice Questions / Mock Exams / Complete
+      // Preparation) explode into per-quiz/per-practiceTest purchases doc
+      // server-side (see finalizeOrder) - there's never a "package" itemType
+      // here. Only quiz/practiceTest are handled by this query; course and
+      // customExamBuilder purchases are fetched separately below so nothing
+      // purchased silently disappears from "Your content".
       const list = (purchases?.purchases ?? []).filter(
         (p): p is typeof p & { itemType: 'quiz' | 'practiceTest' } => p.itemType === 'quiz' || p.itemType === 'practiceTest',
       );
@@ -84,6 +113,38 @@ export function MyPurchasesPage() {
     },
     enabled: !!purchases && !!uid,
   });
+
+  const { data: purchasedCourses } = useQuery({
+    queryKey: ['student', 'purchasedCourses', purchases?.purchases],
+    queryFn: async (): Promise<PurchasedCourse[]> => {
+      const list = (purchases?.purchases ?? []).filter((p) => p.itemType === 'course');
+      const results = await Promise.all(
+        list.map(async (p) => {
+          const course = await getCourseById(p.itemId);
+          if (!course) return null;
+          return {
+            itemType: 'course' as const,
+            id: course.id,
+            title: course.title,
+            category: course.category as string,
+            skillLevel: course.skillLevel as string,
+            ratingAvg: course.ratingAvg ?? 0,
+            ratingCount: course.ratingCount ?? 0,
+            price: course.price ?? 0,
+            currency: (course.currency as 'INR' | 'USD') ?? 'INR',
+            coverImageUrl: course.coverImageUrl,
+            purchasedAt: p.purchasedAt,
+          };
+        }),
+      );
+      return results.filter((x): x is PurchasedCourse => x !== null);
+    },
+    enabled: !!purchases && !!uid,
+  });
+
+  const customExamBuilderPurchase: PurchasedFeature | undefined = purchases?.purchases?.find(
+    (p) => p.itemType === 'customExamBuilder',
+  ) as PurchasedFeature | undefined;
 
   const orders = [...(ordersData?.orders ?? [])].sort(
     (a, b) => toDate(b.paidAt ?? b.createdAt).getTime() - toDate(a.paidAt ?? a.createdAt).getTime(),
@@ -163,7 +224,7 @@ export function MyPurchasesPage() {
 
       {isLoading ? (
         <p className="text-sm text-ink-faint">Loading…</p>
-      ) : (items ?? []).length === 0 ? (
+      ) : (items ?? []).length === 0 && (purchasedCourses ?? []).length === 0 && !customExamBuilderPurchase ? (
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
@@ -264,6 +325,54 @@ export function MyPurchasesPage() {
                   />
                 );
               })}
+            </div>
+          )}
+
+          {(purchasedCourses ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-4 pt-2">
+              {purchasedCourses!.map((course) => (
+                <ProductCardShell
+                  key={`course_${course.id}`}
+                  id={course.id}
+                  itemType="course"
+                  title={course.title}
+                  category={course.category}
+                  skillLevel={course.skillLevel}
+                  ratingAvg={course.ratingAvg}
+                  ratingCount={course.ratingCount}
+                  price={course.price}
+                  originalPrice={null}
+                  currency={course.currency}
+                  coverImageUrl={course.coverImageUrl}
+                  detailHref={`/home/courses/${course.id}`}
+                  extra={<div className="mb-3 text-xs text-ink-faint">Purchased {formatDate(course.purchasedAt)}</div>}
+                  footer={
+                    <Link
+                      to={`/home/courses/${course.id}`}
+                      className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
+                    >
+                      Continue Reading →
+                    </Link>
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          {customExamBuilderPurchase && (
+            <div className="rounded-xl border border-brand-500/30 bg-surface-raised p-5 shadow-card">
+              <h3 className="text-base font-bold text-brand-ink">Bring Your Own Question Bank</h3>
+              <p className="mt-1 text-xs text-ink-faint">
+                Purchased {formatDate(customExamBuilderPurchase.purchasedAt)} · build custom exams from your own question sets
+              </p>
+              <div className="mt-3">
+                <Link
+                  to="/home/custom-exams"
+                  className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
+                >
+                  Custom Exam Builder →
+                </Link>
+              </div>
             </div>
           )}
         </div>

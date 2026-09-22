@@ -8,10 +8,8 @@ export type ExamKind = 'practice' | 'mock';
 
 export interface CtaSpec {
   label: string;
-  // 'plans' -> open the certification plans modal (locked items).
-  // 'link'  -> navigate to `href`.
-  action: 'plans' | 'link';
-  href?: string;
+  action: 'link';
+  href: string;
   variant: 'primary' | 'secondary';
 }
 
@@ -25,18 +23,15 @@ const REVIEW_LABEL: Record<ExamKind, string> = {
   mock: 'View Results',
 };
 
-// The one CTA shown for a certification card or a set/mock row, given its
-// resolved status. `href` is the destination for every non-locked state
-// (the caller decides whether that is the detail page or a take route).
-export function examCta(status: ExamStatus, kind: ExamKind, href: string): CtaSpec {
-  // Deliberately not "Add to Cart" - a locked practice set / mock exam can
-  // never be bought individually (it's entitlement-gated, requiresEntitlement:
-  // true), so this always opens the certification plans modal instead of
-  // adding anything to the cart. Labeling it "Add to Cart" (as this briefly
-  // did) read as broken - clicking it never actually put anything in the
-  // cart, and a whole certification's worth of rows each carrying their own
-  // (identical, non-functional-as-labeled) Add to Cart button was noise.
-  if (status === 'locked') return { label: 'View Plans', action: 'plans', variant: 'primary' };
+// The one CTA shown for a certification card or a set/mock row, for every
+// non-locked status. A locked item never gets a CTA here at all - not "Add
+// to Cart" (it can't be bought individually, it's entitlement-gated) and not
+// "View Plans" either (that button used to open the certification plans
+// modal, but the purchase panel is already right there on the same page, so
+// a per-row button just duplicated it with no real action of its own).
+// Callers show the question count as plain text for a locked item instead -
+// see PracticeSetRow / MockExamRow / ExamProductCard.
+export function examCta(status: Exclude<ExamStatus, 'locked'>, kind: ExamKind, href: string): CtaSpec {
   if (status === 'completed') return { label: REVIEW_LABEL[kind], action: 'link', href, variant: 'secondary' };
   if (status === 'in_progress') return { label: 'Continue', action: 'link', href, variant: 'primary' };
   return { label: START_LABEL[kind], action: 'link', href, variant: 'primary' };

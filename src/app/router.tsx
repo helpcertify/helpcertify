@@ -38,6 +38,7 @@ import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
 import { MyCertificatesPage } from '@/features/students/pages/MyCertificatesPage';
 import { VerifyCertificatePage } from '@/features/students/pages/VerifyCertificatePage';
+import { GiftClaimPage } from '@/features/students/pages/GiftClaimPage';
 import { CartPage } from '@/features/students/pages/CartPage';
 import { MyPurchasesPage } from '@/features/students/pages/MyPurchasesPage';
 import { WishlistPage } from '@/features/students/pages/WishlistPage';
@@ -96,6 +97,10 @@ export function AppRouter() {
           a real credential-verification page works for a third party
           checking a certificate a learner shared with them. */}
       <Route path="/verify/:certificateId" element={<VerifyCertificatePage />} />
+      {/* Gift claim link (see api/checkout.ts's getGift/claimGift) - reads
+          without signing in, then requires sign-in (matching the gift's
+          recipientEmail) to actually claim it. */}
+      <Route path="/gift/:claimCode" element={<GiftClaimPage />} />
 
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route element={<StudentShell />}>
