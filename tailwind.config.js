@@ -75,8 +75,7 @@ export default {
       // any element, so every page had been silently falling back to the
       // browser's default sans-serif (Segoe UI on Windows) the whole time.
       fontFamily: {
-        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
     },
   },

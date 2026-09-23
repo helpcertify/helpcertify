@@ -66,10 +66,7 @@
 }
 
 body {
-  /* font-sans was declared in tailwind.config.js but never applied to any
-     element - see that file's comment. Wiring it here is what actually
-     makes Manrope (rather than the browser default) the app's body face. */
-  @apply bg-surface text-ink antialiased font-sans transition-colors duration-150;
+  @apply bg-surface text-ink antialiased transition-colors duration-150;
 }
 
 @layer components {

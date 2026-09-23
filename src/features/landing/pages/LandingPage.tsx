@@ -135,7 +135,7 @@ export function LandingPage() {
         <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
           Learning &bull; Certification &bull; Assessment Platform
         </span>
-        <h1 className="font-display text-4xl font-bold leading-tight text-ink sm:text-5xl">
+        <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
           Learn. Practice. Assess. <span className="text-brand-ink">Advance.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
@@ -169,7 +169,7 @@ export function LandingPage() {
           starters/switchers alike. */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center font-display text-2xl font-bold text-ink">Designed for every stage of your career</h2>
+          <h2 className="text-center text-2xl font-bold text-ink">Designed for every stage of your career</h2>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {AUDIENCE_CARDS.map((card) => (
               <div
@@ -181,7 +181,7 @@ export function LandingPage() {
                     <path d={card.icon} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
-                <h3 className="mt-4 font-display font-bold text-ink">{card.title}</h3>
+                <h3 className="mt-4 font-bold text-ink">{card.title}</h3>
                 <p className="mt-1 text-sm font-medium text-brand-ink">{card.subtitle}</p>
                 <p className="mt-3 flex-1 text-sm text-ink-faint">{card.body}</p>
                 {card.href.startsWith('#') ? (
@@ -205,7 +205,7 @@ export function LandingPage() {
           only Foundation material. */}
       <section id="learning-paths" className="border-t border-surface-border bg-surface-sunken py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="font-display text-2xl font-bold text-ink">Explore Learning Paths</h2>
+          <h2 className="text-2xl font-bold text-ink">Explore Learning Paths</h2>
           <p className="mt-2 max-w-2xl text-sm text-ink-faint">
             Foundation, Professional, and Advanced content across every domain - enter where your
             experience puts you, not necessarily at the beginning.
@@ -240,7 +240,7 @@ export function LandingPage() {
           stays here (not behind JavaScript). */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="font-display text-2xl font-bold text-ink">Certification Exam Preparation</h2>
+          <h2 className="text-2xl font-bold text-ink">Certification Exam Preparation</h2>
           <p className="mt-2 max-w-2xl text-sm text-ink-faint">
             Prepare for IT, cybersecurity, cloud and professional certifications with practice
             questions, mock exams, explanations and performance analytics.
