@@ -12,6 +12,7 @@ import { Logo } from '@/components/brand/Logo';
 import { friendlyAuthError } from '@/lib/errorMessages';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { PasswordInput } from '@/components/common/PasswordInput';
+import { AuthSplitShell } from '@/components/layout/AuthSplitShell';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -56,15 +57,18 @@ export function LoginPage() {
   });
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-10">
+    <AuthSplitShell>
       <div className="w-full max-w-sm rounded-xl border border-surface-border bg-surface-raised p-8">
         {/* Same theme toggle the Admin Access modal has, so both login
-            entry points offer the same pre-login controls. */}
+            entry points offer the same pre-login controls. Logo only shows
+            here below `lg`, where AuthSplitShell's left panel (which
+            already carries the logo) is hidden. */}
         <div className="mb-6 flex items-center justify-between">
-          <Logo />
+          <Logo className="lg:hidden" />
           <ThemeToggle />
         </div>
-        <h1 className="mb-6 text-center text-xl font-bold text-ink">Welcome back</h1>
+        <h1 className="mb-1 text-center text-xl font-bold text-ink">Welcome back</h1>
+        <p className="mb-6 text-center text-sm text-ink-faint">Sign in to your HelpCertify account.</p>
 
         <GoogleButton
           label={googleMutation.isPending ? 'Signing in…' : 'Continue with Google'}
@@ -100,7 +104,7 @@ export function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-ink-muted">
                 Password
               </label>
-              <Link to="/forgot-password" className="text-xs text-brand-ink underline">
+              <Link to="/forgot-password" className="text-xs text-[#2F5FE0] underline">
                 Forgot password?
               </Link>
             </div>
@@ -115,18 +119,18 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="w-full rounded-lg bg-brand-500 py-2 font-medium text-surface disabled:opacity-60"
+            className="w-full rounded-lg bg-[#2F5FE0] py-2 font-medium text-white transition-colors hover:bg-[#1D3FA0] disabled:opacity-60"
           >
             {mutation.isPending ? 'Logging in…' : 'Log in'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-ink-faint">
           No account?{' '}
-          <Link to="/register" className="text-brand-ink underline">
+          <Link to="/register" className="font-medium text-[#2F5FE0] underline">
             Register
           </Link>
         </p>
       </div>
-    </div>
+    </AuthSplitShell>
   );
 }

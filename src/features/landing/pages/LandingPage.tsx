@@ -58,6 +58,8 @@ const AUDIENCE_CARDS = [
     href: '#learning-paths',
     // Shield / certification badge.
     icon: 'M10 2l6 2.5v5c0 4.2-2.6 7.4-6 8.5-3.4-1.1-6-4.3-6-8.5v-5L10 2z',
+    accent: '#2F5FE0',
+    accentSoft: '#EAF1FF',
   },
   {
     title: 'Career Starters & Switchers',
@@ -67,6 +69,8 @@ const AUDIENCE_CARDS = [
     href: '#learning-paths',
     // Ascending bar chart / growth.
     icon: 'M3 17V10M8.5 17V6M14 17v-4.5M19 17V3',
+    accent: '#0F766E',
+    accentSoft: '#E6FBF7',
   },
   {
     title: 'Trainers & Experts',
@@ -76,14 +80,40 @@ const AUDIENCE_CARDS = [
     href: '/register',
     // Briefcase / stack.
     icon: 'M3 8.5A1.5 1.5 0 014.5 7h11A1.5 1.5 0 0117 8.5v7A1.5 1.5 0 0115.5 17h-11A1.5 1.5 0 013 15.5v-7zM7 7V5.5A1.5 1.5 0 018.5 4h3A1.5 1.5 0 0113 5.5V7',
+    accent: '#5B21B6',
+    accentSoft: '#F1EBFB',
   },
 ];
 
 const LEVEL_BADGE_CLASS: Record<string, string> = {
   Foundation: 'border-surface-border bg-surface-raised text-ink-muted',
-  Professional: 'border-brand-500/40 bg-brand-500/10 text-brand-ink',
-  Advanced: 'border-brand-500/60 bg-brand-500/20 text-brand-ink',
+  Professional: 'border-[#2F5FE0]/40 bg-[#EAF1FF] text-[#2F5FE0]',
+  Advanced: 'border-[#5B21B6]/40 bg-[#F1EBFB] text-[#5B21B6]',
 };
+
+// "Choose a goal / see what's included / learn, practise, review" - a short
+// how-it-works strip. Descriptive UX copy, not a claim about specific
+// content, so it needs no real data behind it.
+const HOW_IT_WORKS = [
+  {
+    step: '1',
+    title: 'Choose a goal',
+    body: 'Explore a skill course or a certification exam-prep plan.',
+    accent: '#2F5FE0',
+  },
+  {
+    step: '2',
+    title: "See what's included",
+    body: 'Preview real lessons or questions and compare plans before you buy.',
+    accent: '#0F766E',
+  },
+  {
+    step: '3',
+    title: 'Learn, practise, review',
+    body: 'Resume where you left off and see your progress after every attempt.',
+    accent: '#5B21B6',
+  },
+];
 
 // Certification Exam Preparation's supporting capability cards.
 const EXAM_PREP_FEATURES = [
@@ -124,37 +154,74 @@ export function LandingPage() {
           </Link>
           <Link
             to="/register"
-            className="rounded-lg bg-[#4B33E8] px-4 py-2 text-sm font-semibold text-surface"
+            className="rounded-lg bg-[#2F5FE0] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1D3FA0]"
           >
             Sign up
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 pb-20 pt-10 text-center">
-        <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
-          Learning &bull; Certification &bull; Assessment Platform
-        </span>
-        <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
-          Learn. Practice. Assess. <span className="text-brand-ink">Advance.</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
-          Build and advance your skills, prepare for professional certifications, assess your
-          knowledge, or create and sell learning content - all in one platform.
-        </p>
+      <main className="mx-auto max-w-6xl px-6 pb-20 pt-10">
+        <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-center lg:text-left">
+          <div className="flex-1 text-center lg:text-left">
+            <span className="mb-6 inline-block rounded-full border border-[#2F5FE0]/25 bg-[#EAF1FF] px-4 py-1 text-xs font-medium uppercase tracking-wide text-[#2F5FE0]">
+              Learning &bull; Certification &bull; Assessment Platform
+            </span>
+            <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
+              Build skills.
+              <br />
+              Prove what you know.
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-ink-faint lg:mx-0">
+              Build and advance your skills, prepare for professional certifications, assess your
+              knowledge, or create and sell learning content - all in one platform.
+            </p>
 
-        <CertificationGoalSelector />
+            <CertificationGoalSelector />
 
-        <div className="mt-14 flex flex-wrap justify-center gap-2">
-          {DOMAINS.map((d) => (
-            <Link
-              key={d}
-              to={`/search?category=${encodeURIComponent(d)}`}
-              className="rounded-full border border-surface-border bg-surface-raised px-4 py-1.5 text-sm text-ink-muted hover:border-brand-400"
-            >
-              {d}
-            </Link>
-          ))}
+            <div className="mt-8 flex flex-wrap justify-center gap-2 lg:justify-start">
+              {DOMAINS.map((d) => (
+                <Link
+                  key={d}
+                  to={`/search?category=${encodeURIComponent(d)}`}
+                  className="rounded-full border border-surface-border bg-surface-raised px-4 py-1.5 text-sm text-ink-muted hover:border-[#2F5FE0]/50"
+                >
+                  {d}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Graphic panel illustrating a real feature (resumable practice
+              sessions - see EXAM_PREP_FEATURES below) rather than live data,
+              so it doesn't need to load or go stale. */}
+          <div
+            className="hidden w-full max-w-[420px] shrink-0 rounded-3xl p-2 shadow-[0_24px_50px_rgba(30,58,138,0.18)] lg:block"
+            style={{ background: 'linear-gradient(135deg, #1E3A8A 0%, #0EA394 100%)' }}
+          >
+            <div className="rounded-[22px] bg-surface-raised p-7">
+              <div className="mb-4 text-base font-bold text-ink">Pick up where you left off</div>
+              <div className="mb-2.5 h-2.5 overflow-hidden rounded-full bg-[#EAF1FF]">
+                <div className="h-full w-[68%] rounded-full bg-[#2F5FE0]" />
+              </div>
+              <div className="mb-2.5 h-2.5 w-[82%] rounded-full bg-[#EAF1FF]" />
+              <div className="mb-4 h-2.5 w-[55%] rounded-full bg-[#EAF1FF]" />
+              <div className="mb-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#EAF1FF] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#2F5FE0]">
+                  Practice
+                </span>
+                <span className="rounded-full bg-[#E6FBF7] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#0F766E]">
+                  Mock exam
+                </span>
+                <span className="rounded-full bg-[#F1EBFB] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#5B21B6]">
+                  Results
+                </span>
+              </div>
+              <div className="text-xs text-ink-faint">
+                Your plan. Your pace. <span className="font-bold text-[#2F5FE0]">Visible progress.</span>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -174,22 +241,27 @@ export function LandingPage() {
             {AUDIENCE_CARDS.map((card) => (
               <div
                 key={card.title}
-                className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left transition hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-[0_8px_20px_rgba(75,51,232,0.12)]"
+                className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left transition hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-ink">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: card.accentSoft, color: card.accent }}
+                >
                   <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
                     <path d={card.icon} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
                 <h3 className="mt-4 font-bold text-ink">{card.title}</h3>
-                <p className="mt-1 text-sm font-medium text-brand-ink">{card.subtitle}</p>
+                <p className="mt-1 text-sm font-medium" style={{ color: card.accent }}>
+                  {card.subtitle}
+                </p>
                 <p className="mt-3 flex-1 text-sm text-ink-faint">{card.body}</p>
                 {card.href.startsWith('#') ? (
-                  <a href={card.href} className="mt-4 text-sm font-semibold text-brand-ink hover:underline">
+                  <a href={card.href} className="mt-4 text-sm font-semibold hover:underline" style={{ color: card.accent }}>
                     {card.cta} &rarr;
                   </a>
                 ) : (
-                  <Link to={card.href} className="mt-4 text-sm font-semibold text-brand-ink hover:underline">
+                  <Link to={card.href} className="mt-4 text-sm font-semibold hover:underline" style={{ color: card.accent }}>
                     {card.cta} &rarr;
                   </Link>
                 )}
@@ -265,10 +337,31 @@ export function LandingPage() {
           </div>
           <Link
             to="/register"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#4B33E8] px-6 py-3 font-medium text-surface"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#2F5FE0] px-6 py-3 font-medium text-white transition hover:bg-[#1D3FA0]"
           >
             Explore Exam Preparation
           </Link>
+        </div>
+      </section>
+
+      {/* How it works - short, descriptive UX copy (not a claim about
+          content), so it needs no real data behind it. */}
+      <section className="border-t border-surface-border py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {HOW_IT_WORKS.map((item) => (
+              <div key={item.step} className="rounded-2xl bg-surface-sunken p-6">
+                <div
+                  className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-sm font-extrabold"
+                  style={{ color: item.accent }}
+                >
+                  {item.step}
+                </div>
+                <h3 className="font-bold text-ink">{item.title}</h3>
+                <p className="mt-1.5 text-sm text-ink-faint">{item.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -282,7 +375,7 @@ export function LandingPage() {
             Upload a question bank and run professional practice tests, mock exams or private
             assessments.
           </p>
-          <Link to="/build-your-own-exam" className="shrink-0 text-sm font-semibold text-brand-ink hover:underline">
+          <Link to="/build-your-own-exam" className="shrink-0 text-sm font-semibold text-[#2F5FE0] hover:underline">
             Bring your own question bank &rarr;
           </Link>
         </div>

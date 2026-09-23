@@ -36,10 +36,10 @@ export function CertificationGoalSelector() {
           aria-hidden="true"
         >
           <span className="shrink-0 font-semibold text-ink">I want to</span>
-          <span className="min-w-0 truncate whitespace-nowrap font-semibold text-brand-ink">
+          <span className="min-w-0 truncate whitespace-nowrap font-semibold text-[#2F5FE0]">
             {displayedText}
             {isAnimating && (
-              <span className="ml-0.5 inline-block w-[2px] animate-pulse bg-brand-ink align-baseline" style={{ height: '1em' }} />
+              <span className="ml-0.5 inline-block w-[2px] animate-pulse bg-[#2F5FE0] align-baseline" style={{ height: '1em' }} />
             )}
           </span>
         </div>
@@ -47,7 +47,7 @@ export function CertificationGoalSelector() {
         <Link
           to={activeGoal.route}
           aria-label={`Get started: ${activeGoal.text}`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4B33E8] text-white transition hover:bg-[#3A26C4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4B33E8]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2F5FE0] text-white transition hover:bg-[#1D3FA0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F5FE0]"
         >
           <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
             <path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
@@ -67,8 +67,8 @@ export function CertificationGoalSelector() {
               onClick={() => setActiveIndex(goalIndex)}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition sm:text-sm ${
                 isActive
-                  ? 'border-brand-500 bg-brand-500/10 text-brand-ink'
-                  : 'border-surface-border text-ink-muted hover:border-brand-400 hover:text-brand-ink'
+                  ? 'border-[#2F5FE0] bg-[#EAF1FF] text-[#2F5FE0]'
+                  : 'border-surface-border text-ink-muted hover:border-[#2F5FE0]/50 hover:text-[#2F5FE0]'
               }`}
             >
               {goal.category}

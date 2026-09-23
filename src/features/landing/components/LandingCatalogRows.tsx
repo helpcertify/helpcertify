@@ -66,7 +66,7 @@ function Row({ title, subtitle, cards }: { title: string; subtitle: string; card
               type="button"
               onClick={() => scrollBy(-1)}
               aria-label="Scroll left"
-              className="absolute -left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
+              className="absolute -left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-[#2F5FE0]/50"
             >
               &lsaquo;
             </button>
@@ -76,7 +76,7 @@ function Row({ title, subtitle, cards }: { title: string; subtitle: string; card
               type="button"
               onClick={() => scrollBy(1)}
               aria-label="Scroll right"
-              className="absolute -right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-brand-400"
+              className="absolute -right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-surface-border bg-surface-raised text-lg text-ink shadow-md hover:border-[#2F5FE0]/50"
             >
               &rsaquo;
             </button>
@@ -86,12 +86,12 @@ function Row({ title, subtitle, cards }: { title: string; subtitle: string; card
               <Link
                 key={c.id}
                 to="/register"
-                className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#E7E3F5] bg-white text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#A79AF5] hover:shadow-[0_8px_20px_rgba(75,51,232,0.12)] sm:w-72 dark:bg-surface-raised"
+                className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#E2E8F5] bg-white text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#8FAEF0] hover:shadow-[0_8px_20px_rgba(30,58,138,0.12)] sm:w-72 dark:bg-surface-raised"
               >
                 {c.coverImageUrl ? (
                   <img src={c.coverImageUrl} alt="" className="h-32 w-full object-cover" loading="lazy" />
                 ) : (
-                  <div className="h-32 w-full bg-[#ECE8FF]" />
+                  <div className="h-32 w-full bg-[#EAF1FF]" />
                 )}
                 <div className="flex flex-1 flex-col p-4">
                   <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{c.subtitle}</div>
