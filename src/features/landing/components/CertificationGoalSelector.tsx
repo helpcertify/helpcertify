@@ -47,7 +47,7 @@ export function CertificationGoalSelector() {
         <Link
           to={activeGoal.route}
           aria-label={`Get started: ${activeGoal.text}`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#155EEF] text-white transition hover:bg-[#004EEB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#155EEF]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4B33E8] text-white transition hover:bg-[#3A26C4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4B33E8]"
         >
           <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
             <path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />

@@ -38,8 +38,8 @@ export function ScoreTrend({ points, className }: { points: ScorePoint[]; classN
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Mock exam score over time">
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#155EEF" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#155EEF" stopOpacity="0" />
+            <stop offset="0%" stopColor="#4B33E8" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#4B33E8" stopOpacity="0" />
           </linearGradient>
         </defs>
 

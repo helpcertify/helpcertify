@@ -20,8 +20,8 @@ const field =
 const labelCls = 'mb-1 block text-xs font-semibold text-ink-faint';
 
 const STATUS_COPY: Record<string, { title: string; body: string; tone: string }> = {
-  SUBMITTED: { title: 'Application received', body: "We're reviewing your application. You'll hear back by email.", tone: '#155EEF' },
-  UNDER_REVIEW: { title: 'Under review', body: 'Your application is being reviewed.', tone: '#155EEF' },
+  SUBMITTED: { title: 'Application received', body: "We're reviewing your application. You'll hear back by email.", tone: '#4B33E8' },
+  UNDER_REVIEW: { title: 'Under review', body: 'Your application is being reviewed.', tone: '#4B33E8' },
   APPROVED: { title: "You're a partner", body: 'Your partner account is active. Promotion tools arrive soon.', tone: '#0B7A48' },
   REJECTED: { title: 'Not approved', body: 'This application was not approved.', tone: '#B32D1A' },
 };
@@ -133,7 +133,7 @@ export function BecomePartnerPage() {
       ) : existing ? (
         <div
           className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card"
-          style={{ borderLeft: `3px solid ${STATUS_COPY[existing.status]?.tone ?? '#155EEF'}` }}
+          style={{ borderLeft: `3px solid ${STATUS_COPY[existing.status]?.tone ?? '#4B33E8'}` }}
         >
           <h2 className="text-base font-bold text-ink">{STATUS_COPY[existing.status]?.title ?? existing.status}</h2>
           <p className="mt-1 text-sm text-ink-faint">{STATUS_COPY[existing.status]?.body}</p>

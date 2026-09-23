@@ -5,21 +5,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Electric Blue — the one brand/action color used everywhere
-        // (buttons, links, selected nav, focus rings, badges). 50/400/500/
-        // 600 stay fixed across both themes; `ink` is the one shade that's
-        // theme-aware: 155EEF reads fine as text on a near-black dark
-        // background but needs a brighter tint for reliable contrast there.
-        // See the HelpCertify design-system spec: 500 is "Primary Electric
-        // Blue" (#155EEF), 600 is "Primary Hover" (#004EEB).
+        // Violet — the one brand/action color used everywhere (buttons,
+        // links, selected nav, focus rings, badges). Bold & Modern redesign
+        // (2026-09): replaces the earlier Electric Blue scale, same roles.
+        // 50/300/400/500/600/700 stay fixed across both themes; `ink` is the
+        // one shade that's theme-aware: 4B33E8 reads fine as text on a
+        // near-black dark background but needs a brighter tint for reliable
+        // contrast there.
         brand: {
-          50: 'rgb(var(--color-brand-50) / <alpha-value>)', // theme-aware "Light Blue Surface"
-          300: '#8bb4f8',
-          400: '#5b93f5',
-          500: '#155EEF', // Primary Electric Blue
-          600: '#004EEB', // Primary Hover
-          700: '#003DB8', // Primary Pressed
+          50: 'rgb(var(--color-brand-50) / <alpha-value>)', // theme-aware "Light Violet Surface"
+          300: '#A79AF5',
+          400: '#7C67F0',
+          500: '#4B33E8', // Primary Violet
+          600: '#3A26C4', // Primary Hover
+          700: '#2E1DA0', // Primary Pressed
           ink: 'rgb(var(--color-brand-ink) / <alpha-value>)',
+        },
+        // Coral — the one secondary accent, used sparingly (a highlight
+        // chip, a stat-block badge) alongside the violet primary. Never a
+        // substitute for brand-500 on primary actions.
+        coral: {
+          500: '#FF5A36',
+          600: '#E8451F',
         },
         // surface/ink are CSS-variable-backed (defined per-theme in
         // globals.css) so every existing bg-surface/text-ink usage across
@@ -59,14 +66,17 @@ export default {
         pop: 'var(--shadow-pop)',
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(90deg, #5b93f5 0%, #155EEF 100%)',
+        'brand-gradient': 'linear-gradient(90deg, #7C67F0 0%, #4B33E8 100%)',
       },
-      // Inter, loaded from Google Fonts in index.html — the HelpCertify
-      // design system's intended body/UI face. Was never actually wired
-      // up here, so every page had been silently falling back to the
+      // Manrope (body/UI) + Space Grotesk (display/headings), both loaded
+      // from Google Fonts in index.html — Bold & Modern redesign (2026-09).
+      // `font-sans` is now actually applied via `body` in globals.css (see
+      // that file's comment): it had been declared here but never wired to
+      // any element, so every page had been silently falling back to the
       // browser's default sans-serif (Segoe UI on Windows) the whole time.
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
     },
   },

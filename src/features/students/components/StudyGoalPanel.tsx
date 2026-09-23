@@ -183,7 +183,7 @@ export function StudyGoalPanel({
           amber) - this is a single focused flow, so it can afford one
           deliberate splash of color rather than the muted-gray treatment
           the rest of this page uses. */}
-      <div className="bg-gradient-to-br from-[#155EEF] to-[#0f2f8f] p-5 text-white">
+      <div className="bg-gradient-to-br from-[#4B33E8] to-[#2E1DA0] p-5 text-white">
         <h2 className="mb-1 text-lg font-bold">🎯 Set My Study Goal</h2>
         <p className="text-sm text-white/80">
           {existingPlan
@@ -349,7 +349,7 @@ export function StudyGoalPanel({
                     </div>
                   )}
                   <div className="overflow-hidden rounded-xl border border-brand-500/30 bg-surface">
-                    <div className="bg-gradient-to-r from-[#155EEF] to-[#0f2f8f] px-4 py-2.5">
+                    <div className="bg-gradient-to-r from-[#4B33E8] to-[#2E1DA0] px-4 py-2.5">
                       <h3 className="text-xs font-bold uppercase tracking-wide text-white">Your Plan</h3>
                     </div>
                     <dl className="grid grid-cols-2 gap-4 p-4 text-sm">

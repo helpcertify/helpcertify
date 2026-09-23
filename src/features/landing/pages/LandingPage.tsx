@@ -6,8 +6,15 @@ import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral'
 import { CertificationGoalSelector } from '@/features/landing/components/CertificationGoalSelector';
 import { SearchBar } from '@/components/common/SearchBar';
 import { TeachBand } from '@/features/landing/components/TeachBand';
-import { TESTIMONIALS } from '@/features/landing/lib/testimonials';
 import { LEARNING_DOMAINS, LEARNING_PATH_EXAMPLES } from '@/features/landing/lib/learningPaths';
+
+// Bold & Modern redesign (2026-09): the "What learners say" testimonials
+// section was removed from this page. TESTIMONIALS itself (see
+// src/features/landing/lib/testimonials.ts) is deliberately kept - it's
+// generic-and-honest, admin-editable testimonials are still planned - it's
+// just not rendered here any more, since the Certification Exam
+// Preparation section's EXAM_PREP_FEATURES already covers "why HelpCertify"
+// a few sections down and having both back-to-back read as repetitive.
 
 // The catalog carousels fetch real published content
 // through a dynamic import() of publicCatalogApi (Firebase at module
@@ -39,7 +46,9 @@ const EXAM_PREP_AREAS = [
 // "Designed for every stage of your career" - the audience section
 // immediately below the hero, so a first-time visitor sees in one glance
 // that HelpCertify serves experienced professionals and career
-// starters/switchers alike, not just one of the two.
+// starters/switchers alike, not just one of the two. Each card's `icon` is
+// a tiny inline SVG path (stroke-based, 20x20 viewBox) so the icon inherits
+// the card's brand-tinted icon-block color without a separate asset.
 const AUDIENCE_CARDS = [
   {
     title: 'IT Professionals',
@@ -47,6 +56,8 @@ const AUDIENCE_CARDS = [
     body: 'Build advanced technical skills, prepare for professional certifications, practice with realistic assessments and measure your readiness.',
     cta: 'Explore Professional Learning',
     href: '#learning-paths',
+    // Shield / certification badge.
+    icon: 'M10 2l6 2.5v5c0 4.2-2.6 7.4-6 8.5-3.4-1.1-6-4.3-6-8.5v-5L10 2z',
   },
   {
     title: 'Career Starters & Switchers',
@@ -54,6 +65,8 @@ const AUDIENCE_CARDS = [
     body: 'Explore IT career paths, understand prerequisites and build skills progressively from fundamentals to job-ready capability.',
     cta: 'Explore Career Paths',
     href: '#learning-paths',
+    // Ascending bar chart / growth.
+    icon: 'M3 17V10M8.5 17V6M14 17v-4.5M19 17V3',
   },
   {
     title: 'Trainers & Experts',
@@ -61,6 +74,8 @@ const AUDIENCE_CARDS = [
     body: 'Create courses, assessments and question banks and make them available to HelpCertify learners.',
     cta: 'Become a Training Partner',
     href: '/register',
+    // Briefcase / stack.
+    icon: 'M3 8.5A1.5 1.5 0 014.5 7h11A1.5 1.5 0 0117 8.5v7A1.5 1.5 0 0115.5 17h-11A1.5 1.5 0 013 15.5v-7zM7 7V5.5A1.5 1.5 0 018.5 4h3A1.5 1.5 0 0113 5.5V7',
   },
 ];
 
@@ -109,7 +124,7 @@ export function LandingPage() {
           </Link>
           <Link
             to="/register"
-            className="rounded-lg bg-[#155EEF] px-4 py-2 text-sm font-semibold text-surface"
+            className="rounded-lg bg-[#4B33E8] px-4 py-2 text-sm font-semibold text-surface"
           >
             Sign up
           </Link>
@@ -120,7 +135,7 @@ export function LandingPage() {
         <span className="mb-6 inline-block rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-1 text-xs font-medium text-brand-ink">
           Learning &bull; Certification &bull; Assessment Platform
         </span>
-        <h1 className="text-4xl font-bold leading-tight text-ink sm:text-5xl">
+        <h1 className="font-display text-4xl font-bold leading-tight text-ink sm:text-5xl">
           Learn. Practice. Assess. <span className="text-brand-ink">Advance.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-ink-faint">
@@ -129,16 +144,6 @@ export function LandingPage() {
         </p>
 
         <CertificationGoalSelector />
-
-        <div className="mx-auto mt-8 max-w-xl">
-          <SearchBar to="/search" variant="block" placeholder="Search courses, practice tests and certifications" />
-        </div>
-        <p className="mt-4 text-sm text-ink-faint">
-          Already have an account?{' '}
-          <Link to="/login" className="text-brand-ink underline">
-            Log in
-          </Link>
-        </p>
 
         <div className="mt-14 flex flex-wrap justify-center gap-2">
           {DOMAINS.map((d) => (
@@ -164,14 +169,19 @@ export function LandingPage() {
           starters/switchers alike. */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-2xl font-bold text-ink">Designed for every stage of your career</h2>
+          <h2 className="text-center font-display text-2xl font-bold text-ink">Designed for every stage of your career</h2>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {AUDIENCE_CARDS.map((card) => (
               <div
                 key={card.title}
-                className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left"
+                className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left transition hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-[0_8px_20px_rgba(75,51,232,0.12)]"
               >
-                <h3 className="font-bold text-ink">{card.title}</h3>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-ink">
+                  <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+                    <path d={card.icon} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <h3 className="mt-4 font-display font-bold text-ink">{card.title}</h3>
                 <p className="mt-1 text-sm font-medium text-brand-ink">{card.subtitle}</p>
                 <p className="mt-3 flex-1 text-sm text-ink-faint">{card.body}</p>
                 {card.href.startsWith('#') ? (
@@ -193,9 +203,9 @@ export function LandingPage() {
           handful of level-tagged example paths so an experienced
           professional immediately sees Professional/Advanced content, not
           only Foundation material. */}
-      <section id="learning-paths" className="border-t border-surface-border bg-black/20 py-16">
+      <section id="learning-paths" className="border-t border-surface-border bg-surface-sunken py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">Explore Learning Paths</h2>
+          <h2 className="font-display text-2xl font-bold text-ink">Explore Learning Paths</h2>
           <p className="mt-2 max-w-2xl text-sm text-ink-faint">
             Foundation, Professional, and Advanced content across every domain - enter where your
             experience puts you, not necessarily at the beginning.
@@ -230,7 +240,7 @@ export function LandingPage() {
           stays here (not behind JavaScript). */}
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">Certification Exam Preparation</h2>
+          <h2 className="font-display text-2xl font-bold text-ink">Certification Exam Preparation</h2>
           <p className="mt-2 max-w-2xl text-sm text-ink-faint">
             Prepare for IT, cybersecurity, cloud and professional certifications with practice
             questions, mock exams, explanations and performance analytics.
@@ -255,25 +265,10 @@ export function LandingPage() {
           </div>
           <Link
             to="/register"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#4B33E8] px-6 py-3 font-medium text-surface"
           >
             Explore Exam Preparation
           </Link>
-        </div>
-      </section>
-
-      {/* What learners say */}
-      <section className="border-t border-surface-border py-16">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">What learners say</h2>
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {TESTIMONIALS.map((t) => (
-              <figure key={t.attribution} className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left">
-                <blockquote className="flex-1 text-sm text-ink-muted">"{t.quote}"</blockquote>
-                <figcaption className="mt-4 text-xs font-medium text-ink-faint">{t.attribution}</figcaption>
-              </figure>
-            ))}
-          </div>
         </div>
       </section>
 

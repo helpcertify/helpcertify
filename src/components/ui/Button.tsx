@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { forwardRef } from 'react';
 import { buttonClasses, type ButtonVariant, type ButtonSize } from './buttonClasses';
 
-// The one button. Every page used to hand-roll `bg-[#155EEF] ...` (380
+// The one button. Every page used to hand-roll `bg-[#4B33E8] ...` (380
 // times) - variants are semantic, not decorative. `loading` shows a
 // spinner and disables. For a <Link> styled as a button, put
 // `buttonClasses(variant, size)` on the Link directly.

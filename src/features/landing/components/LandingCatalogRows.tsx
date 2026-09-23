@@ -86,12 +86,12 @@ function Row({ title, subtitle, cards }: { title: string; subtitle: string; card
               <Link
                 key={c.id}
                 to="/register"
-                className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#DCE7FF] bg-white text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#B9CEFF] hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72 dark:bg-surface-raised"
+                className="flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-[#E7E3F5] bg-white text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-150 hover:-translate-y-[3px] hover:border-[#A79AF5] hover:shadow-[0_8px_20px_rgba(75,51,232,0.12)] sm:w-72 dark:bg-surface-raised"
               >
                 {c.coverImageUrl ? (
                   <img src={c.coverImageUrl} alt="" className="h-32 w-full object-cover" loading="lazy" />
                 ) : (
-                  <div className="h-32 w-full bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE]" />
+                  <div className="h-32 w-full bg-[#ECE8FF]" />
                 )}
                 <div className="flex flex-1 flex-col p-4">
                   <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{c.subtitle}</div>

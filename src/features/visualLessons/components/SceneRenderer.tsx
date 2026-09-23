@@ -104,7 +104,7 @@ export function SceneRenderer({ scene, progress, className }: SceneRendererProps
     <svg viewBox={`0 0 ${W} ${H}`} className={`text-ink ${className ?? ''}`} role="img" aria-label={scene.title} style={{ width: '100%' }}>
       <defs>
         <marker id="vl-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0 0 L10 5 L0 10 z" fill="#155EEF" />
+          <path d="M0 0 L10 5 L0 10 z" fill="#4B33E8" />
         </marker>
       </defs>
 
@@ -132,7 +132,7 @@ export function SceneRenderer({ scene, progress, className }: SceneRendererProps
             y1={y1}
             x2={cx}
             y2={cy}
-            stroke="#155EEF"
+            stroke="#4B33E8"
             strokeWidth={2}
             markerEnd={a.t > 0.98 ? 'url(#vl-arrow)' : undefined}
           />

@@ -30,9 +30,9 @@ function Frame({
 }: PrimitiveProps & { children: React.ReactNode }) {
   return (
     <g transform={`translate(${x} ${y})`} opacity={opacity} style={{ transition: 'opacity 240ms ease' }}>
-      {highlighted && <circle r={44} fill="#155EEF" opacity={0.12} />}
+      {highlighted && <circle r={44} fill="#4B33E8" opacity={0.12} />}
       <g
-        stroke={highlighted ? '#155EEF' : STROKE}
+        stroke={highlighted ? '#4B33E8' : STROKE}
         strokeWidth={highlighted ? 2.5 : 1.8}
         fill="none"
         strokeLinecap="round"
@@ -85,7 +85,7 @@ const Database: FC<PrimitiveProps> = (p) => (
 const DnsServer: FC<PrimitiveProps> = (p) => (
   <Frame {...p}>
     <rect x={-18} y={-20} width={36} height={40} rx={2} />
-    <text y={4} textAnchor="middle" fontSize={11} stroke="none" fill={p.highlighted ? '#155EEF' : 'currentColor'}>
+    <text y={4} textAnchor="middle" fontSize={11} stroke="none" fill={p.highlighted ? '#4B33E8' : 'currentColor'}>
       DNS
     </text>
   </Frame>
@@ -136,7 +136,7 @@ const User: FC<PrimitiveProps> = (p) => (
 const Api: FC<PrimitiveProps> = (p) => (
   <Frame {...p}>
     <rect x={-22} y={-14} width={44} height={28} rx={4} />
-    <text y={4} textAnchor="middle" fontSize={10} stroke="none" fill={p.highlighted ? '#155EEF' : 'currentColor'}>
+    <text y={4} textAnchor="middle" fontSize={10} stroke="none" fill={p.highlighted ? '#4B33E8' : 'currentColor'}>
       API
     </text>
   </Frame>
@@ -146,7 +146,7 @@ function Packet({ p, glyph }: { p: PrimitiveProps; glyph: string }) {
   return (
     <Frame {...p}>
       <path d="M-16 -8 L16 -8 L16 8 L-16 8 Z" />
-      <text y={4} textAnchor="middle" fontSize={12} stroke="none" fill={p.highlighted ? '#155EEF' : 'currentColor'}>
+      <text y={4} textAnchor="middle" fontSize={12} stroke="none" fill={p.highlighted ? '#4B33E8' : 'currentColor'}>
         {glyph}
       </text>
     </Frame>
