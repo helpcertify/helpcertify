@@ -61,11 +61,8 @@ export function AdminHomePage() {
       <h1 className="mb-8 text-2xl font-bold text-ink">Welcome, Admin</h1>
 
       <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        {/* Published only (see api/admin.ts's getDashboardStats) - matches
-            "Active Packages" below and ExamQuizStudioPage's own "Published"
-            stat, so this headline number can't be inflated by drafts. */}
-        <StatCard label="Published Quizzes" value={stats?.totalQuizzes} />
-        <StatCard label="Practice Test Banks" value={stats?.totalPracticeTests} />
+        <StatCard label="Total Quizzes" value={stats?.totalQuizzes} />
+        <StatCard label="Practice Exams" value={stats?.totalPracticeTests} />
         <StatCard label="Learner Attempts" value={stats?.studentAttempts} />
         <StatCard label="Admin Accounts" value={stats?.adminAccounts} />
       </div>

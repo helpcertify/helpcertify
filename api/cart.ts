@@ -162,22 +162,6 @@ async function hydrateCart(
         continue;
       }
       const pkgData = pkgSnap.data()!;
-      // A package's own isPublished isn't the whole story - it can go
-      // stale if its parent certification was archived/unpublished after
-      // the package was added to a cart (archiveCertification now
-      // cascades to packages going forward, but this is the defense-in-
-      // depth check for anything that doesn't, plus any data that
-      // predates that fix). Same reasoning as publishPackage's own
-      // "unpublished certification cannot expose a published package"
-      // check at publish time - this is that same rule enforced again
-      // here, at cart-hydration time.
-      if (pkgData.certificationId) {
-        const certSnap = await db.collection('certifications').doc(pkgData.certificationId as string).get();
-        if (!certSnap.exists || certSnap.data()?.status !== 'published') {
-          dirty = true;
-          continue;
-        }
-      }
       if (await isPackageFullyOwned(uid, pkgData)) {
         dirty = true; // every included item already owned since being added
         continue;
@@ -203,14 +187,6 @@ async function hydrateCart(
       continue;
     }
     const data = itemSnap.data()!;
-    // Unpublished since being added (addItem blocks this going forward,
-    // but this is the same self-healing this function already does for a
-    // package whose parent got archived) - practiceTest has no
-    // isPublished flag so it's excluded, same reasoning as addItem's.
-    if ((entry.itemType === 'quiz' || entry.itemType === 'course') && data.isPublished === false) {
-      dirty = true;
-      continue;
-    }
     items.push({
       itemType: entry.itemType,
       itemId: entry.itemId,
@@ -285,26 +261,6 @@ async function addItem(uid: string, body: unknown) {
   const itemSnap = await db.collection(collectionFor(itemType)).doc(itemId).get();
   if (!itemSnap.exists) throw Err.notFound('Item not found');
   const itemData = itemSnap.data()!;
-
-  // A draft/unpublished item (or, for a package, one whose parent
-  // certification isn't published) must never be addable to a cart -
-  // matches publishPackage's own "unpublished certification cannot expose
-  // a published package" rule, enforced here at add-time too, not just at
-  // publish-time. Same error as a missing item, so this doesn't reveal
-  // that an id belongs to real-but-unpublished content. practiceTest has
-  // no isPublished flag (gated by availableFrom/availableUntil instead,
-  // enforced at session-start by api/practice-session.ts) so it's
-  // intentionally not checked here.
-  if ((itemType === 'quiz' || itemType === 'course' || itemType === 'package') && !itemData.isPublished) {
-    throw Err.notFound('Item not found');
-  }
-  if (itemType === 'package' && itemData.certificationId) {
-    const certSnap = await db.collection('certifications').doc(itemData.certificationId as string).get();
-    if (!certSnap.exists || certSnap.data()?.status !== 'published') {
-      throw Err.notFound('Item not found');
-    }
-  }
-
   const price = itemData.price ?? 0;
   const itemCurrency: Currency = itemData.currency ?? 'INR';
   if (price <= 0) throw Err.invalidArgument('This item is free, no need to add it to your cart');
@@ -583,51 +539,39 @@ async function getPublicCatalog() {
     };
   });
 
-  // requiresEntitlement:true marks a practice test/quiz that's a
-  // price-0 component of a certification package's batched series (see
-  // api/practice-session.ts's/api/quiz-session.ts's own comments) - it's
-  // meant to be unlocked only by owning that package, not independently
-  // free-standing. Phase 0's audit found these leaking into the public
-  // catalog as a generic "Free" card: price is 0, so nothing before this
-  // filtered them out, even though attempting one without the real
-  // entitlement is immediately blocked server-side anyway.
-  const practiceTests = testsSnap.docs
-    .filter((d) => !d.data().requiresEntitlement)
-    .map((d) => {
-      const t = d.data();
-      return {
-        id: d.id,
-        title: (t.title as string) ?? 'Practice Test',
-        category: (t.category as string) ?? 'Other',
-        examName: (t.examName as string | null) ?? null,
-        skillLevel: (t.skillLevel as string) ?? 'Foundation',
-        price: (t.price as number) ?? 0,
-        originalPrice: (t.originalPrice as number | null) ?? null,
-        currency: (t.currency as 'INR' | 'USD') ?? 'INR',
-        ratingAvg: (t.ratingAvg as number) ?? 0,
-        ratingCount: (t.ratingCount as number) ?? 0,
-        totalQuestions: (t.totalQuestions as number) ?? 0,
-      };
-    });
+  const practiceTests = testsSnap.docs.map((d) => {
+    const t = d.data();
+    return {
+      id: d.id,
+      title: (t.title as string) ?? 'Practice Test',
+      category: (t.category as string) ?? 'Other',
+      examName: (t.examName as string | null) ?? null,
+      skillLevel: (t.skillLevel as string) ?? 'Foundation',
+      price: (t.price as number) ?? 0,
+      originalPrice: (t.originalPrice as number | null) ?? null,
+      currency: (t.currency as 'INR' | 'USD') ?? 'INR',
+      ratingAvg: (t.ratingAvg as number) ?? 0,
+      ratingCount: (t.ratingCount as number) ?? 0,
+      totalQuestions: (t.totalQuestions as number) ?? 0,
+    };
+  });
 
-  const quizzes = quizzesSnap.docs
-    .filter((d) => !d.data().requiresEntitlement)
-    .map((d) => {
-      const q = d.data();
-      return {
-        id: d.id,
-        title: (q.title as string) ?? 'Mock Exam',
-        category: (q.category as string) ?? 'Other',
-        skillLevel: (q.skillLevel as string) ?? 'Foundation',
-        price: (q.price as number) ?? 0,
-        originalPrice: (q.originalPrice as number | null) ?? null,
-        currency: (q.currency as 'INR' | 'USD') ?? 'INR',
-        ratingAvg: (q.ratingAvg as number) ?? 0,
-        ratingCount: (q.ratingCount as number) ?? 0,
-        totalQuestions: (q.totalQuestions as number) ?? 0,
-        durationMinutes: (q.durationMinutes as number | null) ?? null,
-      };
-    });
+  const quizzes = quizzesSnap.docs.map((d) => {
+    const q = d.data();
+    return {
+      id: d.id,
+      title: (q.title as string) ?? 'Mock Exam',
+      category: (q.category as string) ?? 'Other',
+      skillLevel: (q.skillLevel as string) ?? 'Foundation',
+      price: (q.price as number) ?? 0,
+      originalPrice: (q.originalPrice as number | null) ?? null,
+      currency: (q.currency as 'INR' | 'USD') ?? 'INR',
+      ratingAvg: (q.ratingAvg as number) ?? 0,
+      ratingCount: (q.ratingCount as number) ?? 0,
+      totalQuestions: (q.totalQuestions as number) ?? 0,
+      durationMinutes: (q.durationMinutes as number | null) ?? null,
+    };
+  });
 
   return { certifications, courses, practiceTests, quizzes };
 }

@@ -17,17 +17,6 @@ import type { SkillLevel } from '@/types/models';
 // submitAiCourseDraft, which auto-approves an admin's own draft).
 // Renders nothing if the account isn't granted access to this feature -
 // see the admin Settings page's Feature Access card.
-//
-// The heading names whichever content type is actually selected (see
-// AI_BUILDER_TYPE_LABEL below) - this one shared form used to always say
-// "AI Course Builder" even set to Mock Exam or Practice Test, which was
-// the blueprint's own P1 example of this exact mislabeling.
-const AI_BUILDER_TYPE_LABEL: Record<'quiz' | 'practiceTest' | 'course', string> = {
-  quiz: 'Mock Exam',
-  practiceTest: 'Practice Test',
-  course: 'Course',
-};
-
 export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
@@ -167,15 +156,7 @@ export function AiCourseBuilderFlow({ isAdmin = false }: { isAdmin?: boolean }) 
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-raised p-6">
-      {/* One shared form builds all three content types (the Type select
-          below), but was always titled "AI Course Builder" regardless of
-          which one was actually selected - the exact "Course Builder set
-          to Mock Exam (quiz)" mislabeling the blueprint's P1 findings
-          called out. itemType stays set for the rest of this flow once a
-          draft exists (only resetAll() clears it), so this stays correct
-          through outline review and generation too, not just at the type
-          picker. */}
-      <h2 className="mb-1 text-lg font-semibold text-ink">AI {AI_BUILDER_TYPE_LABEL[itemType]} Builder</h2>
+      <h2 className="mb-1 text-lg font-semibold text-ink">AI Course Builder</h2>
       <p className="mb-2 text-sm text-ink-faint">
         Describe a topic and let AI draft a module outline and the {isCourse ? 'lesson content' : 'exam questions'}{' '}
         - review and edit everything before {isAdmin ? 'publishing' : 'submitting it for admin review'}.

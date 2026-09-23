@@ -87,11 +87,6 @@ export interface CertificationPrepSummary {
   mockExams: number;
   accessDays: number;
   fromPrice: number | null;
-  // The cheapest package's own original price, when it's discounted - lets
-  // the "From ₹X" card-level summary show the same strikethrough/%-off
-  // treatment as the package selector, instead of hiding the deal until
-  // the learner opens the plans modal.
-  fromOriginalPrice: number | null;
   currency: 'INR' | 'USD';
 }
 
@@ -101,7 +96,6 @@ export function summarizeCertificationPrep(cert: CatalogCertification): Certific
   let mockExams = 0;
   let accessDays = 0;
   let fromPrice: number | null = null;
-  let fromOriginalPrice: number | null = null;
   let currency: 'INR' | 'USD' = 'INR';
   for (const p of pkgs) {
     const q = p.practiceQuestionCount || p.aggregateTotalQuestions;
@@ -110,11 +104,10 @@ export function summarizeCertificationPrep(cert: CatalogCertification): Certific
     if (p.accessValidityDays > accessDays) accessDays = p.accessValidityDays;
     if (p.price > 0 && (fromPrice === null || p.price < fromPrice)) {
       fromPrice = p.price;
-      fromOriginalPrice = p.originalPrice && p.originalPrice > p.price ? p.originalPrice : null;
       currency = p.currency;
     }
   }
-  return { practiceQuestions, mockExams, accessDays, fromPrice, fromOriginalPrice, currency };
+  return { practiceQuestions, mockExams, accessDays, fromPrice, currency };
 }
 
 export const certificationCatalogApi = {

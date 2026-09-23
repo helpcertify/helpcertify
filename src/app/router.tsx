@@ -24,7 +24,6 @@ import { PracticeManagerPage } from '@/features/admin/pages/PracticeManagerPage'
 import { PracticeTestAnswerKeyPage } from '@/features/admin/pages/PracticeTestAnswerKeyPage';
 import { PerformancePage } from '@/features/admin/pages/PerformancePage';
 import { StudentHomePage } from '@/features/students/pages/StudentHomePage';
-import { MyLearningPage } from '@/features/students/pages/MyLearningPage';
 import { MockExamsPage } from '@/features/students/pages/MockExamsPage';
 import { PastQuizzesPage } from '@/features/students/pages/PastQuizzesPage';
 import { StudentQuizDashboardPage } from '@/features/students/pages/StudentQuizDashboardPage';
@@ -39,7 +38,6 @@ import { QuizTakingPage } from '@/features/students/pages/QuizTakingPage';
 import { PracticeTakingPage } from '@/features/students/pages/PracticeTakingPage';
 import { MyCertificatesPage } from '@/features/students/pages/MyCertificatesPage';
 import { VerifyCertificatePage } from '@/features/students/pages/VerifyCertificatePage';
-import { GiftClaimPage } from '@/features/students/pages/GiftClaimPage';
 import { CartPage } from '@/features/students/pages/CartPage';
 import { MyPurchasesPage } from '@/features/students/pages/MyPurchasesPage';
 import { WishlistPage } from '@/features/students/pages/WishlistPage';
@@ -98,15 +96,10 @@ export function AppRouter() {
           a real credential-verification page works for a third party
           checking a certificate a learner shared with them. */}
       <Route path="/verify/:certificateId" element={<VerifyCertificatePage />} />
-      {/* Gift claim link (see api/checkout.ts's getGift/claimGift) - reads
-          without signing in, then requires sign-in (matching the gift's
-          recipientEmail) to actually claim it. */}
-      <Route path="/gift/:claimCode" element={<GiftClaimPage />} />
 
       <Route element={<ProtectedRoute allowedRoles={['student']} />}>
         <Route element={<StudentShell />}>
           <Route path="/home" element={<StudentHomePage />} />
-          <Route path="/home/my-learning" element={<MyLearningPage />} />
           <Route path="/home/mock-exams" element={<MockExamsPage />} />
           <Route path="/home/mock-exams/series/:seriesId" element={<CertificationMockDetailPage />} />
           <Route path="/home/past-quizzes" element={<PastQuizzesPage />} />

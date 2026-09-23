@@ -39,20 +39,11 @@ export function PracticeTestsPage() {
     },
   });
 
-  // Matched purely by itemId used to be enough to show the banner - but
-  // that let it disagree with the "In Progress" tab count below (built
-  // from usePracticeSeries' own in_progress predicate: owned + a live
-  // practiceSessions doc), since a stale/unowned session doc could still
-  // match here even when the series computation didn't consider that set
-  // in_progress. Requiring the matched set's own status === 'in_progress'
-  // ties this banner to the exact same source of truth as the tab count,
-  // so "0 in progress" and "Continue where you left off" can't disagree
-  // (Phase 0's audit finding).
   const resumeLabel = (() => {
     if (!openSession) return null;
     for (const s of series) {
       const set = s.sets.find((x) => x.itemId === openSession.testId);
-      if (set && set.status === 'in_progress') return `${s.cert.name} Practice Exam ${String(set.index).padStart(2, '0')}`;
+      if (set) return `${s.cert.name} Practice Exam ${String(set.index).padStart(2, '0')}`;
     }
     return null;
   })();

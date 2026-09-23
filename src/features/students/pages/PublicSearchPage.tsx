@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import logoLockup from '@/assets/logo-lockup.png';
 import { SearchBar } from '@/components/common/SearchBar';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
-import { PriceTag } from '@/components/common/PriceTag';
-import { filterCatalog } from '../lib/searchCatalog';
+import { formatMoney } from '@/utils/currency';
+import { filterCatalog, totalResults } from '../lib/searchCatalog';
 import { getPublicCatalog } from '@/features/landing/api/publicCatalogApi';
 
 // The logged-out catalog search, reached at /search (outside
@@ -19,12 +19,6 @@ export function PublicSearchPage() {
   const [params] = useSearchParams();
   const term = params.get('q') ?? '';
   const category = params.get('category') ?? '';
-  // Set by the homepage's "Explore Courses" / "Explore Exam Prep" CTAs
-  // (see LandingPage.tsx) to land a visitor on a relevant subset of the
-  // catalog instead of everything at once. Display-only: it narrows which
-  // ResultSections render below, it doesn't change what filterCatalog
-  // matches, so combining it with `q`/`category` still works as expected.
-  const type = params.get('type') ?? '';
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['publicCatalog'],
@@ -46,22 +40,12 @@ export function PublicSearchPage() {
     );
   }, [data, term, category]);
 
-  const showCourses = type !== 'examprep';
-  const showExamPrep = type !== 'courses';
-
-  const count = results
-    ? (showCourses ? results.courses.length : 0) +
-      (showExamPrep ? results.quizzes.length + results.practiceTests.length + results.certifications.length : 0)
-    : 0;
+  const count = results ? totalResults(results) : 0;
   const heading = term
     ? `Results for "${term}"`
-    : type === 'courses'
-      ? 'Browse courses'
-      : type === 'examprep'
-        ? 'Browse exam preparation'
-        : category
-          ? `${category} courses, exams and certifications`
-          : 'Browse the HelpCertify catalog';
+    : category
+      ? `${category} courses, exams and certifications`
+      : 'Browse the HelpCertify catalog';
 
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -108,57 +92,46 @@ export function PublicSearchPage() {
 
         {results && (
           <div className="space-y-10">
-            {showCourses && (
-              <ResultSection
-                heading="Courses"
-                items={results.courses.map((c) => ({
-                  id: c.id,
-                  title: c.title,
-                  category: c.category,
-                  price: c.price,
-                  originalPrice: c.originalPrice,
-                  currency: c.currency,
-                }))}
-              />
-            )}
-            {showExamPrep && (
-              <>
-                <ResultSection
-                  heading="Certifications"
-                  items={results.certifications.map((x) => ({
-                    id: x.id,
-                    title: x.name,
-                    category: x.provider,
-                    price: x.fromPriceMinor,
-                    originalPrice: null,
-                    currency: x.currency,
-                    fromPrefix: true,
-                  }))}
-                />
-                <ResultSection
-                  heading="Mock Exams"
-                  items={results.quizzes.map((q) => ({
-                    id: q.id,
-                    title: q.title,
-                    category: q.category,
-                    price: q.price,
-                    originalPrice: q.originalPrice,
-                    currency: q.currency,
-                  }))}
-                />
-                <ResultSection
-                  heading="Practice Exams"
-                  items={results.practiceTests.map((p) => ({
-                    id: p.id,
-                    title: p.title,
-                    category: p.category,
-                    price: p.price,
-                    originalPrice: p.originalPrice,
-                    currency: p.currency,
-                  }))}
-                />
-              </>
-            )}
+            <ResultSection
+              heading="Courses"
+              items={results.courses.map((c) => ({
+                id: c.id,
+                title: c.title,
+                category: c.category,
+                price: c.price,
+                currency: c.currency,
+              }))}
+            />
+            <ResultSection
+              heading="Certifications"
+              items={results.certifications.map((x) => ({
+                id: x.id,
+                title: x.name,
+                category: x.provider,
+                price: x.fromPriceMinor,
+                currency: x.currency,
+              }))}
+            />
+            <ResultSection
+              heading="Mock Exams"
+              items={results.quizzes.map((q) => ({
+                id: q.id,
+                title: q.title,
+                category: q.category,
+                price: q.price,
+                currency: q.currency,
+              }))}
+            />
+            <ResultSection
+              heading="Practice Exams"
+              items={results.practiceTests.map((p) => ({
+                id: p.id,
+                title: p.title,
+                category: p.category,
+                price: p.price,
+                currency: p.currency,
+              }))}
+            />
           </div>
         )}
       </main>
@@ -171,9 +144,7 @@ interface Card {
   title: string;
   category: string;
   price: number;
-  originalPrice: number | null;
   currency: 'INR' | 'USD';
-  fromPrefix?: boolean;
 }
 
 function ResultSection({ heading, items }: { heading: string; items: Card[] }) {
@@ -192,9 +163,8 @@ function ResultSection({ heading, items }: { heading: string; items: Card[] }) {
             <div className="flex flex-1 flex-col p-3.5">
               <div className="mb-0.5 text-xs uppercase tracking-wide text-ink-faint">{c.category}</div>
               <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{c.title}</h3>
-              <div className="mt-auto flex items-baseline gap-1 pt-1">
-                {c.fromPrefix && c.price > 0 && <span className="text-[10px] text-ink-faint">From</span>}
-                <PriceTag price={c.price} originalPrice={c.originalPrice} currency={c.currency} size="sm" showDiscountBadge={false} />
+              <div className="mt-auto text-xs font-semibold text-ink">
+                {c.price > 0 ? formatMoney(c.price, c.currency) : 'Free'}
               </div>
             </div>
           </Link>

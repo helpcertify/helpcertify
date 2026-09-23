@@ -46,19 +46,8 @@ export const cartApi = {
     callAction<CartSummary>('cart', 'applyCoupon', { code, ...(unlockCode ? { unlockCode } : {}) }),
   removeCoupon: () => callAction<CartSummary>('cart', 'removeCoupon'),
   listMyPurchases: () =>
-    // itemType is typed wider than PurchasableItemType here on purpose -
-    // api/checkout.ts's/api/razorpay-webhook.ts's finalizeOrder also
-    // writes 'creatorProduct'/'aiCreditPack' purchase docs (Creator Plans,
-    // AI Credit packs), which this same server action already returns.
-    // The narrower PurchasableItemType-only type here was itself the gap
-    // MyPurchasesPage's "Your content" fell into (see its own comment).
     callAction<{
-      purchases: {
-        itemType: PurchasableItemType | 'creatorProduct' | 'aiCreditPack';
-        itemId: string;
-        purchasedAt: unknown;
-        expiresAt?: unknown;
-      }[];
+      purchases: { itemType: PurchasableItemType; itemId: string; purchasedAt: unknown; expiresAt?: unknown }[];
     }>(
       'cart',
       'listMyPurchases'
@@ -74,18 +63,6 @@ export interface CreateOrderResult {
   keyId: string;
 }
 
-// Gift order details, collected by GiftModal - always paired with a
-// buyNowItem (see api/checkout.ts's createOrder: a gift is always one
-// specific item for one specific recipient). sendAt absent = send as soon
-// as payment clears; a future ISO datetime schedules it for
-// processDueGifts to send later instead.
-export interface GiftOrderDetails {
-  recipientName: string;
-  recipientEmail: string;
-  sendAt?: string;
-  message?: string;
-}
-
 export const checkoutApi = {
   createOrder: (opts: {
     consent: CheckoutConsentState;
@@ -94,7 +71,6 @@ export const checkoutApi = {
     unlockCode?: string;
     useCredit?: boolean;
     referralCode?: string;
-    giftDetails?: GiftOrderDetails;
   }) =>
     callAction<CreateOrderResult>('checkout', 'createOrder', {
       ...(opts.buyNowItem ? { buyNowItem: opts.buyNowItem } : {}),
@@ -106,28 +82,12 @@ export const checkoutApi = {
       // the buyer typed at checkout. Both are re-validated server-side.
       ...(readRefToken() ? { referralToken: readRefToken() } : {}),
       ...(opts.referralCode ? { referralCode: opts.referralCode } : {}),
-      ...(opts.giftDetails ? { giftDetails: opts.giftDetails } : {}),
       consent: {
         ...opts.consent,
         acceptedAt: new Date().toISOString(),
         policyVersions: POLICY_VERSIONS,
       },
     }),
-  // Public preview of a gift before the recipient signs in - see
-  // api/checkout.ts's getGift.
-  getGift: (claimCode: string) =>
-    callAction<{
-      buyerName: string;
-      recipientName: string;
-      itemTitle: string;
-      message: string | null;
-      status: 'scheduled' | 'sent' | 'claimed' | 'expired' | 'cancelled';
-      expired: boolean;
-    }>('checkout', 'getGift', { claimCode }),
-  // Authenticated redemption - the signed-in account must match the gift's
-  // recipientEmail (see api/checkout.ts's claimGift).
-  claimGift: (claimCode: string) =>
-    callAction<{ itemType: PurchasableItemType; itemId: string; itemTitle: string }>('checkout', 'claimGift', { claimCode }),
   verifyPayment: (payload: {
     orderId: string;
     razorpay_order_id: string;
@@ -166,10 +126,5 @@ export interface MyOrder {
   razorpayPaymentId: string | null;
   paidAt: unknown;
   createdAt: unknown;
-  // Set only on a gift order - the buyer's own account never gets a
-  // purchases doc for it (the recipient does, once claimed), so this is
-  // what lets Billing & Orders explain a paid order with nothing to show
-  // in "Your content" as "Gift sent to X" instead of looking broken.
-  giftRecipientName: string | null;
-  items: { itemType: string; itemId: string; title: string; accessPeriodLabel: string | null }[];
+  items: { itemType: string; title: string; accessPeriodLabel: string | null }[];
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -14,33 +14,32 @@ import { SiteFooter } from '@/components/layout/SiteFooter';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Avatar } from '@/components/common/Avatar';
 import { useMyCreatorEntitlements } from '@/features/creator/hooks/useCreatorCommerce';
-import { useReferralProgramSettings } from '@/features/students/hooks/useReferralProgramSettings';
-import { formatMoney } from '@/utils/currency';
 
-// Redesign (2026-09, blueprint Section 3 "Information architecture"): the
-// primary learner nav is task-based - what a learner DOES - not a flat list
-// of every route. Everything account/content-adjacent (certificates,
-// billing, saved items, profile, settings, referral, the personal Custom
-// Exam Builder, and the creator/trainer/partner workspaces) moved into the
-// avatar menu below instead of sitting in this list, per the blueprint's own
-// finding: "Learner rail has 16 mixed links ... with an inner scrollbar" ->
-// "Replace with task-based learner navigation ... Move account items under
-// avatar menu." Every one of those routes still exists unchanged - only
-// where they're reached from moved.
-//
-// "Explore" maps to the course catalog (Section 2A: "Course catalog ...
-// Explore Courses -> Course Detail -> My Learning -> Course reader"),
-// distinct from Practice/Mock Exams, which are their own primary items since
-// they're the platform's other core product line (Exam Prep), not a subset
-// of "explore."
+// "Exam Categories" used to be its own tab; its filtering moved inline onto
+// the Practice Exams/Mock Exams pages themselves (see FilterBar) instead of
+// sitting in the main nav. Billing & Orders (formerly "My Purchases") was
+// briefly moved under My Profile, but moved back to its own tab on request
+// so learners can reach their purchase history directly from the sidebar.
+// The first tab (still routed to /home, the dashboard) is labeled "Learning
+// Portal" rather than "Home" on request.
 const NAV_ITEMS = [
-  { to: '/home', label: 'Home', end: true },
-  { to: '/home/my-learning', label: 'My Learning' },
-  { to: '/home/courses', label: 'Explore' },
-  { to: '/home/practice-tests', label: 'Practice' },
+  { to: '/home', label: 'Learning Portal', end: true },
+  { to: '/home/practice-tests', label: 'Practice Exams' },
   { to: '/home/mock-exams', label: 'Mock Exams' },
+  { to: '/home/courses', label: 'Courses' },
   { to: '/home/past-quizzes', label: 'My Attempts' },
+  { to: '/home/certificates', label: 'My Certificates' },
+  { to: '/home/purchases', label: 'Billing & Orders' },
+  { to: '/home/wishlist', label: 'Saved Items' },
+  { to: '/home/custom-exams', label: 'Custom Exam Builder' },
+  { to: '/home/my-training', label: 'My Training' },
 ];
+
+// My Profile and Settings are account-level, not content tabs, so they're
+// pinned on after NAV_ITEMS instead of mixed into it: Settings last, My
+// Profile directly above it. Both are real routes now (My Profile used to
+// open a modal - moved to its own page/route on request), so both get the
+// same active-state NavLink styling for free.
 
 // Matches the reference screenshots' "Learning Portal" student shell: a
 // unified top header (brand, search, account-utility icons) that spans the
@@ -55,9 +54,6 @@ export function StudentShell() {
   const profile = useAuthStore((s) => s.profile);
   const pushToast = useUiStore((s) => s.pushToast);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-
   // staleTime keeps this from refetching on every focus/route-change - the
   // count only actually changes from an add/remove/checkout, and those
   // mutations already invalidate this same query key themselves.
@@ -81,24 +77,6 @@ export function StudentShell() {
     aiCourseAccess?.allowed ||
     (creatorEnt.commerceEnabled && (creatorEnt.hasCourseAi || creatorEnt.hasCourseManual));
 
-  // Close the account menu on an outside click or Escape - the only two ways
-  // a native <select>/menu would also close.
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) setAccountMenuOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAccountMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [accountMenuOpen]);
-
   const handleSignOut = async () => {
     await authApi.logout();
     navigate('/login');
@@ -118,22 +96,55 @@ export function StudentShell() {
       isActive ? 'bg-brand-50 font-semibold text-brand-ink' : 'text-ink hover:bg-surface-sunken',
     );
 
-  const primaryNavLinks = (onNavigate: () => void) => (
+  const navLinks = (onNavigate: () => void) => (
     <>
       {NAV_ITEMS.map((item) => (
         <NavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} className={navLinkClass}>
           {item.label}
         </NavLink>
       ))}
+      {profile?.partnerId ? (
+        <>
+          <NavLink to="/home/partner" onClick={onNavigate} className={navLinkClass}>
+            Partner Dashboard
+          </NavLink>
+          <NavLink to="/home/creator" onClick={onNavigate} className={navLinkClass}>
+            Creator Workspace
+          </NavLink>
+        </>
+      ) : (
+        <NavLink to="/home/become-a-partner" onClick={onNavigate} className={navLinkClass}>
+          Become a Partner
+        </NavLink>
+      )}
+      {/* Always shown, not just once trainerId is set - a non-trainer sees
+          a "Request Trainer Access" prompt on this page instead of a dead
+          end (see TrainerWorkspacePage.tsx's RequestTrainerAccess). */}
+      <NavLink to="/home/trainer" onClick={onNavigate} className={navLinkClass}>
+        {profile?.trainerId ? 'Trainer Workspace' : 'Become a Trainer'}
+      </NavLink>
+      {showCourseBuilder && (
+        <NavLink to="/home/creator/courses" onClick={onNavigate} className={navLinkClass}>
+          {creatorEnt.commerceEnabled ? 'Course Builder' : 'AI Course Builder'}
+        </NavLink>
+      )}
+      <NavLink to="/home/creator/plans" onClick={onNavigate} className={navLinkClass}>
+        Creator Plans
+      </NavLink>
+      <NavLink to="/home/profile" onClick={onNavigate} className={navLinkClass}>
+        My Profile
+      </NavLink>
+      <NavLink to="/home/settings" onClick={onNavigate} className={navLinkClass}>
+        Settings
+      </NavLink>
     </>
   );
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* Unified header - logo, primary nav (lg:+), search, Help, Saved
-          Items, Cart (amber count), Notifications, avatar menu. Fixed
-          height (h-14) so the sidebar below can offset its own sticky
-          position by an exact amount. */}
+      {/* Unified header - logo, search, Help, Saved Items, Cart (amber
+          count), Notifications, avatar. Fixed height (h-14) so the sidebar
+          below can offset its own sticky position by an exact amount. */}
       <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-surface-border bg-surface-raised px-4 lg:px-8">
         <button
           type="button"
@@ -171,54 +182,45 @@ export function StudentShell() {
           <button type="button" onClick={handleNotificationsClick} aria-label="Notifications" className="text-ink-muted hover:text-ink">
             <BellIcon className="h-5 w-5" />
           </button>
-
-          <div className="relative" ref={accountMenuRef}>
-            <button
-              type="button"
-              onClick={() => setAccountMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={accountMenuOpen}
-              aria-label="Account menu"
-              className="flex items-center gap-1 rounded-full"
-            >
-              <Avatar name={profile?.name} avatarUrl={profile?.avatarUrl} size={32} />
-              <span aria-hidden="true" className="text-xs text-ink-faint">
-                ▾
-              </span>
-            </button>
-            {accountMenuOpen && (
-              <AccountMenu
-                profile={profile}
-                showCourseBuilder={!!showCourseBuilder}
-                creatorEnt={creatorEnt}
-                onNavigate={() => setAccountMenuOpen(false)}
-                onSignOut={handleSignOut}
-              />
-            )}
-          </div>
+          <Link to="/home/profile" aria-label="My Profile">
+            <Avatar name={profile?.name} avatarUrl={profile?.avatarUrl} size={32} />
+          </Link>
         </div>
       </header>
 
       {/* Mobile nav dropdown - below lg: only, opened by the header's
-          hamburger button. Primary task nav only; account items live in the
-          avatar menu on every breakpoint, same as desktop. */}
+          hamburger button. */}
       {mobileNavOpen && (
         <nav className="flex flex-col gap-1 border-b border-surface-border p-4 lg:hidden">
-          {primaryNavLinks(() => setMobileNavOpen(false))}
+          {navLinks(() => setMobileNavOpen(false))}
           <ReferAndEarnCard className="mt-2" />
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="mt-2 rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
+          >
+            Sign Out
+          </button>
         </nav>
       )}
 
       <div className="lg:flex">
         {/* Desktop sidebar - lg: and up only, offset below the fixed-height
             header (top-14 / h-[calc(100vh-3.5rem)] both match h-14 above).
-            Six task-based links only now (no overflow-y-auto needed - it
-            never overflows the viewport at this length, which is itself the
-            fix for the "inner scrollbar" the blueprint flagged). */}
+            Nav-only now; the brand mark moved up into the header so it
+            isn't shown twice. Sign Out stays pinned at the bottom via
+            mt-auto, same as before. */}
         <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 flex-col border-r border-surface-border bg-surface-raised p-6 lg:flex">
-          <nav className="flex flex-1 flex-col gap-1">{primaryNavLinks(() => {})}</nav>
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">{navLinks(() => {})}</nav>
           <div className="mt-auto shrink-0">
-            <ReferAndEarnCard />
+            <ReferAndEarnCard className="mb-3" />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="w-full rounded-lg border border-surface-border-strong py-2 text-sm font-medium text-ink-muted hover:border-danger hover:text-danger"
+            >
+              Sign Out
+            </button>
           </div>
         </aside>
 
@@ -235,127 +237,11 @@ export function StudentShell() {
   );
 }
 
-interface AccountMenuProps {
-  profile: { partnerId?: string | null; trainerId?: string | null } | null | undefined;
-  showCourseBuilder: boolean;
-  creatorEnt: { commerceEnabled: boolean };
-  onNavigate: () => void;
-  onSignOut: () => void;
-}
-
-// The account/content/workspace menu that used to be 9+ separate flat
-// sidebar links. Grouped into three short sections so it stays scannable
-// even though it now carries everything the primary nav doesn't.
-//
-// Creator/Trainer/Partner links keep the exact same profile-flag gating the
-// old sidebar used (profile?.partnerId, profile?.trainerId,
-// showCourseBuilder) - relocated, not re-decided. A full "workspace
-// switcher" UI (a genuine Learner/Creator or Learner/Partner mode toggle
-// with its own dedicated nav set, per the blueprint's Section 3) is Phase
-// 5's own scope item ("Role switcher") in the blueprint's own phase table -
-// this menu is the Phase 2/3 stopgap that gets these links out of the
-// primary learner nav without yet building that larger switcher.
-function AccountMenu({ profile, showCourseBuilder, creatorEnt, onNavigate, onSignOut }: AccountMenuProps) {
-  const itemClass = 'block rounded-lg px-3 py-2 text-sm text-ink hover:bg-surface-sunken';
-  return (
-    <div
-      role="menu"
-      className="absolute right-0 top-10 z-30 w-64 rounded-xl border border-surface-border bg-surface-raised p-2 shadow-pop"
-    >
-      <div className="space-y-0.5">
-        <Link role="menuitem" to="/home/my-learning" onClick={onNavigate} className={itemClass}>
-          My Learning
-        </Link>
-        <Link role="menuitem" to="/home/certificates" onClick={onNavigate} className={itemClass}>
-          My Certificates
-        </Link>
-        <Link role="menuitem" to="/home/purchases" onClick={onNavigate} className={itemClass}>
-          Billing &amp; Orders
-        </Link>
-        <Link role="menuitem" to="/home/wishlist" onClick={onNavigate} className={itemClass}>
-          Saved Items
-        </Link>
-        <Link role="menuitem" to="/home/custom-exams" onClick={onNavigate} className={itemClass}>
-          Custom Exam Builder
-        </Link>
-      </div>
-
-      <div className="my-2 border-t border-surface-border" />
-
-      <div className="space-y-0.5">
-        <Link role="menuitem" to="/home/profile" onClick={onNavigate} className={itemClass}>
-          My Profile
-        </Link>
-        <Link role="menuitem" to="/home/profile" onClick={onNavigate} className={itemClass}>
-          Refer &amp; Earn
-        </Link>
-        <Link role="menuitem" to="/home/settings" onClick={onNavigate} className={itemClass}>
-          Settings
-        </Link>
-      </div>
-
-      <div className="my-2 border-t border-surface-border" />
-
-      <div className="space-y-0.5">
-        <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Workspaces</p>
-        {profile?.partnerId ? (
-          <>
-            <Link role="menuitem" to="/home/partner" onClick={onNavigate} className={itemClass}>
-              Partner Dashboard
-            </Link>
-            <Link role="menuitem" to="/home/creator" onClick={onNavigate} className={itemClass}>
-              Creator Workspace
-            </Link>
-          </>
-        ) : (
-          <Link role="menuitem" to="/home/become-a-partner" onClick={onNavigate} className={itemClass}>
-            Become a Partner
-          </Link>
-        )}
-        <Link role="menuitem" to="/home/trainer" onClick={onNavigate} className={itemClass}>
-          {profile?.trainerId ? 'Trainer Workspace' : 'Become a Trainer'}
-        </Link>
-        {showCourseBuilder && (
-          <Link role="menuitem" to="/home/creator/courses" onClick={onNavigate} className={itemClass}>
-            {creatorEnt.commerceEnabled ? 'Course Builder' : 'AI Course Builder'}
-          </Link>
-        )}
-        <Link role="menuitem" to="/home/creator/plans" onClick={onNavigate} className={itemClass}>
-          Creator Plans
-        </Link>
-      </div>
-
-      <div className="my-2 border-t border-surface-border" />
-
-      <button
-        type="button"
-        onClick={() => {
-          onNavigate();
-          onSignOut();
-        }}
-        className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-danger hover:bg-danger-soft"
-      >
-        Sign Out
-      </button>
-    </div>
-  );
-}
-
 // Links to My Profile's own "Refer & Earn" section - that's where the
 // actual referral link, copy button, and referral history live (see
 // ReferAndEarnSection.tsx); this sidebar card is just a permanent
 // reminder/entry point, same role the exam countdown cards play above it.
-//
-// The reward figure below used to be a hardcoded "₹500" with no relation
-// to the actual admin-configured reward (appSettings/general.
-// referralCreditAmountMinor, which defaults to ₹250) - see
-// useReferralProgramSettings for where the real value now comes from. If
-// that setting hasn't been re-saved since this fix shipped, the doc it
-// reads won't exist yet and the card falls back to generic copy with no
-// number, rather than guessing one.
 function ReferAndEarnCard({ className = '' }: { className?: string }) {
-  const { data: referralSettings } = useReferralProgramSettings();
-
   return (
     <Link to="/home/profile" className={`block w-full rounded-lg border border-brand-500/30 bg-brand-50 p-3 text-left ${className}`}>
       <div className="flex items-center gap-2.5">
@@ -364,13 +250,14 @@ function ReferAndEarnCard({ className = '' }: { className?: string }) {
         </span>
         <div className="min-w-0">
           <div className="text-sm font-semibold text-ink">Refer & Earn</div>
-          <div className="text-xs text-ink-faint">{referralSettings ? 'Invite friends and earn' : 'Invite friends and earn HelpCertify credit'}</div>
+          <div className="text-xs text-ink-faint">Invite friends and earn up to</div>
         </div>
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        {referralSettings && <span className="text-base font-bold text-brand-ink">{formatMoney(referralSettings.creditAmountMinor, 'INR')}</span>}
-        <span className="ml-auto text-sm text-brand-ink">→</span>
+        <span className="text-base font-bold text-brand-ink">₹500</span>
+        <span className="text-sm text-brand-ink">→</span>
       </div>
     </Link>
   );
 }
+

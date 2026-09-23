@@ -43,14 +43,13 @@ export function CoursesPage() {
                 originalPrice={c.originalPrice}
                 currency={c.currency}
                 coverImageUrl={c.coverImageUrl}
-                createdAt={c.createdAt}
                 detailHref={`/home/courses/${c.id}`}
                 footer={
                   <Link
                     to={`/home/courses/${c.id}`}
                     className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
                   >
-                    {owned ? 'Continue Reading' : 'Add to Cart'}
+                    {owned ? 'Continue Reading' : 'View'}
                   </Link>
                 }
               />

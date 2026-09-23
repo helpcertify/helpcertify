@@ -366,20 +366,6 @@ async function updateAppSettings(uid: string, body: unknown) {
     { merge: true }
   );
 
-  // Referral reward mirror - same reasoning as appearance above: the
-  // learner-facing "Refer & Earn" sidebar card needs the real configured
-  // amount without an admin-gated round trip. See firestore.rules'
-  // appSettings/referralProgram comment.
-  await db.collection('appSettings').doc('referralProgram').set(
-    {
-      creditAmountMinor: d.referralCreditAmountMinor,
-      refereeRewardType: d.refereeReward.type,
-      refereeRewardValue: d.refereeReward.value,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-
   await writeAdminLog({
     performedBy: uid,
     action: 'updateAppSettings',

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { listAvailableCourses } from '../api/courseApi';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
-import { PriceTag } from '@/components/common/PriceTag';
+import { formatMoney } from '@/utils/currency';
 
 // Landed on from the header's search field (StudentShell). Searches quizzes
 // (Mock Exams) and practice tests together by title, since the header field
@@ -100,7 +100,6 @@ export function SearchResultsPage() {
                     title={c.title}
                     category={c.category ?? 'Other'}
                     price={c.price ?? 0}
-                    originalPrice={c.originalPrice ?? null}
                     currency={c.currency ?? 'INR'}
                   />
                 ))}
@@ -119,7 +118,6 @@ export function SearchResultsPage() {
                     title={q.title}
                     category={q.category ?? 'Other'}
                     price={q.price ?? 0}
-                    originalPrice={q.originalPrice ?? null}
                     currency={q.currency ?? 'INR'}
                   />
                 ))}
@@ -138,7 +136,6 @@ export function SearchResultsPage() {
                     title={t.title}
                     category={t.category ?? 'Other'}
                     price={t.price ?? 0}
-                    originalPrice={t.originalPrice ?? null}
                     currency={t.currency ?? 'INR'}
                   />
                 ))}
@@ -157,7 +154,6 @@ function ResultCard({
   title,
   category,
   price,
-  originalPrice,
   currency,
 }: {
   id: string;
@@ -165,7 +161,6 @@ function ResultCard({
   title: string;
   category: string;
   price: number;
-  originalPrice: number | null;
   currency: string;
 }) {
   return (
@@ -174,9 +169,7 @@ function ResultCard({
       <div className="flex flex-1 flex-col p-3.5">
         <div className="mb-0.5 text-xs uppercase tracking-wide text-ink-faint">{category}</div>
         <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-ink">{title}</h3>
-        <div className="mt-auto pt-1">
-          <PriceTag price={price} originalPrice={originalPrice} currency={currency as 'INR' | 'USD'} size="sm" showDiscountBadge={false} />
-        </div>
+        <div className="mt-auto text-xs font-semibold text-ink">{price > 0 ? formatMoney(price, currency as 'INR' | 'USD') : 'Free'}</div>
       </div>
     </Link>
   );

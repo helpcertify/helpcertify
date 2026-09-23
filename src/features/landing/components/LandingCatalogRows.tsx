@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHorizontalScroll } from '@/hooks/useHorizontalScroll';
-import { PriceTag } from '@/components/common/PriceTag';
+import { formatMoney } from '@/utils/currency';
 import type { PublicCatalog } from '../api/publicCatalogApi';
 
 // The JS-rendered catalog carousels on the landing page. Deliberately NOT
@@ -17,12 +17,7 @@ interface Card {
   id: string;
   title: string;
   subtitle: string;
-  price: number;
-  originalPrice: number | null;
-  currency: 'INR' | 'USD';
-  // Certifications are priced from the cheapest package, not a single item
-  // price - the card shows "From ₹X" instead of a bare amount.
-  fromPrefix?: boolean;
+  priceLabel: string;
   coverImageUrl: string | null;
 }
 
@@ -31,9 +26,7 @@ function toCourseCard(c: PublicCatalog['courses'][number]): Card {
     id: c.id,
     title: c.title,
     subtitle: `${c.category} - ${c.totalLessons} lesson${c.totalLessons === 1 ? '' : 's'}`,
-    price: c.price,
-    originalPrice: c.originalPrice,
-    currency: c.currency,
+    priceLabel: c.price > 0 ? formatMoney(c.price, c.currency) : 'Free',
     coverImageUrl: c.coverImageUrl,
   };
 }
@@ -43,10 +36,7 @@ function toCertCard(x: PublicCatalog['certifications'][number]): Card {
     id: x.id,
     title: x.name,
     subtitle: x.provider,
-    price: x.fromPriceMinor,
-    originalPrice: null,
-    currency: x.currency,
-    fromPrefix: true,
+    priceLabel: x.fromPriceMinor > 0 ? `From ${formatMoney(x.fromPriceMinor, x.currency)}` : 'Free',
     coverImageUrl: null,
   };
 }
@@ -57,9 +47,7 @@ function toReadinessCard(p: PublicCatalog['practiceTests'][number] | PublicCatal
     id: p.id,
     title: p.title,
     subtitle: `${p.category} - ${questions} questions`,
-    price: p.price,
-    originalPrice: p.originalPrice,
-    currency: p.currency,
+    priceLabel: p.price > 0 ? formatMoney(p.price, p.currency) : 'Free',
     coverImageUrl: null,
   };
 }
@@ -108,10 +96,7 @@ function Row({ title, subtitle, cards }: { title: string; subtitle: string; card
                 <div className="flex flex-1 flex-col p-4">
                   <div className="mb-1 text-xs uppercase tracking-wide text-ink-faint">{c.subtitle}</div>
                   <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{c.title}</h3>
-                  <div className="mt-auto flex items-baseline gap-1.5 pt-3">
-                    {c.fromPrefix && c.price > 0 && <span className="text-xs text-ink-faint">From</span>}
-                    <PriceTag price={c.price} originalPrice={c.originalPrice} currency={c.currency} size="md" />
-                  </div>
+                  <div className="mt-auto pt-3 text-sm font-bold text-ink">{c.priceLabel}</div>
                 </div>
               </Link>
             ))}

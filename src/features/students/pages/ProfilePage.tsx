@@ -3,6 +3,7 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { authApi } from '@/features/auth/api/authApi';
 import { useUiStore } from '@/store/useUiStore';
 import { ProfileActivitySections } from '../components/ProfileActivitySections';
+import { JumpBackIn } from '../components/JumpBackIn';
 import { ReferAndEarnSection } from '../components/ReferAndEarnSection';
 import { errorText } from '@/lib/errorMessages';
 
@@ -139,12 +140,15 @@ export function ProfilePage() {
 
       <ReferAndEarnSection />
 
-      {/* "Jump back in" now lives on Learner Home instead (see
-          StudentHomePage.tsx's header comment) - showing the same
-          in-progress resume cards here too would just be the duplicate-
-          resume-card problem the blueprint calls out. This page keeps the
-          rest of the activity/progress picture: identity, learning goal,
-          and everything owned. */}
+      {/* Jump back in - moved here from the Home dashboard on request, so
+          Home stays focused on browsing/buying and this page holds the
+          learner's in-progress work. Hides itself when nothing is resumable. */}
+      <JumpBackIn />
+
+      {/* Your Learning Journey + My Exams - moved here from the Home
+          dashboard on request, so Home stays focused on "what to do right
+          now" and this page holds identity + the learner's goal + what
+          they own. */}
       <ProfileActivitySections />
     </div>
   );

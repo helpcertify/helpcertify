@@ -4,7 +4,6 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listAvailableQuizzes, listPracticeTestsBucketed } from '../api/studentContentApi';
 import { cartApi } from '../api/cartApi';
-import { useCertificationCatalog, type CatalogCertification } from '../api/certificationCatalogApi';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -27,7 +26,6 @@ const EXPIRY_WARNING_DAYS = 7;
 export function ProfileActivitySections() {
   const uid = useAuthStore((s) => s.firebaseUser?.uid);
 
-  const { data: catalog } = useCertificationCatalog();
   const { data: quizzes } = useQuery({ queryKey: ['student', 'availableQuizzes'], queryFn: listAvailableQuizzes });
   const { data: practiceBuckets } = useQuery({ queryKey: ['student', 'practiceTests'], queryFn: listPracticeTestsBucketed });
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
@@ -90,15 +88,8 @@ export function ProfileActivitySections() {
       (((t.price ?? 0) === 0 && !t.requiresEntitlement) || purchasedSet.has(`practiceTest_${t.id}`))
   );
 
-  // My Exams - everything owned (free or purchased), grouped one card per
-  // certification below (item 11: "not individual practice tests or mock
-  // tests, course/module/section wise") rather than one flat card per
-  // quiz/practice test. `itemType` distinguishes a mock exam (quiz) from a
-  // practice set (practiceTest) within a group; `certKey` is the raw item id
-  // looked up against the catalog's own package contents, same convention
-  // MyPurchasesPage's certNameById uses.
+  // My Exams - everything owned (free or purchased), as horizontal cards.
   interface OwnedItem {
-    itemType: 'quiz' | 'practiceTest';
     id: string;
     title: string;
     category: string;
@@ -124,7 +115,6 @@ export function ProfileActivitySections() {
     const totalQuestions = attempt?.totalQuestions || q.totalQuestions;
     const answered = attempt?.answeredCount ?? 0;
     ownedItems.push({
-      itemType: 'quiz',
       id: q.id,
       title: q.title,
       category: q.category ?? 'Other',
@@ -148,7 +138,6 @@ export function ProfileActivitySections() {
     const done = answered >= t.totalQuestions;
     const daysUntilExpiry = calendarDaysBetween(new Date(), toDate(t.availableUntil));
     ownedItems.push({
-      itemType: 'practiceTest',
       id: t.id,
       title: t.title,
       category: t.category ?? 'Other',
@@ -163,33 +152,6 @@ export function ProfileActivitySections() {
     });
   }
 
-  // Group owned items by certification (same item-id -> cert lookup
-  // MyPurchasesPage's certNameById uses, built here against the fuller
-  // CatalogCertification so the group card can link straight into that
-  // certification's practice/mock series detail page). An item that isn't
-  // part of any published certification package (a standalone free quiz,
-  // say) falls back to its own card, same as before.
-  const certByItemId = new Map<string, CatalogCertification>();
-  for (const cert of catalog?.certifications ?? []) {
-    for (const pkg of cert.packages) {
-      for (const id of pkg.includedPracticeTestIds) certByItemId.set(id, cert);
-      for (const id of pkg.includedQuizIds) certByItemId.set(id, cert);
-    }
-  }
-
-  const groupedByCert = new Map<string, { cert: CatalogCertification; items: OwnedItem[] }>();
-  const ungroupedItems: OwnedItem[] = [];
-  for (const item of ownedItems) {
-    const cert = certByItemId.get(item.id);
-    if (!cert) {
-      ungroupedItems.push(item);
-      continue;
-    }
-    const g = groupedByCert.get(cert.id) ?? { cert, items: [] };
-    g.items.push(item);
-    groupedByCert.set(cert.id, g);
-  }
-
   return (
     <div className="mt-6">
       <StudyPlanSection cards={studyPlanCards} unplannedTest={unplannedTest ? { id: unplannedTest.id, title: unplannedTest.title } : null} />
@@ -198,70 +160,7 @@ export function ProfileActivitySections() {
         <div>
           <h2 className="mb-3 text-[15px] font-bold uppercase tracking-wide text-brand-ink">My Exams</h2>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            {[...groupedByCert.values()].map(({ cert, items: groupItems }) => {
-              const practiceCount = groupItems.filter((i) => i.itemType === 'practiceTest').length;
-              const mockCount = groupItems.filter((i) => i.itemType === 'quiz').length;
-              const totalQuestions = groupItems.reduce((s, i) => s + i.totalQuestions, 0);
-              const answered = groupItems.reduce((s, i) => s + i.answered, 0);
-              const percentComplete = totalQuestions > 0 ? Math.round((answered / totalQuestions) * 100) : 0;
-              const withExpiry = groupItems.find((i) => i.expiryLabel != null);
-              const practiceHref = cert.seriesId ? `/home/practice-tests/series/${cert.seriesId}` : '/home/practice-tests';
-              const mockHref = cert.seriesId ? `/home/mock-exams/series/${cert.seriesId}` : '/home/mock-exams';
-              return (
-                <div key={cert.id} className="flex flex-col rounded-xl border border-brand-500/30 bg-surface-raised p-6 shadow-card">
-                  <div className="mb-1 text-base font-bold text-brand-ink">{cert.name}</div>
-                  <div className="mb-4 text-xs text-ink-faint">
-                    {practiceCount > 0 && `${practiceCount} practice set${practiceCount === 1 ? '' : 's'}`}
-                    {practiceCount > 0 && mockCount > 0 && ' · '}
-                    {mockCount > 0 && `${mockCount} mock exam${mockCount === 1 ? '' : 's'}`}
-                  </div>
-
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-ink">
-                      {answered.toLocaleString()} / {totalQuestions.toLocaleString()} Questions
-                    </span>
-                    <span className="font-semibold text-ink">{percentComplete}% Complete</span>
-                  </div>
-                  <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
-                    <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, percentComplete)}%` }} />
-                  </div>
-
-                  <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
-                    {withExpiry ? (
-                      withExpiry.expiryWarningDays !== null ? (
-                        <span className="text-xs font-medium text-warning">
-                          ⚠ Access expires in {withExpiry.expiryWarningDays} day{withExpiry.expiryWarningDays === 1 ? '' : 's'}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ink-faint">Access until {withExpiry.expiryLabel}</span>
-                      )
-                    ) : (
-                      <span className="text-xs text-ink-faint">No expiry</span>
-                    )}
-                    <div className="flex gap-2">
-                      {practiceCount > 0 && (
-                        <Link
-                          to={practiceHref}
-                          className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
-                        >
-                          Practice →
-                        </Link>
-                      )}
-                      {mockCount > 0 && (
-                        <Link
-                          to={mockHref}
-                          className="rounded-lg border border-brand-500 px-3 py-1.5 text-sm font-semibold text-brand-ink hover:bg-brand-500/10"
-                        >
-                          Mock →
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {ungroupedItems.map((item) => (
+            {ownedItems.map((item) => (
               <div
                 key={item.detailHref}
                 className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card"

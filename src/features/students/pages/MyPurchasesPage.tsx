@@ -4,20 +4,10 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { db } from '@/lib/firebase';
 import { cartApi } from '../api/cartApi';
 import { useCertificationCatalog } from '../api/certificationCatalogApi';
-import { getCourseById } from '../api/courseApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { toDate } from '@/utils/formatDate';
 import { formatMoney } from '@/utils/currency';
 import { ProductCardShell } from '@/components/common/ProductCardShell';
-import { useMyCreatorEntitlements, useMyCreatorCredits } from '@/features/creator/hooks/useCreatorCommerce';
-import type { CreatorEntitlement } from '@/types/models';
-
-const CREATOR_ENTITLEMENT_LABEL: Record<CreatorEntitlement, string> = {
-  course_creator_manual: 'Course Creator (Manual)',
-  course_creator_ai: 'Course Creator (AI)',
-  exam_creator_manual: 'Exam Creator (Manual)',
-  exam_creator_ai: 'Exam Creator (AI)',
-};
 
 interface PurchasedItem {
   itemType: 'quiz' | 'practiceTest';
@@ -37,42 +27,6 @@ interface PurchasedItem {
   answered: number;
 }
 
-// Phase 0's audit: a purchases doc can point at a quiz/practiceTest that no
-// longer resolves in the catalog join (deleted, or unpublished after the
-// purchase) - this used to just vanish from "Your content" while its order
-// still showed in the receipts table above, looking like the purchase
-// disappeared. Rather than pretend to know a title we can't confirm, this
-// surfaces the purchase honestly as "no longer available", and fills in the
-// title from the paid order itself (added to listMyOrders for this) only
-// when one can actually be matched by itemId.
-interface UnavailablePurchasedItem {
-  itemType: 'quiz' | 'practiceTest';
-  id: string;
-  purchasedAt: unknown;
-}
-
-interface PurchasedCourse {
-  itemType: 'course';
-  id: string;
-  title: string;
-  category: string;
-  skillLevel: string;
-  ratingAvg: number;
-  ratingCount: number;
-  price: number;
-  currency: 'INR' | 'USD';
-  coverImageUrl: string | null;
-  purchasedAt: unknown;
-}
-
-// A customExamBuilder purchase unlocks the whole Bring-Your-Own-Question-Bank
-// feature, not a single browsable item - so there's nothing to fetch, just a
-// "you own this feature" line linking to it.
-interface PurchasedFeature {
-  itemType: 'customExamBuilder';
-  purchasedAt: unknown;
-}
-
 function formatDate(v: unknown): string {
   return v ? toDate(v).toLocaleDateString() : '-';
 }
@@ -85,15 +39,9 @@ export function MyPurchasesPage() {
   const { data: ordersData } = useQuery({ queryKey: ['student', 'myOrders'], queryFn: cartApi.listMyOrders });
   const { data: catalog } = useCertificationCatalog();
 
-  const { data: itemsResult, isLoading } = useQuery({
+  const { data: items, isLoading } = useQuery({
     queryKey: ['student', 'purchasedItems', purchases?.purchases],
-    queryFn: async (): Promise<{ items: PurchasedItem[]; unavailable: UnavailablePurchasedItem[] }> => {
-      // Package purchases (Practice Questions / Mock Exams / Complete
-      // Preparation) explode into per-quiz/per-practiceTest purchases doc
-      // server-side (see finalizeOrder) - there's never a "package" itemType
-      // here. Only quiz/practiceTest are handled by this query; course and
-      // customExamBuilder purchases are fetched separately below so nothing
-      // purchased silently disappears from "Your content".
+    queryFn: async (): Promise<PurchasedItem[]> => {
       const list = (purchases?.purchases ?? []).filter(
         (p): p is typeof p & { itemType: 'quiz' | 'practiceTest' } => p.itemType === 'quiz' || p.itemType === 'practiceTest',
       );
@@ -101,10 +49,7 @@ export function MyPurchasesPage() {
         list.map(async (p) => {
           const collectionName = p.itemType === 'quiz' ? 'quizzes' : 'practiceTests';
           const snap = await getDoc(doc(db, collectionName, p.itemId));
-          if (!snap.exists()) {
-            const unavailable: UnavailablePurchasedItem = { itemType: p.itemType, id: p.itemId, purchasedAt: p.purchasedAt };
-            return { kind: 'unavailable' as const, value: unavailable };
-          }
+          if (!snap.exists()) return null;
           const data = snap.data();
           let answered = 0;
           if (p.itemType === 'quiz') {
@@ -116,7 +61,7 @@ export function MyPurchasesPage() {
             const progressSnap = await getDoc(doc(db, 'practiceProgress', `${uid}_${p.itemId}`));
             answered = progressSnap.exists() ? ((progressSnap.data().answeredQuestionIds as string[]) ?? []).length : 0;
           }
-          const item: PurchasedItem = {
+          return {
             itemType: p.itemType,
             id: p.itemId,
             title: data.title as string,
@@ -133,68 +78,12 @@ export function MyPurchasesPage() {
             expiresAt: (p.expiresAt ?? null) as unknown,
             answered,
           };
-          return { kind: 'item' as const, value: item };
         }),
       );
-      return {
-        items: results.filter((r): r is { kind: 'item'; value: PurchasedItem } => r.kind === 'item').map((r) => r.value),
-        unavailable: results
-          .filter((r): r is { kind: 'unavailable'; value: UnavailablePurchasedItem } => r.kind === 'unavailable')
-          .map((r) => r.value),
-      };
+      return results.filter((x): x is PurchasedItem => x !== null);
     },
     enabled: !!purchases && !!uid,
   });
-  const items = itemsResult?.items;
-  const unavailableItems = itemsResult?.unavailable ?? [];
-
-  const { data: purchasedCourses } = useQuery({
-    queryKey: ['student', 'purchasedCourses', purchases?.purchases],
-    queryFn: async (): Promise<PurchasedCourse[]> => {
-      const list = (purchases?.purchases ?? []).filter((p) => p.itemType === 'course');
-      const results = await Promise.all(
-        list.map(async (p) => {
-          const course = await getCourseById(p.itemId);
-          if (!course) return null;
-          return {
-            itemType: 'course' as const,
-            id: course.id,
-            title: course.title,
-            category: course.category as string,
-            skillLevel: course.skillLevel as string,
-            ratingAvg: course.ratingAvg ?? 0,
-            ratingCount: course.ratingCount ?? 0,
-            price: course.price ?? 0,
-            currency: (course.currency as 'INR' | 'USD') ?? 'INR',
-            coverImageUrl: course.coverImageUrl,
-            purchasedAt: p.purchasedAt,
-          };
-        }),
-      );
-      return results.filter((x): x is PurchasedCourse => x !== null);
-    },
-    enabled: !!purchases && !!uid,
-  });
-
-  const customExamBuilderPurchase: PurchasedFeature | undefined = purchases?.purchases?.find(
-    (p) => p.itemType === 'customExamBuilder',
-  ) as PurchasedFeature | undefined;
-
-  // Creator Plans (creatorProduct) and AI Credit packs (aiCreditPack) are
-  // real, paid purchases (see api/checkout.ts's finalizeOrder) that "Your
-  // content" below used to have no branch for at all - a learner who'd
-  // bought one saw the "You haven't purchased anything yet" empty state
-  // even though the receipts table above showed the paid order. Phase 0's
-  // audit flagged this as a display gap, not a data bug: the entitlement/
-  // credit is already granted correctly, this page just never showed it.
-  // Reuses the Creator workspace's own entitlement/credit hooks rather
-  // than re-deriving anything from `purchases` here.
-  const hasCreatorOrAiPurchase = (purchases?.purchases ?? []).some(
-    (p) => p.itemType === 'creatorProduct' || p.itemType === 'aiCreditPack',
-  );
-  const creatorEntitlements = useMyCreatorEntitlements();
-  const creatorCredits = useMyCreatorCredits();
-  const heldEntitlementLabels = [...creatorEntitlements.held].map((e) => CREATOR_ENTITLEMENT_LABEL[e]);
 
   const orders = [...(ordersData?.orders ?? [])].sort(
     (a, b) => toDate(b.paidAt ?? b.createdAt).getTime() - toDate(a.paidAt ?? a.createdAt).getTime(),
@@ -220,15 +109,6 @@ export function MyPurchasesPage() {
     } else {
       ungrouped.push(it);
     }
-  }
-
-  // `itemType_itemId` -> the title that order actually paid for. Built from
-  // the receipts list above (now that listMyOrders returns itemId per line
-  // item) so an unavailable purchase can show the real name it was bought
-  // under instead of a bare "practiceTest" id, whenever a match exists.
-  const orderItemTitleByKey = new Map<string, string>();
-  for (const o of orders) {
-    for (const i of o.items) orderItemTitleByKey.set(`${i.itemType}_${i.itemId}`, i.title);
   }
 
   return (
@@ -257,16 +137,6 @@ export function MyPurchasesPage() {
                       <span className="ml-1 text-xs text-ink-faint">· {o.items[0].accessPeriodLabel}</span>
                     )}
                     {o.couponCode && <span className="ml-1 text-xs text-ink-faint">· coupon {o.couponCode}</span>}
-                    {/* Gift orders grant the recipient access, not the
-                        buyer (see createOrder's giftDetails comment) - a
-                        buyer seeing a paid order with nothing to show for
-                        it in "Your content" below used to look broken.
-                        Phase 0's audit flagged this as a labeling gap. */}
-                    {o.giftRecipientName && (
-                      <span className="ml-1.5 inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-ink">
-                        🎁 Gift sent to {o.giftRecipientName}
-                      </span>
-                    )}
                   </td>
                   <td className="px-4 py-3 text-ink-faint">{formatDate(o.paidAt ?? o.createdAt)}</td>
                   <td className="px-4 py-3 text-ink">{formatMoney(o.amount, o.currency as 'INR' | 'USD')}</td>
@@ -293,11 +163,7 @@ export function MyPurchasesPage() {
 
       {isLoading ? (
         <p className="text-sm text-ink-faint">Loading…</p>
-      ) : (items ?? []).length === 0 &&
-        (purchasedCourses ?? []).length === 0 &&
-        !customExamBuilderPurchase &&
-        !hasCreatorOrAiPurchase &&
-        unavailableItems.length === 0 ? (
+      ) : (items ?? []).length === 0 ? (
         <div className="rounded-xl border border-dashed border-surface-border p-8 text-center">
           <p className="mb-4 text-ink-faint">You haven't purchased anything yet.</p>
           <div className="flex justify-center gap-3">
@@ -398,97 +264,6 @@ export function MyPurchasesPage() {
                   />
                 );
               })}
-            </div>
-          )}
-
-          {(purchasedCourses ?? []).length > 0 && (
-            <div className="flex flex-wrap gap-4 pt-2">
-              {purchasedCourses!.map((course) => (
-                <ProductCardShell
-                  key={`course_${course.id}`}
-                  id={course.id}
-                  itemType="course"
-                  title={course.title}
-                  category={course.category}
-                  skillLevel={course.skillLevel}
-                  ratingAvg={course.ratingAvg}
-                  ratingCount={course.ratingCount}
-                  price={course.price}
-                  originalPrice={null}
-                  currency={course.currency}
-                  coverImageUrl={course.coverImageUrl}
-                  detailHref={`/home/courses/${course.id}`}
-                  extra={<div className="mb-3 text-xs text-ink-faint">Purchased {formatDate(course.purchasedAt)}</div>}
-                  footer={
-                    <Link
-                      to={`/home/courses/${course.id}`}
-                      className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white hover:bg-brand-600"
-                    >
-                      Continue Reading →
-                    </Link>
-                  }
-                />
-              ))}
-            </div>
-          )}
-
-          {customExamBuilderPurchase && (
-            <div className="rounded-xl border border-brand-500/30 bg-surface-raised p-5 shadow-card">
-              <h3 className="text-base font-bold text-brand-ink">Bring Your Own Question Bank</h3>
-              <p className="mt-1 text-xs text-ink-faint">
-                Purchased {formatDate(customExamBuilderPurchase.purchasedAt)} · build custom exams from your own question sets
-              </p>
-              <div className="mt-3">
-                <Link
-                  to="/home/custom-exams"
-                  className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
-                >
-                  Custom Exam Builder →
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {hasCreatorOrAiPurchase && (
-            <div className="rounded-xl border border-brand-500/30 bg-surface-raised p-5 shadow-card">
-              <h3 className="text-base font-bold text-brand-ink">Creator tools</h3>
-              <p className="mt-1 text-xs text-ink-faint">
-                {heldEntitlementLabels.length > 0 ? heldEntitlementLabels.join(' · ') : 'Creator plan purchased'}
-                {creatorCredits.data && ` · ${creatorCredits.data.balance.toLocaleString()} AI credits remaining`}
-              </p>
-              <div className="mt-3">
-                <Link
-                  to="/home/creator"
-                  className="rounded-lg bg-brand-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-600"
-                >
-                  Open Creator Workspace →
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* Content this account paid for that no longer resolves in the
-              catalog (deleted, or unpublished after purchase) - Phase 0's
-              audit flagged this silently dropping from "Your content" with
-              no trace, while the receipts table above still showed it as
-              paid. Surfaced honestly rather than guessed at: the title is
-              filled in only when the matching order line item can actually
-              be found. */}
-          {unavailableItems.length > 0 && (
-            <div className="rounded-xl border border-dashed border-surface-border p-5">
-              <h3 className="text-sm font-bold text-ink-muted">No longer available</h3>
-              <p className="mt-1 text-xs text-ink-faint">
-                These were part of a paid order, but the content behind them has since been removed or unpublished. Your
-                order is still on file above - contact support if you think this is a mistake.
-              </p>
-              <ul className="mt-3 space-y-1.5">
-                {unavailableItems.map((u) => (
-                  <li key={`${u.itemType}_${u.id}`} className="flex items-center justify-between text-sm text-ink-faint">
-                    <span>{orderItemTitleByKey.get(`${u.itemType}_${u.id}`) ?? (u.itemType === 'quiz' ? 'A mock exam' : 'A practice test')}</span>
-                    <span className="text-xs">Purchased {formatDate(u.purchasedAt)}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
         </div>

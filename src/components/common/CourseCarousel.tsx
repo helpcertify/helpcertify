@@ -169,27 +169,10 @@ function CarouselCard({ item, owned, inCart, paying, onBuyNow }: CarouselCardPro
   // "go to the take page" behavior is identical either way.
   const ownedCtaLabel = item.itemType === 'quiz' ? 'Start Mock Exam' : 'Start Practice';
 
-  // A price<=0 item can't actually go through Add to Cart - api/cart.ts's
-  // addItem rejects it server-side ("This item is free, no need to add it
-  // to your cart"), so showing that button here used to fail with an
-  // error toast on click. Phase 0's audit flagged "Add to Cart" showing
-  // even on free items generally; this is the sharper, functional version
-  // of that same gap. A single "Start Free" link matches the blueprint's
-  // access-driven button rule (free, not enrolled -> Start free course/
-  // Start free practice).
-  const isFree = item.price <= 0;
-
   const footer = !owned ? (
     inCart ? (
       <Link to="/home/cart" className="block rounded-lg border border-brand-500/50 py-1.5 text-center text-sm font-semibold text-brand-ink">
         ✓ In Cart · View Cart
-      </Link>
-    ) : isFree ? (
-      <Link
-        to={href}
-        className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
-      >
-        {item.itemType === 'quiz' ? 'Start Free Mock Exam' : 'Start Free Practice'}
       </Link>
     ) : (
       <div className="flex gap-2">

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getQuizById } from '../api/studentContentApi';
@@ -6,8 +6,8 @@ import { useMyQuizAttempts } from '../hooks/useMyQuizAttempts';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
+import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
-import { PriceTag } from '@/components/common/PriceTag';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
@@ -15,9 +15,6 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
-import { TrustBadgeStrip } from '@/components/common/TrustBadgeStrip';
-import { StickyBuyBar } from '@/components/common/StickyBuyBar';
-import { RelatedItemsRow } from '../components/RelatedItemsRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { errorText } from '@/lib/errorMessages';
 
@@ -36,7 +33,6 @@ export function QuizDetailPage() {
   const pushToast = useUiStore((s) => s.pushToast);
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
-  const purchasePanelRef = useRef<HTMLDivElement>(null);
 
   const { data: quiz, isLoading } = useQuery({
     queryKey: ['student', 'quiz', quizId],
@@ -44,14 +40,7 @@ export function QuizDetailPage() {
     enabled: !!quizId,
   });
   const { data: myAttempts } = useMyQuizAttempts();
-  // A quiz can have more than one attempt doc for this learner
-  // (QuizDoc.maxAttempts), and this query has no orderBy, so picking just
-  // the first match risked surfacing an old submitted attempt instead of a
-  // live one - showing a dead-end "Already attempted" when there was
-  // actually an in-progress attempt to resume. Prefer the in-progress one
-  // whenever one exists.
-  const quizAttempts = myAttempts?.filter((a) => a.quizId === quizId) ?? [];
-  const attempt = quizAttempts.find((a) => a.status === 'in_progress') ?? quizAttempts[0] ?? null;
+  const attempt = myAttempts?.find((a) => a.quizId === quizId) ?? null;
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 
@@ -137,12 +126,17 @@ export function QuizDetailPage() {
           study-plan equivalent for a timed Mock Exam. */}
       <div className={`mb-6 grid grid-cols-1 gap-6 ${!owned && previewCount > 0 ? 'lg:grid-cols-[0.7fr_1.3fr] lg:items-start' : ''}`}>
         <div className={!owned && previewCount > 0 ? '' : 'max-w-sm'}>
-          <div ref={purchasePanelRef} className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+          <div className="rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
             <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
             {price > 0 && (
               <div className="mb-4 flex items-center justify-between gap-2">
-                <PriceTag price={price} originalPrice={quiz.originalPrice} currency={quiz.currency} size="lg" />
+                <div className="flex items-center gap-2">
+                  {quiz.originalPrice && quiz.originalPrice > price && (
+                    <span className="text-sm text-ink-faint line-through">{formatMoney(quiz.originalPrice, quiz.currency)}</span>
+                  )}
+                  <span className="text-[26px] font-bold text-ink">{formatMoney(price, quiz.currency)}</span>
+                </div>
                 {!owned && <WishlistButton itemType="quiz" itemId={quiz.id} variant="inline" />}
               </div>
             )}
@@ -204,8 +198,6 @@ export function QuizDetailPage() {
                 Start Mock Exam
               </Link>
             )}
-
-            {!owned && <TrustBadgeStrip className="mt-4 border-t border-surface-border pt-4" />}
           </div>
         </div>
 
@@ -225,21 +217,6 @@ export function QuizDetailPage() {
       </div>
 
       <ReviewsSection itemType="quiz" itemId={quiz.id} owned={owned} />
-
-      <RelatedItemsRow anchor={{ id: quiz.id, itemType: 'quiz', category: quiz.category ?? 'Other', skillLevel: quiz.skillLevel ?? 'Foundation' }} />
-
-      {!owned && !quiz.requiresEntitlement && !inCart && (
-        <StickyBuyBar
-          title={quiz.title}
-          price={price}
-          originalPrice={quiz.originalPrice}
-          currency={quiz.currency ?? 'INR'}
-          ctaLabel="Buy Now"
-          paying={paying}
-          onBuy={() => setShowBuyNow(true)}
-          watchRef={purchasePanelRef}
-        />
-      )}
 
       {showBuyNow && (
         <BuyNowModal

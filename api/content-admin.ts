@@ -1604,34 +1604,17 @@ async function archiveCertification(uid: string, body: unknown) {
   if (!snap.exists) throw Err.notFound('Certification not found');
   const existing = snap.data()!;
 
-  // Cascade to child packages - Phase 0's audit found archived
-  // certifications with packages that stayed status:'published' /
-  // isPublished:true, still purchasable even though their parent no
-  // longer showed up anywhere a learner could browse to find it.
-  // publishPackage already refuses to publish a *new* package under an
-  // unpublished certification, but nothing previously walked the other
-  // direction when the parent itself got archived after the fact.
-  const packagesSnap = await db.collection('packages').where('certificationId', '==', parsed.data.certificationId).get();
-  const batch = db.batch();
-  batch.update(ref, { status: 'archived', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
-  let archivedPackageCount = 0;
-  for (const pkgDoc of packagesSnap.docs) {
-    if (pkgDoc.data().status === 'archived') continue;
-    batch.update(pkgDoc.ref, { status: 'archived', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
-    archivedPackageCount += 1;
-  }
-  await batch.commit();
-
+  await ref.update({ status: 'archived', isPublished: false, updatedAt: FieldValue.serverTimestamp() });
   await writeAdminLog({
     performedBy: uid,
     action: 'archiveCertification',
     targetType: 'certification',
     targetId: parsed.data.certificationId,
-    description: `Archived certification "${existing.name}"${archivedPackageCount > 0 ? ` and cascaded to ${archivedPackageCount} package(s)` : ''}`,
+    description: `Archived certification "${existing.name}"`,
     previousValue: { status: existing.status },
     newValue: { status: 'archived' },
   });
-  return { success: true, archivedPackageCount };
+  return { success: true };
 }
 
 async function restoreCertification(uid: string, body: unknown) {
@@ -2022,17 +2005,6 @@ async function validatePackageRefsAndClearSiblingRecommended(
 // start", "package cannot publish without a valid price unless Free" -
 // duplicated from src/features/admin/lib/packageValidation.ts's tested
 // canonical version.
-//
-// MIN_PUBLISHABLE_PRICE_MINOR/MAX_COMPARE_AT_RATIO mirror that file's
-// isSellingPriceAboveFloor/isCompareAtRatioValid, added after Phase 0's
-// audit found ₹1/₹2 seeded test prices and implausible crossed-out
-// "regular" prices reaching the live public catalog with nothing server-
-// side to stop them (the previous check only rejected <= 0, which a ₹1/₹2
-// test value passes). ₹49 is a placeholder floor, not a real product
-// price decision - see that file's own comment.
-const MIN_PUBLISHABLE_PRICE_MINOR = 4900;
-const MAX_COMPARE_AT_RATIO = 5;
-
 function validatePackagePricing(d: {
   regularPrice: number;
   sellingPrice: number;
@@ -2051,14 +2023,6 @@ function validatePackagePricing(d: {
     throw Err.invalidArgument('Offer end must be later than offer start');
   }
   if (!d.isFree && d.sellingPrice <= 0) throw Err.invalidArgument('Selling price must be greater than zero unless this package is marked Free');
-  if (!d.isFree && d.sellingPrice > 0 && d.sellingPrice < MIN_PUBLISHABLE_PRICE_MINOR) {
-    throw Err.invalidArgument(
-      `Selling price is below the minimum publishable price (₹${MIN_PUBLISHABLE_PRICE_MINOR / 100}). Mark the package Free if it is genuinely a test/no-cost item.`
-    );
-  }
-  if (d.sellingPrice > 0 && d.regularPrice > d.sellingPrice * MAX_COMPARE_AT_RATIO) {
-    throw Err.invalidArgument(`Regular price cannot be more than ${MAX_COMPARE_AT_RATIO}x the selling price`);
-  }
 }
 
 async function createPackage(uid: string, body: unknown) {
@@ -3730,13 +3694,6 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
         quiz: ld.quiz as unknown[] | undefined,
       };
     });
-    // Phase 0's audit found a published course with zero lessons in the
-    // live catalog - nothing here stopped it (isPublished was set true
-    // unconditionally). This is the one place a course goes live, so it's
-    // the one place that needs the guard.
-    if (lessons.length === 0) {
-      throw Err.invalidArgument('This submission has no lessons - add at least one before publishing it as a course');
-    }
 
     const cover = await fetchCourseCoverImage([s.title as string, s.category as string, 'online learning course']);
     const courseRef = db.collection('courses').doc();
@@ -3778,12 +3735,6 @@ async function publishCatalogSubmission(uid: string, body: unknown) {
   }
 
   const qSnap = await ref.collection('questions').orderBy('order').get();
-  // Same zero-content guard as the course branch above, for the quiz/
-  // practice-test branches - Phase 0's audit also found a "Practice Test"-
-  // labeled record published with 0 questions.
-  if (qSnap.empty) {
-    throw Err.invalidArgument('This submission has no questions - add at least one before publishing it');
-  }
   const answerKeySnaps = await db.getAll(...qSnap.docs.map((q) => q.ref.collection('private').doc('answerKey')));
   const questions: ParsedQuestion[] = qSnap.docs.map((q, i) => ({
     order: q.data().order as number,
@@ -4387,28 +4338,6 @@ async function upsertCreatorProduct(uid: string, body: unknown) {
       if (p.offerPrice !== undefined) cur.offerPrice = p.offerPrice;
       if (p.offerStart !== undefined) cur.offerStart = p.offerStart ? Timestamp.fromDate(new Date(p.offerStart)) : null;
       if (p.offerEnd !== undefined) cur.offerEnd = p.offerEnd ? Timestamp.fromDate(new Date(p.offerEnd)) : null;
-      // Same floor/compare-at-ratio/offer-window guards packages get from
-      // validatePackagePricing (added after Phase 0's audit found ₹1/₹2
-      // seeded prices reaching the live catalog) - never applied here,
-      // which is very likely the direct cause of creator plans showing the
-      // same implausible ₹2/month prices that audit was about. Validated
-      // against the post-merge state (not just this call's partial patch)
-      // so a call that only touches, say, offerPrice still gets checked
-      // against whatever sellingPrice/regularPrice are already on file.
-      // isFree: true because creator plans have no free/paid toggle -
-      // passing it suppresses only the "must be > 0" requirement (which
-      // doesn't apply to a plan an admin hasn't priced yet; checkout's own
-      // "That plan has no price set" guard already covers a $0 plan at
-      // purchase time), while the floor/ratio checks still apply whenever
-      // a real sellingPrice is actually on the merged plan.
-      validatePackagePricing({
-        regularPrice: (cur.regularPrice as number | undefined) ?? 0,
-        sellingPrice: (cur.sellingPrice as number | undefined) ?? 0,
-        offerPrice: (cur.offerPrice as number | null | undefined) ?? null,
-        offerStart: cur.offerStart instanceof Timestamp ? cur.offerStart.toDate().toISOString() : null,
-        offerEnd: cur.offerEnd instanceof Timestamp ? cur.offerEnd.toDate().toISOString() : null,
-        isFree: true,
-      });
       merged[key] = cur;
     }
     update.plans = merged;

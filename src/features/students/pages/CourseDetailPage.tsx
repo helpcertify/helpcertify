@@ -1,18 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getCourseById, courseApi } from '../api/courseApi';
 import { cartApi } from '../api/cartApi';
 import { useCheckout } from '../hooks/useCheckout';
 import { useUiStore } from '@/store/useUiStore';
-import { PriceTag } from '@/components/common/PriceTag';
+import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
 import { StarRating } from '@/components/common/StarRating';
-import { TrustBadgeStrip } from '@/components/common/TrustBadgeStrip';
-import { StickyBuyBar } from '@/components/common/StickyBuyBar';
-import { RelatedItemsRow } from '../components/RelatedItemsRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { CourseLessonReader } from '../components/CourseLessonReader';
 import { errorText } from '@/lib/errorMessages';
@@ -27,7 +24,6 @@ export function CourseDetailPage() {
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
-  const purchasePanelRef = useRef<HTMLDivElement>(null);
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['student', 'course', courseId],
@@ -143,31 +139,16 @@ export function CourseDetailPage() {
       </div>
 
       {!owned && (
-        <div ref={purchasePanelRef} className="mb-6 max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
+        <div className="mb-6 max-w-sm rounded-xl border border-surface-border bg-surface-raised p-6 shadow-card">
           <h2 className="mb-4 text-[15px] font-bold uppercase tracking-wide text-brand-ink">Course Access</h2>
 
           {price > 0 && (
-            <div className="mb-4">
-              <PriceTag price={price} originalPrice={course.originalPrice} currency={course.currency} size="lg" />
+            <div className="mb-4 flex items-center gap-2">
+              {course.originalPrice && course.originalPrice > price && (
+                <span className="text-sm text-ink-faint line-through">{formatMoney(course.originalPrice, course.currency)}</span>
+              )}
+              <span className="text-[26px] font-bold text-ink">{formatMoney(price, course.currency)}</span>
             </div>
-          )}
-
-          {/* Section 4's "access and refund terms" line - real data
-              (accessPeriodDays already gates entitlement server-side) and
-              a link to the real refund policy, not invented copy. Shown
-              above the CTA since it's part of the purchase decision. */}
-          <p className="mb-4 text-xs text-ink-faint">
-            {course.accessPeriodDays > 0 ? `${course.accessPeriodDays} days access` : 'Lifetime access'} ·{' '}
-            <a href="/refund" target="_blank" rel="noopener" className="underline hover:text-ink-muted">
-              Refund policy
-            </a>
-          </p>
-
-          {course.previewLessonCount > 0 && (
-            <p className="mb-4 rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-ink">
-              Preview the first {course.previewLessonCount} lesson{course.previewLessonCount === 1 ? '' : 's'} free below,
-              before you buy.
-            </p>
           )}
 
           {inCart ? (
@@ -198,8 +179,6 @@ export function CourseDetailPage() {
               </button>
             </div>
           )}
-
-          <TrustBadgeStrip className="mt-4 border-t border-surface-border pt-4" />
         </div>
       )}
 
@@ -272,21 +251,6 @@ export function CourseDetailPage() {
             )}
           </div>
         </div>
-      )}
-
-      <RelatedItemsRow anchor={{ id: course.id, itemType: 'course', category: course.category ?? 'Other', skillLevel: course.skillLevel ?? 'Foundation' }} />
-
-      {!owned && !inCart && (
-        <StickyBuyBar
-          title={course.title}
-          price={price}
-          originalPrice={course.originalPrice}
-          currency={course.currency ?? 'INR'}
-          ctaLabel="Buy Now"
-          paying={paying}
-          onBuy={() => setShowBuyNow(true)}
-          watchRef={purchasePanelRef}
-        />
       )}
 
       {showBuyNow && (

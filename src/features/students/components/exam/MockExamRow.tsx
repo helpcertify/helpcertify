@@ -13,21 +13,21 @@ export interface MockExamRowModel {
 
 // One row in the per-certification detail page's "Mock Exams" tab.
 // takeHref -> the existing /quizzes/:id/take route (Start / Continue);
-// resultHref -> /home/past-quizzes/:id (View Results). A locked mock gets no
-// button at all - the purchase panel is already visible on the same page -
-// just its question count as plain text (see examCta's comment).
+// resultHref -> /home/past-quizzes/:id (View Results); locked -> plans modal.
 export function MockExamRow({
   mock,
   takeHref,
   resultHref,
+  onViewPlans,
 }: {
   mock: MockExamRowModel;
   takeHref: string;
   resultHref: string;
+  onViewPlans: () => void;
 }) {
   const facts = `${mock.totalQuestions} Questions · ${formatDuration(mock.durationMinutes)}`;
   const sub = (() => {
-    if (mock.status === 'locked') return facts;
+    if (mock.status === 'locked') return 'Locked';
     if (mock.status === 'in_progress') return 'In progress · resume where you left off';
     return facts;
   })();
@@ -46,13 +46,7 @@ export function MockExamRow({
         </div>
         <div className="mt-0.5 text-xs text-ink-faint">{sub}</div>
       </div>
-      {mock.status === 'locked' ? (
-        <span className="shrink-0 text-xs font-semibold text-ink-faint [font-variant-numeric:tabular-nums]">
-          {mock.totalQuestions.toLocaleString()} Question{mock.totalQuestions === 1 ? '' : 's'}
-        </span>
-      ) : (
-        <ExamRowCta cta={examCta(mock.status, 'mock', href)} />
-      )}
+      <ExamRowCta cta={examCta(mock.status, 'mock', href)} onViewPlans={onViewPlans} />
     </div>
   );
 }

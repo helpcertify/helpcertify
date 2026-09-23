@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CertificationPlansModal } from './CertificationPlansModal';
-import { PriceTag } from './PriceTag';
+import { formatMoney } from '@/utils/currency';
 import {
   summarizeCertificationPrep,
   type CatalogCertification,
@@ -25,19 +25,12 @@ interface Props {
 
 // One card in the learner home page's "Prepare for Your Certification"
 // row. The whole card is clickable (like the course cards) and opens the
-// certification's detail page - where the actual package selector and
-// Buy/Continue controls live (see CertificationPurchasePanel). This
-// button never adds anything to a cart itself, whatever it's owned or
-// not, so its label follows the blueprint's access-driven button rule
-// instead of describing an action it doesn't perform:
-//   - nothing owned yet -> "View Plans" (paid, no entitlement)
-//   - at least one package active -> "Continue" (active entitlement)
+// certification's detail page; "View Plans" is a separate control that
+// opens the package selector / Buy popup without leaving the page.
 export function CertificationPrepCard({ certification }: Props) {
   const [open, setOpen] = useState(false);
   const summary = summarizeCertificationPrep(certification);
   const iconPath = FALLBACK_ICON[certification.iconKey] ?? FALLBACK_ICON.generic;
-  const anyOwned = certification.packages.some((p) => p.state === 'ACTIVE');
-  const ctaLabel = anyOwned ? 'Continue' : 'View Plans';
 
   const meta: string[] = [];
   if (summary.practiceQuestions > 0) meta.push(`${summary.practiceQuestions.toLocaleString()} practice questions`);
@@ -54,22 +47,21 @@ export function CertificationPrepCard({ certification }: Props) {
 
   return (
     <div className="relative flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
-      {/* Fixed-height cover - the top ~half of the card, matching
-          ProductCardShell's h-36 cover so every card on the page (and every
-          browsable card app-wide) keeps the same footprint. */}
+      {/* Fixed-height cover - the top ~half of the card, matching the course
+          cards' cover so every card on the page keeps the same footprint. */}
       {certification.coverImageUrl ? (
-        <div className="h-36 overflow-hidden">
+        <div className="h-32 overflow-hidden">
           <img src={certification.coverImageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
         </div>
       ) : (
-        <div className="flex h-36 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
+        <div className="flex h-32 items-center justify-center bg-gradient-to-br from-brand-500/15 to-brand-500/5">
           <svg viewBox="0 0 24 24" className="h-12 w-12 text-brand-500" fill="currentColor" aria-hidden="true">
             <path d={iconPath} />
           </svg>
         </div>
       )}
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-3">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{certification.provider}</div>
         <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{certification.name}</h3>
 
@@ -83,9 +75,8 @@ export function CertificationPrepCard({ certification }: Props) {
 
         <div className="mt-2">
           {summary.fromPrice !== null ? (
-            <span className="flex items-baseline gap-1.5">
-              <span className="text-xs text-ink-muted">From</span>
-              <PriceTag price={summary.fromPrice} originalPrice={summary.fromOriginalPrice} currency={summary.currency} size="sm" />
+            <span className="text-sm text-ink-muted">
+              From <span className="text-base font-bold text-ink">{formatMoney(summary.fromPrice, summary.currency)}</span>
             </span>
           ) : (
             <span className="text-sm font-semibold text-ink-faint">Coming soon</span>
@@ -97,7 +88,7 @@ export function CertificationPrepCard({ certification }: Props) {
             to={detailHref}
             className="relative z-10 mt-3 block w-full rounded-lg border border-brand-500 bg-surface-raised py-2 text-center text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-50"
           >
-            {ctaLabel}
+            View Plans
           </Link>
         ) : (
           <button
@@ -105,15 +96,15 @@ export function CertificationPrepCard({ certification }: Props) {
             onClick={() => setOpen(true)}
             className="mt-3 w-full rounded-lg bg-brand-500 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600"
           >
-            {ctaLabel}
+            View Plans
           </button>
         )}
       </div>
 
       {/* Whole-card click target. Rendered last so it sits over the static
-          content for click-catching; the View Plans/Continue button is
-          lifted above it with z-10. Only when there is a detail page to
-          go to - otherwise the button above is the only action. */}
+          content for click-catching; the "View Plans" button is lifted
+          above it with z-10. Only when there is a detail page to go to -
+          otherwise the button above is the only action. */}
       {detailHref && (
         <Link to={detailHref} className="absolute inset-0" aria-label={`${certification.name} details`}>
           <span className="sr-only">Open {certification.name}</span>

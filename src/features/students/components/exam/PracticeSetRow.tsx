@@ -14,10 +14,16 @@ export interface PracticeSetRowModel {
 
 // One row in the per-certification detail page's "Practice Sets" tab.
 // takeHref is where Start / Continue / Review go (an existing
-// /practice-tests/:id/take route). A locked set gets no button at all - the
-// purchase panel is already visible on the same page - just its question
-// count as plain text (see examCta's comment).
-export function PracticeSetRow({ set, takeHref }: { set: PracticeSetRowModel; takeHref: string }) {
+// /practice-tests/:id/take route); the locked CTA opens the plans modal.
+export function PracticeSetRow({
+  set,
+  takeHref,
+  onViewPlans,
+}: {
+  set: PracticeSetRowModel;
+  takeHref: string;
+  onViewPlans: () => void;
+}) {
   const pct = set.totalQuestions > 0 ? (set.answered / set.totalQuestions) * 100 : 0;
 
   const sub = (() => {
@@ -46,13 +52,7 @@ export function PracticeSetRow({ set, takeHref }: { set: PracticeSetRowModel; ta
           {set.status === 'in_progress' && <ExamProgressBar pct={pct} className="mt-1.5 max-w-[220px]" />}
         </div>
       </div>
-      {set.status === 'locked' ? (
-        <span className="shrink-0 text-xs font-semibold text-ink-faint [font-variant-numeric:tabular-nums]">
-          {set.totalQuestions.toLocaleString()} Question{set.totalQuestions === 1 ? '' : 's'}
-        </span>
-      ) : (
-        <ExamRowCta cta={examCta(set.status, 'practice', takeHref)} />
-      )}
+      <ExamRowCta cta={examCta(set.status, 'practice', takeHref)} onViewPlans={onViewPlans} />
     </div>
   );
 }

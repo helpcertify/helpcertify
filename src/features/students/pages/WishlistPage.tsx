@@ -57,12 +57,7 @@ export function WishlistPage() {
         <div className="flex flex-wrap gap-4">
           {items.map((item) => {
             const inCart = inCartSet.has(`${item.itemType}_${item.itemId}`);
-            const detailHref =
-              item.itemType === 'quiz'
-                ? `/home/quizzes/${item.itemId}`
-                : item.itemType === 'course'
-                  ? `/home/courses/${item.itemId}`
-                  : `/home/practice-tests/${item.itemId}`;
+            const detailHref = item.itemType === 'quiz' ? `/home/quizzes/${item.itemId}` : `/home/practice-tests/${item.itemId}`;
             const footer =
               item.price === 0 ? (
                 <Link to={detailHref} className="block rounded-lg bg-brand-500 py-1.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-600">

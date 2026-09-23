@@ -6,7 +6,6 @@
     { "source": "/reset-password", "destination": "/app.html" },
     { "source": "/verify-email", "destination": "/app.html" },
     { "source": "/verify/:path*", "destination": "/app.html" },
-    { "source": "/gift/:path*", "destination": "/app.html" },
     { "source": "/search", "destination": "/app.html" },
     { "source": "/home", "destination": "/app.html" },
     { "source": "/home/:path*", "destination": "/app.html" },
@@ -50,7 +49,6 @@
     "api/content-admin.ts": { "maxDuration": 60 }
   },
   "crons": [
-    { "path": "/api/admin", "schedule": "0 2 * * *" },
-    { "path": "/api/checkout", "schedule": "0 3 * * *" }
+    { "path": "/api/admin", "schedule": "0 2 * * *" }
   ]
 }

@@ -1,6 +1,5 @@
 import { formatMoney, type SupportedCurrency } from '@/utils/currency';
 import { accessPeriodLabel } from '../lib/accessPeriod';
-import { PriceTag } from '@/components/common/PriceTag';
 
 export interface OrderSummaryItem {
   key: string;
@@ -53,17 +52,20 @@ export function OrderSummary({
                   Access period: {accessPeriodLabel(i.accessPeriodDays)}
                 </div>
               </div>
-              <div className="shrink-0">
-                <PriceTag price={i.price} originalPrice={i.originalPrice} currency={currency} size="sm" showDiscountBadge={false} className="justify-end" />
+              <div className="shrink-0 text-right">
+                {i.originalPrice && i.originalPrice > i.price && (
+                  <div className="text-xs text-ink-faint line-through">{formatMoney(i.originalPrice, currency)}</div>
+                )}
+                <div className="font-semibold text-ink">{formatMoney(i.price, currency)}</div>
               </div>
             </div>
           </li>
         ))}
       </ul>
       {typeof total === 'number' && (
-        <div className="mt-3 flex items-baseline justify-between border-t border-surface-border pt-3 text-ink">
-          <span className="text-sm font-semibold">Total</span>
-          <span className="text-lg font-extrabold tracking-tight [font-variant-numeric:tabular-nums]">{formatMoney(total, currency)}</span>
+        <div className="mt-3 flex justify-between border-t border-surface-border pt-3 text-sm font-semibold text-ink">
+          <span>Total</span>
+          <span>{formatMoney(total, currency)}</span>
         </div>
       )}
       <p className="mt-3 text-xs text-ink-faint">

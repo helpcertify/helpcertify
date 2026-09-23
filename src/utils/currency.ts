@@ -27,17 +27,6 @@ export function minorToMajor(minor: number): number {
   return minor / 100;
 }
 
-// The one place "N% off" is computed from a real price/originalPrice pair -
-// PriceTag's badge and ProductCardShell's cover-image deal ribbon both call
-// this rather than each rolling their own rounding, so a card's ribbon and
-// its own price badge can never disagree. Returns 0 (no discount) whenever
-// originalPrice is missing or not actually higher than price - never a
-// negative or fabricated number.
-export function discountPercent(price: number, originalPrice: number | null | undefined): number {
-  if (!originalPrice || originalPrice <= price) return 0;
-  return Math.round(((originalPrice - price) / originalPrice) * 100);
-}
-
 // Refer & Earn's rewards (and admin-created coupons generally) can be a
 // flat amount or a percentage, admin-configurable - one place to format
 // either, rather than duplicating the flat-vs-percent branch everywhere a

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import type { CertificationIconKey } from '@/types/models';
 import { WishlistButton } from '@/components/common/WishlistButton';
-import { PriceTag } from '@/components/common/PriceTag';
+import { formatMoney } from '@/utils/currency';
 import { ExamProgressBar } from './ExamProgressBar';
 import { ExamStatusBadge } from './ExamStatusBadge';
 import { ExamRowCta } from './ExamRowCta';
@@ -76,14 +76,13 @@ function MetaLine({ model }: { model: ExamCardModel }) {
 function ProgressBlock({ model }: { model: ExamCardModel }) {
   if (model.status === 'locked') {
     return (
-      <div>
+      <div className="text-xs text-ink-faint">
         {model.fromPrice != null ? (
-          <span className="flex items-baseline gap-1.5">
-            <span className="text-xs text-ink-faint">From</span>
-            <PriceTag price={model.fromPrice} currency={model.currency} size="sm" />
-          </span>
+          <>
+            From <span className="font-bold text-ink">{formatMoney(model.fromPrice, model.currency)}</span>
+          </>
         ) : (
-          <span className="text-xs text-ink-faint">Included with a certification plan</span>
+          'Included with a certification plan'
         )}
       </div>
     );
@@ -110,21 +109,19 @@ export function ExamProductCard({
   model,
   detailHref,
   layout = 'grid',
+  onViewPlans,
 }: {
   model: ExamCardModel;
   detailHref: string;
   layout?: 'grid' | 'list';
+  onViewPlans: () => void;
 }) {
-  // A locked card gets no CTA button at all - it can't be bought
-  // individually, and MetaLine above already shows its question/set count;
-  // the card is a link to the certification detail page either way (see
-  // examCta's comment on why "View Plans" was dropped from every row/card).
-  const cta = model.status === 'locked' ? null : examCta(model.status, model.kind, detailHref);
+  const cta = examCta(model.status, model.kind, detailHref);
   const wishlistItemType = model.kind === 'practice' ? 'practiceTest' : 'quiz';
 
   if (layout === 'list') {
     return (
-      <div className="relative flex flex-col gap-4 rounded-[14px] border border-surface-border bg-surface-raised p-3 shadow-card transition-colors hover:border-brand-500/30 sm:flex-row sm:items-center">
+      <div className="relative flex flex-col gap-4 rounded-xl border border-surface-border bg-surface-raised p-3 shadow-card transition-colors hover:border-brand-500/30 sm:flex-row sm:items-center">
         <Link to={detailHref} className="absolute inset-0 z-0" aria-label={model.name} />
         <Cover model={model} className="h-28 w-full shrink-0 rounded-lg sm:h-24 sm:w-40" />
         <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-1.5">
@@ -138,11 +135,9 @@ export function ExamProductCard({
           <MetaLine model={model} />
           <ProgressBlock model={model} />
         </div>
-        {cta && (
-          <div className="relative z-10 flex shrink-0 items-center">
-            <ExamRowCta cta={cta} size="md" />
-          </div>
-        )}
+        <div className="relative z-10 flex shrink-0 items-center">
+          <ExamRowCta cta={cta} onViewPlans={onViewPlans} size="md" />
+        </div>
         <WishlistButton
           itemType={wishlistItemType}
           itemId={model.favoriteItemId}
@@ -153,25 +148,21 @@ export function ExamProductCard({
     );
   }
 
-  // Same card frame as ProductCardShell (Home/Courses/Saved Items) - fixed
-  // w-60/sm:w-72 width, rounded-[14px] corners, same shadow/hover lift, same
-  // h-36 cover height - so a Practice/Mock Exams card reads as the same card
-  // as everywhere else in the app, not a visually distinct one-off.
   return (
-    <div className="relative flex w-60 shrink-0 flex-col overflow-hidden rounded-[14px] border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[3px] hover:border-brand-500/30 hover:shadow-[0_8px_20px_rgba(21,94,239,0.12)] sm:w-72">
+    <div className="relative flex flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-card transition-all duration-150 hover:-translate-y-[2px] hover:border-brand-500/30 hover:shadow-pop">
       <Link to={detailHref} className="absolute inset-0 z-0" aria-label={model.name} />
       <div className="relative">
-        <Cover model={model} className="h-36 w-full" />
-        <ExamStatusBadge status={model.status} className="absolute left-3 top-3 z-10" />
+        <Cover model={model} className="h-32 w-full" />
+        <ExamStatusBadge status={model.status} className="absolute left-2 top-2 z-10" />
         <WishlistButton
           itemType={wishlistItemType}
           itemId={model.favoriteItemId}
           variant="overlay"
-          className="absolute right-3 top-3 z-10"
+          className="absolute right-2 top-2 z-10"
         />
       </div>
 
-      <div className="relative z-10 flex flex-1 flex-col gap-2 p-4">
+      <div className="relative z-10 flex flex-1 flex-col gap-2 p-3.5">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{model.provider}</div>
           <h3 className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{model.name}</h3>
@@ -179,7 +170,7 @@ export function ExamProductCard({
         <MetaLine model={model} />
         <div className="mt-auto space-y-2.5 pt-1">
           <ProgressBlock model={model} />
-          {cta && <ExamRowCta cta={cta} size="md" fullWidth />}
+          <ExamRowCta cta={cta} onViewPlans={onViewPlans} size="md" fullWidth />
         </div>
       </div>
     </div>

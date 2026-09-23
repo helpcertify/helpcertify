@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -10,7 +10,7 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { toDate, formatShortDate } from '@/utils/formatDate';
-import { PriceTag } from '@/components/common/PriceTag';
+import { formatMoney } from '@/utils/currency';
 import { BuyNowModal } from '@/components/common/BuyNowModal';
 import { Spinner } from '@/components/common/Spinner';
 import { CourseIcon } from '@/components/common/CourseIcon';
@@ -19,10 +19,7 @@ import { ReviewsSection } from '@/components/common/ReviewsSection';
 import { PreviewQuestions } from '@/components/common/PreviewQuestions';
 import { FreePreviewCallout } from '@/components/common/FreePreviewCallout';
 import { WishlistButton } from '@/components/common/WishlistButton';
-import { TrustBadgeStrip } from '@/components/common/TrustBadgeStrip';
-import { StickyBuyBar } from '@/components/common/StickyBuyBar';
 import { StudyGoalPanel } from '../components/StudyGoalPanel';
-import { RelatedItemsRow } from '../components/RelatedItemsRow';
 import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { computeExamDatePlan, computePacePlan, questionsPerDayFromMinutes, calendarDaysBetween } from '../lib/studyPlan';
 import type { PracticeConfidence } from '@/types/models';
@@ -62,7 +59,6 @@ export function PracticeTestDetailPage() {
   const { checkout, paying, confirmation } = useCheckout();
   const [showBuyNow, setShowBuyNow] = useState(false);
   const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_of_session'>('immediate');
-  const purchasePanelRef = useRef<HTMLDivElement>(null);
   // Inline goal-setup, not a separate page/route - every other entry point
   // (the Practice Exams card, its hover popover, the dashboard nudge, the
   // purchase-success modal) links here with ?goal=1 rather than to a
@@ -340,20 +336,18 @@ export function PracticeTestDetailPage() {
         </div>
       ) : (
         <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-[0.7fr_1.3fr] lg:items-start">
-          <div ref={purchasePanelRef}>
-            <CourseAccessCard
-              test={test}
-              price={price}
-              state={state}
-              owned={owned}
-              entitlementLocked={entitlementLocked}
-              inCart={inCart}
-              paying={paying}
-              addingToCart={addToCartMutation.isPending}
-              onAddToCart={() => addToCartMutation.mutate(test.id)}
-              onBuyNow={() => setShowBuyNow(true)}
-            />
-          </div>
+          <CourseAccessCard
+            test={test}
+            price={price}
+            state={state}
+            owned={owned}
+            entitlementLocked={entitlementLocked}
+            inCart={inCart}
+            paying={paying}
+            addingToCart={addToCartMutation.isPending}
+            onAddToCart={() => addToCartMutation.mutate(test.id)}
+            onBuyNow={() => setShowBuyNow(true)}
+          />
           {previewCount > 0 ? (
             <div className="space-y-4">
               <FreePreviewCallout />
@@ -395,23 +389,6 @@ export function PracticeTestDetailPage() {
       )}
 
       <ReviewsSection itemType="practiceTest" itemId={test.id} owned={owned} />
-
-      <RelatedItemsRow
-        anchor={{ id: test.id, itemType: 'practiceTest', category: test.category ?? 'Other', skillLevel: test.skillLevel ?? 'Foundation' }}
-      />
-
-      {!owned && !entitlementLocked && state === 'available' && !inCart && (
-        <StickyBuyBar
-          title={test.title}
-          price={price}
-          originalPrice={test.originalPrice}
-          currency={test.currency ?? 'INR'}
-          ctaLabel="Buy Now"
-          paying={paying}
-          onBuy={() => setShowBuyNow(true)}
-          watchRef={purchasePanelRef}
-        />
-      )}
 
       {showBuyNow && (
         <BuyNowModal
@@ -503,14 +480,7 @@ function PracticeSetupCard({
         <div className="rounded-lg border border-surface-border bg-brand-50 p-4 text-center">
           <div className="mb-1 text-sm font-bold text-ink">🎯 Question Bank Complete</div>
           <p className="mb-3 text-xs text-ink-faint">
-            {/* Explicitly "Lifetime accuracy" - this is cumulative
-                correct/attempts across every session ever run on this test
-                (see overallAccuracy above), not this one session's score.
-                Phase 0's audit found an unlabeled "Accuracy: N%" here read
-                as contradicting a just-finished session's own 100%-style
-                result, which is a *different*, session-scoped number (see
-                PracticeTakingPage's own "Accuracy" label). */}
-            You've practiced all {test.totalQuestions} questions. Lifetime accuracy: {accuracy}%
+            You've practiced all {test.totalQuestions} questions. Accuracy: {accuracy}%
             {incorrectCount > 0 && ` · ${incorrectCount} question${incorrectCount === 1 ? '' : 's'} to review`}
           </p>
           <div className="flex flex-col gap-2">
@@ -644,7 +614,12 @@ function CourseAccessCard({
 
       {price > 0 && (
         <div className="mb-4 flex items-center justify-between gap-2">
-          <PriceTag price={price} originalPrice={test.originalPrice} currency={test.currency} size="lg" />
+          <div className="flex items-center gap-2">
+            {test.originalPrice && test.originalPrice > price && (
+              <span className="text-sm text-ink-faint line-through">{formatMoney(test.originalPrice, test.currency)}</span>
+            )}
+            <span className="text-[26px] font-bold text-ink">{formatMoney(price, test.currency)}</span>
+          </div>
           {!owned && <WishlistButton itemType="practiceTest" itemId={test.id} variant="inline" />}
         </div>
       )}
@@ -688,8 +663,6 @@ function CourseAccessCard({
           </button>
         </div>
       )}
-
-      {!owned && <TrustBadgeStrip className="mt-4 border-t border-surface-border pt-4" />}
     </div>
   );
 }

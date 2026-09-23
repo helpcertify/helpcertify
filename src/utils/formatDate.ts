@@ -37,16 +37,3 @@ export function formatShortDate(value: unknown): string {
   const month = date.toLocaleDateString('en-US', { month: 'short' });
   return `${day}-${month}-${date.getFullYear()}`;
 }
-
-// Drives ProductCardShell's "New" badge - true only for a real createdAt
-// within the last `days`, never a fabricated freshness signal. `now`
-// defaults to the real clock; a caller can pass a fixed instant for a
-// deterministic test.
-const NEW_BADGE_WINDOW_DAYS = 14;
-
-export function isRecentlyPublished(createdAt: unknown, now: Date = new Date(), days = NEW_BADGE_WINDOW_DAYS): boolean {
-  const date = toDate(createdAt);
-  if (Number.isNaN(date.getTime())) return false;
-  const ageMs = now.getTime() - date.getTime();
-  return ageMs >= 0 && ageMs <= days * 24 * 60 * 60 * 1000;
-}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { checkoutApi, type GiftOrderDetails } from '../api/cartApi';
+import { checkoutApi } from '../api/cartApi';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useUiStore } from '@/store/useUiStore';
 import { openRazorpayCheckout } from '@/lib/razorpay';
@@ -27,12 +27,7 @@ export function useCheckout() {
   const pushToast = useUiStore((s) => s.pushToast);
   const queryClient = useQueryClient();
   const [paying, setPaying] = useState(false);
-  const [justPurchased, setJustPurchased] = useState<{
-    items: CheckoutItem[];
-    amount: number;
-    currency: string;
-    giftRecipientName?: string;
-  } | null>(null);
+  const [justPurchased, setJustPurchased] = useState<{ items: CheckoutItem[]; amount: number; currency: string } | null>(null);
 
   const checkout = async (opts: {
     items: CheckoutItem[];
@@ -42,11 +37,6 @@ export function useCheckout() {
     unlockCode?: string;
     useCredit?: boolean;
     referralCode?: string;
-    // When set, this order grants nothing to the buyer - only the
-    // recipient, once they claim it (see api/checkout.ts's giftDetails
-    // handling). The confirmation modal below switches to "gift sent"
-    // messaging instead of "unlocked on your account".
-    giftDetails?: GiftOrderDetails;
   }) => {
     setPaying(true);
     try {
@@ -57,7 +47,6 @@ export function useCheckout() {
         unlockCode: opts.unlockCode,
         useCredit: opts.useCredit,
         referralCode: opts.referralCode,
-        giftDetails: opts.giftDetails,
       });
       await openRazorpayCheckout({
         keyId: order.keyId,
@@ -70,12 +59,7 @@ export function useCheckout() {
         onSuccess: async (response) => {
           try {
             await checkoutApi.verifyPayment({ orderId: order.orderId, ...response });
-            setJustPurchased({
-              items: opts.items,
-              amount: order.amount,
-              currency: order.currency,
-              giftRecipientName: opts.giftDetails?.recipientName,
-            });
+            setJustPurchased({ items: opts.items, amount: order.amount, currency: order.currency });
             queryClient.invalidateQueries({ queryKey: ['student', 'cart'] });
             queryClient.invalidateQueries({ queryKey: ['student', 'purchases'] });
             queryClient.invalidateQueries({ queryKey: ['student', 'certificationCatalog'] });
@@ -104,7 +88,6 @@ export function useCheckout() {
       items={justPurchased.items}
       amountPaid={justPurchased.amount}
       currency={justPurchased.currency}
-      giftRecipientName={justPurchased.giftRecipientName}
       onClose={() => setJustPurchased(null)}
     />
   ) : null;

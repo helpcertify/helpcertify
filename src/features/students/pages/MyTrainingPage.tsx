@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { myTrainingApi } from '@/features/trainer/api/trainerApi';
-import { EmptyState } from '@/components/ui';
 
 // "My Training" ("/home/my-training") - Phase 1A's whole learner-facing
 // surface for Trainer / Mentored Learning: the programs a learner belongs
@@ -23,22 +22,7 @@ export function MyTrainingPage() {
 
       {isLoading && <p className="mt-6 text-sm text-ink-faint">Loading…</p>}
       {!isLoading && programs.length === 0 && (
-        // Phase 0's audit flagged this page's empty state (a bare
-        // sentence, no next action) among a few others across the app.
-        // Membership here is trainer-assigned only (no self-serve join),
-        // so the "next step" is explaining that rather than a browse
-        // link - the closest genuinely useful action is Practice/Mock
-        // Exams, which every learner can start on their own regardless.
-        <EmptyState
-          className="mt-6"
-          title="You're not on any training program yet"
-          hint="A trainer adds you to a program and assigns content - there's nothing to set up here yourself. In the meantime, you can still practice on your own."
-          action={
-            <Link to="/home/practice-tests" className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">
-              Browse Practice Exams
-            </Link>
-          }
-        />
+        <p className="mt-6 text-sm text-ink-faint">You're not on any training program yet.</p>
       )}
 
       <div className="mt-6 space-y-4">

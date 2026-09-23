@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   isPriceNonNegative,
-  isSellingPriceAboveFloor,
-  isCompareAtRatioValid,
-  MIN_PUBLISHABLE_PRICE_MINOR,
   isOfferPriceValid,
   isOfferWindowValid,
   isValidityDaysValid,
@@ -21,31 +18,6 @@ describe('isPriceNonNegative', () => {
   it('allows zero and positive prices', () => {
     expect(isPriceNonNegative(0)).toBe(true);
     expect(isPriceNonNegative(199900)).toBe(true);
-  });
-});
-
-describe('isSellingPriceAboveFloor', () => {
-  it('rejects a ₹1/₹2-style test price on a non-Free package', () => {
-    expect(isSellingPriceAboveFloor(100, false)).toBe(false);
-    expect(isSellingPriceAboveFloor(200, false)).toBe(false);
-  });
-  it('allows a price at or above the floor', () => {
-    expect(isSellingPriceAboveFloor(MIN_PUBLISHABLE_PRICE_MINOR, false)).toBe(true);
-    expect(isSellingPriceAboveFloor(199900, false)).toBe(true);
-  });
-  it('exempts a package explicitly marked Free', () => expect(isSellingPriceAboveFloor(0, true)).toBe(true));
-});
-
-describe('isCompareAtRatioValid', () => {
-  it('allows an unpriced draft (selling price 0) regardless of regular price', () => {
-    expect(isCompareAtRatioValid(500000, 0)).toBe(true);
-  });
-  it('rejects a regular price implying more than an 80% discount', () => {
-    expect(isCompareAtRatioValid(50000, 100)).toBe(false); // 500x a ₹1 selling price
-  });
-  it('allows a regular price within the 5x cap', () => {
-    expect(isCompareAtRatioValid(499500, 99900)).toBe(true); // 5x, exactly at the cap
-    expect(isCompareAtRatioValid(149900, 99900)).toBe(true); // ~33% off
   });
 });
 

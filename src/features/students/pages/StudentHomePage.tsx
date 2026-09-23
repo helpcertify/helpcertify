@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { listAvailableCourses } from '../api/courseApi';
-import { cartApi } from '../api/cartApi';
-import { activePurchaseKeys } from '../lib/purchaseAccess';
 import { RecommendedCourses } from '../components/RecommendedCourses';
 import { CourseRow, type CourseRowItem } from '@/components/common/CourseRow';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
@@ -9,8 +7,6 @@ import { useExamCountdowns } from '../hooks/useExamCountdowns';
 import { CertificationPrepSection } from '../components/CertificationPrepSection';
 import { Avatar } from '@/components/common/Avatar';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
-import { CartReminderBanner } from '../components/CartReminderBanner';
-import { JumpBackIn } from '../components/JumpBackIn';
 
 // A time-of-day greeting reads as personal without needing any extra data
 // collection: `new Date()` in the browser already reflects the learner's own
@@ -23,29 +19,21 @@ function timeOfDayGreeting(hour: number): string {
   return 'Good night';
 }
 
-// The learner home page. "Jump back in" leads (per the blueprint's Learner
-// Home spec: Continue where you left off, first, before any recommendation) -
-// it used to live on My Profile instead ("so Home stays focused on
-// browsing/buying"), but showing it on both pages would just recreate the
-// duplicate-resume-card problem the blueprint calls out elsewhere, so it now
-// lives here only. The rest of the activity/progress picture (Your Study
-// Plan, My Exams, Performance Summary, Recent Attempts) stays on My Profile
-// (see ProfilePage.tsx / ProfileActivitySections.tsx).
+// The learner home page - focused on browsing and buying exam preparation.
+// The learner's in-progress work ("Jump back in"), study goal and full
+// activity/progress picture (Your Study Plan, My Exams, Performance
+// Summary, Recent Attempts) all live on My Profile (see ProfilePage.tsx /
+// ProfileActivitySections.tsx).
 export function StudentHomePage() {
   const profile = useAuthStore((s) => s.profile);
 
   const { data: allCourses } = useQuery({ queryKey: ['student', 'availableCourses'], queryFn: listAvailableCourses });
-  const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: examCountdowns } = useExamCountdowns();
 
   const nearestExam = examCountdowns?.[0] ?? null;
-  const purchasedSet = activePurchaseKeys(purchases?.purchases);
 
   // "New courses" - the most recently created published courses, newest
-  // first. createdAt predates some course docs, so fall back to 0. Newest
-  // can include courses the learner already owns, so each item carries its
-  // own `owned` flag (unlike RecommendedCourses, which excludes owned
-  // courses entirely) - see CourseRow's per-item CTA label.
+  // first. createdAt predates some course docs, so fall back to 0.
   const newCourses: CourseRowItem[] = [...(allCourses ?? [])]
     .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
     .slice(0, 10)
@@ -60,8 +48,6 @@ export function StudentHomePage() {
       ratingAvg: c.ratingAvg,
       ratingCount: c.ratingCount,
       coverImageUrl: c.coverImageUrl,
-      owned: purchasedSet.has(`course_${c.id}`),
-      createdAt: c.createdAt,
     }));
 
   return (
@@ -94,16 +80,6 @@ export function StudentHomePage() {
           </div>
         )}
       </div>
-
-      {/* Continue where you left off - first, above every discovery/browse
-          row, per the blueprint's Learner Home spec. Renders nothing when
-          there's nothing in progress. */}
-      <JumpBackIn />
-
-      {/* A plain nudge back to checkout when something real is already
-          sitting in the cart - see CartReminderBanner. Above the discovery
-          rows since it's actionable, not just more browsing. */}
-      <CartReminderBanner className="mb-6" />
 
       {/* Recommended courses ("Courses to explore") - ranked from the
           categories the learner is already active in. Compact row so it

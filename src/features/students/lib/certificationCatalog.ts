@@ -11,30 +11,14 @@ import type { CatalogCertification, CatalogPackage } from '../api/certificationC
 // Which package a certification card should show selected when it first
 // loads: an already-ACTIVE (owned) package first - a learner who owns
 // Mock Exams shouldn't default-land on a "Buy Complete" prompt just
-// because Complete happens to be admin-recommended - else, when the caller
-// knows which arrival catalog brought the learner here (the Practice
-// Exams or Mock Exams browse page - see `preferredKind`), the
-// admin-recommended package that actually grants that access, else the
-// admin-flagged recommended one regardless of kind, else the first by
-// displayOrder. null only when there are no published packages at all (a
-// COMING_SOON certification).
-//
-// `preferredKind` fixes a case where a learner who tapped in from Mock
-// Exams could land on a default-selected package that doesn't even
-// include mock access (e.g. a Practice-only plan happened to be
-// recommended) - the plan pre-selected on arrival should always be one
-// that unlocks what they came here for.
-export function pickDefaultPackage(packages: CatalogPackage[], preferredKind?: 'practice' | 'mock'): CatalogPackage | null {
+// because Complete happens to be admin-recommended - else the
+// admin-flagged recommended one, else the first by displayOrder. null only
+// when there are no published packages at all (a COMING_SOON
+// certification).
+export function pickDefaultPackage(packages: CatalogPackage[]): CatalogPackage | null {
   if (packages.length === 0) return null;
   const active = packages.find((p) => p.state === 'ACTIVE');
   if (active) return active;
-  if (preferredKind) {
-    const matchesKind = (p: CatalogPackage) => (preferredKind === 'practice' ? p.practiceAccessEnabled : p.mockAccessEnabled);
-    const recommendedForKind = packages.find((p) => p.isRecommended && matchesKind(p));
-    if (recommendedForKind) return recommendedForKind;
-    const firstForKind = [...packages].filter(matchesKind).sort((a, b) => a.displayOrder - b.displayOrder)[0];
-    if (firstForKind) return firstForKind;
-  }
   const recommended = packages.find((p) => p.isRecommended);
   if (recommended) return recommended;
   return [...packages].sort((a, b) => a.displayOrder - b.displayOrder)[0];
