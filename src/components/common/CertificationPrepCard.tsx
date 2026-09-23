@@ -25,17 +25,19 @@ interface Props {
 
 // One card in the learner home page's "Prepare for Your Certification"
 // row. The whole card is clickable (like the course cards) and opens the
-// certification's detail page; "View Plans" is a separate control that
-// opens the package selector / Buy popup without leaving the page.
+// certification's detail page - where the actual package selector and
+// Buy/Continue controls live (see CertificationPurchasePanel). This
+// button never adds anything to a cart itself, whatever it's owned or
+// not, so its label follows the blueprint's access-driven button rule
+// instead of describing an action it doesn't perform:
+//   - nothing owned yet -> "View Plans" (paid, no entitlement)
+//   - at least one package active -> "Continue" (active entitlement)
 export function CertificationPrepCard({ certification }: Props) {
   const [open, setOpen] = useState(false);
   const summary = summarizeCertificationPrep(certification);
   const iconPath = FALLBACK_ICON[certification.iconKey] ?? FALLBACK_ICON.generic;
-  // At least one package already owned - keep "View Plans" so the learner
-  // can see what they have and pick up the rest. Nothing owned yet reads
-  // as "Add to Cart", matching the browse cards elsewhere on the page.
   const anyOwned = certification.packages.some((p) => p.state === 'ACTIVE');
-  const ctaLabel = anyOwned ? 'View Plans' : 'Add to Cart';
+  const ctaLabel = anyOwned ? 'Continue' : 'View Plans';
 
   const meta: string[] = [];
   if (summary.practiceQuestions > 0) meta.push(`${summary.practiceQuestions.toLocaleString()} practice questions`);
@@ -109,9 +111,9 @@ export function CertificationPrepCard({ certification }: Props) {
       </div>
 
       {/* Whole-card click target. Rendered last so it sits over the static
-          content for click-catching; the "View Plans" button is lifted
-          above it with z-10. Only when there is a detail page to go to -
-          otherwise the button above is the only action. */}
+          content for click-catching; the View Plans/Continue button is
+          lifted above it with z-10. Only when there is a detail page to
+          go to - otherwise the button above is the only action. */}
       {detailHref && (
         <Link to={detailHref} className="absolute inset-0" aria-label={`${certification.name} details`}>
           <span className="sr-only">Open {certification.name}</span>

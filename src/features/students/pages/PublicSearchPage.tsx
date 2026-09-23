@@ -5,7 +5,7 @@ import logoLockup from '@/assets/logo-lockup.png';
 import { SearchBar } from '@/components/common/SearchBar';
 import { CourseCoverImage } from '@/components/common/CourseCoverImage';
 import { PriceTag } from '@/components/common/PriceTag';
-import { filterCatalog, totalResults } from '../lib/searchCatalog';
+import { filterCatalog } from '../lib/searchCatalog';
 import { getPublicCatalog } from '@/features/landing/api/publicCatalogApi';
 
 // The logged-out catalog search, reached at /search (outside
@@ -19,6 +19,12 @@ export function PublicSearchPage() {
   const [params] = useSearchParams();
   const term = params.get('q') ?? '';
   const category = params.get('category') ?? '';
+  // Set by the homepage's "Explore Courses" / "Explore Exam Prep" CTAs
+  // (see LandingPage.tsx) to land a visitor on a relevant subset of the
+  // catalog instead of everything at once. Display-only: it narrows which
+  // ResultSections render below, it doesn't change what filterCatalog
+  // matches, so combining it with `q`/`category` still works as expected.
+  const type = params.get('type') ?? '';
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['publicCatalog'],
@@ -40,12 +46,22 @@ export function PublicSearchPage() {
     );
   }, [data, term, category]);
 
-  const count = results ? totalResults(results) : 0;
+  const showCourses = type !== 'examprep';
+  const showExamPrep = type !== 'courses';
+
+  const count = results
+    ? (showCourses ? results.courses.length : 0) +
+      (showExamPrep ? results.quizzes.length + results.practiceTests.length + results.certifications.length : 0)
+    : 0;
   const heading = term
     ? `Results for "${term}"`
-    : category
-      ? `${category} courses, exams and certifications`
-      : 'Browse the HelpCertify catalog';
+    : type === 'courses'
+      ? 'Browse courses'
+      : type === 'examprep'
+        ? 'Browse exam preparation'
+        : category
+          ? `${category} courses, exams and certifications`
+          : 'Browse the HelpCertify catalog';
 
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -92,51 +108,57 @@ export function PublicSearchPage() {
 
         {results && (
           <div className="space-y-10">
-            <ResultSection
-              heading="Courses"
-              items={results.courses.map((c) => ({
-                id: c.id,
-                title: c.title,
-                category: c.category,
-                price: c.price,
-                originalPrice: c.originalPrice,
-                currency: c.currency,
-              }))}
-            />
-            <ResultSection
-              heading="Certifications"
-              items={results.certifications.map((x) => ({
-                id: x.id,
-                title: x.name,
-                category: x.provider,
-                price: x.fromPriceMinor,
-                originalPrice: null,
-                currency: x.currency,
-                fromPrefix: true,
-              }))}
-            />
-            <ResultSection
-              heading="Mock Exams"
-              items={results.quizzes.map((q) => ({
-                id: q.id,
-                title: q.title,
-                category: q.category,
-                price: q.price,
-                originalPrice: q.originalPrice,
-                currency: q.currency,
-              }))}
-            />
-            <ResultSection
-              heading="Practice Exams"
-              items={results.practiceTests.map((p) => ({
-                id: p.id,
-                title: p.title,
-                category: p.category,
-                price: p.price,
-                originalPrice: p.originalPrice,
-                currency: p.currency,
-              }))}
-            />
+            {showCourses && (
+              <ResultSection
+                heading="Courses"
+                items={results.courses.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  category: c.category,
+                  price: c.price,
+                  originalPrice: c.originalPrice,
+                  currency: c.currency,
+                }))}
+              />
+            )}
+            {showExamPrep && (
+              <>
+                <ResultSection
+                  heading="Certifications"
+                  items={results.certifications.map((x) => ({
+                    id: x.id,
+                    title: x.name,
+                    category: x.provider,
+                    price: x.fromPriceMinor,
+                    originalPrice: null,
+                    currency: x.currency,
+                    fromPrefix: true,
+                  }))}
+                />
+                <ResultSection
+                  heading="Mock Exams"
+                  items={results.quizzes.map((q) => ({
+                    id: q.id,
+                    title: q.title,
+                    category: q.category,
+                    price: q.price,
+                    originalPrice: q.originalPrice,
+                    currency: q.currency,
+                  }))}
+                />
+                <ResultSection
+                  heading="Practice Exams"
+                  items={results.practiceTests.map((p) => ({
+                    id: p.id,
+                    title: p.title,
+                    category: p.category,
+                    price: p.price,
+                    originalPrice: p.originalPrice,
+                    currency: p.currency,
+                  }))}
+                />
+              </>
+            )}
           </div>
         )}
       </main>

@@ -4387,6 +4387,28 @@ async function upsertCreatorProduct(uid: string, body: unknown) {
       if (p.offerPrice !== undefined) cur.offerPrice = p.offerPrice;
       if (p.offerStart !== undefined) cur.offerStart = p.offerStart ? Timestamp.fromDate(new Date(p.offerStart)) : null;
       if (p.offerEnd !== undefined) cur.offerEnd = p.offerEnd ? Timestamp.fromDate(new Date(p.offerEnd)) : null;
+      // Same floor/compare-at-ratio/offer-window guards packages get from
+      // validatePackagePricing (added after Phase 0's audit found ₹1/₹2
+      // seeded prices reaching the live catalog) - never applied here,
+      // which is very likely the direct cause of creator plans showing the
+      // same implausible ₹2/month prices that audit was about. Validated
+      // against the post-merge state (not just this call's partial patch)
+      // so a call that only touches, say, offerPrice still gets checked
+      // against whatever sellingPrice/regularPrice are already on file.
+      // isFree: true because creator plans have no free/paid toggle -
+      // passing it suppresses only the "must be > 0" requirement (which
+      // doesn't apply to a plan an admin hasn't priced yet; checkout's own
+      // "That plan has no price set" guard already covers a $0 plan at
+      // purchase time), while the floor/ratio checks still apply whenever
+      // a real sellingPrice is actually on the merged plan.
+      validatePackagePricing({
+        regularPrice: (cur.regularPrice as number | undefined) ?? 0,
+        sellingPrice: (cur.sellingPrice as number | undefined) ?? 0,
+        offerPrice: (cur.offerPrice as number | null | undefined) ?? null,
+        offerStart: cur.offerStart instanceof Timestamp ? cur.offerStart.toDate().toISOString() : null,
+        offerEnd: cur.offerEnd instanceof Timestamp ? cur.offerEnd.toDate().toISOString() : null,
+        isFree: true,
+      });
       merged[key] = cur;
     }
     update.plans = merged;

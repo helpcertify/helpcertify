@@ -203,6 +203,14 @@ async function hydrateCart(
       continue;
     }
     const data = itemSnap.data()!;
+    // Unpublished since being added (addItem blocks this going forward,
+    // but this is the same self-healing this function already does for a
+    // package whose parent got archived) - practiceTest has no
+    // isPublished flag so it's excluded, same reasoning as addItem's.
+    if ((entry.itemType === 'quiz' || entry.itemType === 'course') && data.isPublished === false) {
+      dirty = true;
+      continue;
+    }
     items.push({
       itemType: entry.itemType,
       itemId: entry.itemId,
@@ -277,6 +285,26 @@ async function addItem(uid: string, body: unknown) {
   const itemSnap = await db.collection(collectionFor(itemType)).doc(itemId).get();
   if (!itemSnap.exists) throw Err.notFound('Item not found');
   const itemData = itemSnap.data()!;
+
+  // A draft/unpublished item (or, for a package, one whose parent
+  // certification isn't published) must never be addable to a cart -
+  // matches publishPackage's own "unpublished certification cannot expose
+  // a published package" rule, enforced here at add-time too, not just at
+  // publish-time. Same error as a missing item, so this doesn't reveal
+  // that an id belongs to real-but-unpublished content. practiceTest has
+  // no isPublished flag (gated by availableFrom/availableUntil instead,
+  // enforced at session-start by api/practice-session.ts) so it's
+  // intentionally not checked here.
+  if ((itemType === 'quiz' || itemType === 'course' || itemType === 'package') && !itemData.isPublished) {
+    throw Err.notFound('Item not found');
+  }
+  if (itemType === 'package' && itemData.certificationId) {
+    const certSnap = await db.collection('certifications').doc(itemData.certificationId as string).get();
+    if (!certSnap.exists || certSnap.data()?.status !== 'published') {
+      throw Err.notFound('Item not found');
+    }
+  }
+
   const price = itemData.price ?? 0;
   const itemCurrency: Currency = itemData.currency ?? 'INR';
   if (price <= 0) throw Err.invalidArgument('This item is free, no need to add it to your cart');

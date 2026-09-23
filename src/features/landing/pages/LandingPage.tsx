@@ -3,10 +3,8 @@ import { Link } from 'react-router-dom';
 import { Logo } from '@/components/brand/Logo';
 import { useCompany } from '@/features/marketing/companyInfoStore';
 import { useCaptureReferral } from '@/features/partner/hooks/useCaptureReferral';
-import { CertificationGoalSelector } from '@/features/landing/components/CertificationGoalSelector';
 import { SearchBar } from '@/components/common/SearchBar';
 import { TeachBand } from '@/features/landing/components/TeachBand';
-import { TESTIMONIALS } from '@/features/landing/lib/testimonials';
 import { LEARNING_DOMAINS, LEARNING_PATH_EXAMPLES } from '@/features/landing/lib/learningPaths';
 
 // The catalog carousels fetch real published content
@@ -39,7 +37,10 @@ const EXAM_PREP_AREAS = [
 // "Designed for every stage of your career" - the audience section
 // immediately below the hero, so a first-time visitor sees in one glance
 // that HelpCertify serves experienced professionals and career
-// starters/switchers alike, not just one of the two.
+// starters/switchers alike. Trainers/experts are a separate audience with
+// their own recruitment section further down the page (see TeachBand) -
+// kept out of this learner-facing section so it doesn't compete with the
+// two learner paths for attention, and so the grid isn't left lopsided.
 const AUDIENCE_CARDS = [
   {
     title: 'IT Professionals',
@@ -54,13 +55,6 @@ const AUDIENCE_CARDS = [
     body: 'Explore IT career paths, understand prerequisites and build skills progressively from fundamentals to job-ready capability.',
     cta: 'Explore Career Paths',
     href: '#learning-paths',
-  },
-  {
-    title: 'Trainers & Experts',
-    subtitle: 'Share what you know',
-    body: 'Create courses, assessments and question banks and make them available to HelpCertify learners.',
-    cta: 'Become a Training Partner',
-    href: '/register',
   },
 ];
 
@@ -129,12 +123,39 @@ export function LandingPage() {
           knowledge, or create and sell learning content - all in one platform.
         </p>
 
-        <CertificationGoalSelector />
-
         <div className="mx-auto mt-8 max-w-xl">
           <SearchBar to="/search" variant="block" placeholder="Search courses, practice tests and certifications" />
         </div>
-        <p className="mt-4 text-sm text-ink-faint">
+
+        {/* Three clear paths, replacing the earlier sentence-prompt +
+            chips goal-selector widget (which duplicated the search bar
+            above without ever leading anywhere different). Each routes to
+            a real, working destination - the exam-prep and course links
+            use /search's `type` filter (see PublicSearchPage) so they
+            land a visitor on a relevant subset of the catalog, not just
+            the same unfiltered browse page the search bar already opens. */}
+        <div className="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/search?type=courses"
+            className="rounded-full border border-surface-border bg-surface-raised px-5 py-2.5 text-sm font-semibold text-ink hover:border-brand-400"
+          >
+            Explore Courses
+          </Link>
+          <Link
+            to="/search?type=examprep"
+            className="rounded-full border border-surface-border bg-surface-raised px-5 py-2.5 text-sm font-semibold text-ink hover:border-brand-400"
+          >
+            Explore Exam Prep
+          </Link>
+          <Link
+            to="/build-your-own-exam"
+            className="rounded-full border border-surface-border bg-surface-raised px-5 py-2.5 text-sm font-semibold text-ink hover:border-brand-400"
+          >
+            Build an Assessment
+          </Link>
+        </div>
+
+        <p className="mt-6 text-sm text-ink-faint">
           Already have an account?{' '}
           <Link to="/login" className="text-brand-ink underline">
             Log in
@@ -166,7 +187,7 @@ export function LandingPage() {
       <section className="border-t border-surface-border py-16">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-2xl font-bold text-ink">Designed for every stage of your career</h2>
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {AUDIENCE_CARDS.map((card) => (
               <div
                 key={card.title}
@@ -255,7 +276,7 @@ export function LandingPage() {
             ))}
           </div>
           <Link
-            to="/register"
+            to="/search?type=examprep"
             className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#155EEF] px-6 py-3 font-medium text-surface"
           >
             Explore Exam Preparation
@@ -263,20 +284,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* What learners say */}
-      <section className="border-t border-surface-border py-16">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-bold text-ink">What learners say</h2>
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {TESTIMONIALS.map((t) => (
-              <figure key={t.attribution} className="flex flex-col rounded-xl border border-surface-border bg-surface-raised p-6 text-left">
-                <blockquote className="flex-1 text-sm text-ink-muted">"{t.quote}"</blockquote>
-                <figcaption className="mt-4 text-xs font-medium text-ink-faint">{t.attribution}</figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* No testimonials section: HelpCertify has no genuine, approved
+          learner quotes yet, and the blueprint is explicit that
+          fabricated testimonials should not ship to production. Add this
+          section back once real, approved quotes exist. */}
 
       <TeachBand />
 

@@ -119,6 +119,13 @@ export function PastQuizzesPage() {
                         <span className="rounded-full bg-warning/15 px-2 py-0.5 text-warning">🎓 Passed</span>
                       )}
                     </div>
+                    {/* "Last activity" - the same column the Practice Exams
+                        section already shows, so My Attempts reads as one
+                        consistent record whichever section a row is in
+                        (see Section 4's My Attempts spec). */}
+                    {toDate(a.submittedAt).getTime() > 0 && (
+                      <div className="mt-1 text-xs text-ink-faint">Submitted {toDate(a.submittedAt).toLocaleDateString()}</div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {passed && (

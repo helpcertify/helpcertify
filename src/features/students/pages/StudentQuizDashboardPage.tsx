@@ -49,6 +49,7 @@ export function StudentQuizDashboardPage() {
                   <th className="px-4 py-3">Incorrect</th>
                   <th className="px-4 py-3">Correct</th>
                   <th className="px-4 py-3">Marks</th>
+                  <th className="px-4 py-3">Score</th>
                   <th className="px-4 py-3">Duration</th>
                   <th className="px-4 py-3">Exits</th>
                 </tr>
@@ -63,6 +64,17 @@ export function StudentQuizDashboardPage() {
                   <td className="px-4 py-3">{data.attempt.incorrectCount}</td>
                   <td className="px-4 py-3">{data.attempt.correctCount}</td>
                   <td className="px-4 py-3 font-semibold text-brand-ink">{data.attempt.marks}</td>
+                  {/* Derived, not a stored field - same correct/total maths
+                      PastQuizzesPage already uses for its Passed badge. The
+                      results table otherwise only showed raw counts, with
+                      no percentage to judge them by (see Section 4's
+                      Results spec: "score, domain breakdown, unanswered
+                      count and attempt history"). */}
+                  <td className="px-4 py-3">
+                    {data.attempt.totalQuestions > 0
+                      ? `${Math.round((data.attempt.correctCount / data.attempt.totalQuestions) * 100)}%`
+                      : '-'}
+                  </td>
                   <td className="px-4 py-3">{Math.round(data.attempt.durationSeconds / 60)} min</td>
                   <td className="px-4 py-3">{data.attempt.exitCount}</td>
                 </tr>

@@ -44,7 +44,14 @@ export function QuizDetailPage() {
     enabled: !!quizId,
   });
   const { data: myAttempts } = useMyQuizAttempts();
-  const attempt = myAttempts?.find((a) => a.quizId === quizId) ?? null;
+  // A quiz can have more than one attempt doc for this learner
+  // (QuizDoc.maxAttempts), and this query has no orderBy, so picking just
+  // the first match risked surfacing an old submitted attempt instead of a
+  // live one - showing a dead-end "Already attempted" when there was
+  // actually an in-progress attempt to resume. Prefer the in-progress one
+  // whenever one exists.
+  const quizAttempts = myAttempts?.filter((a) => a.quizId === quizId) ?? [];
+  const attempt = quizAttempts.find((a) => a.status === 'in_progress') ?? quizAttempts[0] ?? null;
   const { data: purchases } = useQuery({ queryKey: ['student', 'purchases'], queryFn: cartApi.listMyPurchases });
   const { data: cart } = useQuery({ queryKey: ['student', 'cart'], queryFn: cartApi.getCart });
 

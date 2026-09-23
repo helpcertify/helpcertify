@@ -676,6 +676,21 @@ async function hydrateOrderItems(
     if (!snap.exists) continue; // deleted since being added - silently dropped, same as api/cart.ts
     const data = snap.data()!;
     if (entry.itemType === 'package') {
+      // This function is also the buyNowItem path, which bypasses
+      // api/cart.ts's hydrateCart entirely (a client can name any
+      // itemId directly) - so the same "unpublished item / unpublished
+      // parent certification cannot be charged for" checks hydrateCart
+      // applies for the ordinary cart view need to be enforced again
+      // here too, at the one place that actually creates a payable
+      // order, or Buy Now (or a stale cart that predates this check)
+      // could still pay for and be granted access to non-saleable
+      // content - see publishPackage's own "unpublished certification
+      // cannot expose a published package" rule.
+      if (!data.isPublished) continue;
+      if (data.certificationId) {
+        const certSnap = await db.collection('certifications').doc(data.certificationId as string).get();
+        if (!certSnap.exists || certSnap.data()?.status !== 'published') continue;
+      }
       // A package never has its own purchase doc (see PackageDoc's own
       // comment) - "already owned" means every included item is already
       // owned, matching api/cart.ts's isPackageFullyOwned.
@@ -689,6 +704,12 @@ async function hydrateOrderItems(
         accessPeriodLabel: accessPeriodLabelFor(data.accessValidityDays),
       });
     } else {
+      // Same reasoning as the package branch above - quiz/course must be
+      // published to be charged for. practiceTest has no isPublished flag
+      // (gated by availableFrom/availableUntil instead, enforced at
+      // session-start by api/practice-session.ts) so it's intentionally
+      // not checked here, matching api/cart.ts's addItem/hydrateCart.
+      if ((entry.itemType === 'quiz' || entry.itemType === 'course') && data.isPublished === false) continue;
       const purchaseSnap = await db.collection('purchases').doc(`${uid}_${entry.itemType}_${entry.itemId}`).get();
       if (purchaseSnap.exists && !isPurchaseExpired(purchaseSnap.data())) continue; // already owned - don't charge twice
       orderItems.push({

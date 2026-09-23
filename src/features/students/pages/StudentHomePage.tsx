@@ -10,6 +10,7 @@ import { CertificationPrepSection } from '../components/CertificationPrepSection
 import { Avatar } from '@/components/common/Avatar';
 import { WelcomeCouponBanner } from '../components/WelcomeCouponBanner';
 import { CartReminderBanner } from '../components/CartReminderBanner';
+import { JumpBackIn } from '../components/JumpBackIn';
 
 // A time-of-day greeting reads as personal without needing any extra data
 // collection: `new Date()` in the browser already reflects the learner's own
@@ -22,11 +23,14 @@ function timeOfDayGreeting(hour: number): string {
   return 'Good night';
 }
 
-// The learner home page - focused on browsing and buying exam preparation.
-// The learner's in-progress work ("Jump back in"), study goal and full
-// activity/progress picture (Your Study Plan, My Exams, Performance
-// Summary, Recent Attempts) all live on My Profile (see ProfilePage.tsx /
-// ProfileActivitySections.tsx).
+// The learner home page. "Jump back in" leads (per the blueprint's Learner
+// Home spec: Continue where you left off, first, before any recommendation) -
+// it used to live on My Profile instead ("so Home stays focused on
+// browsing/buying"), but showing it on both pages would just recreate the
+// duplicate-resume-card problem the blueprint calls out elsewhere, so it now
+// lives here only. The rest of the activity/progress picture (Your Study
+// Plan, My Exams, Performance Summary, Recent Attempts) stays on My Profile
+// (see ProfilePage.tsx / ProfileActivitySections.tsx).
 export function StudentHomePage() {
   const profile = useAuthStore((s) => s.profile);
 
@@ -90,6 +94,11 @@ export function StudentHomePage() {
           </div>
         )}
       </div>
+
+      {/* Continue where you left off - first, above every discovery/browse
+          row, per the blueprint's Learner Home spec. Renders nothing when
+          there's nothing in progress. */}
+      <JumpBackIn />
 
       {/* A plain nudge back to checkout when something real is already
           sitting in the cart - see CartReminderBanner. Above the discovery

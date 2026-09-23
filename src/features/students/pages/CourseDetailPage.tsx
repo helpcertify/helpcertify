@@ -152,6 +152,24 @@ export function CourseDetailPage() {
             </div>
           )}
 
+          {/* Section 4's "access and refund terms" line - real data
+              (accessPeriodDays already gates entitlement server-side) and
+              a link to the real refund policy, not invented copy. Shown
+              above the CTA since it's part of the purchase decision. */}
+          <p className="mb-4 text-xs text-ink-faint">
+            {course.accessPeriodDays > 0 ? `${course.accessPeriodDays} days access` : 'Lifetime access'} ·{' '}
+            <a href="/refund" target="_blank" rel="noopener" className="underline hover:text-ink-muted">
+              Refund policy
+            </a>
+          </p>
+
+          {course.previewLessonCount > 0 && (
+            <p className="mb-4 rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-ink">
+              Preview the first {course.previewLessonCount} lesson{course.previewLessonCount === 1 ? '' : 's'} free below,
+              before you buy.
+            </p>
+          )}
+
           {inCart ? (
             <Link
               to="/home/cart"
